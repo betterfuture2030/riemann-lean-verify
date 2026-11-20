@@ -1,0 +1,118 @@
+{
+ "about": "Reference values for the proof source that the records in this repository refer to. Every value was read or computed from the downloaded archive and its extracted tree on the date in \"recorded\". The values identify the input. They say nothing about whether the proof is correct. The sections \"tarball\", \"project\" and \"audit\" use the key names that scripts/verify/rhv_tools.py compares against.",
+ "audit": {
+  "categories": {
+   "admit": {
+    "files": 0,
+    "lines": 0
+   },
+   "axiom": {
+    "files": 0,
+    "lines": 0
+   },
+   "extern": {
+    "files": 0,
+    "lines": 0
+   },
+   "hash_eval": {
+    "files": 0,
+    "lines": 0
+   },
+   "implemented_by": {
+    "files": 0,
+    "lines": 0
+   },
+   "native_decide": {
+    "files": 0,
+    "lines": 0
+   },
+   "sorry": {
+    "files": 0,
+    "lines": 0
+   },
+   "unsafe": {
+    "files": 0,
+    "lines": 0
+   }
+  },
+  "category_names": "the eight categories expected to have no match: sorry, admit, axiom, native_decide, unsafe, implemented_by, extern, and #eval (key hash_eval)",
+  "kind": "static text search of the .lean files, not a kernel result",
+  "lean_files": 175187,
+  "match_rule": "matching lines, counted with the regular expressions of the same names in scripts/verify/rhv_tools.py: each word as a whole word, case-sensitive, comments and strings included",
+  "note": "These letter sequences do occur inside longer identifiers, for example 'admitted', 'ClassFieldAxiom', 'RelAmpleExternalTensorPowerGroupPower' and the option name 'allowUnsafeReducibility'. Those are not whole-word matches and are not counted. A count of 0 does not show that no axiom is used: that is decided by '#print axioms' on the compiled theorem.",
+  "observed": "2026-11-20: 0 matching lines in 0 files for each of the eight categories, over all 175187 .lean files. Cross-checked with ripgrep -w, which also found 0 for each word."
+ },
+ "download": {
+  "part_count": 14,
+  "part_hashes": "parts.sha256 in this directory",
+  "part_sizes_bytes": {
+   "01": 18000000,
+   "02": 18000000,
+   "03": 18000000,
+   "04": 18000000,
+   "05": 18000000,
+   "06": 18000000,
+   "07": 18000000,
+   "08": 18000000,
+   "09": 18000000,
+   "10": 18000000,
+   "11": 18000000,
+   "12": 18000000,
+   "13": 18000000,
+   "14": 5275554
+  },
+  "part_url_prefix": "https://alpo.ge/lean.tar.gz.part",
+  "tarball_name": "lean.tar.gz",
+  "total_bytes": 239275554
+ },
+ "project": {
+  "lean_toolchain": "leanprover/lean4:v4.33.1",
+  "mathlib_rev": "0df444a360eaa60ab8c11dca51a86af692955474",
+  "mathlib_tag": "v4.33.1",
+  "mathlib_tag_evidence": "the revision is listed as refs/tags/v4.33.1 in the packed refs of the clone that Lake made from mathlib_url on 2026-11-20",
+  "mathlib_url": "https://github.com/leanprover-community/mathlib4",
+  "packages": {
+   "Cli": "6130a47896ce867c6a4a55373441e59e565bad0f",
+   "LeanSearchClient": "5f4d51b81cbd3f6b32b156bfad9056621a040404",
+   "Qq": "92c15be17b7caf78c2ad767ec40f89052d908d81",
+   "aesop": "3448c0bcc5ce01b2d1546e483ec3620e32df3d0e",
+   "batteries": "4488d40d070b9700d4d5a6aa342f0d40c31b2a2d",
+   "importGraph": "16f02aa7642864af59f1ff0e384a015994db9118",
+   "mathlib": "0df444a360eaa60ab8c11dca51a86af692955474",
+   "plausible": "b7eb3304aeae834b12dda98993a37f6a41f6f0bb",
+   "proofwidgets": "4be2e3d5087eeb272cf5a8853b8f9dd025ef5957"
+  },
+  "sha256": {
+   "lake-manifest.json": "fee57ee9ed399d0a638ca955e5ad40a37a36eeb9b6dfd9f5964114fa7bbe4774",
+   "lakefile.toml": "b831ad8cac0babb7bf713433259bdfe5163e58c90734e86d71536d4e30ddec4c",
+   "lean-toolchain": "3aac669c7a910ec2389f4e4f921b605adf6ebf2d1e0c9b9cd0be4d33f3f5db71"
+  }
+ },
+ "recorded": "2026-11-20",
+ "schema": 1,
+ "source": {
+  "lean_bytes": 1030531854,
+  "lean_files": 175187,
+  "lean_lines": 17374215,
+  "lean_lines_rule": "newline bytes summed over all .lean files (what wc -l reports)"
+ },
+ "tarball": {
+  "by_extension": {
+   "(none)": 1,
+   ".json": 1,
+   ".lean": 175187,
+   ".toml": 1
+  },
+  "entries": 175190,
+  "entry_kinds": "regular files only (the listing shows no directories, links or devices)",
+  "non_lean_entries": [
+   "lean/lake-manifest.json",
+   "lean/lakefile.toml",
+   "lean/lean-toolchain"
+  ],
+  "project_dir_in_archive": "lean",
+  "sha256": "9631b4f020199e580ba86178cb56c6e9b09f690c2369a80dc4334aa93f49c7fc",
+  "source_lean_files": 175187,
+  "total_bytes": 1030536719
+ }
+}

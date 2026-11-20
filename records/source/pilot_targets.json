@@ -1,0 +1,75 @@
+{
+ "deep_target_a": "Development.AbelianVarietyTheory.Proofs.DivisorProofs.CrystallineFrobeniusSemilinearBijectiveStatement",
+ "deep_closure_a": 7982,
+ "deep_target_b": "Development.AutomorphicArithmetic.ThetaCorrespondence.ThetaPairLifts.LocalTypeDictionary.FockFImageEqZeroOrExistsEqSmul",
+ "deep_closure_b": 17860,
+ "union_modules": 22665,
+ "rehearsal_target": "Development.AbelianVarietyTheory.Proofs.CovolumeBounds.GramMinorDetTriangularMul",
+ "rehearsal_closure": 56,
+ "probes": [
+  {
+   "module": "Formalism.SharpRestriction.GrowthBounds.HermitianTensor.GrowthOfBasic",
+   "closure": 0
+  },
+  {
+   "module": "Formalism.SizeWindowBrackets.LcvBaseChange",
+   "closure": 10
+  },
+  {
+   "module": "Development.AbelianVarietyTheory.Proofs.ModuliProofs.IsIsoStalkMapOfFlatOfSurjectiveOnStalks",
+   "closure": 50
+  },
+  {
+   "module": "Development.AbelianVarietyTheory.Proofs.DegenerationProofs.ExistsSectionOfBaseProductSectionStatement",
+   "closure": 150
+  },
+  {
+   "module": "Formalism.SharpRestriction.GenusPolyhedralBounds.RelativeIndexClassSets.ReductionUniformizerSmulMem",
+   "closure": 401
+  },
+  {
+   "module": "Development.AbelianVarietyTheory.Proofs.IwasawaDecomposition.NonemptyRecordOfLocStage",
+   "closure": 804
+  },
+  {
+   "module": "Development.AbelianVarietyTheory.Proofs.TwistedOperators.ThetaGrowthOfThetaSquareIntegrable",
+   "closure": 1524
+  },
+  {
+   "module": "Formalism.LocalToGlobal.GroupLattices.TiedFamilies.GTiedFOfIsRecCEv",
+   "closure": 2528
+  },
+  {
+   "module": "Development.AbelianVarietyTheory.Proofs.TwistedOperators.ArchimedeanPreimageRealPlaceLineStatement",
+   "closure": 4119
+  },
+  {
+   "module": "Development.AbelianVarietyTheory.Proofs.TwistedOperators.LagrangianDecompositionWeil",
+   "closure": 6015
+  },
+  {
+   "module": "Development.AbelianVarietyTheory.Proofs.DivisorProofs.CrystallineFrobeniusSemilinearBijectiveStatement",
+   "closure": 7982
+  },
+  {
+   "module": "Development.WeilBound.RepresentationTheoryGL.UnitaryDualProof.BernsteinExponentBounds.ThmBChar0",
+   "closure": 8165
+  },
+  {
+   "module": "Development.AutomorphicArithmetic.ThetaCorrespondence.ThetaPairLifts.LocalTypeDictionary.FiniteAdeleActsPlacewise",
+   "closure": 10237
+  },
+  {
+   "module": "Development.AbelianVarietyTheory.Proofs.TwistedOperators.SeesawWeilZetaFunctional",
+   "closure": 13089
+  },
+  {
+   "module": "Development.AbelianVarietyTheory.Proofs.TwistedOperators.SeesawWeilArchimedeanFactorStatement",
+   "closure": 13568
+  },
+  {
+   "module": "Development.AutomorphicArithmetic.ThetaCorrespondence.ThetaPairLifts.LocalTypeDictionary.FockFImageEqZeroOrExistsEqSmul",
+   "closure": 17860
+  }
+ ]
+}

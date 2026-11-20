@@ -1,0 +1,46 @@
+{
+ "n": 175187,
+ "depth_hist_buckets": {
+  "1-20": 53083,
+  "21-40": 33534,
+  "41-60": 32019,
+  "61-80": 19018,
+  "81-100": 22744,
+  "101-120": 10658,
+  "121-140": 3268,
+  "141-160": 726,
+  "161-180": 70,
+  "181-200": 64,
+  "201-220": 3
+ },
+ "modules_with_zero_project_imports": 5927,
+ "sample_closure_quantiles": {
+  "0.1": 5,
+  "0.25": 51,
+  "0.5": 606,
+  "0.75": 3330,
+  "0.9": 8388,
+  "0.95": 10094,
+  "0.99": 21794
+ },
+ "sample_closure_mean": 2672.036,
+ "sample_closure_max": 49768,
+ "share_of_sample_with_closure_over": {
+  "0": 0.9706666666666667,
+  "10": 0.8513333333333334,
+  "100": 0.6953333333333334,
+  "1000": 0.41533333333333333,
+  "10000": 0.05266666666666667,
+  "50000": 0.0,
+  "100000": 0.0
+ },
+ "key_module_closures": {
+  "Main": 175186,
+  "Supplements.Kernels.MainTheorems": 175178,
+  "Supplements.Kernels.MainTheoremsAll": 175184,
+  "Development.AutomorphicArithmetic.CharacterBoxes.MainConclusion": 175173,
+  "Development.AutomorphicArithmetic.ThetaCorrespondence.ThetaPairLifts.ThirdPlaceSeries.EveryCharacterOfLiteratureOfVWin": 151285,
+  "Development.AutomorphicArithmetic.CharacterBoxes.EveryCharacter": 14298,
+  "Formalism.GammaFactorNonvanishing.CritLine": 14300
+ }
+}

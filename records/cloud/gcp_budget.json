@@ -1,0 +1,264 @@
+{
+ "inputs": {
+  "local_rate_modules_per_hour": 3230.4,
+  "local_cap": "8",
+  "work_pcore_hours": [
+   272.9162263187222,
+   425.11481333580986,
+   824.3073303615652
+  ],
+  "scenario_params": {
+   "ecore_worth": [
+    0.35,
+    0.45,
+    0.6
+   ],
+   "depth_factor": [
+    1.1,
+    1.3,
+    2.0
+   ],
+   "linux_factor": [
+    0.75,
+    0.9,
+    1.0
+   ]
+  }
+ },
+ "options": [
+  {
+   "key": "A",
+   "name": "h4d-highmem-192 + 2 TiB Hyperdisk Balanced (on demand, resumable)",
+   "machine": "h4d-highmem-192",
+   "vcpus": 192,
+   "cores": 192,
+   "mem_gb": 1488,
+   "hourly_usd": 8.842944,
+   "spot": false,
+   "scenarios": {
+    "low": {
+     "effective_pcores": 112.12800000000001,
+     "build_h": 2.933970340313946,
+     "verify_h": 0.8801911020941837,
+     "billed_h": 7.694352544502314,
+     "compute_usd": 68.04072866729146,
+     "disk_usd": 8.950000000000001,
+     "total_usd": 76.99072866729146
+    },
+    "expected": {
+     "effective_pcores": 44.928000000000004,
+     "build_h": 10.462135268336223,
+     "verify_h": 4.184854107334489,
+     "billed_h": 21.285629956171576,
+     "compute_usd": 188.22763370714767,
+     "disk_usd": 17.900000000000002,
+     "total_usd": 206.12763370714768
+    },
+    "high": {
+     "effective_pcores": 19.200000000000003,
+     "build_h": 44.432673456331514,
+     "verify_h": 26.659604073798906,
+     "billed_h": 88.42207956702988,
+     "compute_usd": 781.9114979747894,
+     "disk_usd": 44.75000000000001,
+     "total_usd": 826.6614979747894
+    }
+   }
+  },
+  {
+   "key": "B",
+   "name": "h4d-highmem-192-lssd (on demand, local SSD, not resumable)",
+   "machine": "h4d-highmem-192-lssd",
+   "vcpus": 192,
+   "cores": 192,
+   "mem_gb": 1488,
+   "hourly_usd": 9.424091,
+   "spot": false,
+   "scenarios": {
+    "low": {
+     "effective_pcores": 112.12800000000001,
+     "build_h": 2.933970340313946,
+     "verify_h": 0.8801911020941837,
+     "billed_h": 7.694352544502314,
+     "compute_usd": 72.51227856547136,
+     "disk_usd": 0.3,
+     "total_usd": 72.81227856547136
+    },
+    "expected": {
+     "effective_pcores": 44.928000000000004,
+     "build_h": 10.462135268336223,
+     "verify_h": 4.184854107334489,
+     "billed_h": 21.285629956171576,
+     "compute_usd": 200.59771369928697,
+     "disk_usd": 0.6,
+     "total_usd": 201.19771369928696
+    },
+    "high": {
+     "effective_pcores": 19.200000000000003,
+     "build_h": 44.432673456331514,
+     "verify_h": 26.659604073798906,
+     "billed_h": 88.42207956702988,
+     "compute_usd": 833.2977242489303,
+     "disk_usd": 1.5,
+     "total_usd": 834.7977242489303
+    }
+   }
+  },
+  {
+   "key": "C",
+   "name": "h4d-highmem-192 Spot + 2 TiB Hyperdisk Balanced",
+   "machine": "h4d-highmem-192",
+   "vcpus": 192,
+   "cores": 192,
+   "mem_gb": 1488,
+   "hourly_usd": 4.301088,
+   "spot": true,
+   "scenarios": {
+    "low": {
+     "effective_pcores": 112.12800000000001,
+     "build_h": 2.933970340313946,
+     "verify_h": 0.8801911020941837,
+     "billed_h": 7.694352544502314,
+     "compute_usd": 33.094087396928366,
+     "disk_usd": 8.950000000000001,
+     "total_usd": 42.04408739692837
+    },
+    "expected": {
+     "effective_pcores": 44.928000000000004,
+     "build_h": 10.462135268336223,
+     "verify_h": 4.184854107334489,
+     "billed_h": 22.988480352665302,
+     "compute_usd": 98.8754769830845,
+     "disk_usd": 17.900000000000002,
+     "total_usd": 116.7754769830845
+    },
+    "high": {
+     "effective_pcores": 19.200000000000003,
+     "build_h": 44.432673456331514,
+     "verify_h": 26.659604073798906,
+     "billed_h": 110.52759945878735,
+     "compute_usd": 475.38893170099675,
+     "disk_usd": 44.75000000000001,
+     "total_usd": 520.1389317009967
+    }
+   }
+  },
+  {
+   "key": "D",
+   "name": "n2-highmem-128 + 6,000 GiB local SSD (on demand; least quota friction)",
+   "machine": "n2-highmem-128",
+   "vcpus": 128,
+   "cores": 64,
+   "mem_gb": 864,
+   "hourly_usd": 8.36451,
+   "spot": false,
+   "scenarios": {
+    "low": {
+     "effective_pcores": 40.32,
+     "build_h": 7.268755613063546,
+     "verify_h": 2.180626683919064,
+     "billed_h": 14.630008980901675,
+     "compute_usd": 122.37285642084186,
+     "disk_usd": 0.3,
+     "total_usd": 122.67285642084185
+    },
+    "expected": {
+     "effective_pcores": 20.16,
+     "build_h": 22.087044312292157,
+     "verify_h": 8.834817724916864,
+     "billed_h": 41.04797533089666,
+     "compute_usd": 343.34620013503843,
+     "disk_usd": 0.6,
+     "total_usd": 343.94620013503845
+    },
+    "high": {
+     "effective_pcores": 8.96,
+     "build_h": 60.0,
+     "verify_h": 36.0,
+     "billed_h": 118.0,
+     "compute_usd": 987.01218,
+     "disk_usd": 1.5,
+     "total_usd": 988.51218
+    }
+   }
+  },
+  {
+   "key": "E",
+   "name": "c4d-standard-384-lssd (on demand; most threads)",
+   "machine": "c4d-standard-384-lssd",
+   "vcpus": 384,
+   "cores": 192,
+   "mem_gb": 1488,
+   "hourly_usd": 20.773263,
+   "spot": false,
+   "scenarios": {
+    "low": {
+     "effective_pcores": 92.16,
+     "build_h": 3.4613305807153014,
+     "verify_h": 1.0383991742145904,
+     "billed_h": 8.538128929144483,
+     "compute_usd": 177.3647977730267,
+     "disk_usd": 0.3,
+     "total_usd": 177.66479777302672
+    },
+    "expected": {
+     "effective_pcores": 39.36,
+     "build_h": 11.80068123312525,
+     "verify_h": 4.7202724932501,
+     "billed_h": 23.561158096312923,
+     "compute_usd": 489.44213371928765,
+     "disk_usd": 0.6,
+     "total_usd": 490.0421337192877
+    },
+    "high": {
+     "effective_pcores": 15.206399999999999,
+     "build_h": 55.70792103072162,
+     "verify_h": 33.42475261843297,
+     "billed_h": 109.84504995837108,
+     "compute_usd": 2281.8401120333815,
+     "disk_usd": 1.5,
+     "total_usd": 2283.3401120333815
+    }
+   }
+  },
+  {
+   "key": "F",
+   "name": "c3d-standard-180-lssd (on demand)",
+   "machine": "c3d-standard-180-lssd",
+   "vcpus": 180,
+   "cores": 90,
+   "mem_gb": 720,
+   "hourly_usd": 8.829354,
+   "spot": false,
+   "scenarios": {
+    "low": {
+     "effective_pcores": 52.919999999999995,
+     "build_h": 5.657147133762702,
+     "verify_h": 1.6971441401288108,
+     "billed_h": 12.051435414020323,
+     "compute_usd": 106.406389478522,
+     "disk_usd": 0.3,
+     "total_usd": 106.706389478522
+    },
+    "expected": {
+     "effective_pcores": 25.92,
+     "build_h": 17.40103446511612,
+     "verify_h": 6.960413786046448,
+     "billed_h": 33.081758590697405,
+     "compute_usd": 292.0905575398085,
+     "disk_usd": 0.6,
+     "total_usd": 292.69055753980854
+    },
+    "high": {
+     "effective_pcores": 10.8,
+     "build_h": 60.0,
+     "verify_h": 36.0,
+     "billed_h": 118.0,
+     "compute_usd": 1041.8637720000002,
+     "disk_usd": 1.5,
+     "total_usd": 1043.3637720000002
+    }
+   }
+  }
+ ]
+}

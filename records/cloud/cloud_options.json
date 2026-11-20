@@ -1,0 +1,982 @@
+{
+ "research": [
+  {
+   "key": "aws",
+   "res": {
+    "web_access": true,
+    "options": [
+     {
+      "provider": "AWS EC2",
+      "instance": "m8a.48xlarge",
+      "region": "us-east-2 (Ohio)",
+      "vcpus": 192,
+      "vcpu_is_full_core": true,
+      "cpu": "AMD EPYC 9R45 (5th-gen EPYC 'Turin', Zen 5), up to 4.5 GHz. AWS states each vCPU is a physical core (no SMT), so this is 192 real cores, not 96 cores x 2 threads.",
+      "ram_gb": 768,
+      "local_nvme": "None (EBS-only)",
+      "on_demand_usd_per_hour": 11.68512,
+      "spot_usd_per_hour": 1.607,
+      "billing_granularity": "Per second, 60-second minimum (Linux On-Demand, verified on AWS docs; Spot is billed the same way)",
+      "price_verified_from_web": true,
+      "storage_note": "Attach one 2,000 GB EBS gp3 volume. Rates: $0.08/GB-month, $0.005 per IOPS-month above 3,000, $0.04-0.06 per MB/s-month above 125 (AWS's worked example uses $0.06; third-party US-East listings say $0.04). Provisioned at 16,000 IOPS and 1,000 MiB/s that is about $9/day, i.e. $17-19 for two days ($10.67 for two days at baseline performance). gp3 now goes up to 80,000 IOPS / 2,000 MiB/s / 64 TiB, far more than this job needs (average write rate is only ~40-130 MB/s). EBS survives a stop or Spot interruption, so the build can resume.",
+      "notes": "RECOMMENDED DEFAULT. 768 GiB comfortably covers 192 parallel jobs (rule of thumb needs ~400 GB). Spot figure is the AWS spot feed snapshot for us-east-2 on 2026-11-20 (us-east-1 $2.02, us-west-2 $3.77); AWS Spot Advisor 30-day average saving in us-east-2 is ~76% (about $2.80/h) with interruption frequency <5%. MY ESTIMATE (inference, not a benchmark): build about 2-10 h, build+verification about 2.5-15 h, central ~5-6 h. Cost central ~$65-70 on-demand (range ~$30-175) plus ~$10-20 storage; on Spot roughly $10-45. Phoronix measured m8a per-vCPU throughput at ~1.6x m8i and ahead of Graviton5 overall. Bare-metal variant m8a.metal-48xl exists if no hypervisor is wanted.",
+      "source_urls": [
+       "https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/ec2/USD/current/ec2-ondemand-without-sec-sel/US%20East%20(Ohio)/Linux/index.json",
+       "https://aws.amazon.com/ec2/pricing/on-demand/",
+       "https://website.spot.ec2.aws.a2z.com/spot.json",
+       "https://spot-bid-advisor.s3.amazonaws.com/spot-advisor-data.json",
+       "https://aws.amazon.com/ec2/instance-types/m8a/",
+       "https://instances.vantage.sh/aws/ec2/m8a.48xlarge",
+       "https://www.phoronix.com/review/aws-m8a-m8g-m8i-benchmarks/10",
+       "https://docs.aws.amazon.com/ebs/latest/userguide/general-purpose.html",
+       "https://aws.amazon.com/ebs/pricing/"
+      ]
+     },
+     {
+      "provider": "AWS EC2",
+      "instance": "c8a.48xlarge",
+      "region": "us-east-2 (Ohio)",
+      "vcpus": 192,
+      "vcpu_is_full_core": true,
+      "cpu": "AMD EPYC 9R45 (5th-gen EPYC 'Turin', Zen 5), up to 4.5 GHz; each vCPU is a physical core (AWS C8a page).",
+      "ram_gb": 384,
+      "local_nvme": "None (EBS-only)",
+      "on_demand_usd_per_hour": 10.34592,
+      "spot_usd_per_hour": 3.8451,
+      "billing_granularity": "Per second, 60-second minimum",
+      "price_verified_from_web": true,
+      "storage_note": "Same as m8a: one 2,000 GB gp3 volume, about $17-19 for two days at 16,000 IOPS / 1,000 MiB/s. Instance EBS limit is 60 Gbps / 7,500 MB/s / 240,000 IOPS, so the volume, not the instance, sets the ceiling.",
+      "notes": "Same cores as m8a for $1.34/h less, but only 2 GiB per vCPU: the rule of thumb (2 GB x 192 jobs + 16 GB = 400 GB) slightly exceeds 384 GiB, so cap parallelism at roughly 176-180 jobs or accept some risk. The saving over m8a is only ~$7-20 for the whole job, so m8a is the safer pick. Spot snapshot 2026-11-20: us-east-2 $3.85, us-east-1 $2.26, us-west-2 $3.20; Spot Advisor us-east-2 ~68% saving (about $3.31/h), interruption 5-10%; us-east-1 67%, <5%. MY ESTIMATE: same wall time as m8a if memory holds; on-demand central ~$58 (range ~$25-155) plus storage.",
+      "source_urls": [
+       "https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/ec2/USD/current/ec2-ondemand-without-sec-sel/US%20East%20(Ohio)/Linux/index.json",
+       "https://website.spot.ec2.aws.a2z.com/spot.json",
+       "https://spot-bid-advisor.s3.amazonaws.com/spot-advisor-data.json",
+       "https://aws.amazon.com/ec2/instance-types/c8a/",
+       "https://instances.vantage.sh/aws/ec2/c8a.48xlarge"
+      ]
+     },
+     {
+      "provider": "AWS EC2",
+      "instance": "m9g.48xlarge",
+      "region": "us-east-2 (Ohio)",
+      "vcpus": 192,
+      "vcpu_is_full_core": true,
+      "cpu": "AWS Graviton5 (arm64, Arm Neoverse V3; Vantage lists 3.3 GHz; 192 cores per chip). GA June 2026. One vCPU = one core (Graviton has no SMT).",
+      "ram_gb": 768,
+      "local_nvme": "None (EBS-only). The m9gd.48xlarge variant has 3 x 3,800 GB NVMe at $12.0672/h.",
+      "on_demand_usd_per_hour": 9.39264,
+      "spot_usd_per_hour": 2.2412,
+      "billing_granularity": "Per second, 60-second minimum",
+      "price_verified_from_web": true,
+      "storage_note": "One 2,000 GB gp3 volume, about $17-19 for two days. Instance EBS limit 72 Gbps / 9,000 MB/s / 288,000 IOPS (Vantage).",
+      "notes": "Newest generation and 20% cheaper per hour than m8a. AWS claims up to 25% over Graviton4; Phoronix measured ~30% geomean over Graviton4, ~19% ahead of m8i, ~17% behind m8a overall, and 'quite competitive' with EPYC Turin on code-compilation tests, which is the closest proxy for this workload. Same CPU architecture family as the Apple-silicon machine the job was measured on. Lean v4.33.1 ships a linux_aarch64 binary (verified on the GitHub release). Spot snapshot: us-east-2 $2.24, us-east-1 $1.69, us-west-2 $2.29; no Spot Advisor entry found yet. MY ESTIMATE: build+verification ~2.5-16 h, central ~6 h; on-demand central ~$57 (range ~$22-155) plus storage. Being a new family, 48xlarge capacity may be tighter than for older types.",
+      "source_urls": [
+       "https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/ec2/USD/current/ec2-ondemand-without-sec-sel/US%20East%20(Ohio)/Linux/index.json",
+       "https://website.spot.ec2.aws.a2z.com/spot.json",
+       "https://aws.amazon.com/ec2/instance-types/m9g/",
+       "https://aws.amazon.com/about-aws/whats-new/2026/06/ec2-m9g-m9gd-instances-graviton5-processors-available/",
+       "https://instances.vantage.sh/aws/ec2/m9g.48xlarge",
+       "https://www.phoronix.com/review/graviton5-epyc-xeon",
+       "https://www.phoronix.com/review/aws-graviton5",
+       "https://github.com/leanprover/lean4/releases/tag/v4.33.1"
+      ]
+     },
+     {
+      "provider": "AWS EC2",
+      "instance": "c9g.48xlarge",
+      "region": "us-east-2 (Ohio)",
+      "vcpus": 192,
+      "vcpu_is_full_core": true,
+      "cpu": "AWS Graviton5 (arm64, Arm Neoverse V3), one core per vCPU.",
+      "ram_gb": 384,
+      "local_nvme": "None (EBS-only). c9gd.48xlarge has 3 x 3,800 GB NVMe at $10.2528/h.",
+      "on_demand_usd_per_hour": 8.31744,
+      "spot_usd_per_hour": 1.4542,
+      "billing_granularity": "Per second, 60-second minimum",
+      "price_verified_from_web": true,
+      "storage_note": "One 2,000 GB gp3 volume, about $17-19 for two days.",
+      "notes": "Lowest on-demand cost per unit of work among the current-generation shapes by my reckoning, but 384 GiB is tight for 192 jobs (cap at ~176-180 jobs). Spot snapshot: us-east-2 $1.45, us-east-1 $2.72, us-west-2 $1.82. MY ESTIMATE: build+verification ~2.5-16 h, central ~6 h; on-demand central ~$51 (range ~$20-135) plus storage.",
+      "source_urls": [
+       "https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/ec2/USD/current/ec2-ondemand-without-sec-sel/US%20East%20(Ohio)/Linux/index.json",
+       "https://website.spot.ec2.aws.a2z.com/spot.json",
+       "https://www.phoronix.com/review/graviton5-epyc-xeon"
+      ]
+     },
+     {
+      "provider": "AWS EC2",
+      "instance": "m8g.48xlarge",
+      "region": "us-east-2 (Ohio)",
+      "vcpus": 192,
+      "vcpu_is_full_core": true,
+      "cpu": "AWS Graviton4 (arm64, Neoverse V2; Vantage lists 2.7 GHz), one core per vCPU; 48xlarge spans two 96-core sockets.",
+      "ram_gb": 768,
+      "local_nvme": "None (EBS-only)",
+      "on_demand_usd_per_hour": 8.61696,
+      "spot_usd_per_hour": 2.9132,
+      "billing_granularity": "Per second, 60-second minimum",
+      "price_verified_from_web": true,
+      "storage_note": "One 2,000 GB gp3 volume, about $17-19 for two days. Instance EBS limit 40 Gbps / 5,000 MB/s / 240,000 IOPS (Vantage).",
+      "notes": "Cheapest 768 GiB / 192-core shape per hour, mature and widely available, and the steadiest Spot record of the group: Spot Advisor us-east-2 ~67% saving (about $2.84/h), interruption <5%. Slower per core than Graviton5 (by 25-30%) and EPYC Turin. Siblings: c8g.48xlarge $7.63008/h on-demand (384 GiB; spot snapshot $1.01, advisor 74%, <5%); r8g.48xlarge $11.31072/h (1,536 GiB, more RAM than needed). MY ESTIMATE: build+verification ~3-20 h, central ~7.5 h; on-demand central ~$65 (range ~$25-175) plus storage.",
+      "source_urls": [
+       "https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/ec2/USD/current/ec2-ondemand-without-sec-sel/US%20East%20(Ohio)/Linux/index.json",
+       "https://website.spot.ec2.aws.a2z.com/spot.json",
+       "https://spot-bid-advisor.s3.amazonaws.com/spot-advisor-data.json",
+       "https://instances.vantage.sh/aws/ec2/m8g.48xlarge"
+      ]
+     },
+     {
+      "provider": "AWS EC2",
+      "instance": "m8gd.48xlarge",
+      "region": "us-east-2 (Ohio)",
+      "vcpus": 192,
+      "vcpu_is_full_core": true,
+      "cpu": "AWS Graviton4 (arm64, Neoverse V2, 2.7 GHz), one core per vCPU.",
+      "ram_gb": 768,
+      "local_nvme": "6 x 1,900 GB NVMe SSD instance store (11.4 TB total), included in the price",
+      "on_demand_usd_per_hour": 11.07072,
+      "spot_usd_per_hour": 1.6019,
+      "billing_granularity": "Per second, 60-second minimum",
+      "price_verified_from_web": true,
+      "storage_note": "No EBS data volume needed: stripe two or more of the six local NVMe drives (mdadm RAID0 or LVM) for 3.8+ TB of very fast scratch. Caveat: instance-store data is cryptographically erased when the instance stops, hibernates or terminates, so a Spot interruption or an accidental stop loses all build products. The 'd' premium over m8g is $2.45/h (about $29 per 12 h), which is more than a 2 TB gp3 volume costs for two days, so local NVMe only pays off if EBS turns out to be an I/O bottleneck.",
+      "notes": "The instance-store choice. Good for an uninterrupted on-demand run; poor for Spot unless an EBS volume is also attached for the build tree. Spot Advisor us-east-2: ~73% saving (about $2.99/h), interruption <5%. Other local-NVMe shapes in Ohio: c8gd.48xlarge $9.40608/h (384 GiB, 6 x 1,900 GB; spot snapshot $0.94, i.e. the full 90% discount; advisor 76%, <5%); m9gd.48xlarge $12.0672/h (Graviton5, 3 x 3,800 GB; spot $1.74); c9gd.48xlarge $10.2528/h; Intel m8id.48xlarge $12.52992/h and c8id.48xlarge $10.64448/h (3 x 3,800 GB each). There is no AMD c8ad/m8ad in the Ohio price list.",
+      "source_urls": [
+       "https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/ec2/USD/current/ec2-ondemand-without-sec-sel/US%20East%20(Ohio)/Linux/index.json",
+       "https://website.spot.ec2.aws.a2z.com/spot.json",
+       "https://spot-bid-advisor.s3.amazonaws.com/spot-advisor-data.json",
+       "https://instances.vantage.sh/aws/ec2/m8gd.48xlarge",
+       "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-store-lifetime.html"
+      ]
+     },
+     {
+      "provider": "AWS EC2",
+      "instance": "m8i.48xlarge",
+      "region": "us-east-2 (Ohio)",
+      "vcpus": 192,
+      "vcpu_is_full_core": false,
+      "cpu": "Intel Xeon 6 'Granite Rapids', 3.9 GHz all-core turbo. vCPU = hyperthread: 192 vCPUs are 96 physical cores x 2 threads.",
+      "ram_gb": 768,
+      "local_nvme": "None (EBS-only)",
+      "on_demand_usd_per_hour": 10.16064,
+      "spot_usd_per_hour": 2.6434,
+      "billing_granularity": "Per second, 60-second minimum",
+      "price_verified_from_web": true,
+      "storage_note": "One 2,000 GB gp3 volume, about $17-19 for two days.",
+      "notes": "The Intel option, and the weakest value here because half the vCPUs are sibling threads: Phoronix measured m8a at ~1.6x m8i at equal vCPU count. Spot Advisor us-east-2: ~67% saving, interruption 10-15%. MY ESTIMATE: build+verification ~3.5-23 h, central ~9 h; on-demand central ~$90 (range ~$35-235). Other Intel shapes in Ohio: c8i.48xlarge $8.99616/h (384 GiB); m8i.96xlarge $20.32128/h (384 vCPU = 192 cores, 1,536 GiB; roughly m8a-class throughput at 1.7x the price); c8i.96xlarge $17.99232/h (384 vCPU, 768 GiB); previous generation Sapphire Rapids m7i.48xlarge $9.6768/h and c7i.48xlarge $8.568/h.",
+      "source_urls": [
+       "https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/ec2/USD/current/ec2-ondemand-without-sec-sel/US%20East%20(Ohio)/Linux/index.json",
+       "https://website.spot.ec2.aws.a2z.com/spot.json",
+       "https://spot-bid-advisor.s3.amazonaws.com/spot-advisor-data.json",
+       "https://instances.vantage.sh/aws/ec2/m8i.48xlarge",
+       "https://www.phoronix.com/review/aws-m8a-m8g-m8i-benchmarks/10"
+      ]
+     },
+     {
+      "provider": "AWS EC2",
+      "instance": "m7a.48xlarge",
+      "region": "us-east-2 (Ohio)",
+      "vcpus": 192,
+      "vcpu_is_full_core": true,
+      "cpu": "AMD EPYC 9R14 (4th-gen EPYC 'Genoa', Zen 4), up to 3.7 GHz; 192 physical cores, no SMT.",
+      "ram_gb": 768,
+      "local_nvme": "None (EBS-only)",
+      "on_demand_usd_per_hour": 11.12832,
+      "spot_usd_per_hour": 2.0173,
+      "billing_granularity": "Per second, 60-second minimum",
+      "price_verified_from_web": true,
+      "storage_note": "One 2,000 GB gp3 volume, about $17-19 for two days. Instance EBS limit 40 Gbps / 5,000 MB/s / 240,000 IOPS (Vantage).",
+      "notes": "Fallback only, for when m8a capacity or quota is unavailable: it is 5% cheaper than m8a while AWS claims m8a is up to 30% faster. Spot Advisor us-east-2: ~74% saving (about $2.89/h), interruption 5-10%. Sibling c7a.48xlarge is $9.85344/h (384 GiB; spot snapshot $2.15; advisor 72%, 5-10%). MY ESTIMATE: build+verification ~2.7-18 h, central ~7 h; on-demand central ~$77 (range ~$30-200).",
+      "source_urls": [
+       "https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/ec2/USD/current/ec2-ondemand-without-sec-sel/US%20East%20(Ohio)/Linux/index.json",
+       "https://website.spot.ec2.aws.a2z.com/spot.json",
+       "https://spot-bid-advisor.s3.amazonaws.com/spot-advisor-data.json",
+       "https://instances.vantage.sh/aws/ec2/m7a.48xlarge"
+      ]
+     }
+    ],
+    "practicalities": "BOTTOM LINE: one m8a.48xlarge (192 real AMD cores, 768 GiB) in us-east-2 with a 2 TB gp3 volume should finish build plus verification in roughly 3-15 hours (my central guess 5-6 h) for about $65-70 of compute on-demand plus $10-20 of storage; on Spot the compute falls to roughly $10-45. m9g.48xlarge (Graviton5) is the cheaper arm64 alternative. Because billing is per second, run the first 15-20 minutes on-demand, measure modules per hour, and extrapolate before committing.\n\nQUOTAS (the real lead-time item): AWS documents a default of 5 vCPUs for 'Running On-Demand Standard (A, C, D, H, I, M, R, T, Z) instances' and, separately, 5 vCPUs for 'All Standard Spot Instance Requests'. A 48xlarge needs 192, so a new account cannot launch any of these shapes until an increase is granted. Request 192-256 vCPUs per region through Service Quotas, for On-Demand and for Spot separately if both will be used. AWS gives no fixed turnaround and says requests may be approved, denied or partially approved; third-party guides and re:Post threads report minutes for small auto-approved bumps but manual review, a first response in 24-48 hours and up to a few business days for a large jump on a new account. Plan on up to a week, file in two or three regions (us-east-2, us-east-1, us-west-2) at once, and state the use case plainly (one-off 192-vCPU batch build, about a day). Accounts opened since July 2025 start on a 'Free plan' restricted to small instance types; the account must be upgraded to the Paid plan first.\n\nACCOUNT SETUP: own AWS account with a payment card, MFA on the root user, an admin IAM user or role, a budget alert (for example $300), an SSH key generated locally, a security group open only to your IP (or Session Manager with no inbound ports), a stock Ubuntu or Amazon Linux AMI (arm64 or x86_64 to match the instance), and an encrypted gp3 volume formatted XFS or ext4 with noatime (either handles a million-plus files at default settings).\n\nSPOT RISK: an interruption comes with a two-minute warning (instance metadata spot/instance-action or EventBridge), delivered on a best-effort basis. Spot Advisor's monthly interruption bands for us-east-2 were <5% for m8a, m8g, m8gd, c8g and c8gd 48xlarge, 5-10% for c8a, c7a and m7a, and 10-15% for m8i and c8i; over a 6-24 hour job the chance is correspondingly lower but not zero, and a 48xlarge Spot request can also simply fail to launch for lack of capacity. The job tolerates this well if the build tree is on EBS: use a persistent Spot request with interruption behaviour 'stop', so the volume is preserved, only EBS is billed while stopped, and EC2 restarts the instance in the same AZ when capacity returns; Lake then rebuilds only the modules that were in flight (seconds of work each) plus a few minutes re-checking traces. It does not tolerate it if the build tree is on instance-store NVMe, which is erased on stop or terminate. A script that polls for the notice, interrupts lake and runs sync is cheap insurance against half-written files. Simplest low-stress plan: on-demand for the first run (about $50-100 more than Spot), Spot for any rerun.\n\nEGRESS AND NETWORK: inbound transfer (250 MB of source, 6 GB Mathlib cache) is free. AWS gives 100 GB per month of free transfer out to the internet, then about $0.09/GB in US regions, so returning only logs and small result files costs $0. A public IPv4 address costs about $0.005/h (from memory, not re-checked).\n\nFULL CONTROL: the VM runs in your account with root (sudo) on an OS image you choose; nobody else operates the build. AWS states the Nitro system has no operator access: no mechanism for AWS staff to log in to hosts, read instance memory, or read encrypted instance-store or EBS data. Tenancy is shared hardware by default; metal-48xl variants or Dedicated Hosts exist if single-tenant hardware is required. Data stays in the chosen region on the volumes you created.\n\nDELETE EVERYTHING AFTERWARDS: copy logs and results off; terminate the instance (instance store is cryptographically erased); delete the EBS data volume and confirm the root volume went with the instance; delete any snapshots or AMIs; release any Elastic IP; delete the key pair, security group, any S3 bucket and CloudWatch log groups; cancel any persistent Spot request (cancelling also terminates a stopped Spot instance); schedule deletion of any customer-managed KMS key; check the Billing console a day later for zero ongoing charges; optionally close the account. Setting instance-initiated shutdown behaviour to 'terminate' and ending the job script with a shutdown stops compute billing automatically, though EBS volumes not marked delete-on-termination keep billing until deleted.\n\nRERUNS: keeping 1.2 TB of build products costs about $160/month as a live 2 TB gp3 volume or about $60/month as a snapshot, which is as much as or more than rebuilding from scratch, so keep the volume only if a rerun is days away, not weeks.",
+    "caveats": [
+     "All wall-time and total-cost figures are my own inference, scaled from the supplied workload numbers (250-730 fast-core-hours) with assumed per-core speed ratios (EPYC Turin or Graviton5 core at roughly 0.5-0.8 of an Apple P-core, Graviton4 0.4-0.6, Intel hyperthread 0.35-0.5) and 70-90% parallel efficiency. Nobody has benchmarked Lean on these instances for this report; the ranges are wide on purpose. A 15-20 minute calibration run settles it for a few dollars.",
+     "Scaling to 192 parallel lean processes is untested. Memory bandwidth, the single lake process scheduling 175k modules, and trace/hash I/O over a million-plus files could cap throughput below what the core count suggests, which would push times toward the top of the ranges.",
+     "The task brief assumed cloud x86 vCPUs are SMT threads. That holds for the Intel families (c7i, m7i, c8i, m8i) but not for AWS's AMD 7a and 8a families, where AWS states each vCPU is a physical core; Graviton vCPUs are also full cores.",
+     "On-demand prices were read today (2026-11-20) from AWS's own price-list JSON for US East (Ohio), Linux, and cross-checked against Vantage for seven of the types. They were extracted through an automated page reader in 100k-character chunks, so re-confirm the chosen type in the console before launch. Prices exclude tax.",
+     "Spot prices are a single snapshot of AWS's public spot feed on 2026-11-20, which appears to show one (lowest-AZ) price per region. Vantage shows higher Spot figures for the same types (for example m8a.48xlarge $3.64 versus $2.02 in us-east-1) and the Spot Advisor 30-day averages imply about $2-3.4/h for most 48xlarge shapes. Budget Spot at roughly 25-35% of on-demand rather than at the snapshot value.",
+     "Spot Advisor savings and interruption bands were read from AWS's advisor data file by the same automated reader; treat individual values as indicative and check the advisor page for the type and region chosen. AWS's page does not define the interruption window precisely; third-party readers describe it as the trailing month. No advisor entries were found for the Graviton5 (c9g/m9g) families.",
+     "The gp3 throughput rate is uncertain between $0.04 and $0.06 per MB/s-month (AWS's worked example uses $0.06 without naming a region; third-party US-East listings say $0.04). The difference is about $1 on this job.",
+     "arm64 route: Lean v4.33.1 publishes a linux_aarch64 binary (verified), and the job was already measured on arm64 macOS with the Mathlib cache. I expect the same Mathlib cache to work on arm64 Linux but did not find a source confirming it; a five-minute smoke test on a small Graviton instance removes the doubt. The x86_64 route carries no such question.",
+     "Quota-increase turnaround for a new account is not published by AWS; the 1-to-several-business-days figure comes from third-party guides and forum reports, and partial approval or denial is possible. This, not the build itself, is the likely schedule risk.",
+     "Graviton5 details (GA June 2026, launch regions, 192 cores per chip) come from AWS announcement pages and press coverage surfaced by search; the AWS blog post itself did not load. Availability of 48xlarge capacity in a given AZ on a given day cannot be known in advance for any of these types.",
+     "The Phoronix comparisons were run at the 4xlarge size and on a general benchmark mix; I could not open the articles directly (HTTP 403) and relied on search summaries of them.",
+     "Data-transfer-out pricing ($0.09/GB after 100 GB free) is confirmed only in part from AWS's page (the 100 GB allowance); the per-GB rate comes from third-party sources. It does not matter if only logs are returned."
+    ]
+   }
+  },
+  {
+   "key": "gcp-azure",
+   "res": {
+    "web_access": true,
+    "options": [
+     {
+      "provider": "Microsoft Azure",
+      "instance": "Standard_HB176rs_v4 (HBv4, HPC)",
+      "vcpus": 176,
+      "vcpu_is_full_core": true,
+      "cpu": "AMD EPYC 9V33X Genoa-X (Zen 4 with 3D V-Cache), SMT off, up to 3.7 GHz",
+      "ram_gb": 768,
+      "local_nvme": "2 x 1,800 GiB NVMe (3.6 TiB as RAID0) plus a 480 GiB temp disk, included in the VM price",
+      "region": "East US (eastus); same on-demand price in East US 2; South Central US is $8.64",
+      "on_demand_usd_per_hour": 7.2,
+      "spot_usd_per_hour": 1.463,
+      "billing_granularity": "Per second (from memory, not re-checked today)",
+      "storage_note": "On-demand: use the included local NVMe (RAID0 + XFS), no extra cost. On Spot the local NVMe is wiped on eviction, so a resumable build needs a managed disk: Premium SSD v2 2 TiB at 30,000 IOPS / 1,000 MB/s is about $0.46/h in East US ($0.00011/GiB-h, $0.000007/IOPS-h above 3,000, $0.000055/MBps-h above 125). I did not confirm Premium SSD v2 attaches to HBv4 (the spec page only says Premium Storage is supported).",
+      "notes": "Best value found. My estimate, assuming ideal scaling and a full Zen 4 core worth 0.7-0.9 of an M-class core: build 1.6-5.9 h, build plus verification 1.9-8.9 h, so about $15-65 on-demand or $3-13 on Spot. Spot is $1.331/h in East US 2 but $4.752/h in South Central US, so spot capacity varies a lot by region. HB-family quota is separate and commonly needs a support ticket. HBv4 is not on Microsoft's retirement or capacity-restriction list. If more RAM is wanted, Standard_HX176rs is the same machine with 1,408 GB at $8.64/h (spot $1.756 East US).",
+      "price_verified_from_web": true,
+      "source_urls": [
+       "https://prices.azure.com/api/retail/prices?$filter=serviceName%20eq%20'Virtual%20Machines'%20and%20armRegionName%20eq%20'eastus'%20and%20armSkuName%20eq%20'Standard_HB176rs_v4'",
+       "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/high-performance-compute/hbv4-series",
+       "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/high-performance-compute/hx-series",
+       "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/lifecycle/retirements-and-capacity-restrictions"
+      ]
+     },
+     {
+      "provider": "Google Cloud",
+      "instance": "h4d-highmem-192-lssd (H4D, HPC)",
+      "vcpus": 192,
+      "vcpu_is_full_core": true,
+      "cpu": "AMD EPYC Turin (Zen 5), SMT disabled, 2.7 GHz base, up to 4.1 GHz",
+      "ram_gb": 1488,
+      "local_nvme": "3,750 GiB Titanium SSD (10 x 375 GiB), included in the price",
+      "region": "us-central1 (Iowa); same price in us-east1",
+      "on_demand_usd_per_hour": 9.424,
+      "spot_usd_per_hour": 4.584,
+      "billing_granularity": "Per second, 1-minute minimum (from memory)",
+      "storage_note": "Use the bundled 3.75 TiB Titanium SSD. Hyperdisk Balanced on H4D is capped at 15,000 IOPS and 240 MB/s per VM, so the cheaper h4d-standard-192 (720 GB, no local SSD, about $7.85/h) is a poor fit for a million-file build. Local SSD data is lost on Spot preemption.",
+      "notes": "Best Google option on paper: 192 full Zen 5 cores for about the price of 192 SMT threads on C4D. My estimate: build 1.4-5.4 h, with verification 1.7-8.1 h, about $16-77 on-demand. Price sources conflict: Google's page and Spare Cores give $9.42/h, while cloudprice.net shows $13.74/h for h4d-standard-192 against Google's $7.85. Offered in few regions (us-central1, us-east1, europe-west4, asia-southeast1, asia-south1 per Spare Cores). H4D has its own quota pool and no live migration. A Spot price is published, but the H4D doc mentions only on-demand and committed use, so confirm Spot can actually be provisioned.",
+      "price_verified_from_web": true,
+      "source_urls": [
+       "https://sparecores.com/server/gcp/h4d-highmem-192-lssd",
+       "https://cloud.google.com/products/compute/pricing/compute-optimized",
+       "https://docs.cloud.google.com/compute/docs/compute-optimized-machines",
+       "https://cloudprice.net/gcp/compute/instances/h4d-standard-192"
+      ]
+     },
+     {
+      "provider": "Google Cloud",
+      "instance": "c4d-standard-192-lssd (C4D)",
+      "vcpus": 192,
+      "vcpu_is_full_core": false,
+      "cpu": "AMD EPYC Turin (Zen 5), 2 threads per core, so 96 physical cores; 2.7 GHz base, up to 4.1 GHz",
+      "ram_gb": 744,
+      "local_nvme": "6,000 GiB Titanium SSD (16 x 375 GiB), included in the -lssd price",
+      "region": "us-central1 (Iowa); same on-demand price in us-east1, us-east4, us-east5, us-west1",
+      "on_demand_usd_per_hour": 10.387,
+      "spot_usd_per_hour": 4.602,
+      "billing_granularity": "Per second, 1-minute minimum (from memory)",
+      "storage_note": "On-demand: use the bundled 6 TiB Titanium SSD. For Spot, use plain c4d-standard-192 ($9.07/h on-demand, $4.02/h spot in us-central1, $1.89/h spot in us-west4) with a 2 TiB Hyperdisk Balanced volume, because local SSD is lost on preemption. Hyperdisk Balanced is about $0.08/GiB-month plus $0.005/IOPS-month above 3,000 and $0.04 per MB/s-month above 140; 2 TiB at 20,000 IOPS / 1,000 MB/s is roughly $0.39/h. Those disk rates are from third-party pages.",
+      "notes": "The mainstream Google choice, available in 18-20 regions. My estimate at 500-1,800 vCPU-hours: build 2.6-9.4 h, with verification 3.1-14 h, about $32-146 on-demand. Spot for the -lssd shape ranges from $2.16/h (us-west4) to $5.77/h (us-east4). The c4d-standard-192 on-demand figure matches the value indexed from Google's own page ($9.0716).",
+      "price_verified_from_web": true,
+      "source_urls": [
+       "https://gcloud-compute.com/c4d-standard-192-lssd.html",
+       "https://gcloud-compute.com/c4d-standard-192.html",
+       "https://docs.cloud.google.com/compute/docs/general-purpose-machines",
+       "https://mofcloud.com/tools/disks/GCP/hyperdisk-balanced/"
+      ]
+     },
+     {
+      "provider": "Google Cloud",
+      "instance": "c4d-standard-384-lssd (C4D, largest shape)",
+      "vcpus": 384,
+      "vcpu_is_full_core": false,
+      "cpu": "AMD EPYC Turin (Zen 5), 2 threads per core, so 192 physical cores",
+      "ram_gb": 1488,
+      "local_nvme": "12,000 GiB Titanium SSD (32 x 375 GiB), included in the -lssd price",
+      "region": "us-central1 (Iowa)",
+      "on_demand_usd_per_hour": 20.773,
+      "spot_usd_per_hour": 9.204,
+      "billing_granularity": "Per second, 1-minute minimum (from memory)",
+      "storage_note": "Bundled 12 TiB Titanium SSD. Without local SSD: c4d-standard-384 is $18.14/h (spot $8.04 us-central1, $3.77 us-west4) and c4d-highcpu-384 is $15.26/h (spot $6.76) plus a Hyperdisk Balanced volume as above.",
+      "notes": "Fastest wall-clock on Google at about the same total cost as the 192 shape. My estimate: build 1.3-4.7 h, with verification 1.6-7 h, about $32-146 on-demand. Two cautions: a 384-vCPU quota is a much harder ask for a new account, and scaling one lake process to about 380 jobs is untested. c4d-highcpu-384 has 720 GB, just under the 2 GB/job + 16 GB rule, so cap it at about 350 jobs. Cheap older alternative for Spot: c3d-highcpu-360 (Genoa, 360 vCPU, 708 GB) at $13.45/h on-demand and $3.24/h spot in us-central1.",
+      "price_verified_from_web": true,
+      "source_urls": [
+       "https://gcloud-compute.com/c4d-standard-384-lssd.html",
+       "https://gcloud-compute.com/c4d-standard-384.html",
+       "https://gcloud-compute.com/c4d-highcpu-384.html",
+       "https://gcloud-compute.com/c3d-highcpu-360.html"
+      ]
+     },
+     {
+      "provider": "Microsoft Azure",
+      "instance": "Standard_D160ads_v7 (Dadsv7)",
+      "vcpus": 160,
+      "vcpu_is_full_core": false,
+      "cpu": "AMD EPYC 9005 Turin (Zen 5), up to 4.5 GHz; vCPUs are SMT threads (my inference: only the F-series v7 page claims full cores)",
+      "ram_gb": 640,
+      "local_nvme": "4 x 2,200 GiB NVMe (8.8 TiB raw), included in the price",
+      "region": "East US (eastus); same on-demand price in East US 2, Central US, West US 2, West US 3",
+      "on_demand_usd_per_hour": 9.12,
+      "spot_usd_per_hour": 1.769,
+      "billing_granularity": "Per second (from memory)",
+      "storage_note": "Use the included local NVMe (raw devices: RAID0 and format). For Spot, add a Premium SSD v2 2 TiB volume at about $0.46/h; this series lists Premium SSD v2 support up to 310,000 IOPS. Standard_D160as_v7 without local disk is $7.264/h (spot $1.409).",
+      "notes": "Fallback if HB-family quota is refused; general-purpose families are the most likely to be auto-approved. My estimate: build 3.1-11.3 h, with verification 3.8-17 h, about $34-154 on-demand or $7-30 on Spot. Worse value than HBv4, which has more and stronger cores for less. Intel equivalent Standard_D192ds_v6 (192 vCPU, 768 GiB) is $11.96/h, spot $2.52. Memory-heavy Standard_E160ads_v7 (1,280 GiB) is $11.616/h, spot $2.17.",
+      "price_verified_from_web": true,
+      "source_urls": [
+       "https://prices.azure.com/api/retail/prices?$filter=serviceName%20eq%20'Virtual%20Machines'%20and%20armRegionName%20eq%20'eastus'%20and%20armSkuName%20eq%20'Standard_D160ads_v7'",
+       "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/general-purpose/dadsv7-series"
+      ]
+     },
+     {
+      "provider": "Microsoft Azure",
+      "instance": "Standard_F80ads_v7 (Fadsv7)",
+      "vcpus": 80,
+      "vcpu_is_full_core": true,
+      "cpu": "AMD EPYC 9005 Turin (Zen 5), SMT off (one vCPU per physical core), up to 4.5 GHz",
+      "ram_gb": 320,
+      "local_nvme": "4 x 2,200 GiB NVMe (8.8 TiB raw), included in the price",
+      "region": "East US (eastus)",
+      "on_demand_usd_per_hour": 6.86,
+      "spot_usd_per_hour": 1.331,
+      "billing_granularity": "Per second (from memory)",
+      "storage_note": "Use the included local NVMe. Standard_F80as_v7 without local disk is $5.464/h (spot $1.06) plus Premium SSD v2 at about $0.46/h.",
+      "notes": "Smallest quota ask on Azure (80 vCPUs) with full cores. My estimate: build 3.5-13 h, with verification 4.2-20 h, about $29-134 on-demand. RAM is ample for 80 jobs (176 GB needed by the rule).",
+      "price_verified_from_web": true,
+      "source_urls": [
+       "https://prices.azure.com/api/retail/prices?$filter=serviceName%20eq%20'Virtual%20Machines'%20and%20armRegionName%20eq%20'eastus'%20and%20armSkuName%20eq%20'Standard_F80ads_v7'",
+       "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/compute-optimized/fadsv7-series"
+      ]
+     },
+     {
+      "provider": "Microsoft Azure",
+      "instance": "Standard_D128pds_v7 (Dpdsv7, arm64 Cobalt 200)",
+      "vcpus": 128,
+      "vcpu_is_full_core": true,
+      "cpu": "Azure Cobalt 200 (Arm Neoverse V3), one physical core per vCPU, up to 3.6 GHz",
+      "ram_gb": 512,
+      "local_nvme": "4 x 1,760 GiB NVMe (7,040 GiB), included in the price",
+      "region": "East US (eastus); same price in East US 2, Central US, West US 2, West US 3",
+      "on_demand_usd_per_hour": 9.367,
+      "spot_usd_per_hour": 1.873,
+      "billing_granularity": "Per second (from memory)",
+      "storage_note": "The local-NVMe variant costs about 50% more than the diskless one. Cheaper: Standard_D128ps_v7 at $6.262/h (spot $1.252) plus Premium SSD v2 2 TiB at about $0.46/h, about $6.72/h in total.",
+      "notes": "Arm64, the same architecture as the laptop measurement. My estimate, assuming a Neoverse V3 core is worth 0.55-0.75 of an M-class core: build 2.6-10.4 h, with verification 3.1-15.6 h, about $21-105 on-demand with the diskless variant. Cobalt 200 VMs reportedly went GA on 17 Nov 2026, so quota and capacity for a brand-new family are uncertain. Older Cobalt 100: Standard_D96pds_v6 (96 cores) is $4.406/h, spot $1.92. Needs the linux-aarch64 Lean toolchain.",
+      "price_verified_from_web": true,
+      "source_urls": [
+       "https://prices.azure.com/api/retail/prices?$filter=serviceName%20eq%20'Virtual%20Machines'%20and%20armRegionName%20eq%20'eastus'%20and%20armSkuName%20eq%20'Standard_D128pds_v7'",
+       "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/general-purpose/dpdsv7-series",
+       "https://www.techtimes.com/articles/331002/20261118/azure-cobalt-200-vms-launch-list-price-runs-40-above-cobalt-100-so-speedup-must-top-14x.htm"
+      ]
+     },
+     {
+      "provider": "Google Cloud",
+      "instance": "c4a-standard-72-lssd (C4A, arm64 Axion)",
+      "vcpus": 72,
+      "vcpu_is_full_core": true,
+      "cpu": "Google Axion (Arm Neoverse V2), no SMT, 3 GHz; 72 vCPUs is the largest C4A VM",
+      "ram_gb": 288,
+      "local_nvme": "6,000 GiB Titanium SSD (16 disks), included in the -lssd price",
+      "region": "us-central1 (Iowa)",
+      "on_demand_usd_per_hour": 4.219,
+      "spot_usd_per_hour": 2.081,
+      "billing_granularity": "Per second, 1-minute minimum (from memory)",
+      "storage_note": "Bundled 6 TiB Titanium SSD. Without local SSD: c4a-standard-72 is $3.233/h (spot $1.59 us-central1, $0.83 us-east5) plus a 2 TiB Hyperdisk Balanced volume at about $0.39/h. c4a-highmem-72-lssd (576 GB) is $5.23/h.",
+      "notes": "Lowest hourly rate and smallest Google quota ask, but the slowest. My estimate: build 4.6-18 h, with verification 5.6-28 h, about $23-117 on-demand. Spot for the -lssd shape is $1.09/h in us-east5. The newer N4A Axion family tops out at 64 vCPUs with no local SSD. Needs the linux-aarch64 Lean toolchain.",
+      "price_verified_from_web": true,
+      "source_urls": [
+       "https://gcloud-compute.com/c4a-standard-72-lssd.html",
+       "https://gcloud-compute.com/c4a-standard-72.html",
+       "https://gcloud-compute.com/c4a-highmem-72-lssd.html",
+       "https://docs.cloud.google.com/compute/docs/general-purpose-machines"
+      ]
+     }
+    ],
+    "practicalities": "RECOMMENDATION. First choice is Azure Standard_HB176rs_v4 in East US or East US 2: 176 full cores, 768 GB and 3.6 TiB of local NVMe for $7.20/h, roughly $15-65 for the build plus verification. Google's nearest equivalent is h4d-highmem-192-lssd at about $9.42/h. If HPC-family quota is refused, fall back to c4d-standard-192-lssd on Google or Standard_D160ads_v7 / Standard_F80ads_v7 on Azure. All time and cost ranges are my arithmetic from the workload figures given, assuming ideal scaling; add about an hour of billed setup and expect the upper half of each range.\n\nQUOTAS (the real lead-time risk; start this first).\n- Azure: quota is enforced per region at two levels (total regional vCPUs and per-VM-family vCPUs), with a separate pool for Spot. Microsoft says adjustable requests from the portal's My quotas page are usually answered within a few minutes; otherwise it becomes a support ticket. Default values are not published: third-party sources say 10-20 vCPUs per family for a new pay-as-you-go subscription, and HB-family quota often starts at 0 (from memory, unverified). One third-party guide says specialised hardware such as HB takes 1-5 business days or longer, and a Microsoft Q&A thread from October 2026 shows a quota ticket unanswered for days. Plan on same day to one week for 176-200 vCPUs.\n- Azure free-trial or credit subscriptions cannot use Spot (supported offers are Enterprise Agreement, pay-as-you-go, Sponsored and CSP) and generally cannot raise quota until upgraded (from memory).\n- Azure's July 2026 capacity restriction covers only old D/E/F/G/L/B/A families (v1-v3 on Microsoft's list). HBv4, HX and the v6/v7 families are not listed.\n- Google: each new family (C4D, C4A, C3D, H4D) has its own regional pool under CPUS_PER_VM_FAMILY, and some new accounts also have a global \"CPUs (All Regions)\" cap. Local SSD capacity per family and Hyperdisk capacity/IOPS/throughput are separate quotas that must also cover 2-12 TiB. Free Trial billing accounts cannot request quota changes at all, so upgrade first.\n- Google publishes no default values or turnaround for Compute Engine. Other Google product docs say requests generally take two business days and large ones longer. From memory (unverified): new paid projects often have 24 or fewer vCPUs per region, and accounts with no payment history are sometimes denied or asked to wait. Plan on 2 business days to a week for 192 vCPUs, and treat 384 as uncertain.\n- Quota is not capacity: a large shape can still fail to allocate in a given zone, so be ready to try a second zone or region.\n\nSPOT / PREEMPTIBLE for a 6-24 h resumable job.\n- Azure: 30 seconds' notice, no SLA. Eviction rates are shown per size and region in the portal and Azure Resource Graph, quoted per hour. Illustration (my arithmetic): a 5%/hour rate gives about a 74% chance of surviving 6 h and 29% of surviving 24 h. I have no measured rate for these sizes.\n- Google: the docs say there is no maximum runtime, preemption probability is \"generally low\" but varies by zone and day, and spot prices can change up to once a day. The Spot page now describes a configurable preemption notice (my fetch read it as 0 or 120 seconds; confirm).\n- On both clouds local NVMe is lost on eviction or preemption, while managed disks (Premium SSD v2, Hyperdisk) survive. A resumable Spot run therefore needs the build directory on a managed 2 TiB disk (about $0.4-0.5/h), and restart depends on capacity being available.\n- My view: on-demand for the first run is only about $20-150 in total, so Spot saves tens of dollars while adding a separate quota request and restart handling. Spot is worth it for reruns, where Azure Spot at $1.3-1.9/h is far cheaper than Google Spot for the comparable shapes.\n\nEGRESS. Inbound traffic is free on both, so the source upload and the 6 GB Mathlib cache cost nothing. Returning only logs is effectively free: third-party sources put Azure at the first 100 GB/month free then about $0.087/GB, and Google Premium Tier at about $0.12/GiB (Standard Tier about $0.085 after 200 GiB free). Do not download the 1 TB of build products: that would cost roughly $85-120.\n\nACCOUNT SETUP AND CONTROL. Create a dedicated Azure resource group (or subscription) or Google Cloud project in your own account, and one Linux VM with your own SSH key and root. No managed build service is involved, and data stays on the VM's disks, which are encrypted at rest by default. Restrict SSH to your IP. Format the local NVMe as RAID0 with XFS (or ext4 with enough inodes) for about a million files. Run the build under tmux or systemd with logs copied off periodically.\n\nCOST SAFETY. A forgotten VM costs $170-500/day. Set a budget alert and an automatic shutdown (a scheduled shutdown, or Azure auto-shutdown). On Azure a stopped VM still bills unless it is deallocated.\n\nDELETING EVERYTHING. Copy logs and results off, then delete the whole resource group (Azure) or shut down the project (Google). That removes the VM, disks, IPs and snapshots; Google projects are purged after a recovery window of about 30 days (from memory). Local NVMe contents are gone as soon as the VM is deleted or deallocated. Check the billing report the next day for zero residual charges, and that no snapshots, images or reserved IPs remain.",
+    "caveats": [
+     "Azure prices are first-party: Microsoft's Retail Prices API queried on 2026-11-20, Linux, USD. The source URLs listed are single-SKU forms of the multi-SKU queries I actually ran. Spot meters carried effective dates between 2025-11 and 2026-11 and move with capacity.",
+     "Google prices are from third-party aggregators (gcloud-compute.com stamped 2026-11-18, Spare Cores, cloudprice.net), because Google's own pricing pages were too large for the fetch tool. The only cross-check against Google's page was c4d-standard-192 at $9.0716/h, which matched. Hyperdisk rates are from a third-party page. Confirm all Google figures in the pricing calculator before committing.",
+     "H4D pricing sources disagree: Google's page and Spare Cores give about $7.85/h (standard) and $9.42/h (highmem-lssd), while cloudprice.net shows $13.74/h for h4d-standard-192. I used the Google-consistent figures.",
+     "All wall-clock and cost estimates are my inference from the supplied 250-730 core-hour figure, not measurements. Conversion factors assumed: SMT vCPU 0.4-0.6 of an M-class core (as given), full Zen 4/Zen 5 core 0.7-0.9, Arm Neoverse V2/V3 core 0.55-0.75. Verification adds 20-50%.",
+     "Scaling one lake build to 176-384 parallel lean processes is unproven. Lake's scheduler, filesystem metadata load for about a million files and memory bandwidth could all push real times above the ranges. A short pilot on the chosen machine (about $10-20) would calibrate this.",
+     "The 2 GB per job + 16 GB rule fits every listed option, with one exception: c4d-highcpu-384 (720 GB) should be capped at about 350 jobs.",
+     "Azure HBv5 (Standard_HB368rs_v5: 368 full cores, $19.80/h, spot $3.66 in East US) was excluded because it has only 432 GB RAM, which limits it to about 200 jobs under the memory rule.",
+     "Also checked and not competitive: Google c4-highcpu-288 (Intel, $12.25/h, spot $7.33) and n2d-standard-224 (older AMD Rome/Milan, $9.46/h).",
+     "Default quota values and approval times are not published by either provider. The figures given are third-party or from memory and are labelled as such; the actual limits show on the Quotas page of a new account.",
+     "Billing granularity (per second on both, 1-minute minimum on Google) is from memory and was not re-verified today.",
+     "Not verified today: that Premium SSD v2 can attach to HBv4/HX in the chosen region and zone, and that Spot can be provisioned for H4D despite a published spot price.",
+     "Arm options assume the linux-aarch64 Lean toolchain and that the Mathlib prebuilt cache is usable on that platform (from memory; the laptop baseline was arm64 macOS, not Linux).",
+     "Azure sizes are in GiB/GB as the spec pages state them; HBv4 and HX list memory in GB, the v7 families in GiB."
+    ]
+   }
+  },
+  {
+   "key": "budget-baremetal",
+   "res": {
+    "web_access": true,
+    "options": [
+     {
+      "provider": "Scaleway (Elastic Metal, bare metal)",
+      "instance": "EM-I620E-NVMe",
+      "vcpus": 128,
+      "vcpu_is_full_core": false,
+      "cpu": "AMD EPYC 8534P, 64 physical cores / 128 threads, whole machine dedicated. Source gives model and thread count; that it is a lower-clocked dense-core (Zen 4c) part is from memory, unverified.",
+      "ram_gb": 576,
+      "local_nvme": "2 x 3.84 TB NVMe (7.68 TB if striped)",
+      "region": "fr-par-1/2, nl-ams-1/2, pl-waw-2/3 (same price in all six zones)",
+      "on_demand_usd_per_hour": 2.04,
+      "billing_granularity": "Hourly at EUR 1.863/h excl. VAT with no commitment fee; or EUR 679.99/month, where monthly billing adds a one-off commitment fee equal to one month. Choose hourly.",
+      "price_verified_from_web": true,
+      "storage_note": "Nothing to add: stripe the two local NVMe drives (mdadm RAID0 or LVM) for about 7 TB of scratch, well over the 1.5-2 TB plan.",
+      "notes": "Best fit found: meets threads, RAM (4.5 GB per thread) and disk with no setup fee. USD converted at 1 EUR = 1.097 USD. My estimate at ideal scaling: build plus verification about 5-21 h, so roughly USD 10-45 per full run. Fallbacks in the same catalog: EM-I520E-NVMe (EPYC 8434P, 96 threads, 384 GiB, 2 x 3.84 TB) at EUR 1.562/h; EM-I420E-NVMe (64 threads, 256 GiB, 2 x 1.92 TB) at EUR 1.233/h. Stock was not checked (needs an account). Scaleway's quota table says this model needs identity validation; the default quota figure was unreadable.",
+      "source_urls": [
+       "https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=elastic_metal",
+       "https://www.scaleway.com/en/pricing/elastic-metal/",
+       "https://www.scaleway.com/en/docs/elastic-metal/faq/",
+       "https://scaleway.com/en/docs/organizations-and-projects/additional-content/organization-quotas"
+      ]
+     },
+     {
+      "provider": "Cherry Servers (bare metal)",
+      "instance": "AMD EPYC 9554P dedicated server",
+      "vcpus": 128,
+      "vcpu_is_full_core": false,
+      "cpu": "AMD EPYC 9554P (Zen 4), 64 cores / 128 threads, 3.1 GHz base, 3.75 GHz max",
+      "ram_gb": 384,
+      "local_nvme": "2 x 1 TB NVMe in the base build (page says up to 10 disks)",
+      "region": "Lithuania (Siauliai): 1 in stock when checked; Amsterdam, Chicago, Singapore, Stockholm, Frankfurt: 0 in stock (waiting list)",
+      "on_demand_usd_per_hour": 1.48,
+      "billing_granularity": "Hourly at USD 1.48/h, drawn from a prepaid account balance; or USD 864.63/month. No setup fee listed.",
+      "price_verified_from_web": true,
+      "storage_note": "Base disks give only 2 TB striped, which is tight against a 1.2-2 TB estimate. Extra NVMe makes it a custom build (about 24 h per Cherry's page); add-on disk price not found.",
+      "notes": "Cheapest hourly rate per thread found (about USD 0.0116). My estimate: about 5-21 h, so USD 7-31 per run. Larger sibling: EPYC 9754, 128 cores / 256 threads, 768 GB, 2 x 4 TB NVMe at USD 2.202/h (USD 1,285.83/month), but 0 in stock at all four locations. Pre-built servers deploy in 15-30 minutes per the page. Card payment requires identity verification through iDenfy.",
+      "source_urls": [
+       "https://www.cherryservers.com/pricing/dedicated-servers/amd-epyc-9554p",
+       "https://www.cherryservers.com/pricing/dedicated-servers/amd-epyc-9754",
+       "https://www.cherryservers.com/pricing/dedicated-servers",
+       "https://www.cherryservers.com/knowledge/docs/usage-billing/payment-methods"
+      ]
+     },
+     {
+      "provider": "Hetzner (dedicated root server)",
+      "instance": "AX162-2",
+      "vcpus": 96,
+      "vcpu_is_full_core": false,
+      "cpu": "AMD EPYC 9454P (Zen 4), 48 cores / 96 threads",
+      "ram_gb": 256,
+      "local_nvme": "2 x 1.92 TB NVMe (3.84 TB striped)",
+      "region": "Falkenstein FSN1 (Germany) or Helsinki HEL1 (Finland)",
+      "on_demand_usd_per_hour": 1.48,
+      "billing_granularity": "Hourly up to a monthly cap, no minimum term, immediate cancellation, plus a one-off setup fee of EUR 419 (about USD 460). Monthly EUR 842.30 net excl. IPv4. All excl. VAT.",
+      "price_verified_from_web": true,
+      "storage_note": "Local NVMe is sufficient: stripe the two drives for about 3.8 TB.",
+      "notes": "Hetzner's own page confirms the AX162 base variant only: 128 GB RAM, EUR 614.00/month, EUR 0.9840/h, EUR 304 setup. The AX162-2 monthly price and setup fee come from a third-party table checked 18 Nov 2026; the hourly figure is my derivation (EUR 844 / 624 h = EUR 1.353/h). Since 15 June 2026 only fixed variants are sold, no custom RAM. AX162-3 is 512 GB, 4 x 3.84 TB at EUR 1,597.30/month plus EUR 799 setup. A limited AX162 variant at EUR 317.30 plus EUR 39 setup exists while supplies last; its spec is unconfirmed. My estimate: 6-28 h, about USD 9-42 of usage, but the setup fee makes a one-off about USD 470-500. Only sensible if the box is kept for reruns. Delivery is reported as a few minutes in both locations (third party, as of 6 Oct 2026).",
+      "source_urls": [
+       "https://www.hetzner.com/dedicated-rootserver/ax162/",
+       "https://www.hetzner.com/dedicated-rootserver/matrix-ax/",
+       "https://wz-it.com/en/blog/hetzner-cloud-vs-dedicated-server/",
+       "https://webhosting.today/2026/05/29/hetzner-has-now-raised-prices-three-times-in-2026-this-one-is-different/"
+      ]
+     },
+     {
+      "provider": "Oracle Cloud Infrastructure (VM)",
+      "instance": "VM.Standard.E6.Flex, 126 OCPU / 512 GB",
+      "vcpus": 252,
+      "vcpu_is_full_core": false,
+      "cpu": "AMD EPYC 9J45 (Turin), 2.7 GHz base, 4.1 GHz max boost. 1 OCPU = 1 physical core = 2 threads, so 126 cores / 252 threads.",
+      "ram_gb": 512,
+      "local_nvme": "None (block storage only)",
+      "region": "Any commercial region (the price list has a single USD price with no region dimension)",
+      "on_demand_usd_per_hour": 4.8,
+      "spot_usd_per_hour": 2.4,
+      "billing_granularity": "Pay as you go, metered per OCPU-hour (USD 0.03) and per GB-hour of memory (USD 0.002). Preemptible is 50% off.",
+      "price_verified_from_web": true,
+      "storage_note": "Attach a 2 TB block volume at Higher Performance (20 VPU): (0.0255 + 20 x 0.0017) x 2,000 = USD 119/month, about USD 0.16/h. That level allows up to 50,000 IOPS and 680 MB/s per volume. All-in about USD 4.97/h on demand, USD 2.56/h preemptible.",
+      "notes": "Fastest single machine that is cheap per thread. My estimate: 2.5-11 h, USD 12-53 on demand or USD 6-27 preemptible; scaling to 252 jobs is unproven. Blocker: a new pay-as-you-go tenancy defaults to 6 E6 cores and 72 GB, so a limit increase to 126 is required first, with no documented turnaround. Preemptible covers VM shapes only, gives a two-minute warning, and cannot be stopped or restarted. Derived from the same per-unit rates (my arithmetic): BM.Standard.E6.256 (256 cores / 512 threads, 3,072 GB, 2 x 960 GB NVMe) about USD 13.82/h; BM.Standard.E5.192 (192 cores, 2,304 GB) about USD 10.37/h; VM.DenseIO.E5.Flex 48 OCPU / 576 GB / 40.8 TB local NVMe about USD 5.09/h.",
+      "source_urls": [
+       "https://apexapps.oracle.com/pls/apex/cetools/api/v1/products/?currencyCode=USD",
+       "https://docs.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm",
+       "https://docs.oracle.com/en-us/iaas/Content/Compute/Concepts/preemptible.htm",
+       "https://docs.oracle.com/en-us/iaas/Content/General/service-limits/default.htm",
+       "https://docs.oracle.com/en-us/iaas/Content/Block/Concepts/blockvolumeperformance.htm"
+      ]
+     },
+     {
+      "provider": "Oracle Cloud Infrastructure (Ampere arm64 VM)",
+      "instance": "VM.Standard.A2.Flex, 78 OCPU / 384 GB",
+      "vcpus": 156,
+      "vcpu_is_full_core": true,
+      "cpu": "Ampere AmpereOne A160-30, 3.0 GHz, arm64. On A2, 1 OCPU = 2 physical cores (no SMT), so 78 OCPU = 156 full cores.",
+      "ram_gb": 384,
+      "local_nvme": "None (block storage only)",
+      "region": "Any commercial region offering A2 (regional availability not checked)",
+      "on_demand_usd_per_hour": 1.86,
+      "billing_granularity": "Pay as you go: USD 0.014 per OCPU-hour and USD 0.002 per GB-hour. A2 is not on the preemptible list.",
+      "price_verified_from_web": true,
+      "storage_note": "Same as the E6 option: 2 TB Higher Performance block volume, about USD 0.16/h.",
+      "notes": "Cheapest per full core found (about USD 0.012 per core-hour). My inference, unverified: an AmpereOne core is worth roughly 0.35-0.5 of an Apple performance core, giving 4-20 h and USD 8-40. Needs the Linux arm64 Lean toolchain; test with a small sample before committing. Default pay-as-you-go limit is 8 OCPU for A2, so a limit increase is needed. Alternative: VM.Standard.A1.Flex (Ampere Altra, max 76 cores, 472 GB) at USD 0.01 per OCPU-hour and USD 0.0015 per GB-hour, about USD 1.14/h at 256 GB, preemptible-eligible. The price list shows the first 3,000 A1 OCPU-hours and 18,000 GB-hours per month at USD 0, which could cover most of one run; confirm that applies to a paid tenancy. A1 default limit is 16 cores.",
+      "source_urls": [
+       "https://apexapps.oracle.com/pls/apex/cetools/api/v1/products/?currencyCode=USD",
+       "https://docs.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm",
+       "https://docs.oracle.com/en-us/iaas/Content/General/service-limits/default.htm",
+       "https://docs.oracle.com/en-us/iaas/Content/Compute/Concepts/preemptible.htm"
+      ]
+     },
+     {
+      "provider": "OVHcloud (Public Cloud VM)",
+      "instance": "c3-256",
+      "vcpus": 128,
+      "vcpu_is_full_core": false,
+      "cpu": "Catalog says only 'vCore, 2.3 GHz' in the guaranteed-resources class; CPU model not stated. Treating a vCore as one hardware thread is my inference.",
+      "ram_gb": 256,
+      "local_nvme": "400 GB local NVMe only",
+      "region": "US price list (US subsidiary): USD 3.447/h. EU regions: EUR 2.921/h excl. VAT, about USD 3.20/h.",
+      "on_demand_usd_per_hour": 3.447,
+      "billing_granularity": "Hourly consumption. No spot tier found.",
+      "price_verified_from_web": true,
+      "storage_note": "Add a 2 TB High Speed Gen2 block volume: USD 0.000132 per GB-hour, about USD 0.26/h (EU EUR 0.000119, about EUR 0.24/h). All-in about USD 3.71/h.",
+      "notes": "256 GB supports about 120 parallel jobs by the 2 GB + 16 GB rule. More headroom: b3-512 (128 vCores, 512 GB) at USD 3.864/h US or EUR 3.274/h EU; c3-320 (160 vCores, 320 GB) at USD 4.309/h; b3-640 (160 vCores, 640 GB) at USD 4.829/h. My estimate: 5-21 h, USD 17-78. Blocker: a new project's quota is far below 128 vCores. The OVH guide lists a paid '100 VMs' tier (128 vCores, 1,015 GB RAM) bought as upfront credit, with eligibility depending on account age and paid invoices; amount and timing are not published.",
+      "source_urls": [
+       "https://api.us.ovhcloud.com/v1/order/catalog/public/cloud?ovhSubsidiary=US",
+       "https://eu.api.ovh.com/v1/order/catalog/public/cloud?ovhSubsidiary=IE",
+       "https://www.ovhcloud.com/en/public-cloud/prices/",
+       "https://github.com/ovh/docs/blob/develop/pages/public_cloud/public_cloud_cross_functional/increasing_public_cloud_quota/guide.en-ca.md"
+      ]
+     },
+     {
+      "provider": "OVHcloud (bare metal, Scale range)",
+      "instance": "SCALE-a7 with 256 GB RAM and 2 x 3.84 TB NVMe",
+      "vcpus": 256,
+      "vcpu_is_full_core": false,
+      "cpu": "AMD EPYC 9755 (Turin), 128 cores / 256 threads, 2.7 GHz base, 4.1 GHz boost",
+      "ram_gb": 256,
+      "local_nvme": "2 x 3.84 TB NVMe (option; the base server ships with no data drive)",
+      "region": "EU sites (Gravelines, Roubaix, Strasbourg, Frankfurt, London, Warsaw, Paris) and Canada (Beauharnois, Toronto)",
+      "billing_granularity": "Monthly only, no hourly. No-commitment mode charges an installation fee equal to one month of the base server. EU, excl. VAT: EUR 1,099.99 base + EUR 280 (256 GB) + EUR 222 (disks) = EUR 1,601.99/month, plus EUR 1,099.99 installation, so about EUR 2,702 (USD 2,960) for the first month. US price list: USD 2,047/month plus USD 1,402 installation.",
+      "price_verified_from_web": true,
+      "storage_note": "Included in the configuration above. 512 GB RAM instead of 256 GB adds EUR 624/month more (EUR 904 option).",
+      "notes": "Shown as the monthly bare-metal reference point; poor value for a one-off of under a day. Smaller sibling SCALE-a5 (EPYC 9555, 64 cores / 128 threads) with 256 GB and 2 x 1.92 TB: EUR 1,229.98/month plus EUR 817.99 installation. Delivery time was not verified. Hourly equivalent omitted because the month and install fee are owed regardless of hours used.",
+      "source_urls": [
+       "https://eu.api.ovh.com/v1/order/catalog/public/baremetalServers?ovhSubsidiary=IE",
+       "https://api.us.ovhcloud.com/v1/order/catalog/public/baremetalServers?ovhSubsidiary=US"
+      ]
+     },
+     {
+      "provider": "Latitude.sh (bare metal)",
+      "instance": "c4.metal.large",
+      "vcpus": 192,
+      "vcpu_is_full_core": false,
+      "cpu": "AMD EPYC 9655P (Turin), 96 cores at 2.6 GHz. The page lists cores only; 192 threads is my inference from the CPU model.",
+      "ram_gb": 384,
+      "local_nvme": "2 x 960 GB NVMe + 2 x 3.8 TB NVMe",
+      "region": "Three locations (page shows only a count, not names)",
+      "on_demand_usd_per_hour": 4,
+      "billing_granularity": "Hourly at USD 4.00/h. The page shows USD 2,920 as the monthly figure (equal to 730 h at the hourly rate) and also says reserved monthly is 50% cheaper than hourly; I could not reconcile the two.",
+      "price_verified_from_web": true,
+      "storage_note": "Local NVMe is sufficient: stripe the two 3.8 TB drives for 7.6 TB.",
+      "notes": "RAM is the 2 GB per thread minimum, so run about 180 jobs. My estimate: 3-14 h, USD 12-56. New accounts on hourly plans have a USD 100 spending limit (25 h at this rate), rising to USD 500 with payment history; more needs sales. Verification needs a card (USD 5 temporary hold) plus either a government ID via Stripe Identity or a USD 100 credit purchase. Other plans on the page: rs4.metal.large (EPYC 9354P, 32 cores, 768 GB, 2 x 8 TB) USD 3.22/h; m4.metal.large (EPYC 9254, 24 cores, 384 GB, 2 x 3.8 TB) USD 2.03/h. 20 TB egress included.",
+      "source_urls": [
+       "https://www.latitude.sh/pricing",
+       "https://www.latitude.sh/docs/account-setup/verify-account.md"
+      ]
+     }
+    ],
+    "practicalities": "SHORT ANSWER: a rented 96-256 thread server should finish the build plus verification in roughly 5-30 hours for about USD 10-80 of usage per full run, assuming the workload estimate holds and scaling is near-linear. Scaleway EM-I620E-NVMe (about USD 2.04/h) and Cherry Servers EPYC 9554P (USD 1.48/h) are the best fits: hourly bare metal, no setup fee, local NVMe. OCI E6.Flex is the fastest option if its core limit is raised. Hetzner's setup fee (about USD 460) and OVH bare metal's monthly-plus-install billing (about USD 2,960) make them poor one-off choices.\n\nHOW I ESTIMATED TIME: total hours = (600 to 2,700 vCPU-hours, i.e. the given 500-1,800 for the build plus 20-50% verification) divided by thread count. Add 1-2 hours for upload, toolchain and cache. This is my arithmetic, not a measurement.\n\nACCOUNT SETUP AND LEAD TIME\n- Scaleway: payment method and identity validation are required before the large Elastic Metal models can be ordered; quota increases beyond the default go through a support ticket. Allow a day or two.\n- Cherry Servers: email verification to open the account; card payment requires iDenfy identity verification; hourly usage draws from a prepaid balance. Pre-built servers deploy in 15-30 minutes, but only one 9554P was in stock.\n- Hetzner: identity check (iDenfy) is part of sign-up since March 2026, reportedly cleared within a business day. AX162 variants are reported delivered in minutes. Hetzner Cloud is harder: the default is 8 dedicated vCPUs, and a status notice since 26 June 2026 restricts new cloud servers for new customers.\n- Oracle: a new pay-as-you-go tenancy defaults to 6 cores for E5/E6, 16 for A1 and 8 OCPU for A2. A limit increase request is mandatory; Oracle documents no turnaround, so allow several days and expect that it may be refused for a brand-new account. Bare-metal limits were not listed on the limits page.\n- OVHcloud Public Cloud: new projects have a low quota; 128 vCores needs the paid '100 VMs' tier or a support request, with eligibility tied to account age and paid invoices.\n- Latitude.sh: card plus ID or a USD 100 credit purchase; USD 100 hourly spending cap for new accounts.\nRealistic expectation: sign up and verify on day one, build on day two or three with Scaleway, Cherry, Latitude or Hetzner; OCI and OVH depend on a quota decision.\n\nSPOT / PREEMPTIBLE: only OCI offers a real discount here (50%, VM shapes only, two-minute warning, no stop/start). A reclaim kills the instance, but an attached block volume survives if it is not set to delete, and the build is incremental, so a restart resumes. None of the bare-metal hosts has a spot tier.\n\nEGRESS: negligible, since only logs and small results come back. OCI's first 10 TB per month is free; Cherry includes 100 TB; Latitude 20 TB; Hetzner dedicated traffic is unlimited. Uploading 250 MB of source and downloading the 6 GB cache is inbound and free.\n\nBILLING TRAPS: on bare metal, powering off does not stop charges; the server must be deleted or released. Hetzner's setup fee is charged even for a few hours. Scaleway charges a one-month commitment fee only if monthly billing is chosen. OCI keeps billing block and boot volumes after an instance is terminated until they are deleted.\n\nFULL CONTROL AND CLEAN DELETION: every option is a root-access VM or whole physical server in your own account. Suggested pattern: create the scratch filesystem on LUKS with a throwaway key (XFS, or ext4, which at default settings has ample inodes for a million files), copy out logs and results, then destroy the key, delete the server and any volumes, snapshots, backups and reserved IPs, remove SSH keys and API tokens, and check the final invoice. I did not verify each provider's disk-wipe policy on release; encrypting from the start removes the need to rely on it.\n\nBEFORE COMMITTING: run a one-hour pilot on the chosen machine to measure modules per hour at full parallelism; the laptop figure was memory-starved and says little about scaling at 100+ jobs.",
+    "caveats": [
+     "Prices were read on 20 Nov 2026. 2026 saw repeated increases (Hetzner three times; Scaleway on 1 June), so recheck before ordering. EU prices exclude VAT.",
+     "EUR to USD converted at 1.097 (Banque de France reference rate for 18 Nov 2026: 1.0968). Source: https://www.banque-france.fr/en/statistics/rates-and-prices/exchange-rates-daily-parities-2026-11-18",
+     "All time and cost estimates are my inference from the given workload figures and assume near-linear scaling. Real scaling at 100-250 parallel jobs is unmeasured; memory bandwidth, the 203-module dependency chain, and Lake's own overhead on 175,000 files could add substantially. The relative speed of each CPU type (dense-core EPYC, Ampere) is from memory, not benchmarked.",
+     "Derived rather than quoted: Hetzner AX162-2 hourly rate (monthly / 624, the ratio Hetzner's own page uses for the base model); OCI bare-metal hourly totals (per-OCPU and per-GB rates multiplied by the fixed shape); Latitude thread counts; OVH vCore = one thread.",
+     "Hetzner AX162-2 and AX162-3 prices come from a third-party article checked 18 Nov 2026, not from Hetzner's site, whose configurator would not load. Only the 128 GB base model (EUR 614/month, EUR 0.9840/h, EUR 304 setup) is confirmed on hetzner.com.",
+     "Pages that refused my fetcher: Oracle's pricing page, Scaleway's pricing and docs pages, Vultr's pricing page. I used each provider's public price or catalog API instead (Oracle's list was last updated 2 Nov 2026). Scaleway quota details come from search-result excerpts only.",
+     "Hetzner Server Auction: the page states no setup fee and prices from EUR 78.70/month, but the live listing would not load, so I could not confirm any current 64-thread-plus, 256 GB machine or its billing granularity.",
+     "Stock is the main risk for the two best options: Cherry showed one EPYC 9554P (Lithuania) and no EPYC 9754 anywhere; Scaleway stock could not be checked without an account.",
+     "Cherry's base 2 x 1 TB NVMe is marginal against the 1.2 TB (possibly higher) output estimate.",
+     "The arm64 option assumes the Lean toolchain and Mathlib cache work on Linux arm64 as they did on the Apple-silicon laptop; untested.",
+     "Looked at and not recommended. Vultr: in-stock bare metal tops out at 24-32 cores with 2 x 480 GB SSD (EPYC 7443P 256 GB USD 0.993/h; EPYC 9354P 768 GB USD 1.986/h); VX1 VM with 96 vCPU / 384 GB is USD 2.88/h plus block storage, in two locations; optimized 96 vCPU / 256 GB / 1,280 GB is USD 5.26/h (https://api.vultr.com/v2/plans-metal, https://api.vultr.com/v2/plans?type=all). DigitalOcean: largest CPU-Optimized is 48 vCPU / 96 GiB / 600 GiB at USD 1.50/h; Storage-Optimized 32 vCPU / 256 GiB / 4.69 TB NVMe at USD 3.119/h; too small (https://www.digitalocean.com/pricing/droplets). Hetzner Cloud CCX63: 48 vCPU / 192 GB / 960 GB at EUR 1.1626/h in Helsinki, about EUR 1.37/h in Germany; too small on disk and cores, and limited for new customers (https://www.hetzner.com/cloud/general-purpose/).",
+     "Working copies of the downloaded price catalogs are in the session scratchpad and can be discarded."
+    ]
+   }
+  },
+  {
+   "key": "lean-scaling",
+   "res": {
+    "web_access": true,
+    "findings": [
+     {
+      "question": "1. How long does a from-scratch Mathlib build take on 16/32/64/96/128+ cores? Does 'lake build' scale near-linearly at high core counts, and what limits it?",
+      "answer": "Mathlib itself does NOT scale linearly: it saturates at roughly 24-32 busy cores and bottoms out at about 6-10 minutes however many cores you add. Published data points (all 'lake build' of Mathlib from scratch unless noted):\n- 16 threads (Oct 2023): 23:00 wall at 1660% CPU, 22,191 s user.\n- '56-core' server (Nov 2023): 16m23s wall, 253 min user, 14m39s sys; the poster's own conclusion: 'about 16 x speedup on a 56 core system'. Kim Morrison measured Mathlib's average graph parallelism at 18.2.\n- AMD EPYC 9455, 48 cores / 96 threads (Lean FRO talk, Apr 2026): 'Can build Mathlib's 9k+ files in 9min30s at 2300% CPU' - i.e. only ~23 of 96 threads busy on average, about 3.6 CPU-hours in total.\n- GCP c4-standard-96 capped at 8 jobs (Nov 2026, Lean 4.35.0, 8,625 modules): 28.5 min; GCP c4a-standard-48 (Axion arm64) at 8 jobs: 33.0 min; 6-vCPU arm64 VM: 44.8 min. Same source: longest import chain through Mathlib = 5.4 min of compile time; a scheduling SIMULATION (not a measurement) gives 23 min at 8 jobs, 12 at 16, 9.0 at 24, 7.7 at 32, 6.4 at 48. Mathlib's own CI cold build was reported as 43 min at LEAN_NUM_THREADS=8.\n- 192-vCPU machine, a different 26k-module workspace (Oct 2026): clean build 930 s, 754 s after a Lake fix, 48.8k CPU-s total - about 65 of 192 vCPUs busy on average.\nI found no published Mathlib timing on 128+ cores. What limits it: (a) the import graph's critical path and limited width (the main limit for Mathlib, largely absent in this workload, whose longest chain is 203 of 175k modules); (b) long-pole files; (c) paging of memory-mapped .olean files when RAM is short; (d) at high thread counts, lock contention inside the single lake process and kernel-wide limits (see findings 5 and 8). Closest proxy for THIS workload (many independent Lean processes each holding Mathlib): the Kimina Lean Server benchmark on a GCP C4 with SMT off went 42:40 at 8 cores, 21:48 at 16, 11:33 at 32, 7:56 at 64 - near-linear to 32 cores (92%), about 67% efficiency at 64.",
+      "confidence": "medium",
+      "evidence": "Source statements are quoted above; 'saturates at 24-32 cores' and the efficiency percentages are my arithmetic from those figures. The simulation figures are the PR author's estimates. The 192-vCPU data point is from two draft PRs by one author. No source measured this exact workload shape (155k files each importing all of Mathlib).",
+      "source_urls": [
+       "https://leanprover-community.github.io/archive/stream/270676-lean4/topic/Lake.20parallel.20builds.html",
+       "http://cambium.inria.fr/seminaires/transparents/20260424.Sebastian.Ullrich.pdf",
+       "https://github.com/gominimal/pkgs/pull/1244",
+       "https://github.com/leanprover/lean4/pull/15712",
+       "https://github.com/leanprover/lean4/pull/15714",
+       "https://arxiv.org/html/2504.21230",
+       "https://techpowerup.com/cpu-specs/epyc-9455.c3890"
+      ]
+     },
+     {
+      "question": "2. How does Lake 5.x decide the number of parallel jobs, how is it capped or raised, and does it use SMT threads usefully?",
+      "answer": "Lake has no -j/--jobs flag (confirmed in the v4.33.1 source, whose Lake version is 5.0.0, and by the Lake maintainer in Oct 2025: 'Lake lacks a -j option'). Lake runs its jobs as tasks on the Lean runtime thread pool, so the number of concurrent 'lean' processes = the pool size = the LEAN_NUM_THREADS environment variable if set, otherwise the number of LOGICAL processors (SMT threads count). So by default a 192-vCPU box runs up to 192 lean processes. Cap or raise it with 'LEAN_NUM_THREADS=N lake build'. '-Kjobs=N' does nothing (it is a config key, not a jobs option).\nSecond, separate knob that is easy to miss: each child 'lean' process has its own thread pool for in-file parallel elaboration (Elab.async is forced on for command-line lean). In the v4.33.1 source that pool is sized by lean's own '-j/--threads' option, default = hardware concurrency, and it does NOT read LEAN_NUM_THREADS. So on a 192-vCPU machine each of up to 192 lean processes may itself start up to 192 worker threads. Cap it with weakLeanArgs = [\"-j2\"] (or -j1) in the lakefile; weakLeanArgs do not change build traces, so no rebuild is triggered.\nSMT: Lake counts SMT threads by default. I found no modern Lean 4 SMT on/off measurement. Only data: Lean 3 mathlib on an 8-core/16-thread Ryzen 3700X (2020): 31:54 at 8 threads vs 25:57 at 16, i.e. about +23% throughput from SMT. Inference: expect roughly +15-30% from the second hardware thread, at the cost of twice as many processes' private memory - consistent with the brief's '0.4-0.6 of a core per vCPU'.",
+      "confidence": "high",
+      "evidence": "Read directly from leanprover/lean4 at tag v4.33.1: src/runtime/object.cpp (get_lean_num_threads: LEAN_NUM_THREADS else hardware_concurrency), src/util/shell.cpp + src/Lean/Shell.lean (lean's pool from '-j, --threads=num', default Platform.Internal.getHardwareConcurrency), src/Lean/CoreM.lean (Elab.async 'overridden to true in the Lean language server and cmdline'), src/lake/Lake/Config/LeanConfig.lean (weakLeanArgs), src/lake/Lake/Version.lean (5.0.0). The SMT percentage and the -j recommendation are my inference, not a measured Lean 4 result.",
+      "source_urls": [
+       "https://leanprover-community.github.io/archive/stream/270676-lean4/topic/number.20of.20threads.20for.20lake.20build.html",
+       "https://leanprover-community.github.io/archive/stream/270676-lean4/topic/lake.20build.20-j.3F.html",
+       "https://lean-lang.org/doc/reference/latest/IO/Tasks-and-Threads/",
+       "https://raw.githubusercontent.com/leanprover/lean4/v4.33.1/src/runtime/object.cpp",
+       "https://raw.githubusercontent.com/leanprover/lean4/v4.33.1/src/Lean/Shell.lean",
+       "https://raw.githubusercontent.com/leanprover/lean4/v4.33.1/src/Lean/CoreM.lean",
+       "https://raw.githubusercontent.com/leanprover/lean4/v4.33.1/src/lake/Lake/Config/LeanConfig.lean",
+       "https://github.com/jsboige/CoursIA/issues/26480",
+       "https://leanprover-community.github.io/archive/stream/113488-general/topic/speed-up.20project.20returns.html"
+      ]
+     },
+     {
+      "question": "3. What does one 'import Mathlib' cost in CPU and memory on Linux x86-64 for Lean 4.2x-4.3x? Are .olean files memory-mapped and shared between processes, and is that cheaper than on macOS?",
+      "answer": "Sharing: yes, confirmed in source. At v4.33.1 each .olean is mapped with mmap(MAP_PRIVATE | MAP_FIXED_NOREPLACE, PROT_READ|PROT_WRITE) at a deterministic address derived from the module name; the code comment says 'Unwritten pages remain shared with the page cache under MAP_PRIVATE'. So N processes share one copy of the touched pages in the page cache. A Windows report gives the scale: 12 lean processes importing Mathlib had a combined working set of about 2 GB. If a file cannot be mapped at its address (e.g. the same file imported twice inside ONE process) Lean falls back to malloc + read, a private unshared copy - this matters for the checker (finding 6).\nSize: Mathlib's compiled files are .olean 1.8 GB, .olean.private 3.5 GB, .olean.server 0.1 GB, .ir 0.3 GB. A file that is not itself a 'module' loads all three olean parts of every import (about 5.4 GB of address space, 9,300 to 37,700 separate mappings per process). The Lean FRO reports the module system 'halving memory use to 3GB' for import Mathlib.\nCPU: no official 2026 benchmark found. Data points: 1.72 s total in Mar 2023 (Mathlib far smaller); user 4.84 s + sys 1.87 s for a trivial file with 'import Mathlib' in Apr 2025 (kernel time about 28% of the total); per-module checker runs that load Mathlib took about 1.8 s wall each (832 modules in 764 s, 2 at a time) and about 4.8 s each on a c4a-standard-16 at 4 parallel (2026). Release notes add small gains: about 3% on Linux (4.27), about 10% (4.32). My estimate: 2-5 CPU-seconds per process on a current server core, a quarter or more of it kernel time for mapping/unmapping - consistent with the measured 4-10 s per module.\nLinux vs macOS: same mechanism on both (macOS lacks MAP_FIXED_NOREPLACE; Lean post-checks the address instead). I found no published Linux-vs-macOS import comparison. Inference: the laptop's problem is 24 GB of RAM evicting the shared pages, not macOS as such; on a Linux server with ample RAM the ~2-6 GB of shared pages simply stay resident.",
+      "confidence": "medium",
+      "evidence": "Mapping flags and the sharing comment read from src/library/module.cpp at tag v4.33.1. Sebastian Ullrich answered 'Yes!' to 'Can the mmap be shared between Lean processes?' (Zulip, Nov 2022). File sizes and the 2 GB combined working set are from lean4 issue #15644. Mapping counts from a third-party PR diagnosing ENFILE. The 2-5 s estimate and the macOS conclusion are my inference; confidence on absolute import time is low-to-medium because no source measures v4.33 on a named server CPU.",
+      "source_urls": [
+       "https://raw.githubusercontent.com/leanprover/lean4/v4.33.1/src/library/module.cpp",
+       "https://leanprover-community.github.io/archive/stream/270676-lean4/topic/Lean.204.20web.20editor.html",
+       "https://github.com/leanprover/lean4/issues/15644",
+       "https://sebasti.a.nullri.ch/files/floc2026.pdf",
+       "http://cambium.inria.fr/seminaires/transparents/20260424.Sebastian.Ullrich.pdf",
+       "https://leanprover-community.github.io/archive/stream/270676-lean4/topic/import.20bottleneck.html",
+       "https://github.com/leanprover-community/mathlib4/issues/24020",
+       "https://github.com/ethereum/EthLib/pull/429",
+       "https://github.com/coproduct-opensource/nucleus/pull/3301",
+       "https://lean-lang.org/doc/reference/latest/releases/v4.27.0/",
+       "https://lean-lang.org/doc/reference/latest/releases/v4.32.0/",
+       "https://github.com/cslib-community/cslib-frontier/pull/3939"
+      ]
+     },
+     {
+      "question": "4. Are there official Lean 4 builds for Linux arm64 installable with elan, and does Mathlib's 'lake exe cache get' work there?",
+      "answer": "Yes to both. The Lean reference lists 'aarch64 Linux with glibc 2.27+' as Tier 1 ('Built and tested by CI, with binary releases available via elan'), alongside 'x86-64 Linux with glibc 2.26+'. The v4.33.1 GitHub release (published 2026-08-21) carries lean-4.33.1-linux_aarch64.tar.zst (576.5 MB) next to lean-4.33.1-linux.tar.zst. Mathlib's cache tool at tag v4.33.1 explicitly handles Linux aarch64: it fetches a static curl for arch in ['x86_64','aarch64'] and uses the leantar binary bundled in the Lean toolchain, so nothing platform-specific is missing. Compiled .olean files are architecture-independent on 64-bit little-endian: an independent packager built all of Mathlib v4.35.0 on GCP amd64 (c4-standard-96) and arm64 (c4a-standard-48, Axion) and got byte-identical artifacts (same sha256). Speed hint from the same source: at 8 jobs each, the Axion machine took 33.0 min vs 28.5 min on the Intel C4, so an Axion core ran Lean at about 86% of an unloaded C4 core - but an Axion/Graviton vCPU is a whole core whereas an x86 vCPU is normally one SMT thread.",
+      "confidence": "high",
+      "evidence": "Platform tiers quoted from the Lean reference manual. Release asset list fetched from the GitHub API for tag v4.33.1. Cache/IO.lean read at Mathlib tag v4.33.1 (whose lean-toolchain is leanprover/lean4:v4.33.1). The 86% figure is my arithmetic from the PR's two wall times. vCPU-equals-core for Arm is from AWS and Google documentation. I did not run it on a Graviton/Ampere machine myself.",
+      "source_urls": [
+       "https://lean-lang.org/doc/reference/latest/platforms/",
+       "https://github.com/leanprover/lean4/releases/tag/v4.33.1",
+       "https://raw.githubusercontent.com/leanprover-community/mathlib4/v4.33.1/Cache/IO.lean",
+       "https://github.com/gominimal/pkgs/pull/1244",
+       "https://docs.cloud.google.com/compute/docs/instances/arm-on-compute",
+       "https://aws.github.io/graviton/perfrunbook/system-load-and-compute-headroom.html",
+       "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-optimize-cpu"
+      ]
+     },
+     {
+      "question": "5. Known pitfalls for very large builds (open-file limits, million-file filesystems, tmpfs/NVMe/network disks, THP, NUMA, overcommit, Lake's own memory and startup at >100k modules)",
+      "answer": "Evidence-backed:\n- Kernel-wide file table (ENFILE, 'Too many open files in system'): every mapped .olean holds a kernel file handle even after its descriptor is closed. Measured: 9,315 to 37,700 mappings per lean process importing Mathlib but only ~90 descriptors; about 25 such processes exhausted fs.file-max = 1,048,576 on a 128-core host. A Zulip user on a 128-thread machine hits this building Mathlib and works around it with LEAN_NUM_THREADS=64. For N parallel jobs you need fs.file-max well above N x 38,000 (192 jobs: about 7.3 million). 'ulimit -n' does not help with this one.\n- Per-process mapping limit: Lean's own error text (added Nov 2026) says 'Each mapped .olean takes one memory mapping' and recommends 'sysctl vm.max_map_count=1048576'. The old kernel default is 65,530 (Ubuntu 24.04, Fedora 39+, Arch already ship 1,048,576); 37,700 fits but with little margin.\n- Per-process descriptors: Lake holds pipes per child; raise 'ulimit -n' (1024 soft default on some systems), as advised on Zulip.\n- Overcommit: since v4.31 oleans are mapped copy-on-write-writable. On Windows this charged about 5.6-7.6 GB of commit per process and exhausted a 63.8 GB commit limit within 2 minutes. Linux inference: harmless in the default heuristic mode, fatal with vm.overcommit_memory=2 - leave it at 0.\n- Network disks: gp3-class volumes default to 3,000 IOPS / 125 MiB/s; at 20 modules/s x 6.7 MB this build writes about 130 MB/s plus hundreds of file creates per second, so default network volumes throttle it. Keep Mathlib's oleans on local disk too: an import can issue 80K-150K stat calls ('2 seconds to 20 minutes' on slow drives); that lookup fix landed after v4.33.1 and matters for the checker pass.\n- Lake at this scale: see finding 8. No public measurement of Lake with >100k modules exists; the largest I found is 26k modules. A reported quadratic job-collection routine costs 13.4 s at 64,000 jobs (about 100 s extrapolated to 175k, one-off).\nNo Lean-specific evidence found (general Linux practice, low confidence): ext4 vs XFS - either copes with ~2 million files (XFS has better parallel metadata scaling; ext4's inode count is fixed at mkfs time, so check 'df -i'); tmpfs - fine for Mathlib's 6 GB, not for 1+ TB of output; THP - leave at 'madvise'; NUMA on two-socket shapes - the shared Mathlib pages sit on one node, so expect some penalty for jobs on the other node; thread/PID limits - N lean processes times up to nproc worker threads each unless lean -j is capped.",
+      "confidence": "medium",
+      "evidence": "ENFILE mechanism and counts: third-party PR whose reviewer confirmed mappings count toward fs.file-nr; Zulip thread 'Too many open files in system' (Jan 2026). vm.max_map_count text: lean4 PR #16349 diff. Commit-charge behaviour: lean4 issue #15644 (Windows only; the Linux overcommit statement is my inference from the same mapping flags). gp3 baseline: AWS docs. stat-call issue: lean4 #8092, closed 29 Sep 2026 by #15291. The filesystem, THP, NUMA and thread-limit items are general knowledge, not Lean measurements.",
+      "source_urls": [
+       "https://github.com/cslib-community/cslib-frontier/pull/3939",
+       "https://leanprover-community.github.io/archive/stream/270676-lean4/topic/Too.20many.20open.20files.20in.20system.html",
+       "https://github.com/leanprover/lean4/pull/16349",
+       "https://www.gamingonlinux.com/2024/03/ubuntu-2404-increases-vm-max-map-count-for-smoother-linux-gaming/",
+       "https://github.com/leanprover/lean4/issues/15644",
+       "https://docs.aws.amazon.com/ebs/latest/userguide/general-purpose.html",
+       "https://github.com/leanprover/lean4/issues/8092",
+       "https://github.com/leanprover/lean4/issues/15808",
+       "https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/managing_file_systems/getting-started-with-xfs"
+      ]
+     },
+     {
+      "question": "6. What tools independently re-check compiled Lean modules with the kernel, how are they run, and what do they cost relative to the build?",
+      "answer": "Built-in: 'leanchecker' ships with every toolchain from v4.28.0 (the separate lean4checker repo is deprecated). Run as 'lake env leanchecker <Module>' (replays that module's declarations through the kernel on top of its imports) or 'lake env leanchecker --fresh <Module>' (replays the module and everything it imports into an empty environment; single module only, single-threaded). It is 'not an external verifier, simply a tool to detect environment hacking'.\nCritical for this scale (read from the v4.33.1 source): given a name, leanchecker checks every module having that name as a PREFIX, and starts one task per module INSIDE ONE PROCESS. Each task imports all of that module's dependencies. Within one process a second concurrent import of the same olean cannot be mapped at its fixed address and falls back to a private malloc copy, so memory explodes: one project saw 15.3 GB after a minute on a single library layer; another peaked at 113.8 GiB with 48 replay threads. Do not run bare 'leanchecker' over the whole tree. Run ONE PROCESS PER MODULE under xargs/parallel, so each process maps Mathlib at its normal addresses and shares the page cache like the build does (the fix the EthLib project adopted).\nCost per module in that mode: 832 Mathlib-importing modules in 764 s at 2 parallel (about 1.8 s each); 88 runs in 105 s at 4 parallel on a c4a-standard-16 (about 4.8 s each); peak 1.7-3.4 GB per process (mostly shared mappings). It is dominated by loading the imports, not by kernel work. For 175k modules: roughly 100-240 core-hours, i.e. 15-40% of the build's compute - in line with the brief's 20-50%.\nExternal checkers: lean4lean (kernel re-implemented in Lean, CLI mirrors leanchecker), nanoda and others via lean4export; the Lean FRO's 'comparator' for auditing a proof against a trusted statement. The Lean Kernel Arena publishes whole-Mathlib re-check times from a 5.9 GB / 112.1M-line export (Lean 4.36.0, hardware not stated): official kernel 33.7 min / 9.9 GB, nanoda 16.0 min / 6.0 GB, fastest listed about 66 s. Pure kernel re-checking of all Mathlib is therefore about half a CPU-hour, versus roughly 3.6 CPU-hours to elaborate it.",
+      "confidence": "medium",
+      "evidence": "Behaviour read from src/LeanChecker.lean at tag v4.33.1 (IO.asTask per target module; prefix match; --fresh single module). README of leanprover/lean4checker for the deprecation and commands. Per-module costs are from three third-party CI projects on unnamed or small hardware, so the 100-240 core-hour figure is my extrapolation. The malloc-fallback explanation of the memory blow-up is my reading of module.cpp combined with those projects' observations. No source reports an export-based external check at the scale of this 175k-module tree.",
+      "source_urls": [
+       "https://github.com/leanprover/lean4checker",
+       "https://raw.githubusercontent.com/leanprover/lean4/v4.33.1/src/LeanChecker.lean",
+       "https://github.com/ethereum/EthLib/pull/429",
+       "https://github.com/compute-verification/verity/pull/2626",
+       "https://github.com/coproduct-opensource/nucleus/pull/3301",
+       "https://arena.lean-lang.org/test/mathlib/",
+       "https://sebasti.a.nullri.ch/files/floc2026.pdf"
+      ]
+     },
+     {
+      "question": "7. (Extra) What is the 6.7 MB of build output per module, and is 1.2-2 TB of disk really needed?",
+      "answer": "Very probably most of it is one file per module: <Module>.setup.json. At v4.33.1 Lake writes, for every module it compiles, a PRETTY-PRINTED JSON file under .lake/build/ir containing 'importArts' - the pre-resolved file paths (olean, olean.server, olean.private, ir) of EVERY transitively imported module - and passes it to lean with --setup. For a file importing all of Mathlib that is about 9,300 modules x up to 5 absolute paths: my arithmetic gives roughly 5-7 MB, which matches the measured 6.7 MB per module almost exactly. Another project independently found 'Most measured IR storage was regenerated setup JSON (7.3 GiB ...)' and fixed its cache by deleting ir/**/*.setup.json, with a Lean 4.34.1 cache-reuse check still passing afterwards.\nImplications: (1) the ~1.2 TB projection is mostly this JSON, not proof artifacts; pruning *.setup.json files a few minutes after they are written could cut disk need by something like 80-90% (verify on a sample that Lake 5.0.0 does not rebuild when they are missing before relying on it); (2) the sustained write load is mostly this JSON (about 130 MB/s at 20 modules/s); (3) Lake spends real CPU serialising, and lean parsing, 6 MB of JSON per module on top of the proof work.\nCheck in ten seconds on the existing partial build: du -ch $(find .lake/build/ir -name '*.setup.json' | head -500).",
+      "confidence": "medium",
+      "evidence": "Mechanism is certain: read from src/lake/Lake/Build/Actions.lean (IO.FS.writeFile setupFile (toJson setup).pretty), Lake/Config/Module.lean (setupFile = irPath \"setup.json\"), Lake/Build/Module.lean (mkModuleSetup -> fetchTransImportArts) and src/Lean/Setup.lean (ModuleSetup.importArts: 'Pre-resolved artifacts of transitively imported modules') at tag v4.33.1. That it accounts for most of the 6.7 MB is my inference from path-length arithmetic plus the odd-lean report; I have not seen this project's build directory. Safety of deleting the files is shown only for Lean 4.34.1 in one third-party project.",
+      "source_urls": [
+       "https://raw.githubusercontent.com/leanprover/lean4/v4.33.1/src/lake/Lake/Build/Actions.lean",
+       "https://raw.githubusercontent.com/leanprover/lean4/v4.33.1/src/lake/Lake/Build/Module.lean",
+       "https://raw.githubusercontent.com/leanprover/lean4/v4.33.1/src/Lean/Setup.lean",
+       "https://github.com/apellis/odd-lean/pull/948",
+       "https://lean-lang.org/doc/reference/latest/releases/v4.33.0/"
+      ]
+     },
+     {
+      "question": "8. (Extra) Does the single lake process itself become a bottleneck on a many-core machine at Lake 5.0.0 / Lean v4.33.1?",
+      "answer": "There is a real, documented risk, and it is worst for exactly this workload shape. For each module, Lake walks that module's whole transitive import closure, doing two lookups per imported module in one shared build store. At v4.33.1 those lookups use 'modifyGet' on a single reference cell, which a Lean contributor showed (Oct 2026) behaves as one spinlock for all build threads: on a 192-vCPU machine building a 26k-module workspace with closures of 700-2,200 modules, Lake itself burned 38.5k of the build's ~90k CPU-seconds (97% of Lake's cycles in the spin), and fixing it cut wall time from 930 s to 754 s and total CPU from 90.1k to 48.8k CPU-s. The Lake maintainer has since written that this closure walk has 'shown ... to be a significant bottleneck for scalability in projects with thousands of modules'. A related fix was merged on 30 Oct 2026 - after v4.33.1 - and the spinlock fix itself was still a draft when I looked.\nIn this project 155,753 modules each have a closure of about 9,300 modules (4-13x larger than in that report), i.e. about 2.9 billion store lookups through that one lock, plus the 6 MB JSON per module. Inference: on 150-200 threads Lake's spinning could consume a large fraction of the machine (tens of percent, conceivably about as much CPU as the proofs themselves); on 5-32 threads it is probably minor. A second unverified inference from the code: each module's setup result (a 9,300-entry map) appears to stay referenced in Lake's store for the whole run, which would grow the lake process by very roughly 0.3-0.6 MB per completed module (tens of GB over 155k modules). Watch lake's own RSS and CPU in a pilot; restarting 'lake build' resets it, since finished modules are reused.\nMitigations: cap LEAN_NUM_THREADS near the physical core count; split the leaf modules across several lake processes or several machines after the shared modules are built; or compile leaf modules with lean directly (make/ninja/xargs) and keep Lake for the shared part.",
+      "confidence": "medium",
+      "evidence": "Confirmed in source at tag v4.33.1: src/lake/Lake/Util/StoreInsts.lean has 'fetch? k := modifyGet fun m => (m.get? k, m)' on StateRefT'; src/lake/Lake/Build/Module.lean has fetchTransImportArts fetching mod.exportInfo and mod.input per transitive import, and recFetchPreSetup also fetching transitive/precompile imports. Measurements are from draft PRs #15712/#15714 by one author on one workload. The extrapolation to this project, and the memory-growth concern, are my own inference and have NOT been measured; they could be off by a large factor in either direction.",
+      "source_urls": [
+       "https://github.com/leanprover/lean4/pull/15712",
+       "https://github.com/leanprover/lean4/pull/15714",
+       "https://github.com/leanprover/lean4/pull/15805",
+       "https://github.com/leanprover/lean4/pull/16083",
+       "https://raw.githubusercontent.com/leanprover/lean4/v4.33.1/src/lake/Lake/Util/StoreInsts.lean",
+       "https://raw.githubusercontent.com/leanprover/lean4/v4.33.1/src/lake/Lake/Build/Module.lean",
+       "https://github.com/leanprover/lean4/issues/15809"
+      ]
+     }
+    ],
+    "recommended_setup": "Scope note: this step researched build-tool behaviour, not prices; no prices are quoted here. Items marked (inference) are my reasoning, not something a source measured.\n\nMACHINE SHAPE\n- One Linux VM or bare-metal server with root, 96-192 vCPUs. Both x86-64 and arm64 are officially supported (Tier 1) and produce identical .olean files. On x86 a vCPU is normally one SMT thread; on Graviton/Axion (and AWS's SMT-off AMD families) a vCPU is a whole core.\n- RAM: at least 3 GB per parallel lean job plus 32-64 GB (page cache for Mathlib's ~6 GB, dirty output pages, and the lake process itself). In practice a 4 GB-per-vCPU 'general purpose' shape if you run one job per vCPU; a 2 GB-per-vCPU 'compute' shape only if you run one job per physical core. The brief's '2 GB per job + 16 GB' is a floor, because on a many-core box each lean may start far more worker threads than on a 10-core laptop unless capped (inference).\n- Prefer a single-socket shape where offered; on two-socket shapes expect some NUMA penalty (general knowledge, no Lean data).\n\nOS AND FILESYSTEM\n- Ubuntu 24.04 LTS or similar recent distro (glibc requirement is only 2.26 on x86-64 / 2.27 on aarch64; 24.04 already ships vm.max_map_count=1048576).\n- Local NVMe, XFS or ext4, mounted noatime. Either handles ~2 million files; on ext4 check 'df -i' after mkfs. Put BOTH the project (.lake/build) and Mathlib's oleans on local disk, not a network filesystem.\n- If the local NVMe is ephemeral instance storage, a stop or spot reclaim loses the build. For spot/preemptible use a persistent volume with provisioned throughput (not the 125 MiB/s default) or accept restarting; 'lake build' itself resumes, reusing finished modules.\n- Disk size: 1.5-2 TB is the safe plan. If the check in finding 7 confirms setup.json files dominate, 300-500 GB plus a pruning loop would do (verify on a sample first).\n\nKERNEL AND LIMITS (set before starting)\n- sysctl fs.file-max=50000000 (need well above jobs x 38,000; 192 jobs is about 7.3 million); watch /proc/sys/fs/file-nr.\n- sysctl vm.max_map_count=1048576 (the value Lean's own error message recommends).\n- ulimit -n 1048576 in the shell that runs lake.\n- Leave vm.overcommit_memory at 0. Never 2: every lean maps ~5 GB copy-on-write (inference from the Windows commit-charge report).\n- Make sure pid/thread limits are generous (kernel.pid_max, systemd TasksMax, ulimit -u).\n- Leave transparent huge pages at 'madvise' (no Lean-specific evidence either way).\n- Run inside tmux/systemd so an SSH drop does not kill the build; tee Lake's output to a log.\n\nPARALLELISM CONTROLS\n- Number of concurrent lean processes: LEAN_NUM_THREADS=N lake build. Default is all logical CPUs. There is no lake -j.\n- Threads inside each lean: add weakLeanArgs = [\"-j2\"] (try -j1 too) to the lakefile; default is all logical CPUs per process, and LEAN_NUM_THREADS does not affect it. weakLeanArgs do not invalidate existing build traces.\n- Starting point: N = number of physical cores (e.g. 96 on a 192-vCPU x86 box); then try 1.5x and 2x and keep whichever gives the most modules per minute.\n\n15-MINUTE PILOT BEFORE COMMITTING (this collapses most of the uncertainty)\n1. lake exe cache get (about a minute), then warm the page cache by building a handful of modules.\n2. Run the real build for 10-15 min at N = cores. Record: modules completed per minute (Lake's [k/175187] counter), the lake process's own CPU% and RSS and whether RSS keeps climbing, system-wide sys% (vmstat), typical RSS and thread count per lean, /proc/sys/fs/file-nr, and du of *.setup.json.\n3. Wall-clock estimate = remaining modules / measured rate. If lake itself is using many cores or sys% is above ~30-40%, lower N or shard.\n\nIF ONE LAKE PROCESS DOES NOT SCALE (finding 8)\n- Build the shared, imported-by-others modules first with one lake build; then split the leaf modules into K disjoint target lists and run K lake processes (or K smaller machines), each with LEAN_NUM_THREADS = cores/K. Or compile leaves with 'lake env lean -o ... -i ...' under make/ninja/xargs, bypassing Lake's per-module closure walk and the 6 MB JSON. Horizontal sharding across 2-4 mid-size machines is the lowest-risk route to near-linear scaling.\n\nVERIFICATION PASS\n- One process per module: feed the module list to xargs -P N running 'lake env leanchecker <Module>' (optionally -v), logging failures. Do NOT run bare leanchecker over the whole project in one process (one task per module, each with its own multi-GB copy of Mathlib). Note a module name also matches every module it prefixes. Memory per process 2-3.5 GB peak, mostly shared. Keep the oleans on local disk: at v4.33.1 each run still does the 80-150K stat-call path lookup.\n\nMAIN PITFALLS, IN ORDER OF LIKELIHOOD\n1. Lake's own contention/overhead at high thread counts on v4.33.1 (finding 8).\n2. ENFILE from fs.file-max being too low for jobs x 38k mapped files.\n3. Thread and memory oversubscription from each lean defaulting to nproc worker threads.\n4. Disk filling with setup.json, or a throttled network volume.\n5. Checker run as a single process.\n6. Losing ephemeral NVMe on a spot reclaim.",
+    "scaling_estimate": "BOTTOM LINE: on one 96-192 vCPU cloud server the build should take roughly half a day (central estimate 7-14 hours, plausible range about 4-30 hours), plus 2-5 hours for the kernel-replay pass, versus 5.4 days on the laptop. Budget about 1,500-3,000 vCPU-hours for build plus verification, with 5,000 as a pessimistic ceiling before reruns. It will not scale linearly to 192 threads, and with the pinned toolchain (Lake 5.0.0) the return from going beyond about 96-128 concurrent jobs in a single lake process is genuinely uncertain. A 15-minute pilot measuring modules per minute replaces this whole estimate with a measured one.\n\nMODEL (my construction, anchored on the sources in the findings)\nwall-clock = W / (V x s x E x L)\n- W = total work, given as 0.9-2.6 million core-seconds on an M-class performance core; central 1.5 million.\n- V = vCPUs; s = worth of one vCPU in those units: 0.4-0.6 for an x86 SMT thread (given; central 0.5). For Arm vCPUs (whole cores) I would use about 0.5-0.65 (from memory, unverified); the one sourced anchor is that an Axion core ran a Mathlib build at about 86% of an unloaded Intel C4 core.\n- E = hardware/kernel efficiency versus linear when many Mathlib-loaded lean processes run at once (memory bandwidth, shared-page and mmap contention): about 0.9 up to 32 jobs, 0.85 at 64, 0.8 at 96, 0.75 at 128, 0.7 at 192, each +/-0.1. Anchor: Kimina's Lean-plus-Mathlib workers scaled 92% from 8 to 32 cores and 67% from 8 to 64; a 192-vCPU, 26k-module build kept only ~65 vCPUs busy.\n- L = share of the machine NOT lost to Lake's own work at v4.33.1 (closure walks through one spinlock, 6 MB JSON per module): about 0.95 up to 32 threads, 0.9 at 64, 0.8 at 96, 0.75 at 128, 0.6 at 192, each +/-0.15. Anchor: on 192 vCPUs Lake's spinning ate 43% of all CPU in a workspace whose import closures were 4-13x smaller than here. This is the least certain term.\n\nBUILD TIME, x86 SMT vCPUs, central W and s (single lake process)\n- 32 vCPU: about 30 h\n- 64 vCPU: about 17 h\n- 96 vCPU: about 14 h\n- 128 vCPU: about 12 h\n- 192 vCPU: about 10 h\nIf Lake's overhead is removed (sharded lake processes, direct lean for leaves, or it simply turns out small; L about 0.95): 96 vCPU about 11 h, 128 about 9 h, 192 about 6.5 h.\nUncertainty: W spans 0.6x-1.7x of central and s 0.8x-1.25x, so each figure carries a band of roughly 0.5x to 2.2x. For 192 vCPUs that is about 3.5-22 h.\n\nVERIFICATION PASS: about 100-240 core-hours (15-40% of build compute; mostly re-loading Mathlib 175k times), near-linear because the processes are independent: roughly 1.5-4 h on 192 vCPUs, 3-7 h on 96.\n\nvCPU-HOURS (build only, central): 32 vCPU about 970; 64 about 1,090; 96 about 1,300; 128 about 1,480; 192 about 1,980 (about 1,250 if Lake overhead is avoided). Smaller machines are cheaper per module but slower; 96-128 vCPUs is the sensible middle for a one-off. Two to four 64-vCPU machines each taking a slice of the leaf modules should beat one 192-256 vCPU machine on both cost and risk, if the import graph allows a clean split (155,753 of 175,187 files import all of Mathlib and the longest chain is 203, so most are probably leaves; I have not seen the graph).\n\nMAIN BOTTLENECKS, IN ORDER\n1. Raw core-seconds: about 4-10 CPU-seconds per module, of which a floor of 2-5 s is just loading Mathlib and cannot be parallelised away.\n2. The single lake process on v4.33.1 at high thread counts (lock contention proportional to modules x import-closure size; fixes landed only after this toolchain).\n3. Kernel time for mapping and unmapping ~9k-38k files per process, and memory-bandwidth contention across ~100-200 processes sharing a ~2 GB hot set.\n4. Memory, if under-provisioned: below about 2-3 GB per job the shared pages get evicted and it degrades toward the laptop's behaviour.\n5. Disk throughput only if on a default network volume.\nThe import graph itself is not a bottleneck here, unlike for Mathlib, which stops speeding up at about 24-32 cores (9.5 min on a 48-core/96-thread EPYC at only 2300% CPU).\n\nWHAT WOULD CHANGE THE ANSWER: the pilot's modules-per-minute at steady state; lake's own CPU share at the chosen thread count; whether lean -j1/-j2 raises throughput; and whether the early (shared, deep-chain) part of the graph behaves differently from the wide leaf part, so measure after the first few thousand modules."
+   }
+  }
+ ],
+ "synthesis": {
+  "recommended": [
+   {
+    "rank": 1,
+    "label": "Best value on demand (first choice if the quota is granted)",
+    "provider": "Microsoft Azure",
+    "instance": "Standard_HB176rs_v4 (HBv4), East US or East US 2",
+    "vcpus": 176,
+    "ram_gb": 768,
+    "hourly_usd": 7.2,
+    "pricing_basis": "On-demand (pay-as-you-go), Linux, East US / East US 2; read 2026-11-20 from Microsoft's Retail Prices API (first-party). Excludes tax.",
+    "est_build_hours_low": 4,
+    "est_build_hours_high": 23,
+    "est_total_cost_usd_low": 55,
+    "est_total_cost_usd_high": 280,
+    "cost_includes": "Compute for the whole rental: 2-3 h of setup, pilot and teardown, the build, a 30% margin for one partial rerun, and the verification pass (central 14.7 billed hours, range 7.7-38). Storage is the 2 x 1.8 TiB local NVMe included in the VM price (3.6 TiB striped), so no separate 2 TB volume. A few dollars for the OS disk and public IP are inside the rounding. Central total about $106.",
+    "why": "176 full cores (no SMT) with 768 GB and 3.6 TiB of local NVMe for $7.20/h is the lowest cost per real core among the large machines, and it needs no network disk. Central estimate: build 8.0 h, verification 1.8 h. RAM covers 176 parallel jobs even at 3 GB per job plus 64 GB.",
+    "risks": "HB-family quota is a separate pool that reportedly starts at 0 on new subscriptions and usually needs a support ticket (same day to a week; can be refused). The local NVMe is erased if the VM is deallocated, so the build cannot be paused cheaply; a merely stopped VM keeps billing. The Lake contention risk at 176 jobs applies in full. Free-trial subscriptions cannot raise quota. Per-second billing is from memory, not re-checked.",
+    "source_urls": [
+     "https://prices.azure.com/api/retail/prices?$filter=serviceName%20eq%20'Virtual%20Machines'%20and%20armRegionName%20eq%20'eastus'%20and%20armSkuName%20eq%20'Standard_HB176rs_v4'",
+     "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/high-performance-compute/hbv4-series",
+     "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/lifecycle/retirements-and-capacity-restrictions"
+    ]
+   },
+   {
+    "rank": 2,
+    "label": "Fastest single machine, and resumable (the mainstream default)",
+    "provider": "AWS EC2",
+    "instance": "m8a.48xlarge, us-east-2 (Ohio), plus one 2,000 GB gp3 EBS volume",
+    "vcpus": 192,
+    "ram_gb": 768,
+    "hourly_usd": 11.68512,
+    "pricing_basis": "On-demand, Linux, us-east-2; read 2026-11-20 from AWS's own price-list JSON and cross-checked against Vantage. Excludes tax.",
+    "est_build_hours_low": 3.5,
+    "est_build_hours_high": 21,
+    "est_total_cost_usd_low": 90,
+    "est_total_cost_usd_high": 440,
+    "cost_includes": "Compute for setup, pilot, build, 30% partial-rerun margin, verification and teardown (central 13.7 billed hours, range 7.1-35.4), plus a 2 TB gp3 volume provisioned at 16,000 IOPS / 1,000 MiB/s at about $9/day for 1-3 days ($9-27). Central total about $178 ($160 compute + $18 storage). Returning only logs is free of egress charges.",
+    "why": "192 physical Zen 5 cores (AWS states one vCPU = one core on this family) is the most raw compute at a first-party-verified price. Central estimate: build 7.4 h, verification 1.6 h. The build tree sits on EBS, which survives a stop, so the instance can be stopped overnight and resumed while only storage bills. x86-64, so no architecture question. In the model it is only about 8% faster than rank 1, which is inside the noise; choose it for resumability or if Azure refuses HB quota.",
+    "risks": "New AWS accounts default to 5 vCPUs for standard instances; raising that to 192 takes anywhere from hours to several business days and can be partly approved. Accounts opened since July 2025 must first move off the Free plan. A gp3 volume left at its default 3,000 IOPS / 125 MiB/s would throttle the build, so the performance must be provisioned. The gp3 throughput rate is uncertain between $0.04 and $0.06 per MB/s-month (about $1 either way). Lake contention at 192 jobs is the largest untested factor.",
+    "source_urls": [
+     "https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/ec2/USD/current/ec2-ondemand-without-sec-sel/US%20East%20(Ohio)/Linux/index.json",
+     "https://aws.amazon.com/ec2/instance-types/m8a/",
+     "https://instances.vantage.sh/aws/ec2/m8a.48xlarge",
+     "https://docs.aws.amazon.com/ebs/latest/userguide/general-purpose.html",
+     "https://aws.amazon.com/ebs/pricing/"
+    ]
+   },
+   {
+    "rank": 3,
+    "label": "Cheapest on a hyperscaler using Spot (best for reruns)",
+    "provider": "AWS EC2",
+    "instance": "m8a.48xlarge Spot, us-east-2 (Ohio), plus one 2,000 GB gp3 EBS volume",
+    "vcpus": 192,
+    "ram_gb": 768,
+    "hourly_usd": 2.8,
+    "pricing_basis": "Spot, us-east-2. $2.80/h is the central budgeting figure implied by AWS Spot Advisor's roughly 76% 30-day average saving. The AWS spot feed snapshot on 2026-11-20 was $1.607/h (used for the low end); the high end assumes 35% of on-demand ($4.09/h).",
+    "est_build_hours_low": 3.5,
+    "est_build_hours_high": 23,
+    "est_total_cost_usd_low": 20,
+    "est_total_cost_usd_high": 195,
+    "cost_includes": "Same billed-hour model as rank 2 plus 5-10% for restarts after interruptions (central 14.4 billed hours, range 7.1-39), and the 2 TB gp3 volume at about $9/day for 1-4 days ($9-36; it keeps billing while the instance waits for capacity). Central total about $58.",
+    "why": "Same machine as rank 2 at roughly a quarter of the price. Spot Advisor lists interruption frequency under 5% for this type in us-east-2. With the build on EBS and a persistent Spot request set to 'stop' on interruption, the volume is kept and Lake rebuilds only the modules that were in flight.",
+    "risks": "The $2.80/h figure is derived from the advisor's percentage, not a quoted price; a single snapshot showed $1.61 and a third-party site showed higher figures in us-east-1, so spot prices move. Spot needs its own quota increase (default 5 vCPUs), separate from on-demand. A 48xlarge Spot request can fail to launch for lack of capacity, and a reclaim gives two minutes' notice on a best-effort basis. Never keep the build tree on instance-store NVMe under Spot. Sensible use: on-demand for the first run, Spot for any rerun.",
+    "source_urls": [
+     "https://website.spot.ec2.aws.a2z.com/spot.json",
+     "https://spot-bid-advisor.s3.amazonaws.com/spot-advisor-data.json",
+     "https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/ec2/USD/current/ec2-ondemand-without-sec-sel/US%20East%20(Ohio)/Linux/index.json",
+     "https://aws.amazon.com/ebs/pricing/"
+    ]
+   },
+   {
+    "rank": 4,
+    "label": "Simplest start for a new account: hourly bare metal with no quota ticket",
+    "provider": "Scaleway (Elastic Metal, bare metal)",
+    "instance": "EM-I620E-NVMe (AMD EPYC 8534P, 64 cores / 128 threads), Paris, Amsterdam or Warsaw",
+    "vcpus": 128,
+    "ram_gb": 576,
+    "hourly_usd": 2.04,
+    "pricing_basis": "Hourly billing with no commitment, EUR 1.863/h excl. VAT, from Scaleway's public catalog API on 2026-11-20; converted at 1 EUR = 1.097 USD. Choose hourly, not monthly (monthly adds a one-month commitment fee).",
+    "est_build_hours_low": 8,
+    "est_build_hours_high": 42,
+    "est_total_cost_usd_low": 27,
+    "est_total_cost_usd_high": 145,
+    "cost_includes": "Server rental for setup, pilot, build, 30% partial-rerun margin, verification and teardown (central 26.7 billed hours, range 13.4-70). Storage is the two included 3.84 TB NVMe drives (about 7 TB striped), no extra charge. Central total about $54, excl. VAT.",
+    "why": "A whole dedicated machine with root, no setup fee, no cloud quota request, and far more local NVMe and RAM (4.5 GB per thread) than the job needs. It is the route most likely to be running within a day or two of signing up. Slower than the 176-192 core machines (central build 15.5 h, verification 4 h) but about half their cost, and 128 jobs is a gentler test of Lake's scaling.",
+    "risks": "Stock was not checked (needs an account) and this model requires identity validation first. The per-thread speed of this lower-clocked dense-core EPYC is my assumption (0.75 of a standard cloud vCPU), not a benchmark. Powering off does not stop billing; the server must be deleted. Prices rose on 1 June 2026, so recheck. VAT may apply on top.",
+    "source_urls": [
+     "https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=elastic_metal",
+     "https://www.scaleway.com/en/pricing/elastic-metal/",
+     "https://www.scaleway.com/en/docs/elastic-metal/faq/",
+     "https://scaleway.com/en/docs/organizations-and-projects/additional-content/organization-quotas"
+    ]
+   },
+   {
+    "rank": 5,
+    "label": "Cheapest overall (budget bare metal, if in stock)",
+    "provider": "Cherry Servers (bare metal)",
+    "instance": "AMD EPYC 9554P dedicated server (64 cores / 128 threads), Lithuania",
+    "vcpus": 128,
+    "ram_gb": 384,
+    "hourly_usd": 1.48,
+    "pricing_basis": "Hourly at USD 1.48/h from a prepaid balance, no setup fee listed; read from Cherry Servers' pricing page on 2026-11-20.",
+    "est_build_hours_low": 7,
+    "est_build_hours_high": 37,
+    "est_total_cost_usd_low": 18,
+    "est_total_cost_usd_high": 95,
+    "cost_includes": "Server rental for setup, pilot, build, 30% partial-rerun margin, verification and teardown (central 24.2 billed hours, range 12.3-62.5). Storage is the two included 1 TB NVMe drives (2 TB striped). Central total about $36.",
+    "why": "Lowest hourly rate per thread found, on full-speed Zen 4 cores, deployed in 15-30 minutes for pre-built stock. Central build 13.8 h and verification 3.7 h, modelled at about 112 parallel jobs because 384 GB does not cover 128 jobs at 3 GB each.",
+    "risks": "Only one unit was in stock (Lithuania) when checked; every other location was on a waiting list. The base 2 TB of disk is marginal against the 1.2-2 TB output estimate and is only comfortable if the setup.json check shows most of the output can be pruned; extra disks make it a custom build (about 24 h, price not found). Card payment needs identity verification. Powering off does not stop billing.",
+    "source_urls": [
+     "https://www.cherryservers.com/pricing/dedicated-servers/amd-epyc-9554p",
+     "https://www.cherryservers.com/pricing/dedicated-servers",
+     "https://www.cherryservers.com/knowledge/docs/usage-billing/payment-methods"
+    ]
+   }
+  ],
+  "time_model": "BOTTOM LINE: one rented 128-192 core Linux server in your own account should do the build in roughly half a day to a day (central 7-16 h, against 5.4 days on the laptop) plus 2-4 h of verification, for about $20-450 all-in depending on the route. Lead time, not the build, is the schedule risk: up to a week for a hyperscaler quota increase, or a day or two for bare-metal identity checks. All hours and totals are modelled, not measured.\n\nTHE ARITHMETIC\n1. Work W: the given 500-1,800 standard vCPU-hours (one x86 SMT thread = 0.4-0.6 of an Apple P-core). Central 835 (1.5 million P-core-seconds / 0.5).\n2. Core-type factor k, the worth of one vCPU relative to a standard SMT vCPU. These are my assumptions, blending the researchers' ratios:\n   - Zen 5 SMT thread: 1.0\n   - Full Zen 5 core, SMT off (AWS m8a): 1.4\n   - Full Zen 4 V-cache core (Azure HBv4): 1.3\n   - Zen 4 SMT thread (EPYC 9554P): 0.9\n   - Dense-core Zen 4c SMT thread (EPYC 8534P): 0.75\n3. Parallel efficiency, falling as the job count N rises (linear interpolation between points):\n   - Hardware/kernel factor E: 0.90 at 32 jobs or fewer, 0.85 at 64, 0.80 at 96, 0.75 at 128, 0.70 at 192.\n   - Lake-contention factor L (one lake process on v4.33.1): 0.95, 0.90, 0.80, 0.75, 0.60 at the same points, each +/-0.15.\n4. Build hours = W / (V x k x E x L). Low uses W=500 and L+0.15 (capped at 0.95); central uses W=835; high uses W=1,800 and L-0.15.\n5. Verification = 20% / 35% / 50% of build compute, run as independent processes with no Lake term: hours = fraction x build hours x L.\n6. Billed hours = fixed overhead (2 / 2.5 / 3 h for OS and disk setup, toolchain, upload, cache download, a 15-20 minute pilot, Lake start-up, copying results off, teardown) + 1.3 x build (30% margin for one partial rerun) + verification.\n7. Cost = billed hours x hourly rate + storage.\n\nWORKED RESULTS (low / central / high)\n- AWS m8a.48xlarge: 835 / (192 x 1.4 x 0.70 x 0.60) = 835 / 112.9 = 7.4 h build (3.5 / 7.4 / 21.3). Verification 0.35 x 7.4 x 0.60 = 1.6 h. Billed 2.5 + 9.6 + 1.6 = 13.7 h (7.1 / 13.7 / 35.4). At $11.685/h plus gp3 at $9/day for 1 / 2 / 3 days: $92 / $178 / $441.\n- Same machine on Spot at $1.61 / $2.80 / $4.09 per hour, 5-10% extra hours for restarts, storage for 1 / 2 / 4 days: $20 / $58 / $195.\n- Azure HB176rs_v4: 835 / (176 x 1.3 x 0.7125 x 0.6375) = 8.0 h build (3.9 / 8.0 / 22.7). Billed 7.7 / 14.7 / 38.0 h at $7.20: $55 / $106 / $273.\n- Scaleway EM-I620E: 835 / (128 x 0.75 x 0.75 x 0.75) = 15.5 h build (7.7 / 15.5 / 41.7). Billed 13.4 / 26.7 / 69.7 h at $2.04: $27 / $54 / $142.\n- Cherry EPYC 9554P at 112 jobs (RAM-capped): 835 / (112 x 0.9 x 0.775 x 0.775) = 13.8 h build (6.9 / 13.8 / 36.9). Billed 12.3 / 24.2 / 62.5 h at $1.48: $18 / $36 / $92.\n\nCROSS-CHECK: the same formula with k=1.0 on 192 SMT vCPUs gives 835 / (192 x 0.70 x 0.60) = 10.4 h, matching the scaling research's independent estimate of about 10 h (3.5-22 h).\n\nSENSITIVITY: if Lake's contention is avoided (several lake processes each on a slice of the leaf modules, or it simply turns out small, L about 0.95), the 176-192 core machines drop to roughly 4.7-5.4 h central. A 15-20 minute pilot measuring modules per minute replaces this whole model with a measured rate for a few dollars.",
+  "setup_steps": [
+   "Before spending anything, run the 10-second disk check on the existing partial build on the laptop: du -ch $(find .lake/build/ir -name '*.setup.json' | head -500). If these files account for most of the 6.7 MB per module, the 1.2 TB projection is mostly regenerable JSON and the real disk need may be 300-500 GB (confirm on a sample that Lake 5.0.0 does not rebuild when they are pruned before relying on it).",
+   "Start the lead-time item today, in parallel on two providers. Azure: upgrade to pay-as-you-go and request 176 vCPUs of HBv4-family quota plus matching regional total in East US and East US 2. AWS: move the account to the Paid plan and request 192-256 vCPUs for 'Running On-Demand Standard instances' in us-east-2 (and us-east-1), plus the separate Spot quota if reruns will use Spot. State the use case plainly: a one-off 176-192 vCPU batch build lasting about a day. If you would rather not wait on a quota decision, sign up and complete identity validation with Scaleway at the same time; use whichever comes through first.",
+   "Secure the account before launching: MFA on the root or owner login, a dedicated resource group (Azure) or tagged resources (AWS) so everything can be deleted together, an SSH key generated locally, inbound SSH restricted to your own IP, and a budget alert at about $300-500.",
+   "Launch one VM with Ubuntu 24.04 LTS. On Azure HBv4, stripe the two local NVMe drives with mdadm RAID0. On AWS, attach an encrypted 2,000 GB gp3 volume provisioned at 16,000 IOPS and 1,000 MiB/s (not the default 3,000 / 125). Format XFS (or ext4, then check df -i) and mount with noatime. On bare metal, put the scratch filesystem on LUKS with a throwaway key.",
+   "Set kernel limits before starting: sysctl fs.file-max=50000000 and vm.max_map_count=1048576; ulimit -n 1048576 in the shell that runs lake; leave vm.overcommit_memory at 0; make sure pid and systemd task limits are generous. Each lean process holds up to about 38,000 file mappings, so 192 jobs need roughly 7.3 million kernel file handles.",
+   "Install elan and Lean v4.33.1, copy the 250 MB of source up with rsync (excluding .lake), and run 'lake exe cache get' for the Mathlib cache (about a minute). Keep both the project and Mathlib's compiled files on the local or provisioned disk, never a network filesystem.",
+   "Cap threads inside each lean process on the server copy only: add weakLeanArgs = [\"-j2\"] to the lakefile (try -j1 too). By default every lean process starts as many worker threads as the machine has CPUs; weakLeanArgs do not invalidate build traces. The number of concurrent lean processes is set with LEAN_NUM_THREADS=N lake build (Lake has no -j flag).",
+   "Run a 15-20 minute pilot under tmux with N equal to the physical core count. Record modules completed per minute, the lake process's own CPU and memory (and whether memory keeps climbing), system-wide kernel time, /proc/sys/fs/file-nr, and the size of the setup.json files. Extrapolate the finish time from the measured rate. If lake itself is using many cores or kernel time is above about 30-40%, lower N or split the leaf modules across several lake processes.",
+   "Run the full build under tmux or systemd with output teed to a log, copy logs off periodically, and arm a safety net against a forgotten machine (budget alert plus a scheduled or end-of-script shutdown; a forgotten VM costs about $170-280 a day).",
+   "Run the verification pass as one process per module: feed the module list to xargs -P N running 'lake env leanchecker <Module>' and log failures. Do not run bare leanchecker over the whole tree in one process (memory explodes), and remember a module name also matches every module it prefixes.",
+   "Copy back only logs and small result files (free; do not download the roughly 1 TB of build products, which would cost about $85-120 in egress).",
+   "Tear down the same day: delete the Azure resource group, or on AWS terminate the instance and delete the EBS volume, any snapshots, Elastic IP, key pair, security group and any persistent Spot request; on bare metal delete the server (powering off does not stop billing). Check the billing page the next day for zero ongoing charges. Keep the volume only if a rerun is days away: storing 1.2 TB costs about $60-160 a month, as much as rebuilding."
+  ],
+  "full_control_notes": "Every recommended option is a root-access VM or a whole physical server in your own account, reached with your own SSH key, on an OS image you choose. Nobody else operates the build and no managed CI or build service is involved. Data stays on that machine's disks in the region you pick, and the whole thing is destroyable afterwards.\n\nIsolation: the hyperscaler VMs run on shared hardware by default. AWS states its Nitro system gives staff no mechanism to log in to hosts or read instance memory or encrypted volumes; a bare-metal variant (m8a.metal-48xl) or Dedicated Hosts exist if single-tenant hardware is required. Scaleway and Cherry are single-tenant physical machines by nature.\n\nData at rest: managed disks on AWS and Azure are encrypted by default (tick encryption on the EBS volume). On bare metal, the providers' disk-wipe policy on release was not verified, so create the scratch filesystem on LUKS with a throwaway key from the start and destroy the key at the end; that removes any reliance on the provider's wipe.\n\nExposure: restrict SSH to your own IP (or use AWS Session Manager with no inbound ports). Only the source tree goes up and only logs and small results come back.\n\nClean-up: local NVMe contents are gone as soon as an Azure VM is deleted or deallocated or an AWS instance stops or terminates. EBS and other managed volumes, snapshots, images, reserved IPs and keys persist and keep billing until deleted explicitly. Deleting the Azure resource group removes everything in it; on AWS each item must be removed. Confirm with the billing report a day later.\n\nBilling traps: an Azure VM that is stopped but not deallocated still bills, and deallocating it wipes the local NVMe. Bare-metal servers bill until deleted, not until powered off.",
+  "not_recommended": [
+   "Hetzner AX162-2 dedicated server: a one-off setup fee of about USD 460 makes a single run cost roughly USD 470-500, and it has only 256 GB RAM. Its price came from a third-party table, not Hetzner's site. Only sensible if the box is kept for repeated reruns.",
+   "OVHcloud bare metal (SCALE-a7): monthly billing plus an installation fee, about USD 2,960 for the first month regardless of hours used.",
+   "OVHcloud Public Cloud c3-256: about USD 3.71/h for 128 vCores of unstated CPU model and only 256 GB, and new projects need a paid quota tier tied to account age. Dominated by the bare-metal options.",
+   "Oracle Cloud VM.Standard.E6.Flex (126 cores, 512 GB, about USD 4.97/h with a block volume): on paper the cheapest hyperscaler route (roughly USD 40-195 by the same model), but a new tenancy defaults to 6 cores and the limit increase has no documented turnaround and may be refused. Worth filing a parallel request; not something to plan around.",
+   "Google Cloud c4d-standard-192-lssd (USD 10.39/h): 192 vCPUs are only 96 physical cores, so it costs nearly as much as AWS m8a for about half the cores. Google prices came from third-party aggregators.",
+   "Google Cloud h4d-highmem-192-lssd (192 full Zen 5 cores, about USD 9.42/h): attractive on paper, but price sources disagree (USD 9.42 against USD 13.74 elsewhere), it is offered in few regions, has its own quota pool, and Spot availability is unconfirmed. Reasonable only if you already have a Google Cloud account with H4D quota.",
+   "Google Cloud c4d-standard-384-lssd (USD 20.77/h): a 384-vCPU quota is a hard ask for a new account and running about 380 jobs through one lake process is untested, exactly where Lake's contention is worst.",
+   "AWS m9g.48xlarge (Graviton5, USD 9.39/h): a valid arm64 alternative, but 20% cheaper and roughly 17% slower than m8a is a wash (about USD 164 against USD 178 central), with possibly tighter capacity for a new family. Use it only if m8a capacity is unavailable.",
+   "AWS compute-optimised shapes with 384 GiB (c8a, c9g, c8g 48xlarge): 2 GiB per vCPU is too tight for 192 jobs, for a saving of only about USD 7-20 on the whole job.",
+   "AWS m8i.48xlarge (Intel): 192 vCPUs are 96 cores, and m8a measured about 1.6x faster at the same vCPU count for a similar price.",
+   "AWS local-NVMe 'd' variants (m8gd and similar): the hourly premium exceeds the cost of a 2 TB gp3 volume, and instance-store data is erased on any stop, which removes the resume option.",
+   "Azure Standard_F80ads_v7 (80 full cores, USD 6.86/h) and Standard_D160ads_v7: fallbacks if HB quota is refused. F80ads_v7 is the smallest quota ask and the most predictable scaling, but slower and dearer overall than HBv4 (about 6-28 h build, USD 70-340).",
+   "Azure HBv5 (368 cores, USD 19.80/h): only 432 GB RAM, which limits it to about 200 jobs.",
+   "Azure HBv4 on Spot (USD 1.46/h): the cheapest spot rate found, but local NVMe is wiped on eviction with 30 seconds' notice and attaching a persistent Premium SSD v2 disk to HBv4 was not confirmed.",
+   "Latitude.sh c4.metal.large (USD 4/h): new accounts have a USD 100 hourly-spend cap, about 25 hours, which the high end of the estimate would exceed.",
+   "Vultr, DigitalOcean and Hetzner Cloud: largest available machines are too small (24-48 cores or under 1 TB of disk).",
+   "Any Spot or preemptible run with the build tree on ephemeral local NVMe: a reclaim loses all build products.",
+   "Managed CI or hosted build services: fail the full-control requirement."
+  ],
+  "biggest_uncertainties": [
+   "How one lake process scales to 150-200 parallel jobs on the pinned toolchain (Lake 5.0.0 / Lean v4.33.1). A documented lock-contention problem, fixed only in later releases, is worst for exactly this shape of project (155,753 modules each importing about 9,300). It could consume anywhere from a few percent to nearly half the machine. This is unmeasured for this workload and is the main reason the ranges are wide.",
+   "Total work. The 500-1,800 vCPU-hour figure is a 3.6x spread extrapolated from a memory-starved laptop, so the true compute could sit anywhere in it.",
+   "Per-core speed ratios. The worth of each server core relative to an Apple performance core (the k factors) is assumed, not benchmarked for Lean; the researchers themselves used differing ratios. The dense-core EPYC in the Scaleway machine is the least certain.",
+   "Lead time and availability. Quota increases for 176-192 vCPUs on a new account are not guaranteed and have no published turnaround (hours to a week, possibly partial or refused). Bare-metal stock was thin (one Cherry unit) or unchecked (Scaleway).",
+   "Disk need. The 1.2 TB projection is probably dominated by regenerable setup.json files, but that is an inference from the source code; neither the share nor the safety of pruning them on Lake 5.0.0 has been checked on this project.",
+   "Operational failure modes at this scale that would cost hours if hit: kernel file-table exhaustion if limits are not raised, each lean process spawning one worker thread per CPU unless capped, and possible memory growth of the lake process over 175,000 modules.",
+   "Verification cost. The 20-50% figure is extrapolated from three small third-party CI projects; nobody has reported a per-module kernel replay at this scale.",
+   "Prices. All were read on 2026-11-20 and exclude tax. Spot prices move daily and the central spot figure is derived from a percentage saving. The Scaleway figure depends on a EUR conversion. Billing granularity on Azure is from memory.",
+   "Partial-rerun allowance. A 30% margin is included; a full second run would add roughly the cost of the build again (cheap on Spot or bare metal, about USD 60-250 on demand)."
+  ]
+ },
+ "checks": [
+  {
+   "web_access": true,
+   "checks": [
+    {
+     "provider": "Microsoft Azure",
+     "instance": "Standard_HB176rs_v4 (HBv4), East US and East US 2, Linux pay-as-you-go",
+     "verdict": "confirmed",
+     "claimed_hourly_usd": 7.2,
+     "found_hourly_usd": 7.2,
+     "specs_match": true,
+     "source_url": "https://prices.azure.com/api/retail/prices?$filter=serviceName%20eq%20'Virtual%20Machines'%20and%20armSkuName%20eq%20'Standard_HB176rs_v4'%20and%20priceType%20eq%20'Consumption'",
+     "note": "Queried Microsoft's Retail Prices API myself on 2026-11-20 (per-region and all-region queries). SOURCE SAYS: 'Virtual Machines HBrsv4 series' / HB176rsv4 / Consumption = 7.2 USD per 1 Hour in both eastus and eastus2 (effective 2023-06-01, unchanged). Spot (Linux): eastus 1.46304 USD/h (effective 2026-11-01), eastus2 1.33056 USD/h (effective 2026-10-01); legacy Low Priority 1.44 USD/h. Windows on-demand is 15.296 USD/h. Other US region for comparison: southcentralus 8.64 USD/h. Third-party aggregators agree on 7.20 (https://cloudprice.net/vm/Standard_HB176rs_v4, https://www.economize.cloud/resources/azure/pricing/virtual-machine/hb176rsv4/). SPECS (https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/high-performance-compute/hbv4-series, page dated 2026-09-25): 176 vCPUs, 768 GB RAM, AMD EPYC 9V33X 'Genoa-X' (4th-gen EPYC with 3D V-Cache), 'no simultaneous multithreading' so each vCPU is a full physical core; base 2.55 GHz, peak 3.7 GHz. Local storage: 1 temp disk 480 GiB plus 2 NVMe disks of 1800 GiB each (about 3.6 TB local NVMe included in the price). AVAILABILITY: HBv4 is NOT listed on Microsoft's retirements / capacity-restriction page (only HC and HBv2 appear under HPC, retiring 2027-05-31): https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/lifecycle/retirements-and-capacity-restrictions. MY INFERENCE, not checked: a price listing does not prove capacity or quota; I did not verify per-subscription quota for the HB family."
+    },
+    {
+     "provider": "AWS EC2",
+     "instance": "m8a.48xlarge on-demand, us-east-2 (Ohio), Linux, plus one 2,000 GB gp3 EBS volume",
+     "verdict": "confirmed",
+     "claimed_hourly_usd": 11.68512,
+     "found_hourly_usd": 11.68512,
+     "specs_match": true,
+     "source_url": "https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/ec2/USD/current/ec2-ondemand-without-sec-sel/US%20East%20(Ohio)/Linux/index.json",
+     "note": "The instance rate is exactly right, but the quoted figure is the INSTANCE ONLY - it does not include the 2,000 GB gp3 volume named in the configuration. SOURCE SAYS (AWS pricing-page data feed, publication date 2026-11-20T03:48:50Z, downloaded and parsed by me): m8a.48xlarge, US East (Ohio), Linux, price 11.6851200000 USD/h, vCPU 192, Memory 768 GiB, Storage 'EBS only', network 75000 Megabit. Cross-checks agree at 11.68512: https://instances.vantage.sh/aws/ec2/m8a.48xlarge?region=us-east-2 and https://cloudprice.net/aws/ec2/instances/m8a.48xlarge. EBS (AWS feed https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/ec2/USD/current/ebs.json, dated 2026-11-20): gp3 storage in US East (Ohio) = 0.08 USD per GB-month; extra IOPS 0.005 USD per IOPS-month and extra throughput 40.96 USD per GiB/s-month (0.04 per MiB/s-month) beyond the included baseline. MY ARITHMETIC: 2,000 GB x 0.08 = 160 USD/month = about 0.219 USD/h at 730 h/month, so all-in is about 11.90 USD/h, i.e. the quoted 11.68512 understates the full configuration by about 1.9 percent (would be 'close' rather than exact if it was meant as an all-in figure). Baseline gp3 performance assumed (3,000 IOPS, 125 MiB/s); provisioning more costs extra. SPECS (https://docs.aws.amazon.com/ec2/latest/instancetypes/gp.html and https://aws.amazon.com/ec2/instance-types/m8a/): 192 vCPUs, 192 cores, 1 thread per core - AWS states 'Each vCPU on M8a and M8azn instances is a physical CPU core'; AMD EPYC 9R45, 5th-gen EPYC 'Turin', up to 4.5 GHz; 768 GiB RAM; no local NVMe ('Instance store not supported'); EBS bandwidth 60 Gbps."
+    },
+    {
+     "provider": "AWS EC2",
+     "instance": "m8a.48xlarge Spot, us-east-2 (Ohio), Linux, plus one 2,000 GB gp3 EBS volume",
+     "verdict": "confirmed",
+     "claimed_hourly_usd": 2.8,
+     "found_hourly_usd": 2.8,
+     "specs_match": true,
+     "source_url": "https://spot-bid-advisor.s3.amazonaws.com/spot-advisor-data.json",
+     "note": "Both inputs reproduce exactly, but 2.80 is a derived budgeting estimate, not a price AWS quotes, and today's live price depends heavily on the Availability Zone. SOURCE SAYS: (1) AWS Spot Advisor data, us-east-2 / Linux / m8a.48xlarge: s=76 (percent saving vs on-demand, 30-day basis), r=0 (interruption band '<5%'); it lists 192 cores, 768 GB. (2) AWS spot price feed https://website.spot.ec2.aws.a2z.com/spot.json downloaded 2026-11-20: us-east-2 m8a.48xlarge linux = 1.607 USD/h (us-east-1 2.024, us-west-2 3.7667). (3) Vantage (third party, https://instances.vantage.sh/aws/ec2/m8a.48xlarge?region=us-east-2) for us-east-2 Linux: spot_min 1.607, spot_avg 3.2712, spot_max 4.2459, savings 76 percent, interruption <5%. MY INFERENCE: 11.68512 x (1 - 0.76) = 2.804, which matches the quoted 2.80. The AWS feed's 1.607 equals Vantage's spot_min, so it appears to be the cheapest-AZ price, not a regional average. The live cross-AZ average (3.27) is about 17 percent above the 2.80 central figure, and the dearest AZ today (4.25, 36 percent of on-demand) is slightly above the colleague's 4.09 high end; the cheapest AZ (1.607) is 43 percent below 2.80. Reasonable planning range is roughly 1.6 to 4.3 USD/h with 2.80 as a defensible midpoint. Spot Advisor does not publish a dollar figure or document how it averages across AZs, so I could not verify a true 30-day dollar average (spot price history needs an AWS account). As with the on-demand row, the figure excludes the gp3 volume: add about 0.219 USD/h (160 USD/month at 0.08 USD per GB-month, https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/ec2/USD/current/ebs.json), and the volume keeps billing if the spot instance is reclaimed. Specs as for on-demand: 192 vCPUs = 192 physical cores (1 thread per core), AMD EPYC 9R45 'Turin', 768 GiB, EBS-only (https://docs.aws.amazon.com/ec2/latest/instancetypes/gp.html)."
+    }
+   ]
+  },
+  {
+   "web_access": true,
+   "checks": [
+    {
+     "provider": "Scaleway (Elastic Metal, bare metal)",
+     "instance": "EM-I620E-NVMe (AMD EPYC 8534P, 64 cores / 128 threads), zones fr-par-1, fr-par-2, nl-ams-1, nl-ams-2, pl-waw-2, pl-waw-3",
+     "verdict": "confirmed",
+     "claimed_hourly_usd": 2.04,
+     "found_hourly_usd": 2.05,
+     "specs_match": true,
+     "source_url": "https://www.scaleway.com/en/pricing/elastic-metal/",
+     "note": "PRICE (source says): Scaleway's pricing page, read in a browser on 2026-11-20, lists EM-I620E-NVMe at EUR 1.863/hour and EUR 679.99/month. Scaleway's public catalog API (https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=elastic_metal, all 484 SKUs paged) gives the same EUR 1.863/h in all six zones, status general_availability. USD conversion (mine): ECB reference rate dated 2026-11-20 is 1 EUR = 1.0990 USD (https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml), so 1.863 x 1.0990 = USD 2.047/h. The colleague's 2.04 used 1.097; the difference is 0.2 percent and the EUR figure is exact. I did not read a VAT statement on the page, so 'excl. VAT' is unconfirmed by me. SPECS (source says, catalog API and datasheet https://www.scaleway.com/en/docs/elastic-metal/reference-content/elastic-metal-datasheet/): 1 socket AMD EPYC 8534P, 64 cores, 2 threads per core = 128 hardware threads, 2.3 GHz base, dedicated (not shared); 576 GiB DDR5 ECC (about 618 GB decimal); local 2 x 3.84 TB NVMe; network 25 Gb/s internal, 1 Gb/s public. So '128 vCPU' means 128 SMT threads on 64 physical cores. CPU generation (AMD, via search of amd.com product page, which timed out on direct fetch): EPYC 8004 'Siena', Zen 4c, boost to 3.1 GHz, 6 memory channels; these are lower-frequency dense cores than the EPYC 9554P. SPOT: none exists for Elastic Metal. BILLING (source says, FAQ source https://www.scaleway.com/en/docs/elastic-metal/faq/): hourly or monthly; monthly carries a one-time commitment fee equal to one month, and the catalog has a matching 'fees' SKU of EUR 679.99 on monthly only, none on hourly. The FAQ also says the loyalty voucher that offset this fee ended for new subscriptions on 1 April 2026. Inference: a first month on monthly costs EUR 1,359.98, about the same as 730 h hourly (EUR 1,360), so hourly is the right choice for anything under a month. ACCESS (source says, https://www.scaleway.com/en/docs/organizations-and-projects/organization/organization-quotas/): I620E-NVME cannot be ordered with only a validated payment method; identity validation is required, after which the quota is 2. NOT VERIFIED: live stock per zone (the offers API needs an account, HTTP 401). A June 2026 price rise from EUR 1.644 appeared only in a search summary of Scaleway's blog; I could not open the post."
+    },
+    {
+     "provider": "Cherry Servers (bare metal)",
+     "instance": "AMD EPYC 9554P dedicated server (64 cores / 128 threads), LT-Siauliai, Lithuania",
+     "verdict": "confirmed",
+     "claimed_hourly_usd": 1.48,
+     "found_hourly_usd": 1.48,
+     "specs_match": true,
+     "source_url": "https://www.cherryservers.com/pricing/dedicated-servers/amd-epyc-9554p",
+     "note": "PRICE (source says): Cherry's product page, read by raw fetch and in a browser on 2026-11-20, shows Hourly USD 1.48/hr, Monthly USD 864.63, Annual USD 8,819.23 (USD 734.94/mo). The page's embedded plan data gives the same hourly price in all six regions: EUR 1.265 / USD 1.48. Cherry's public API (https://api.cherryservers.com/v1/plans/amd-epyc-9554p) lists Hourly 1.265 EUR, 'taxed': false, Monthly 739 EUR. No setup fee is mentioned anywhere on the page (absence of mention, not a stated guarantee). CURRENCY CAVEAT (my inference): Cherry's USD price implies 1.17 USD per EUR, while the ECB rate on 2026-11-20 is 1.0990. EUR 1.265 is USD 1.39 at the market rate, so paying in EUR would be about 6 percent cheaper than the USD list price. The API prices only in EUR and the billing docs use EUR examples; I found no documentation on how the billing currency is chosen, so check at sign-up. SPECS (source says, page and API): 1 x AMD EPYC 9554P, 64 cores / 128 threads, 3.1 GHz base / 3.75 GHz max; 384 GB ECC REG DDR5 (configurable to 1152 GB); 2 x 1 TB NVMe (up to 10 disks); 3 Gbps uplink, 100 TB egress included. '128 vCPU' means 128 SMT threads on 64 physical cores. CPU generation (third-party spec sites via search): EPYC 9004 'Genoa', Zen 4, 12 DDR5 channels. AVAILABILITY CONFLICT, important: the website shows Lithuania '1 in stock' and 0 in Amsterdam, Chicago, Singapore, Stockholm and Frankfurt, with a 'Join Waiting List' button; Cherry's own API fetched in the same minute reports stock_qty 0 in every region including LT-Siauliai, and the page's structured data says OutOfStock. Treat this as at most one unit, possibly none. SPOT (source says): the page data carries a 'Spot Server' rate of USD 1.184/h (EUR 1.012), 20 percent below on-demand, but it is flagged disabled and spot stock is 0 everywhere; the API lists no spot price for this plan. Spot servers get two minutes' notice before reclaim and have no SLA (https://www.cherryservers.com/knowledge/docs/usage-billing/spot-servers). BILLING (source says, https://www.cherryservers.com/knowledge/docs/usage-billing/payment-options): hourly is pay-per-use from a prepaid team balance and runs while credit lasts. Partial-hour rounding, minimum top-up and VAT treatment are not documented there. Inference: monthly (USD 864.63) beats hourly beyond about 584 hours."
+    }
+   ]
+  }
+ ],
+ "skeptic": {
+  "time_model_sound": false,
+  "problems": [
+   "The cross-check is circular. The efficiency tables E and L are copied from the scaling research, so re-running the same formula with k=1.0 and landing on the research's ~10 h confirms the arithmetic, not the estimate. Nothing in the model is independently checked.",
+   "E is more optimistic than the evidence it cites, and its uncertainty is never propagated. The closest proxy (Kimina, whole cores with SMT off, which is the m8a situation) measured 67% efficiency at 64 cores and only a 1.46x gain from 32 to 64 cores; the model uses 0.85 at 64 and 0.70 at 192. A simple contention-curve fit to the three Kimina points peaks near 100 cores and gives roughly 0.25 at 192. I would not take that literally (different harness, three points), but it shows 0.70 is an assumption, not an anchored value. The research's own +/-0.1 on E is dropped: low/high vary only W and L.",
+   "L (Lake's own contention) is given +/-0.15, yet its source says it 'could be off by a large factor in either direction'. A contended spinlock does not cost a fixed share of the machine: cost per lookup rises with the number of waiting threads, and here each module walks an import closure 4-13x larger than in the one measured case, where Lake already burned 43% of all CPU on 192 vCPUs. 0.25-0.9 at 192 jobs is a more honest range, and in the bad half of it adding threads beyond roughly 96-128 lowers throughput, which a multiplicative factor cannot express.",
+   "E and L are treated as independent, but both are driven by job count, so their bad cases arrive together. The model's own tables also show how weak the return is: jobs x E x L is 61 at 96 jobs, 72 at 128 and 81 at 192, so doubling from 96 to 192 cores buys about 30% more throughput, less than the error on either factor. 'Fastest single machine' for the 192-core shape is therefore not established; 192 jobs could tie with or lose to 128 jobs on the same box.",
+   "W counts only the lean processes' CPU. Lake's own per-module work (walking a 9,300-module closure, building and pretty-printing a roughly 6 MB JSON file, hashing outputs) sits inside the laptop's 13 s wall-clock but not inside the 4-10 s CPU figure, and appears in the model only as L=0.95 at low job counts. It has not been measured, and some of the laptop's 'waiting on memory' may really be waiting on Lake. If it is 1-2 CPU-seconds per module, W is 10-30% too low before any contention.",
+   "The per-module CPU sample is weak in three ways: taken under paging (fault handling inflates CPU); taken on a machine with mixed fast and slow cores (a 10-core Apple laptop has efficiency cores, and 5 multi-threaded lean jobs spill onto them, so 'performance-core seconds' is overstated); and drawn from the modules that happened to build first rather than a random sample (build order follows the import graph, and a mean 30% above the median signals a long tail that a small early sample estimates badly). The first two push true W down, the third could go either way. The given 2.9x span is fair, not conservative.",
+   "The core-type factors k (1.4 for a whole Zen 5 core, 1.3 for Zen 4 V-cache) carry no error bars. Vendor clock speeds are single-core turbo; with 192 cores busy the frequency is lower, and Lean elaboration is cache- and memory-latency-bound, where Apple cores are unusually strong. Plausible range 1.1-1.6. Both top picks are also probably two-socket machines (not verified here): the shared Mathlib pages sit in one socket's memory, so about half the jobs pay remote-memory latency on the hottest data.",
+   "Fixed serial terms are missing. (a) Critical path: 203 modules at 10-13 s each is 35-45 minutes that no core count shortens; if most leaf modules sit behind a deep shared module the machine idles, billed, for that time, and the graph has not been checked for this. (b) Lake start-up on 175k modules on Linux (graph load, trace checks, the reported quadratic job-collection step) is unmeasured. (c) Each lean defaults to one worker thread per logical CPU, so 192 jobs can start up to 192 threads each unless lean -j is capped; the E table does not cover the uncapped case.",
+   "Resuming is assumed nearly free (30% for a partial rerun, 5-10% extra hours on Spot). At v4.33.1 Lake probably repeats the per-module closure walk for already-built modules in order to decide they are up to date (my reading of the research, not verified), which means billions of lookups through the same lock on every restart. If so each restart costs tens of minutes to over an hour, and the Spot route's wall-clock high (23 h against 21 h on demand) is not credible. Re-acquiring a 192-core Spot instance after a reclaim can also take hours.",
+   "Verification is under-costed. The checker's cost is mostly re-importing Mathlib (2-5 CPU-seconds) against a 4-10 second build, so 25-60% of build compute rather than 20-50%, and it inherits the optimistic E. Two operational traps add time or break the run: 'lake env leanchecker' starts Lake once per module (175k workspace loads; resolve the environment once and call leanchecker directly), and the checker's prefix matching means any module whose name is a prefix of others pulls all of them into one process, with the private-copy memory blow-up the research describes.",
+   "The stated bounds vary only two of the five uncertain inputs (W and L). Carrying E, k and the fixed terms as well, and letting E and L move together, roughly doubles the upper bound.",
+   "Not a problem, for the record: disk and graph width are handled adequately. At the central rate (about 6.6 modules/s x 6.7 MB = 45 MB/s) even a default gp3 volume keeps up; only at the fast end (about 14 modules/s, 95 MB/s plus file creates) is it near the 125 MiB/s default, so throughput and IOPS must be provisioned explicitly (the $9/day figure implies they are). The 1.2 TB projection is probably about right if the per-module JSON dominates, because that file's size depends on the import closure, which is the same for 155k modules."
+  ],
+  "reasoning": "Verdict: usable as a central guess, not sound as a range. I did no new measurements; this is a desk review of the colleague's model against the evidence supplied.\n\nWhat holds up: the arithmetic is right (I re-derived the m8a, Azure, Scaleway and Cherry figures and the billed-hours and cost lines). Work divided by effective cores is the correct first-order structure. The colleague is right that the import graph's width and disk throughput are not the binding limits, and right that a pilot should replace the model.\n\nWhat does not hold up: the two efficiency factors that decide the answer at 192 jobs (E for hardware/kernel scaling, L for Lake's own contention) are assumptions borrowed from one source, 'validated' by a cross-check against that same source, and given narrower error bars than the source gave them. E is set above the only whole-core measurement cited (0.85 at 64 cores against a measured 0.67). L comes from one workload on one machine with import closures 4-13x smaller than here. Lake's own CPU per module is not in W at all. Fixed serial costs (the 203-deep chain, Lake start-up, restart cost) are absent. The per-module CPU figure comes from a non-random sample on a paging machine with mixed core types.\n\nMy range for the fastest recommended configuration (m8a.48xlarge, 192 whole cores, one lake process), build wall-clock only, comparable to the colleague's 3.5-21 h: 3.5 to 40 hours, most likely 9-12 hours (colleague's central: 7.4). Derivation: work is 596 Zen 5 core-hours central (357-1,286, from the given W divided by k=1.4). Effective cores = 192 x E x L; I take E 0.6 (0.35-0.8) and L 0.6 (0.3-0.9), giving about 70 effective cores (25-140) against the colleague's 113. Add 0.3-1.5 h of fixed serial time. I kept the low end at 3.5 h: nothing rules it out, but it needs W at the bottom of its range and Lake contention turning out small at the same time. The high end assumes the job count is tuned down after the pilot if 192 proves to be past the throughput peak, with the single lake process kept; stacking every worst case gives 50-75 h, which I do not quote because the pilot would trigger sharding into several lake processes long before that.\n\nVerification pass: 1 to 8 hours, central about 2.5 (colleague: 1.6). End to end as billed, including set-up overhead and one partial rerun: about 7 to 63 hours, central about 18. On demand at $11.69/h plus storage that is roughly $95 to $770, central about $230, against the colleague's $92 to $441. The same widening applies proportionally to the other four options; bare metal with SMT (two jobs per core) is exposed to the same E and L risk at 128 jobs.\n\nThe cost ceiling is controllable in practice: billing is hourly, and after the first hour the real rate is known and the job can be stopped or re-planned. Real financial exposure is the pilot, not the top of the range. Lead time for quota or identity checks remains the main schedule risk, as the colleague says.\n\nOne design point follows from the model's own numbers: the second 96 cores buy only about 30% more throughput under one lake process, while two lake processes each on a disjoint half of the leaf modules (same machine, or two 96-core machines) would roughly double it. If the pilot shows Lake's contention is real, sharding is worth more than machine size.",
+  "revised_hours_low": 3.5,
+  "revised_hours_high": 40,
+  "cheapest_way_to_reduce_uncertainty": "Two steps; the first costs nothing.\n\nStep 1 (free, on the laptop, under an hour, no cloud account needed):\n(a) Read the lake process's accumulated CPU time and memory against modules completed (ps). That gives Lake's own CPU-seconds and memory growth per module, which the model currently guesses.\n(b) Pick about 100 modules at random from the whole tree (not the next ones in build order), build them with LEAN_NUM_THREADS=2 so 24 GB is not starved, and record user+system CPU and peak memory for each lean step (for example by re-running lean by hand with the module's setup file under /usr/bin/time -l once its dependencies exist). That gives an unbiased, un-starved per-module cost and shrinks the 2.9x span on W to roughly +/-20%.\n(c) From the import graph, count how many modules become buildable at each depth. That shows whether the 203-deep chain gates the bulk of the leaves.\n(d) Run du on the *.setup.json files. That settles the disk question.\n\nStep 2 (about $15-25 on demand, under $5 on Spot; not wasted, because lake keeps finished modules): rent the target machine for 60-90 minutes rather than the proposed single 15-20 minute run. Let the shared layer finish, then run 10-15 minutes each at LEAN_NUM_THREADS = 48, 96, 144 and 192 with lean capped at -j1 or -j2, recording modules per minute, the lake process's CPU share and memory, and system-time percentage. Finish with 5 minutes of the checker run one process per module. Remaining modules divided by the best measured rate is the estimate. The sweep also shows directly whether 192 jobs beats 96-128 and whether splitting into several lake processes is needed. A single 15-minute run at one job count cannot show that, and mostly measures Lake start-up and the unrepresentative early part of the graph.\n\nIf the 192-core quota is not yet granted, the same sweep on a 32-core instance of the same family (about $2 for an hour) still pins per-core speed (W and k together), leaving only high-core-count scaling open."
+ }
+}

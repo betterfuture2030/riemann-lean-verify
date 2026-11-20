@@ -1,0 +1,507 @@
+{
+ "h4d-standard-192": {
+  "vcpus": 192,
+  "mem_gb": 720.0,
+  "regions": [
+   "us-central1",
+   "us-east1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-f"
+  ]
+ },
+ "h4d-highmem-192": {
+  "vcpus": 192,
+  "mem_gb": 1488.0,
+  "regions": [
+   "us-central1",
+   "us-east1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-f"
+  ]
+ },
+ "h4d-highmem-192-lssd": {
+  "vcpus": 192,
+  "mem_gb": 1488.0,
+  "regions": [
+   "us-central1",
+   "us-east1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-f"
+  ]
+ },
+ "c4d-standard-96-lssd": {
+  "vcpus": 96,
+  "mem_gb": 372.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c4d-highmem-96-lssd": {
+  "vcpus": 96,
+  "mem_gb": 756.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c4d-standard-192": {
+  "vcpus": 192,
+  "mem_gb": 744.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c4d-standard-192-lssd": {
+  "vcpus": 192,
+  "mem_gb": 744.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c4d-highmem-192": {
+  "vcpus": 192,
+  "mem_gb": 1512.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c4d-highmem-192-lssd": {
+  "vcpus": 192,
+  "mem_gb": 1512.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c4d-standard-384": {
+  "vcpus": 384,
+  "mem_gb": 1488.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c4d-standard-384-lssd": {
+  "vcpus": 384,
+  "mem_gb": 1488.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c4d-highmem-384": {
+  "vcpus": 384,
+  "mem_gb": 3024.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c4d-highmem-384-lssd": {
+  "vcpus": 384,
+  "mem_gb": 3024.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c3d-standard-180-lssd": {
+  "vcpus": 180,
+  "mem_gb": 720.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c3d-highmem-180-lssd": {
+  "vcpus": 180,
+  "mem_gb": 1440.0,
+  "regions": [
+   "us-central1",
+   "us-east1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c3d-standard-360-lssd": {
+  "vcpus": 360,
+  "mem_gb": 1440.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c3d-highmem-360": {
+  "vcpus": 360,
+  "mem_gb": 2880.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "n2-standard-128": {
+  "vcpus": 128,
+  "mem_gb": 512.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-south1",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "n2-highmem-128": {
+  "vcpus": 128,
+  "mem_gb": 864.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-south1",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "n2-highmem-96": {
+  "vcpus": 96,
+  "mem_gb": 768.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-south1",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "n2d-standard-224": {
+  "vcpus": 224,
+  "mem_gb": 896.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-south1",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c4-standard-192-lssd": {
+  "vcpus": 192,
+  "mem_gb": 720.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-south1",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c4-highmem-192": {
+  "vcpus": 192,
+  "mem_gb": 1488.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-south1",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c4-standard-288-lssd": {
+  "vcpus": 288,
+  "mem_gb": 1080.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-south1",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c4-highmem-288": {
+  "vcpus": 288,
+  "mem_gb": 2232.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-south1",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "z4d-highmem-96-standardlssd": {
+  "vcpus": 96,
+  "mem_gb": 756.0,
+  "regions": [
+   "us-central1",
+   "us-east4",
+   "us-east5"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "z4d-highmem-192-standardlssd": {
+  "vcpus": 192,
+  "mem_gb": 1512.0,
+  "regions": [
+   "us-central1",
+   "us-east4",
+   "us-east5"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "n4d-highmem-96": {
+  "vcpus": 96,
+  "mem_gb": 768.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-east5",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "m3-megamem-128": {
+  "vcpus": 128,
+  "mem_gb": 1952.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c2d-highmem-112": {
+  "vcpus": 112,
+  "mem_gb": 896.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-east4",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-b",
+   "us-central1-c",
+   "us-central1-f"
+  ]
+ },
+ "c4n-highmem-192-lssd": {
+  "vcpus": 192,
+  "mem_gb": 1488.0,
+  "regions": [
+   "us-central1",
+   "us-east1",
+   "us-west1"
+  ],
+  "central1_zones": [
+   "us-central1-a",
+   "us-central1-c"
+  ]
+ }
+}

@@ -1,0 +1,298 @@
+[
+ {
+  "lens": "model-skeptic",
+  "review": {
+   "overall": "usable_with_corrections",
+   "summary": "The arithmetic is right; the structure is not. Every option A figure reproduces from the stated model, but the parameters that drive the result (depth factor, Lake contention, verification share) rest on no measurement, and several real costs are missing.\n\n**Re-derivation (local arithmetic only; no cloud or build command was run)**\n\n| Case | Work (P-core h) | Build h | Verify h | Billed h | VM cost | Total |\n|---|---|---|---|---|---|---|\n| Low | 273.0 | 2.93 | 0.88 | 7.69 | $68.0 | $76.7 |\n| Expected | 425.2 | 10.46 | 4.19 | 21.29 | $188.2 | $205.5 |\n| High | 824.4 | 44.44 | 26.66 | 88.43 | $782.0 | $825.3 |\n\n- Totals match the budget only if the disk is billed for 1 / 2 / 5 whole days at $8.65. That rule is not stated in the model; I reverse-engineered it.\n- About $2 in the high case is unexplained (the same gap appears in option B).\n- The 60 h cap never binds for option A.\n\n**What the model implies but does not say**\n\n- At expected values the 192-core host delivers 192 x 0.65 x 0.36 = 44.9 P-core equivalents, only 6.7 times the 10-core Mac.\n- Sampling the model's own ranges as independent triangular distributions gives mean $214, P80 $257, P95 $312, P99 $366. So the expected point is not biased by skew, and $827 is far beyond the model's own P99.\n- The real exposure is therefore in what the model leaves out or gets structurally wrong, not in its ranges.\n\n**Main defects**\n\n1. **Depth factor:** from the stated closure statistics, extra project imports add about 38% more import entries (about 45% more mapped bytes) than the Mathlib baseline. A linear cost model therefore gives 1.10 to 1.45; anything above that needs deep modules to be intrinsically heavier, which nobody has measured.\n2. **Lake contention:** it is modelled as a multiplier, but a lock is an Amdahl serial term. At 0.1 to 0.2 s of serialised Lake time per module the build cannot finish in under 4.9 to 9.7 h on any core count.\n3. **Serial term:** the 0.5 to 1.5 h is not derived from the import graph's critical path.\n4. **Verification:** it is priced as a share of build hours, so it inherits Lake contention in a phase that does not use Lake. It also ignores that per-module checking repeats the import cost, which likely dominates for files averaging 99 lines.\n5. **Pilot:** a 60 to 90 minute pilot only sees shallow modules, the same blind spot as the local sample, so it cannot justify the tuning argument behind the cap.\n6. **Memory:** the 130 GB concern is mis-specified. Mapped compiled files are shared page cache (about 146 GB in total, once). The real hazards are the Linux per-process mapping limit, private per-process tables that scale with closure size, and a checker run in one process.\n7. **Missing terms:** human reaction time while the VM bills, a full rebuild after an upstream fix, disk retention, egress and tax.\n8. **Launchability:** no option can start under the 32-vCPU project-wide quota, and a fresh project would not inherit the existing N2 quota.\n\n**My option A totals**\n\n| Case | Total | Basis |\n|---|---|---|\n| Low | about $100 | everything favourable |\n| Expected | about $340 | mean of my ranges; median $329, about 16 build hours |\n| High | about $1,500 | everything unfavourable at once, no stop-loss |\n\nMy P80 is about $390, P95 about $480 and P99 about $560.\n\nStatements about Lean and Lake internals (mapping fallback, checker concurrency, the default mapping limit) are from background knowledge, not checked in this session.\n\nScratch calculations:\n- <SCRATCH>/budget_check.py\n- <SCRATCH>/budget_check2.py",
+   "errors": [
+    {
+     "what": "Depth factor (1.10 / 1.30 / 2.00) rests on no measurement, and the sample is biased. The 5,700 compiled modules are the first in topological order, not a random 3.3%. From the stated closure statistics, project imports total 175,187 x 2,950 = 517 million entries against a Mathlib baseline of 155,753 x 8,700 = 1,355 million: +38% entries, about +45% mapped bytes. A linear import-cost model gives depth = 1 + (0.38 to 0.45) x f, where f is the import share of a shallow module's cost, so 1.10 to 1.45. The 1.30 expected silently assumes f of about 0.7; 2.00 is not a bound if deep modules carry heavier proofs or larger instance/simp sets.",
+     "effect_on_budget": "Expected: -10% to +25% (about -$20 to +$50). High: +25% if depth reaches 2.5 (about +$200). Either direction until measured.",
+     "severity": "high",
+     "fix": "Two free local measurements before renting anything. (1) Time a file containing only the Mathlib import to get f. (2) Build one target whose project closure is 3,000 to 10,000 modules (1 to 3 h locally) and time the top modules against closure size. Replace the triple with the fitted a + b x closure curve summed over the real closure distribution."
+    },
+    {
+     "what": "Lake contention is modelled as a multiplicative efficiency (0.73 / 0.36 / 0.20), but a lock is an Amdahl serial term, and it grows with closure size, which makes it correlated with depth (treated as independent). The fixed serial term of 0.5 / 1.0 / 1.5 h is not derived from the import graph's critical path or from Lake's serialised time per module. If Lake spends s seconds per module under its lock, the build floor is s x 175,187 regardless of cores: 0.05 s gives 2.4 h, 0.1 s gives 4.9 h, 0.2 s gives 9.7 h, 0.4 s gives 19.5 h. The low case (2.9 h build) needs s below about 0.05 s and a critical path under 0.5 h.",
+     "effect_on_budget": "0 to +20 build hours (0 to about +$230 with the 1.3 margin). If the serial term dominates, most of the 192 cores idle and a smaller, cheaper host would cost less per module.",
+     "severity": "high",
+     "fix": "Measure the lake process's own user+system CPU seconds per module in the existing local run. Compute the longest weighted path in the import DAG (the graph is already known). Model build time as serial floor + W / capacity, and choose the job count from a throughput curve at 48 / 96 / 144 / 192 jobs."
+    },
+    {
+     "what": "Verification share (30 / 40 / 60% of build hours) is structurally wrong. (a) It inherits Lake contention although the checker does not run under Lake, so the high case (26.7 h) double-counts contention and the low case (0.9 h) under-counts. (b) Per-module checking must load the same import closure as compilation; with files averaging 99 lines, import cost probably dominates, so checker CPU is plausibly 40 to 120% of build CPU. (c) If the stock checker is run in its all-modules mode inside one process, each concurrent task loads its closure separately and cannot share mappings: 192 tasks x at least 8 GB is over 1.5 TB of private memory on a 1,488 GB host. That last point is from memory of the tool's design and needs confirming.",
+     "effect_on_budget": "Low: +0.5 to 1 h (+$5 to $10). Expected: roughly unchanged by coincidence (-$10 to +$40) if run one process per module. High: about -5 h if process-per-module, but +$50 to $150 or an out-of-memory failure if run single-process.",
+     "severity": "high",
+     "fix": "Run the checker locally on about 200 of the 5,700 compiled modules, one process per module at 8 parallel, and compare modules per hour with 3,230. Budget verification as its own work term divided by hardware-only capacity. Script it one process per module with per-module done markers so it can resume."
+    },
+    {
+     "what": "The high case is not an upper bound, and its justification is weak. The 60 h cap never binds for option A (44.4 h). The claim that the job count would be tuned after a pilot fails because a 60 to 90 minute pilot only reaches shallow modules, so it cannot observe depth cost or closure-dependent contention. Against the model's own ranges $827 is beyond P99 (my sampling gives P99 $366), so it is very conservative for modelled risk and silent on unmodelled risk: a full rebuild after an upstream fix, a Lake serial floor, verification at 100% of build, overnight idle billing. A Cloud Billing budget only alerts.",
+     "effect_on_budget": "All-unfavourable with my ranges and no stop-loss: about $1,500 (160 billed hours), against $827.",
+     "severity": "high",
+     "fix": "Make the pilot target one deep module's closure (95th percentile, about 10,000 project imports) so it exercises the deep regime; the work is reused. Set a hard stop-loss on the VM itself (a maximum run duration or a shutdown timer), not a billing alert. State an abort rule in modules per hour."
+    },
+    {
+     "what": "Launchability is not costed. Every option needs 112 to 384 vCPUs against a project-wide quota of 32. H4D sits under a per-family quota whose default may be zero. A fresh project, as the triggering request asks for, starts from default quotas and does not inherit the existing 200 N2 quota; a large increase on a new project or billing account can be refused or take days. There is no fallback priced for 32 vCPUs or for delay, and whole-host H4D capacity may not be available again after a stop.",
+     "effect_on_budget": "Schedule risk first. Falling back to option D costs about +$138 at expected values (344 vs 206). A 32-vCPU fallback means a multi-day run. Each day a 2 TiB disk waits for capacity costs $5.39 to $8.65.",
+     "severity": "high",
+     "fix": "Request the all-regions and H4D family quota in the target project before anything else and treat approval as the gate. Do not create the disk until quota is granted. Price one fallback explicitly."
+    },
+    {
+     "what": "The 130 GB-per-process concern is mis-specified, and the real hazards are missing. Mapped compiled files are shared page cache: all project output (about 140 GB) plus Mathlib (5.9 GB) is about 146 GB resident once, however many processes map it. What actually bites: (a) the Linux per-process mapping limit commonly defaults to 65,530, below the 184,000 files a final module maps; I believe Lean then falls back to reading files into private memory (130 GB private each) or fails, and these are the last modules of the build. (b) Private environment tables scale with closure size, unmeasured; scaling Mathlib's footprint by 23x suggests 20 to 35 GB per final file. (c) Page tables of about 250 MB per fully touched 130 GB mapping. (d) About 1.3 TB of JSON written through the page cache competes with mapped files. (e) Two sockets means half the processes read Mathlib pages from the remote node.",
+     "effect_on_budget": "Mostly failure and rerun risk at the end of the build: +0 to 2 h (+$0 to $20) on a resumable disk. More if several final files fall back to private reads at once and trigger the out-of-memory killer.",
+     "severity": "medium",
+     "fix": "Raise vm.max_map_count to about 1,048,576 before starting and confirm the image default. Measure the private resident size of a Mathlib-only import locally and scale by closure bytes. Watch private memory during the deep pilot. Accept that the final files run with spare cores."
+    },
+    {
+     "what": "The rerun margin and failure model are thin. Zero failures in 5,700 shallow modules bounds the shallow failure rate only at about 0.05% (rule of three), which still allows around 90 failures across 175,187 modules, and says nothing about deep ones. A failed module blocks its dependents without wasting work, but a fix to an upstream file invalidates everything downstream, up to a full rebuild; 1.3x covers only 30%. No term exists for the VM billing while a person notices, diagnoses and restarts. Lake's startup and trace re-validation over 175,000 modules on each resume is also uncounted.",
+     "effect_on_budget": "Idle time: +$9 per hour, about +$70 per unattended night. One full rebuild at expected values: about +$90 to $190. Each resume: plausibly 5 to 30 minutes.",
+     "severity": "medium",
+     "fix": "Add an explicit idle term (0 / 2 / 8 h). Auto-stop the VM when the build exits; option A's persistent disk makes this nearly free. Carry 'second full build' as a named scenario. Rank any failure by number of dependents before deciding to continue."
+    },
+    {
+     "what": "Apple P-core to Zen 5 conversion. A 4P+6E, 24 GB machine is an M4- or M5-class chip. Against a Turin core at all-core frequency with server memory latency, 0.65 expected is slightly generous and 0.80 in the low case is not credible; I would use 0.72 / 0.60 / 0.45, lower still if the Mac is an M5. Also uncounted: 4 KB pages on x86 against 16 KB on Apple (less TLB reach for pointer-chasing over a multi-GB mapping). 'Worth under all-core load' and the hardware-scaling half of the efficiency factor may count the all-core derate twice. In the other direction, if the Mac is fanless and throttled, the local unit is weaker than assumed, which favours the budget.",
+     "effect_on_budget": "Expected: about +8% build time (+$15 to $20). Low case: +11% from this parameter alone. Uncertainty of about +/-15% either way.",
+     "severity": "medium",
+     "fix": "State the Mac model. Define worth as loaded-versus-loaded and keep hardware scaling to memory and NUMA effects only. Calibrate with a 10-minute single-socket run in the pilot before committing to the full build."
+    },
+    {
+     "what": "Kernel time (26%) is handled loosely. The Linux factor (0.75 / 0.90 / 1.00) multiplies all work, but only the kernel share can change: 0.75 means essentially all kernel time vanishes, and 1.00 is not a true worst case when 192 processes map and fault the same 8,700 Mathlib files. The kernel share is also the part that grows with import depth, so it is correlated with the depth factor. Separately, 8 jobs saturating 10 cores means either lean processes are multi-threaded or Lake itself is burning CPU; if the latter, work is overstated and contention is already visible at 8 jobs.",
+     "effect_on_budget": "About +/-5 to 10% of build cost (+/-$10 to $20 at expected).",
+     "severity": "medium",
+     "fix": "Apply the OS factor to the kernel share only, giving roughly 0.80 / 0.92 / 1.05. Split local CPU time into lean and lake processes. Record system-time share at 48 and 192 jobs in the pilot."
+    },
+    {
+     "what": "The low case stacks four individually optimistic values: worth 0.80, efficiency 0.73 at 192 jobs on a Lake version with a known contention bug, Linux factor 0.75 and verification at 30%. The expected case omits idle time and uses a mode-like depth value. Under the model's own ranges, skew alone is not the problem (sampled mean $214 against the $206 point).",
+     "effect_on_budget": "Low: $77 becomes about $100. Expected: $206 becomes about $250 at corrected point values and about $340 as a mean once the omitted terms are included.",
+     "severity": "medium",
+     "fix": "Quote a mean and a P80 or P95 from a sampled model instead of three stacked points. Keep the all-favourable and all-unfavourable cases as bookends only."
+    },
+    {
+     "what": "Minor accounting gaps. The disk-day rule (1 / 2 / 5 days at $8.65) is not stated in the model and had to be reverse-engineered; about $2 in the high case is unexplained. Not itemised: disk retention after the run, the boot disk, egress if the compiled files are wanted locally, and tax. JSON output is about 1.31 TB at roughly 700 bytes per import entry, plus 0.14 TB of compiled files, which fits 2 TiB with only 25 to 30% headroom. The fast case needs about 300 MB/s of writes, so the cheaper baseline disk tier is not viable there. The pilot's hour is counted in overhead although its output is reused.",
+     "effect_on_budget": "About +$10 to $60 (retention days and egress), about -$9 (pilot reuse), plus any applicable tax.",
+     "severity": "low",
+     "fix": "State the disk-day rule and add a line for retention, egress and tax. Keep the provisioned disk tier. Delete or archive the disk on a fixed date after verification."
+    }
+   ],
+   "revised_option_A": {
+    "low_usd": 100,
+    "expected_usd": 340,
+    "high_usd": 1500,
+    "expected_build_hours": 16,
+    "reasoning": "Same work formula as the budget (175,187 / 3,230 = 54.24 local machine-hours x P-core equivalents x depth x OS factor), with these changes. Build = work / (192 x worth x hardware scaling x Lake factor) + serial term. Verification is a separate work term (a fraction of build CPU) divided by hardware-only capacity, because the checker does not run under Lake. Billed hours = overhead + rerun margin x build + verification + idle time. Disk at $8.65 per day for the run plus retention days.\n\nRanges (favourable / most likely / unfavourable): E-core worth 0.35-0.40 / 0.45 / 0.60; depth 1.10-1.15 / 1.35 / 2.5; OS factor 0.80-0.85 / 0.92 / 1.05; worth 0.72 / 0.60 / 0.45; hardware scaling 0.85 / 0.80 / 0.70; Lake factor 0.70-0.80 / 0.47 / 0.22-0.25; serial 0.5-0.75 / 1.5 / 6 h; checker work 0.40-0.45 / 0.70 / 1.2 of build CPU; overhead 3 / 4 / 6 h; idle 0 / 2 / 8 h; rerun margin 1.10-1.15 / 1.3 / 1.6.\n\nLow (all favourable): work 339, build 4.9 h, verify 1.3 h, billed 9.9 h, about $96, rounded to $100.\n\nMost-likely point: work 451, build 11.9 h, verify 3.4 h, billed 24.9 h, about $246.\n\nExpected is the mean of 300,000 independent triangular draws over those ranges: $339 (median $329, P80 $391, P95 $477, P99 $560); mean build 16.4 h, mean verify 4.9 h, mean billed 34 h.\n\nHigh (all unfavourable at once, no stop-loss): work 1,082, build 77.6 h, verify 21.5 h, billed 159.6 h, about $1,490, rounded to $1,500.\n\nThese ranges are judgement, not measurement. They assume independence and exclude out-of-memory failures, a quota refusal and tax."
+   },
+   "recommendation": "Do not approve $206 / $827 as the envelope. Plan on about $340 expected, set an approval ceiling of about $600 (just above my P99) enforced by a hard stop on the VM, and treat about $1,500 as the all-unfavourable bookend.\n\nBefore renting anything, take five free measurements on the owner's machine:\n1. Time a Mathlib-import-only file, to get the import share of a shallow module.\n2. Build one target with a 3,000 to 10,000 module project closure, to fit cost against depth.\n3. Record the lake process's own CPU seconds per module, to get the serial floor.\n4. Compute the longest path in the import graph.\n5. Run the kernel checker on about 200 compiled modules, one process each, to get the true verification ratio and memory footprint.\n\nThose five numbers replace the three unmeasured parameters that drive almost all of the spread.\n\nOperationally:\n- Secure the all-regions and H4D family quota first. A fresh project will not inherit the existing N2 quota, and nothing here can launch under 32 vCPUs.\n- Raise vm.max_map_count before starting.\n- Run verification one process per module.\n- Point the pilot at one deep module's closure rather than the first 60 to 90 minutes of the build.\n- Auto-stop the VM when the build exits.\n- Delete the disk on a fixed date.\n\nOption A (on demand, persistent disk) remains the right shape because it is resumable. If the Lake serial term turns out to dominate, re-price a smaller host before committing to 192 cores."
+  }
+ },
+ {
+  "lens": "gcp-operations",
+  "review": {
+   "overall": "usable_with_corrections",
+   "summary": "The budget's arithmetic for option A reproduces exactly from the stated model, but it omits one hard design error, several blockers and a cheaper provisioning model. All findings were checked against Google's pages on 2026-11-20.\n\n- **Disk cap (the main error):** every H4D type is capped at 15,000 IOPS and 240 MiB/s of Hyperdisk Balanced per VM, so the budgeted 16,000 IOPS / 1,000 MB/s disk cannot be delivered.\n- **Quotas (the long pole):** the 32-vCPU 'CPUs (All Regions)' quota blocks option D as well as A, and Hyperdisk has its own capacity, IOPS and throughput quotas. A fresh project starts at defaults and requests can be auto-denied.\n- **No hard spend stop:** max-run-duration works on standard H4D VMs but resets on every restart, leaves disks billing, and on B and D a timed STOP erases the Local SSD.\n- **Host maintenance:** H4D terminates and restarts on the same host, with 7 days' notice and a typical minimum of 30 days between events. Host errors come unannounced; either way the VM comes back billing 8.84 USD/h with no build running unless it auto-resumes.\n- **Spot:** it is creatable on H4D, with a best-effort shutdown window of up to 30 seconds and an optional 120-second notice.\n- **Capacity:** no commitment or reservation is needed for one on-demand H4D, but capacity is best-effort in us-central1-a/b/f, and a stopped VM may fail to restart.\n- **Cheaper model omitted:** Flex-start lists h4d-highmem-192 at 6.63 USD/h, non-preemptible for up to 7 days.\n- **OS:** Ubuntu 24.04 LTS is supported on H4D; first boot fails only on wrong flags.\n- **Small omitted costs:** these add roughly 3 to 15 USD before tax; tax depends on the billing country.\n- **Option D:** 6,000 GiB is the minimum Local SSD at 128 vCPUs and survives live migration, but D has no data-preserving stop and no persistent alternative inside the 500 GB quota.\n\nNot verified: default values of the H4D, Hyperdisk and Local SSD quotas (unpublished), real H4D on-demand or Spot availability, and the US multi-region snapshot rates.",
+   "errors": [
+    {
+     "what": "Item 2. Hyperdisk Balanced on H4D is capped per VM at 15,000 IOPS and 240 MiB/s. The cap is shared by all attached Hyperdisk volumes, boot disk included, and by reads and writes together (Hyperdisk is half-duplex). A single volume can be provisioned to 1,000 MiB/s (it needs at least 4,000 IOPS; volume maximum 2,400 MiB/s), but on h4d-highmem-192 anything above 240 MiB/s cannot be delivered. The budget's 16,000 IOPS / 1,000 MB/s configuration is therefore not achievable, and the model has no I/O bound.",
+     "effect_on_budget": "Disk line overstated by about 1.16 USD/day (8.65 vs 7.49 USD/day at the usable maximum; 5.39 at baseline). Writing 1.5 to 2 TB takes at least 1.7 to 2.2 h at the cap, so the low case (2.4 h parallel phase) becomes I/O-bound: about +0.5 to 1 h, +5 to 10 USD. Expected and high cases are unaffected (average write demand about 40 to 55 MB/s). A cold restart re-reads compiled files at no more than 240 MiB/s (about 9 minutes for 130 GB).",
+     "severity": "high",
+     "fix": "Provision the data disk at no more than 240 MiB/s and 15,000 IOPS. Measure the write rate in the pilot. Bound dirty page cache (vm.dirty_bytes / vm.dirty_background_bytes) and sync periodically, because with 1.5 TB of RAM a large unflushed backlog can build up behind a 240 MiB/s device. If the pilot shows I/O binding, use h4d-highmem-192-lssd (3,750 GiB Titanium SSD, not subject to the cap) with the Hyperdisk as a checkpoint target. For comparison, c4d-*-192 allows 240,000 IOPS / 4,800 MiB/s.",
+     "source_urls": [
+      "https://docs.cloud.google.com/compute/docs/compute-optimized-machines",
+      "https://docs.cloud.google.com/compute/docs/disks/hyperdisk-perf-limits",
+      "https://docs.cloud.google.com/compute/docs/disks/hd-types/hyperdisk-balanced",
+      "https://docs.cloud.google.com/compute/docs/disks/hyperdisk-performance",
+      "https://cloud.google.com/compute/disks-image-pricing"
+     ]
+    },
+    {
+     "what": "Item 9. Quotas are an unbudgeted blocker for both options, and a fresh project starts at defaults (increases granted to the existing project do not carry over; changing a project's billing account resets quotas). Needed for A: 'CPUs (All Regions)' at least 192 (currently 32), CPUS_PER_VM_FAMILY with vm_family=H4D in us-central1 at least 192, plus the separate Hyperdisk quotas HDB-TOTAL-GB (about 2,150 GB), HDB-TOTAL-IOPS and HDB-TOTAL-THROUGHPUT, which the 500 GB SSD quota does not cover. Google's docs say dimensions a project has not yet used must be viewed with the gcloud CLI; a community thread with Google staff replies shows a per-family row at limit 0 appearing in the console only after a failed create. Requests are judged by automated systems on undisclosed criteria that include how long you have used Google Cloud; they can be denied, advance payment may be requested, and free-trial billing accounts cannot request changes.",
+     "effect_on_budget": "No direct cost. Schedule: from minutes to several business days, with a real chance of denial on an account without Compute spend history. The 32-vCPU global quota also blocks option D (128 vCPUs), so D is not friction-free.",
+     "severity": "high",
+     "fix": "File all quota requests as the first action after billing is linked, as one batch with a short justification: CPUS_ALL_REGIONS, the H4D per-family row, the three Hyperdisk quotas, PREEMPTIBLE_CPUS if Spot or Flex-start is wanted, and Local SSD per VM family for B or D. If the H4D row is not shown in the console, look it up with the gcloud CLI or ask Cloud Customer Care. Do not create the disk or start the pilot until all are granted.",
+     "source_urls": [
+      "https://docs.cloud.google.com/compute/resource-usage",
+      "https://docs.cloud.google.com/docs/quotas/overview",
+      "https://docs.cloud.google.com/docs/quotas/configure-dimensions",
+      "https://docs.cloud.google.com/docs/quotas/help/request_increase",
+      "https://discuss.google.dev/t/automatically-generated-0-value-compute-quotas/267549"
+     ]
+    },
+    {
+     "what": "Item 8. Option D has no data-preserving stop and no persistent alternative within current quota. N2 at 82 to 128 vCPUs allows only 16 or 24 Local SSD disks, so 6,000 GiB is the minimum, not a choice (0.658 USD/h, matching the budget). Local SSD data survives live migration and guest reboot. It is lost on stop or suspend, on a max-run-duration STOP, on Spot preemption, and on a host error not recovered within the 1-hour default timeout. 'Preserve Local SSD on stop' is Preview, unavailable from the console, and consumes standard Persistent Disk quota equal to the SSD size. The 500 GB SSD-TOTAL-GB quota covers pd-ssd and pd-balanced together, so it cannot hold a 1.5 to 2 TB tree.",
+     "effect_on_budget": "D's 344 USD expected (989 high) assumes no loss. One stop, timed stop or unrecovered host error repeats the whole run, up to roughly double. With SSD-TOTAL-GB raised to about 2,100 GB, a 2,000 GiB pd-balanced on N2 gives 15,000 IOPS / 700 MiB/s (VM limit 80,000 / 1,200) for about 6.6 USD/day, cheaper than the forced 15.8 USD/day of Local SSD, and persistent.",
+     "severity": "high",
+     "fix": "If D is used, request SSD-TOTAL-GB of at least 2,100 GB and either build on pd-balanced or checkpoint to it. Never set a STOP time limit on a Local SSD VM without a checkpoint. D also needs CPUS_ALL_REGIONS at least 128 and LOCAL_SSD_TOTAL_GB_PER_VM_FAMILY at least 6,000 GB in the new project. Hyperdisk Balanced on N2 requires contacting the account team.",
+     "source_urls": [
+      "https://docs.cloud.google.com/compute/docs/disks/local-ssd",
+      "https://docs.cloud.google.com/compute/docs/disks/performance",
+      "https://docs.cloud.google.com/compute/resource-usage",
+      "https://docs.cloud.google.com/compute/docs/instances/limit-vm-runtime",
+      "https://docs.cloud.google.com/compute/docs/disks/hd-types/hyperdisk-balanced"
+     ]
+    },
+    {
+     "what": "Item 3. max-run-duration with a STOP action works on standard (non-Spot) VMs; the docs list no machine-series restriction, and the action flag is mandatory for non-Spot. It is not a hard stop on spend. (a) When 'you or Compute Engine' stop the VM and it restarts, the run duration resets to the full value. (b) STOP ends only VM charges; the Hyperdisk, boot disk and any snapshot keep billing. (c) On Local SSD options (B, D) a timed STOP discards the Local SSD data. (d) Termination can be up to 30 seconds late.",
+     "effect_on_budget": "No change to the expected case. The assumed ceiling is not real: after one stop and restart the VM can run up to twice the intended cap (at 8.84 USD/h). A forgotten stopped VM costs about 7.5 to 8.7 USD/day (roughly 230 to 260 USD/month) in disks.",
+     "severity": "medium",
+     "fix": "Use an absolute --termination-time instead of a duration; it does not reset, and restarts fail once it has passed. End the build script with a guest poweroff (automatic restart does not apply to guest-initiated shutdowns). Put disk deletion on the runbook. A budget-triggered billing shut-off is documented, but it lags actual spend and can irretrievably delete resources, so it is not a substitute.",
+     "source_urls": [
+      "https://docs.cloud.google.com/compute/docs/instances/limit-vm-runtime",
+      "https://docs.cloud.google.com/compute/docs/instances/host-maintenance-overview",
+      "https://docs.cloud.google.com/billing/docs/how-to/disable-billing-with-notifications"
+     ]
+    },
+    {
+     "what": "Item 1. H4D has no live migration; TERMINATE is the only supported maintenance setting. On a host event the VM gets a soft power-off, 60 seconds to shut down cleanly, then forced termination, and with automatic restart (the default) it comes back on the same host. Scheduled maintenance has a typical minimum of 30 days between events (not guaranteed), 7 days' advance notice through upcomingMaintenance, and can be triggered on demand; it cannot be simulated. Host errors come with no notice; restart is typically within 3 minutes and up to 5.5 minutes.",
+     "effect_on_budget": "A planned event falls inside a 1 to 4 day window at most about 3 to 13 percent of the time and is visible beforehand. Each termination costs the up to 192 in-flight modules, any data not flushed within 60 seconds (about 14 GiB at 240 MiB/s), a cold page cache and the serial start-up term again: about 0.6 to 1.8 h, 5 to 16 USD. The 30 percent margin absorbs one such event. After the automatic restart the VM bills 8.84 USD/h (212 USD/day) with no build running unless it resumes itself. The Hyperdisk tree survives.",
+     "severity": "medium",
+     "fix": "Check upcomingMaintenance right after creation; if an event is pending inside the window, run on-demand maintenance before starting the build. Run the build as a boot-started service that resumes 'lake build', add an idle watchdog that powers the guest off, and sync periodically. After any unclean stop, check for truncated or zero-length outputs before trusting the incremental state (precaution; Lake's behaviour here was not verified).",
+     "source_urls": [
+      "https://docs.cloud.google.com/compute/docs/hpc/manage-host-events-vms-h4d",
+      "https://docs.cloud.google.com/compute/docs/compute-optimized-machines",
+      "https://docs.cloud.google.com/compute/docs/instances/host-maintenance-overview",
+      "https://docs.cloud.google.com/compute/docs/instances/setting-vm-host-options"
+     ]
+    },
+    {
+     "what": "Item 5. A single on-demand H4D needs no minimum commitment and no reservation, but capacity is best-effort. Each H4D VM takes a whole host and us-central1 offers it only in zones a, b and f. Google's docs warn that a stopped VM cannot be restarted if the zone lacks capacity, and steer H4D users to Flex-start or calendar-mode reservations for obtainability. The Hyperdisk is zonal, so changing zone means snapshot and restore. Option A's 'resumable' label therefore depends on getting the same zone's capacity back.",
+     "effect_on_budget": "Schedule risk of hours to days, not directly dollars; it could not be quantified (no public availability data found). A calendar-mode reservation guarantees capacity: 1 to 256 H4D VMs, 1 to 90 days, at least 87 hours' lead time, 7.07 USD/h for h4d-highmem-192, charged for the whole reserved period (about 170 USD per reserved day).",
+     "severity": "medium",
+     "fix": "Run pilot, build and verification in one continuous VM session where possible. If a stop is needed, keep a regional snapshot so the disk can be recreated in another H4D zone. Be ready to try zones a, b and f at creation.",
+     "source_urls": [
+      "https://docs.cloud.google.com/compute/docs/regions-zones",
+      "https://docs.cloud.google.com/compute/docs/troubleshooting/troubleshooting-resource-availability",
+      "https://docs.cloud.google.com/cluster-director/docs/choose-consumption-option",
+      "https://docs.cloud.google.com/compute/docs/instances/future-reservations-calendar-mode-overview",
+      "https://cloud.google.com/products/dws/pricing"
+     ]
+    },
+    {
+     "what": "Omitted option. The budget does not include the Flex-start (Dynamic Workload Scheduler) provisioning model, which supports H4D. It is non-preemptible, runs uninterrupted for up to 7 days, allows STOP or DELETE at the end of the run duration, and is listed at 6.63 USD/h for h4d-highmem-192 (7.07 with lssd) against 8.843 on demand. Constraints: it draws on preemptible quota, creation waits up to 2 hours for capacity, a restart needs capacity and resets the run duration, and reservations cannot be used.",
+     "effect_on_budget": "About 25 percent off the VM line for option A: expected about -47 USD (21.3 h), high about -196 USD (88.4 h). The pricing page says Flex-start and calendar prices are scheduled to be updated in November 2026, so re-read the rate before committing.",
+     "severity": "medium",
+     "fix": "Add Flex-start h4d-highmem-192 with the 2 TiB Hyperdisk as the preferred variant of option A, and include PREEMPTIBLE_CPUS in the quota batch. The 7-day limit covers the high case (88 h).",
+     "source_urls": [
+      "https://docs.cloud.google.com/compute/docs/instances/about-flex-start-vms",
+      "https://docs.cloud.google.com/compute/docs/instances/provisioning-models",
+      "https://cloud.google.com/products/dws/pricing",
+      "https://cloud.google.com/blog/products/compute/h4d-vms-now-ga"
+     ]
+    },
+    {
+     "what": "Item 7. Small costs missing from the budget. External IPv4 is 0.005 USD/h on a standard VM (0.0025 on Spot). A Hyperdisk boot disk is needed (about 100 GiB, 0.26 USD/day). The data disk is charged for only about one day beyond billed hours, where 3 to 7 days is more realistic. Regional standard snapshots cost 0.05 USD/GiB-month on compressed used bytes with a 1-hour minimum, and deleted snapshots sit in a recycle bin (default 3 days) at the same rate; multi-region storage costs more and adds per-GiB transfer fees. Premium internet egress is 0.12 USD/GiB. Logging is 0.50 USD/GiB above 50 GiB per project per month and Monitoring 0.258 USD/MiB above 150 MiB; the Ops Agent is not installed by default. List prices exclude taxes.",
+     "effect_on_budget": "Expected case about +3 to 15 USD before tax: IP 0.11, boot disk about 1, extra disk-days about 12, snapshot 0 to 10; 300 MB of logs about 0.04 or free; logging 0; monitoring at most a few USD with the Ops Agent on 192 cores. Tax adds 0 to 20 percent or more depending on the billing country (about +41 USD at 20 percent on 206). Trap: downloading the 1.5 to 2 TB tree would cost roughly 170 to 220 USD in egress.",
+     "severity": "low",
+     "fix": "Add a line for boot disk, IP and 3 to 4 disk-days, and state the total with and without tax. Pin snapshots to --storage-location=us-central1. Download only logs and summaries. Leave the Ops Agent off or restrict its metrics.",
+     "source_urls": [
+      "https://cloud.google.com/vpc/network-pricing",
+      "https://cloud.google.com/compute/disks-image-pricing",
+      "https://cloud.google.com/stackdriver/pricing",
+      "https://docs.cloud.google.com/billing/docs/resources/vat-overview",
+      "https://cloud.google.com/products/dws/pricing"
+     ]
+    },
+    {
+     "what": "Item 4. Spot is creatable for H4D according to the docs: the provisioning-models page excludes only A5X, A4X Max, A4X and bare metal; the H4D bulk-create guide shows --provisioning-model=SPOT; the consumption-option table lists Spot for H4D. Preemption gives a best-effort shutdown period of up to 30 seconds by default, with an optional 120-second notice (--preemption-notice-duration=120s). With STOP the Hyperdisk is kept and keeps billing. Spot VMs do not restart automatically, a restart needs capacity, and a whole-host VM loses all 192 cores at once. Spot draws on PREEMPTIBLE_CPUS if granted; otherwise it draws on standard quota.",
+     "effect_on_budget": "The Spot price is not in doubt. Option C's +8 / +25 percent overhead is uncalibrated: each preemption repeats the 0.5 to 1.5 h serial start-up (about 2 to 6 USD at the Spot rate) plus unbilled waiting for capacity, and 30 seconds cannot flush a large dirty backlog. No preemption-rate data for H4D was found.",
+     "severity": "low",
+     "fix": "If C is chosen, set the 120-second notice, add a shutdown script that stops the build and syncs, and treat the schedule as open-ended. Flex-start gives most of the saving without preemption.",
+     "source_urls": [
+      "https://docs.cloud.google.com/compute/docs/instances/spot",
+      "https://docs.cloud.google.com/compute/docs/instances/create-use-spot",
+      "https://docs.cloud.google.com/compute/docs/instances/provisioning-models",
+      "https://docs.cloud.google.com/compute/docs/hpc/bulk-create-hpc-vms",
+      "https://docs.cloud.google.com/cluster-director/docs/choose-consumption-option"
+     ]
+    },
+    {
+     "what": "Item 6. Ubuntu 24.04 LTS is supported on H4D: the OS details table lists it for all series except A4X Max, A4X, A4 and A3 Ultra, with NVMe, gVNIC and IDPF support (no IRDMA, which only Cloud RDMA needs). First-boot blockers are configuration, not OS. H4D requires gVNIC; --maintenance-policy=TERMINATE is the only supported setting ('otherwise, you encounter errors'); the boot disk must be hyperdisk-balanced, since H4D supports only Hyperdisk Balanced and Titanium SSD; machine images cannot be created from H4D; internet egress is capped at 1 Gbps. H4D has been generally available since February 2026.",
+     "effect_on_budget": "None if the create command is right; otherwise a failed first attempt and a few minutes. No licence cost for Ubuntu.",
+     "severity": "low",
+     "fix": "Create with nic-type=GVNIC, --maintenance-policy=TERMINATE, --boot-disk-type=hyperdisk-balanced, the ubuntu-2404-lts-amd64 family and an explicit zone. Mount data disks by /dev/disk/by-id. Separately (not from Google's docs, and based on an assumption about how Lean maps compiled files): check 'sysctl vm.max_map_count' on first boot; the few modules importing about 175,000 files may need more mappings than the 65,530 default of most distributions. Ubuntu 24.04 reportedly ships 1,048,576.",
+     "source_urls": [
+      "https://docs.cloud.google.com/compute/docs/images/os-details",
+      "https://docs.cloud.google.com/compute/docs/compute-optimized-machines",
+      "https://docs.cloud.google.com/compute/docs/instances/setting-vm-host-options",
+      "https://docs.cloud.google.com/compute/docs/hpc/bulk-create-hpc-vms"
+     ]
+    }
+   ],
+   "revised_option_A": {
+    "low_usd": 90,
+    "expected_usd": 226,
+    "high_usd": 890,
+    "expected_build_hours": 10.7,
+    "reasoning": "On-demand h4d-highmem-192 at 8.843 USD/h, before tax, same compute model as the budget (its figures reproduce exactly). Changes: (1) data disk provisioned at the H4D cap of 15,000 IOPS / 240 MiB/s (7.49 USD/day) plus a 100 GiB Hyperdisk boot disk (0.26 USD/day), 7.75 USD/day in total; (2) disks kept for 2 / 4 / 7 days rather than about one day beyond billed hours; (3) low case: build stretched from 2.9 to about 3.4 h because writing 1.5 to 2 TB at 240 MiB/s takes at least 1.7 to 2.2 h, so billed hours are 8.4; (4) expected case: +0.2 h allowance for one restart at about 15 percent probability (my assumption), so build 10.7 h and billed 21.5 h; (5) high case: two restart events at about 2 h each, billed 92.4 h; (6) external IP, a regional snapshot (about 5 / 12 USD) and a few USD of monitoring in the high case. Sums: low 74 + 16 = 90; expected 190 + 31 + 5 = 226; high 817 + 54 + 12 + 5 = about 890. Add the billing country's tax (at 20 percent: 108 / 271 / 1,068). The same job on Flex-start at 6.63 USD/h comes to about 71 / 179 / 685 USD before tax. The high figure is not a ceiling unless an absolute termination time is set."
+   },
+   "recommendation": "Keep option A, with these changes.\n\n1. File every quota request in the new project before anything else: CPUS_ALL_REGIONS at least 192, the H4D per-family row in us-central1, the three Hyperdisk Balanced quotas (capacity, IOPS, throughput), and PREEMPTIBLE_CPUS. This is the schedule's long pole and can be refused.\n2. Create the VM with the Flex-start model if the preemptible quota is granted (6.63 USD/h; re-check the rate, which is due an update this month). Otherwise use on-demand.\n3. Provision the 2 TiB Hyperdisk at no more than 15,000 IOPS / 240 MiB/s. Use the pilot to measure the real write rate; if I/O binds, switch to h4d-highmem-192-lssd with the Hyperdisk as a checkpoint target.\n4. Replace max-run-duration with an absolute termination time, run the build as a self-resuming service, and end it with a guest poweroff. Check upcomingMaintenance before starting.\n5. Run pilot, build and verification in one session, because a stopped whole-host VM may not get its capacity back. Keep a us-central1 snapshot only if a stop is unavoidable.\n6. Delete disks and snapshots explicitly at the end; never download the tree.\n\nOption D is a weak fallback as written: it also needs the global CPU quota raised, and a stop loses the Local SSD tree. If D is needed, raise the SSD persistent-disk quota to about 2,100 GB and build on pd-balanced instead."
+  }
+ },
+ {
+  "lens": "alternatives",
+  "review": {
+   "overall": "usable_with_corrections",
+   "summary": "Verdict: no different machine beats option A. The same machine bought on Spot and run behind measured gates does. Desk review only: I ran local arithmetic and no cloud or build command.\n\nWhy A's hardware survives: H4D is the cheapest physical core in the table at $0.046 per core-hour, against $0.120 for n2-highmem-128 and $0.138 for c4d-highmem-96-lssd. It can also run any job count from 1 to 192, so a smaller machine only wins if the best job count is below roughly 64.\n\nExpected case under the budget's model (build h / billed h / USD):\n- A, h4d-highmem-192 on demand: 10.5 / 21.3 / $206 (low $77, high $827).\n- (a) c4d-highmem-96-lssd at 96 jobs: 21.4 / 39.9 / $265 (low $100, high $783 at the 60 h cap). It is slower and dearer in all three cases, and not resumable.\n- (a) H4D throttled: 128 jobs gives 12.2 h / $236 and 96 jobs gives 13.9 h / $263 if contention merely saturates. Throttling pays only if contention is retrograde; in the high case a quadratic lock penalty peaks near 96 jobs and saves about 9 build hours (about $145). Job count should be measured, not fixed in advance.\n- (b) n2-highmem-128 on demand: 22.1 / 41.0 / about $340, which is 65% dearer at twice the wall-clock. On Spot it is about $221. It is only a fallback if H4D quota is refused.\n- (c) Pilot on the target machine: costs $9-13 and its compiled output is kept. A already includes it; what is missing is decision thresholds and deep modules in the sample.\n- (d) H4D Spot on Hyperdisk: 10.5 / 23.0 / $117 (low $42, high $520). This is the one alternative that beats A: 43% cheaper for about 8% more billed time. c3d-standard-180-lssd Spot with a Hyperdisk costs about the same ($113) but needs 18.5 build hours.\n- (e) Laptop only: 58-105 build hours (52.5 h at the current rate times depth 1.1-2.0), or 3.4-6.1 days with verification, at $0. It is not a full substitute: 24 GB cannot run eight top-1% modules at once (about 30,000 imports, roughly 22 GB mapped each), let alone the final files (about 130 GB), and it needs 1.5-2 TB of local disk. It is worth keeping running as a free measuring instrument.\n\nAssumptions I added:\n- Contention follows eff(n) = 1/(1 + n/k), fitted to the model's H4D triple (k = 519 / 108 / 48). This reproduces the model's N2 and C3D figures within about 10%.\n- c4d-highmem-96 uses the model's C4D per-vCPU worth (0.48 / 0.41 / 0.33).\n- On H4D below 192 jobs, each job gets a full core.\n- N2 persistent disk is priced like the Hyperdisk figure, and disks are kept about 1.6 days beyond compute.\n- Monte Carlo runs use triangular distributions on the budget's triples.\n\nNot verified: the bundled SSD capacity of c4d-highmem-96-lssd, preemptible quota rules for H4D, and quota defaults in a fresh project.",
+   "errors": [
+    {
+     "what": "Every throughput figure for 192 jobs and for deep modules is assumed, not measured. The evidence is the first 5,700 modules (3.3% of the tree), all shallow, at 8 jobs on macOS. The planned pilot (first 60-90 minutes of the build) samples shallow modules again, where the Lake lock problem is mildest, so it cannot validate the deep-module rate and can give a false go.",
+     "effect_on_budget": "Direction unknown. On the model's own triples A's 80% band is about $155-280 (mean $211). If efficiency halves for the top 5% of modules (about 15% of import work), build hours rise about 15%, roughly +$25.",
+     "severity": "high",
+     "fix": "Take free measurements on the laptop first: seconds per module against closure size as the local build goes deeper, Lake's own CPU time per module, and the time of a no-op restart. On the cloud, make the pilot build the closure of one 99th-percentile module, then sweep job counts on that deep frontier."
+    },
+    {
+     "what": "There is no stop-loss, so 'high' is not a ceiling. The 60-hour cap is an assumption about operator behaviour, and a billing budget only alerts. A stalled or failed build left overnight keeps billing the whole host.",
+     "effect_on_budget": "Unbounded upside. Each unattended idle day adds about $212 of compute plus up to $8.65 of disk.",
+     "severity": "high",
+     "fix": "Set a VM-level maximum run duration with a stop action (confirm it is supported on H4D). Shut the VM down when the build exits. Add a watchdog that stops the VM below a set modules-per-minute rate. Write the kill criteria down before starting: on shallow modules about 400 per minute is the expected track and about 135 per minute is the budget's high case; below that after a job-count sweep, stop."
+    },
+    {
+     "what": "The model has no term for Lake's own throughput ceiling or for the shape of the import graph. Its efficiency triples imply a ceiling of about 110 effective job slots (expected) or 48 (high) however many cores are bought. The fixed serial term of 0.5-1.5 h stands in for a critical path and narrowing tail that nobody has computed. Lake must also process about 2.0 billion closure entries and write about 1.4 TB of JSON.",
+     "effect_on_budget": "A narrow tail could add 0 to 6 hours at full price (+$0 to +$70); I allow +1.5 h, about +$17. If contention is retrograde, up to 25% of high-case hours (about $145) is recoverable by dropping to about 96 jobs.",
+     "severity": "high",
+     "fix": "Compute the longest closure-weighted import chain and the width profile from the import graph offline, at no cost. Sweep 64/96/128/160/192 jobs in the pilot and re-check hourly. Run kernel verification on the idle cores during the tail."
+    },
+    {
+     "what": "Spot is passed over on identical hardware although the budget's own option C is $117 against $206. A needs restart automation anyway, because H4D has no live migration and a host event stops the VM.",
+     "effect_on_budget": "About -$89 expected (-43%) and about -$307 in the high case, for about 8% more billed hours (25% in the high case).",
+     "severity": "medium",
+     "fix": "Start on Spot with the same Hyperdisk and an auto-resume script. Fall back to on-demand after two preemptions or if the measured restart penalty exceeds about 20 minutes. Request preemptible quota in the same ticket."
+    },
+    {
+     "what": "Quota and capacity are treated as free. A needs two increases: the global CPU quota to at least 192, and an H4D family quota whose default may be zero. The quoted figures (32 global, 200 N2) belong to the existing project, while the request is for a fresh project, where defaults may be lower and increases can be refused or delayed. H4D exists in three zones only, and each resume needs a whole host to be available.",
+     "effect_on_budget": "No direct cost, but possibly days of delay. If H4D cannot be had, the n2-highmem-128 fallback costs about +$135 (+65%) and doubles wall-clock; c4d-standard-192 costs about +$95.",
+     "severity": "medium",
+     "fix": "Re-read quotas in the new project before choosing. File all requests on day 0 (global CPUs, H4D on-demand and preemptible). Set a deadline of about two business days, after which the N2 fallback runs. Keep the laptop building meanwhile."
+    },
+    {
+     "what": "Verification is modelled as 30-60% of build hours, so it inherits Lake's contention penalty. If the kernel re-check runs as independent per-module processes outside Lake, it scales with hardware efficiency only, is restartable, and can overlap the build tail.",
+     "effect_on_budget": "Expected case roughly unchanged (4.2 h). High case overstated by about 9 hours, about -$80. Running verification on Spot saves about $19 expected.",
+     "severity": "medium",
+     "fix": "Model verification as 0.5-1.0 of build CPU work at hardware-only efficiency. Run it per module with done-markers, on Spot, starting while the build tail is narrow."
+    },
+    {
+     "what": "Setup and pilot are billed as 3.5 hours of pure overhead at the full $8.84 per hour. Toolchain install, checkout of 175,187 files and the Mathlib cache need few cores, and the pilot's compiled output is retained.",
+     "effect_on_budget": "About -$18 (-9%) if setup is rehearsed elsewhere and the pilot is counted as build progress.",
+     "severity": "low",
+     "fix": "Script the setup and rehearse it on a VM of 32 vCPUs or fewer under existing quota (about $2 per hour pro rata from the N2 price; not a quoted SKU). That run also measures the Linux factor and 8/16/32-job scaling without waiting for quota."
+    },
+    {
+     "what": "'Expected' is the cost at modal parameters, not a probability-weighted mean, and the low and high figures are joint corners. Treated as independent the corners are far outside the plausible band; in reality depth and contention are correlated, which fattens the upper tail.",
+     "effect_on_budget": "Mean is +3% on the budget's own triples ($211). After my corrections the modal figure is $228, the mean $244 and the 90th percentile about $306.",
+     "severity": "low",
+     "fix": "Report median, 80th and 95th percentiles rather than three corner scenarios."
+    },
+    {
+     "what": "The 2 TiB disk has thin headroom against a size that grows with closure depth. My estimate is about 1.4 TB of JSON plus 0.14 TB of compiled files, about 71% full. Baseline Hyperdisk throughput (140 MB/s) would throttle only above roughly 1,200 modules per minute.",
+     "effect_on_budget": "About plus or minus $10, plus the risk of a disk-full failure mid-run. The disk bills $5.39-8.65 per day until deleted.",
+     "severity": "low",
+     "fix": "Alert at 80% full and grow the disk online if needed. Provision extra throughput only if the pilot exceeds about 1,000 modules per minute. Delete the disk once results are exported."
+    }
+   ],
+   "recommendation": "Keep A's machine, buy it as Spot with an on-demand fallback, and gate the spend on measurements. Projected cost is about $130 on the Spot path (80% band $100-167) and about $227 if it falls back to on-demand (90th percentile about $290). Wall-clock is about 13 build hours plus 4 of verification.\n\n1. Today, free, on the laptop (leave the local build running):\n   - Log seconds per module against import-closure size as it reaches deeper modules; this calibrates the depth factor.\n   - Read the Lake process's own CPU time per module; this gives the orchestration ceiling.\n   - Time a no-op restart over the 5,700 built modules; this decides whether Spot and mid-run job-count changes are cheap.\n   - Compute the longest closure-weighted import chain and the width profile; this gives the serial floor.\n   - Every module the laptop compiles also removes a possible compile failure on the paid machine.\n\n2. Quota, in the fresh project:\n   - Re-read the quotas there; the quoted figures are for the existing project.\n   - Request in one ticket: CPUs (All Regions) to at least 200, and H4D 192 on-demand and preemptible in us-central1.\n   - If nothing is granted in about two business days, run n2-highmem-128 (about $340, about 22 build hours) or keep waiting while the laptop works for free.\n\n3. Rehearse the scripted setup on a VM of 32 vCPUs or fewer under existing quota, so that overhead on the big machine is 1.5 hours or less.\n\n4. Run h4d-highmem-192 with the 2 TiB Hyperdisk, Spot first, with auto-resume:\n   - Fall back to on-demand after two preemptions.\n   - Fold the pilot into the first 60-90 minutes: sweep 96/128/160/192 jobs on shallow modules, then build the closure of one 99th-percentile module and sweep again on the deep frontier.\n   - Decision rule on shallow modules: at 300 per minute or more, continue (projected $255 or less on demand). Between 135 and 300, continue on Spot only and re-tune hourly. Below 135 after the sweep, stop; that is worse than the budget's high case and more cores will not help.\n\n5. Guard-rails:\n   - Set a maximum run duration per start with a stop action.\n   - Shut down when the build exits.\n   - Run a rate watchdog.\n   - Delete the disk after export.\n\n6. Verification: run it per module with done-markers, on Spot, starting on idle cores while the build tail is narrow.\n\nI would not choose a smaller C4D, N2 as first choice, or the laptop alone. The first two cost more for less speed in every scenario I could construct. The laptop cannot hold the deep modules in 24 GB.",
+   "revised_option_A": {
+    "low_usd": 89,
+    "expected_usd": 244,
+    "high_usd": 821,
+    "expected_build_hours": 13.3,
+    "reasoning": "This is option A as specified (on demand, 192 jobs, the budget's 3.0/3.5/4.0 h overhead and 1.3x rerun margin) with three model corrections. First, the serial term is widened from 0.5/1.0/1.5 h to 0.5/2.5/8.0 h to allow for an uncomputed critical path and narrow tail. Second, verification is decoupled from Lake contention: 0.5/0.8/1.0 of build CPU work at hardware-only efficiency 0.85/0.70/0.50, plus 0.3 h start-up. Third, the expected figure is a probability-weighted mean (triangular distributions, 200,000 draws) rather than the modal case. At modal parameters this gives 12.0 build hours, 4.2 verification hours, 23.2 billed hours and $228. The mean is $244 with 13.3 build hours, and the 80% band is about $189-306. Low and high are the joint corners; the high case nets out near the budget's because the longer tail (+$75) offsets the shorter verification (-$80). The low corner is above the budget's $77 because I keep the disk about 1.6 days beyond compute at the provisioned rate. Process improvements are not credited here: setup off the big machine is worth about -$18, and Spot about -45%."
+   }
+  }
+ }
+]

@@ -1,0 +1,1228 @@
+{
+ "amd": {
+  "web_access": true,
+  "family_rates": [
+   {
+    "family": "H4D",
+    "first_party": true,
+    "cpu_platform": "AMD EPYC Turin, 5th Generation (processor SKU AMD EPYC 9B45; base 2.7 GHz, effective 3.5 GHz, max boost 4.1 GHz). SMT is DISABLED and cannot be enabled: Google's docs state 'A vCPU represents an entire core - no simultaneous multithreading (SMT)' and 'H4D and Tau T2D are the exceptions where Compute Engine uses one thread per core and each vCPU maps to a physical core'. 192 vCPUs = 192 physical cores; an H4D instance uses all cores of an entire host.",
+    "ondemand_vcpu_hour": 0.036075,
+    "ondemand_gb_hour": 0.001288,
+    "spot_vcpu_hour": 0.01755,
+    "spot_gb_hour": 0.000626,
+    "sustained_use_discount": "None. H4D is not in Google's list of SUD-eligible series (only N1, N2, N2D, C2, M1, M2).",
+    "note": "Rates from Google's SKU catalog, us-central1 ('Americas' SKUs cover us-west1/us-central1/us-east1): H4D Instance Core BC19-B28B-65DD $0.036075/h; H4D Instance Ram FBCE-62F8-5058 $0.001288/GiB-h; Spot Preemptible H4D Instance Core 324D-AC49-054C $0.01755/h; Spot Ram 3119-598D-9AA1 $0.000626/GiB-h. Titanium SSD for -lssd shapes: on-demand AD31-3C65-B926 $0.11313/GiB-month (=$0.000154973/GiB-h at 730 h/month); Spot 1C30-DF24-86F4 $0.055/GiB-month (=$0.000075342/GiB-h). Spot discount about 51%. Spot IS published for H4D in us-central1 (Spot pricing page lists all three shapes; Spot SKUs exist). Caveat: the H4D docs section says only 'available on-demand, or with one- and three-year CUDs' and does not name Spot; the Spot docs exclude only A5X/A4X Max/A4X and bare metal. H4D limits per docs: predefined types only, no live migration, internet egress capped at 1 Gbps, Hyperdisk only. H4D priced in 7 regions incl. Iowa.",
+    "source_urls": [
+     "https://cloud.google.com/skus?currency=USD&filter=H4D",
+     "https://cloud.google.com/skus?currency=USD&filter=H4D%20Instance%20Ram",
+     "https://cloud.google.com/skus?currency=USD&filter=H4D%20Local%20SSD",
+     "https://cloud.google.com/products/compute/pricing/compute-optimized",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://docs.cloud.google.com/compute/docs/compute-optimized-machines",
+     "https://docs.cloud.google.com/compute/docs/cpu-platforms",
+     "https://docs.cloud.google.com/compute/docs/sustained-use-discounts",
+     "https://docs.cloud.google.com/compute/docs/instances/spot"
+    ]
+   },
+   {
+    "family": "C4D",
+    "first_party": true,
+    "cpu_platform": "AMD EPYC Turin, 5th Generation (processor SKU AMD EPYC 9B45; base 2.7 / effective 3.5 / max boost 4.1 GHz). SMT ON: docs footnote 'A CPU uses two threads per core, and a vCPU represents a single thread'. One vCPU = one hardware thread; physical cores = vCPUs / 2.",
+    "ondemand_vcpu_hour": 0.0327035,
+    "ondemand_gb_hour": 0.003753348,
+    "spot_vcpu_hour": 0.01376,
+    "spot_gb_hour": 0.001580548,
+    "sustained_use_discount": "None. C4D is not SUD-eligible.",
+    "note": "UNIT TRAP: the C4D RAM SKUs are priced per GIGABYTE-hour (10^9 bytes), not per GiB: C4D Instance Ram 159A-6F40-D544 $0.003495578/GB-h and Spot Ram 06A4-288A-B3FF $0.001472/GB-h. Machine memory sizes are GiB, so the effective rates are x1.073741824 = $0.003753348/GiB-h on-demand and $0.001580548/GiB-h Spot (the gb_hour fields here are per GiB; this reproduces Google's whole-machine prices to 9 decimals). Core: C4D Instance Core 80C2-B3C5-BD5E $0.0327035/h; Spot Core 98F9-9C75-24C5 $0.01376/h. Titanium SSD for -lssd shapes: on-demand CFC3-253B-FE5A $0.16/GiB-month (=$0.000219178/GiB-h); Spot 54D1-AA60-1A9F $0.0674/GiB-month (=$0.000092329/GiB-h). Spot discount about 58% on compute. Docs: C4D supports on-demand, Spot VMs and future reservations; Hyperdisk only.",
+    "source_urls": [
+     "https://cloud.google.com/skus?currency=USD&filter=C4D%20us-central1",
+     "https://cloud.google.com/products/compute/pricing/general-purpose",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines",
+     "https://docs.cloud.google.com/compute/docs/cpu-platforms"
+    ]
+   },
+   {
+    "family": "C3D",
+    "first_party": true,
+    "cpu_platform": "AMD EPYC Genoa, 4th Generation (processor SKU AMD EPYC 9B14; base 2.6 / effective 3.3 / max boost 3.7 GHz). SMT ON: 'A CPU uses two threads per core, and a vCPU represents a single thread'. One vCPU = one hardware thread; physical cores = vCPUs / 2.",
+    "ondemand_vcpu_hour": 0.029563,
+    "ondemand_gb_hour": 0.003959,
+    "spot_vcpu_hour": 0.00675,
+    "spot_gb_hour": 0.000908,
+    "sustained_use_discount": "None. C3D is not SUD-eligible (docs list CUDs, Spot VMs and reservations for C3D).",
+    "note": "SKUs: C3D Instance Core CEE0-1AE0-3422 $0.029563/h; C3D Instance Ram 79E9-0431-3CD3 $0.003959/GiB-h; Spot Preemptible C3D Instance Core DCB1-2557-F8CB $0.00675/h; Spot Ram F33C-AA89-DE6D $0.000908/GiB-h. Spot discount about 77% - the deepest of the six families today. C3D -lssd shapes use the original 'Local SSD' (not Titanium SSD); there is NO C3D-specific Local SSD SKU in Google's catalog and Google's pricing pages do not list c3d-*-lssd rows, so the disks are billed on the generic SKUs: 'SSD backed Local Storage' 62AF-A39E-269B $0.08/GiB-month (=$0.000109589/GiB-h) on-demand and 'SSD backed Local Storage attached to Spot Preemptible VMs' E725-3CC5-D4BE $0.0478/GiB-month (=$0.000065479/GiB-h) on Spot.",
+    "source_urls": [
+     "https://cloud.google.com/skus?currency=USD&filter=C3D%20us-central1",
+     "https://cloud.google.com/skus?currency=USD&filter=C3D%20Local%20SSD",
+     "https://cloud.google.com/skus?currency=USD&filter=SSD%20backed%20Local%20Storage%20us-central1",
+     "https://cloud.google.com/products/compute/pricing/general-purpose",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/compute/disks-image-pricing",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines",
+     "https://docs.cloud.google.com/compute/docs/cpu-platforms"
+    ]
+   },
+   {
+    "family": "Z4D",
+    "first_party": true,
+    "cpu_platform": "AMD EPYC Turin, 5th Generation (processor SKU AMD EPYC 9B45; base 2.7 / effective 3.5 / max boost 4.1 GHz). SMT ON: 'A CPU uses two threads per core, and a vCPU represents a single thread'. Physical cores = vCPUs / 2. (Google's Z4D pricing tables label the vCPU column 'Cores', but the docs footnote is explicit that these are threads.)",
+    "ondemand_vcpu_hour": 0.032704,
+    "ondemand_gb_hour": 0.003496,
+    "spot_vcpu_hour": 0.013081,
+    "spot_gb_hour": 0.001398,
+    "sustained_use_discount": "None. Z4D is not SUD-eligible.",
+    "note": "Rates are for the Z4D-HIGHMEM-STANDARDLSSD SKU group, priced per region ('running in Iowa'): Core EF0E-0884-D622 $0.032704/h; Ram 42F4-4D69-4402 $0.003496/GiB-h; Local SSD (Titanium) 3AAB-3409-955B $0.2464/GiB-month (=$0.000337534/GiB-h). Spot: Core 8537-1870-5F87 $0.013081/h; Ram 000B-2E5A-EE6A $0.001398/GiB-h; Local SSD 8300-A647-FBF3 $0.09856/GiB-month (=$0.000135014/GiB-h). Spot discount 60%. The huge mandatory Titanium SSD dominates cost: about 55% of the on-demand machine price is storage. Docs: Spot VMs supported (not bare metal); no custom types; no sole tenancy; pricing page lists Z4D only in Iowa, N. Virginia and Columbus.",
+    "source_urls": [
+     "https://cloud.google.com/skus?currency=USD&filter=Z4D%20us-central1",
+     "https://cloud.google.com/skus?currency=USD&filter=Spot%20Preemptible%20Z4D%20us-central1",
+     "https://cloud.google.com/products/compute/pricing/storage-optimized",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://docs.cloud.google.com/compute/docs/storage-optimized-machines",
+     "https://docs.cloud.google.com/compute/docs/cpu-platforms"
+    ]
+   },
+   {
+    "family": "N2D",
+    "first_party": true,
+    "cpu_platform": "AMD EPYC Milan, 3rd Generation (processor SKU AMD EPYC 7B13; base 2.45 / effective 2.8 / max boost 3.5 GHz). SMT ON: 'Each CPU uses two threads per core. A vCPU is implemented as a single hardware thread'. Physical cores = vCPUs / 2.",
+    "ondemand_vcpu_hour": 0.027502,
+    "ondemand_gb_hour": 0.003686,
+    "spot_vcpu_hour": 0.0139,
+    "spot_gb_hour": 0.001862,
+    "sustained_use_discount": "Eligible: maximum 20% monthly SUD for N2D predefined and custom types, but it only starts after a resource runs more than 25% of a billing month and never applies to Spot - effectively nil for a one-off build of hours or days.",
+    "note": "Predefined-type SKUs: N2D AMD Instance Core A03E-E620-7389 $0.027502/h; N2D AMD Instance Ram 5535-6D2D-4B50 $0.003686/GiB-h; Spot Preemptible N2D AMD Instance Core 0434-AD25-7163 $0.0139/h; Spot Ram AFA5-CB36-99F6 $0.001862/GiB-h. Spot discount about 49.5%. (Custom N2D shapes cost 5% more: $0.0288771/vCPU-h and $0.0038703/GiB-h on-demand; $0.01459 and $0.001955 Spot.) Optional Local SSD (8, 16 or 24 x 375 GiB on the 224 shape) is billed separately at the generic $0.08/GiB-month ($0.0478 Spot).",
+    "source_urls": [
+     "https://cloud.google.com/skus?currency=USD&filter=N2D%20AMD%20Instance%20us-central1",
+     "https://cloud.google.com/products/compute/pricing/general-purpose",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines",
+     "https://docs.cloud.google.com/compute/docs/cpu-platforms",
+     "https://docs.cloud.google.com/compute/docs/sustained-use-discounts"
+    ]
+   },
+   {
+    "family": "C2D",
+    "first_party": true,
+    "cpu_platform": "AMD EPYC Milan, 3rd Generation (processor SKU AMD EPYC 7B13; base 2.45 / effective 2.8 / max boost 3.5 GHz). SMT ON: C2D table footnote 'A vCPU represents a single logical CPU thread', and the CPU platforms page says AMD uses two threads per core except H4D and Tau T2D. Physical cores = vCPUs / 2.",
+    "ondemand_vcpu_hour": 0.029563,
+    "ondemand_gb_hour": 0.003959,
+    "spot_vcpu_hour": 0.01286,
+    "spot_gb_hour": 0.001723,
+    "sustained_use_discount": "None per the SUD documentation: the eligible compute-optimized series listed is C2 only; C2D is not listed.",
+    "note": "SKUs: C2D AMD Instance Core 5E86-72F2-5688 $0.029563/h; C2D AMD Instance Ram C79B-C925-A9B9 $0.003959/GiB-h (identical on-demand rates to C3D); Spot Preemptible C2D AMD Instance Core CD98-F792-88FF $0.01286/h; Spot Ram 9BFD-9B1F-9AC4 $0.001723/GiB-h. Spot discount about 56.5%. Spot prices for C2D are published on Google's Spot pricing page for us-central1. Optional Local SSD (8 x 375 GiB on the 112 shape) billed separately at the generic rate.",
+    "source_urls": [
+     "https://cloud.google.com/skus?currency=USD&filter=C2D%20AMD%20Instance%20us-central1",
+     "https://cloud.google.com/products/compute/pricing/compute-optimized",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://docs.cloud.google.com/compute/docs/compute-optimized-machines",
+     "https://docs.cloud.google.com/compute/docs/cpu-platforms",
+     "https://docs.cloud.google.com/compute/docs/sustained-use-discounts"
+    ]
+   }
+  ],
+  "machines": [
+   {
+    "machine_type": "h4d-standard-192",
+    "vcpus": 192,
+    "mem_gb": 720,
+    "first_party": true,
+    "physical_cores": 192,
+    "ondemand_usd_hour": 7.85376,
+    "spot_usd_hour": 3.82032,
+    "arithmetic": "On-demand: 192 x $0.036075 = $6.926400 + 720 x $0.001288 = $0.927360 -> $7.853760/h (Google pricing page lists $7.85376). Spot: 192 x $0.01755 = $3.369600 + 720 x $0.000626 = $0.450720 -> $3.820320/h (Google Spot page lists $3.82032). 192 real cores: $0.0409 per physical core-hour on-demand, $0.0199 Spot.",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/compute-optimized",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=H4D"
+    ]
+   },
+   {
+    "machine_type": "h4d-highmem-192",
+    "vcpus": 192,
+    "mem_gb": 1488,
+    "first_party": true,
+    "physical_cores": 192,
+    "ondemand_usd_hour": 8.842944,
+    "spot_usd_hour": 4.301088,
+    "arithmetic": "On-demand: 192 x $0.036075 = $6.926400 + 1488 x $0.001288 = $1.916544 -> $8.842944/h (Google lists $8.842944). Spot: 192 x $0.01755 = $3.369600 + 1488 x $0.000626 = $0.931488 -> $4.301088/h (Google lists $4.301088).",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/compute-optimized",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=H4D%20Instance%20Ram"
+    ]
+   },
+   {
+    "machine_type": "h4d-highmem-192-lssd",
+    "vcpus": 192,
+    "mem_gb": 1488,
+    "first_party": true,
+    "physical_cores": 192,
+    "ondemand_usd_hour": 9.424091,
+    "spot_usd_hour": 4.583622,
+    "local_ssd_usd_hour": 0.581147,
+    "bundled_local_ssd": "10 x 375 GiB Titanium SSD = 3,750 GiB, attached automatically (cannot be added or removed separately). Billed as a separate per-GiB SKU, but Google's listed whole-machine price already INCLUDES it. On-demand SSD component: 3,750 GiB x $0.11313/GiB-month / 730 = $0.581147/h. Spot SSD component: 3,750 x $0.055 / 730 = $0.282534/h. The ondemand/spot figures here are all-in.",
+    "arithmetic": "On-demand: $6.926400 (cores) + $1.916544 (RAM) + $0.581147 (SSD) = $9.424091/h (Google lists $9.42409126). Spot: $3.369600 + $0.931488 + $0.282534 = $4.583622/h (Google lists $4.583622247).",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/compute-optimized",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=H4D%20Local%20SSD",
+     "https://docs.cloud.google.com/compute/docs/compute-optimized-machines"
+    ]
+   },
+   {
+    "machine_type": "c4d-standard-96-lssd",
+    "vcpus": 96,
+    "mem_gb": 372,
+    "first_party": true,
+    "physical_cores": 48,
+    "ondemand_usd_hour": 5.193316,
+    "spot_usd_hour": 2.18591,
+    "local_ssd_usd_hour": 0.657534,
+    "bundled_local_ssd": "8 x 375 GiB Titanium SSD = 3,000 GiB, attached automatically. Separate per-GiB SKU but INCLUDED in Google's listed machine price. On-demand: 3,000 x $0.16/GiB-month / 730 = $0.657534/h. Spot: 3,000 x $0.0674 / 730 = $0.276986/h. Figures here are all-in (base without SSD: $4.535782 on-demand, $1.908924 Spot = c4d-standard-96).",
+    "arithmetic": "On-demand: 96 x $0.0327035 = $3.139536 + 372 GiB x $0.003753348 = $1.396246 + SSD $0.657534 = $5.193316/h (Google lists $5.193315814). Spot: 96 x $0.01376 = $1.320960 + 372 x $0.001580548 = $0.587964 + SSD $0.276986 = $2.185910/h (Google lists $2.185910144). RAM rate is the per-GB SKU x 1.073741824.",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/general-purpose",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=C4D%20us-central1",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines"
+    ]
+   },
+   {
+    "machine_type": "c4d-highmem-96-lssd",
+    "vcpus": 96,
+    "mem_gb": 756,
+    "first_party": true,
+    "physical_cores": 48,
+    "ondemand_usd_hour": 6.634602,
+    "spot_usd_hour": 2.792841,
+    "local_ssd_usd_hour": 0.657534,
+    "bundled_local_ssd": "8 x 375 GiB Titanium SSD = 3,000 GiB, attached automatically. Separate SKU but INCLUDED in the listed machine price. On-demand $0.657534/h; Spot $0.276986/h. (Base without SSD: $5.977067 on-demand, $2.515854 Spot.)",
+    "arithmetic": "On-demand: 96 x $0.0327035 = $3.139536 + 756 x $0.003753348 = $2.837531 + SSD $0.657534 = $6.634602/h (Google lists $6.63460156). Spot: $1.320960 + 756 x $0.001580548 = $1.194894 + SSD $0.276986 = $2.792841/h (Google lists $2.792840562).",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/general-purpose",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=C4D%20us-central1",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines"
+    ]
+   },
+   {
+    "machine_type": "c4d-standard-192",
+    "vcpus": 192,
+    "mem_gb": 744,
+    "first_party": true,
+    "physical_cores": 96,
+    "ondemand_usd_hour": 9.071563,
+    "spot_usd_hour": 3.817848,
+    "arithmetic": "On-demand: 192 x $0.0327035 = $6.279072 + 744 x $0.003753348 = $2.792491 -> $9.071563/h (Google lists $9.071563133). Spot: 192 x $0.01376 = $2.641920 + 744 x $0.001580548 = $1.175928 -> $3.817848/h (Google lists $3.817847686). 96 physical cores: $0.0945 per core-hour on-demand, $0.0398 Spot.",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/general-purpose",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=C4D%20us-central1"
+    ]
+   },
+   {
+    "machine_type": "c4d-standard-192-lssd",
+    "vcpus": 192,
+    "mem_gb": 744,
+    "first_party": true,
+    "physical_cores": 96,
+    "ondemand_usd_hour": 10.386632,
+    "spot_usd_hour": 4.37182,
+    "local_ssd_usd_hour": 1.315068,
+    "bundled_local_ssd": "16 x 375 GiB Titanium SSD = 6,000 GiB, attached automatically. Separate SKU but INCLUDED in the listed machine price. On-demand: 6,000 x $0.16 / 730 = $1.315068/h. Spot: 6,000 x $0.0674 / 730 = $0.553973/h.",
+    "arithmetic": "On-demand: $6.279072 + $2.792491 + SSD $1.315068 = $10.386632/h (Google lists $10.386631626). Spot: $2.641920 + $1.175928 + SSD $0.553973 = $4.371820/h (Google lists $4.371820289).",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/general-purpose",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=C4D%20us-central1",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines"
+    ]
+   },
+   {
+    "machine_type": "c4d-highmem-192-lssd",
+    "vcpus": 192,
+    "mem_gb": 1512,
+    "first_party": true,
+    "physical_cores": 96,
+    "ondemand_usd_hour": 13.269203,
+    "spot_usd_hour": 5.585681,
+    "local_ssd_usd_hour": 1.315068,
+    "bundled_local_ssd": "16 x 375 GiB Titanium SSD = 6,000 GiB, attached automatically. Separate SKU but INCLUDED in the listed machine price. On-demand $1.315068/h; Spot $0.553973/h. (Base without SSD: $11.954135 on-demand, $5.031709 Spot.)",
+    "arithmetic": "On-demand: 192 x $0.0327035 = $6.279072 + 1512 x $0.003753348 = $5.675063 + SSD $1.315068 = $13.269203/h (Google lists $13.269203119). Spot: $2.641920 + 1512 x $0.001580548 = $2.389789 + SSD $0.553973 = $5.585681/h (Google lists $5.585681126).",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/general-purpose",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=C4D%20us-central1",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines"
+    ]
+   },
+   {
+    "machine_type": "c4d-standard-384-lssd",
+    "vcpus": 384,
+    "mem_gb": 1488,
+    "first_party": true,
+    "physical_cores": 192,
+    "ondemand_usd_hour": 20.773263,
+    "spot_usd_hour": 8.743641,
+    "local_ssd_usd_hour": 2.630137,
+    "bundled_local_ssd": "32 x 375 GiB Titanium SSD = 12,000 GiB, attached automatically. Separate SKU but INCLUDED in the listed machine price. On-demand: 12,000 x $0.16 / 730 = $2.630137/h. Spot: 12,000 x $0.0674 / 730 = $1.107945/h. (Base without SSD = c4d-standard-384: $18.143126 on-demand, $7.635695 Spot.)",
+    "arithmetic": "On-demand: 384 x $0.0327035 = $12.558144 + 1488 x $0.003753348 = $5.584982 + SSD $2.630137 = $20.773263/h (Google lists $20.773263253). Spot: 384 x $0.01376 = $5.283840 + 1488 x $0.001580548 = $2.351855 + SSD $1.107945 = $8.743641/h (Google lists $8.743640577). 192 physical cores: $0.108 per core-hour on-demand, $0.0455 Spot.",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/general-purpose",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=C4D%20us-central1",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines"
+    ]
+   },
+   {
+    "machine_type": "c3d-standard-180-lssd",
+    "vcpus": 180,
+    "mem_gb": 720,
+    "first_party": true,
+    "physical_cores": 90,
+    "ondemand_usd_hour": 8.829354,
+    "spot_usd_hour": 2.261637,
+    "local_ssd_usd_hour": 0.657534,
+    "bundled_local_ssd": "16 x 375 GiB Local SSD (original Local SSD, not Titanium) = 6,000 GiB (docs label it '6 TiB'), attached automatically. NOT included in any Google-listed machine price: Google's pricing pages list only c3d-standard-180 ($8.17182 on-demand, $1.86876 Spot) and have no c3d-*-lssd rows, and there is no C3D Local SSD SKU. The disks are billed SEPARATELY at the generic Local SSD rate: on-demand 6,000 x $0.08/GiB-month / 730 = $0.657534/h; Spot 6,000 x $0.0478 / 730 = $0.392877/h. The ondemand/spot figures here are all-in totals computed by adding that.",
+    "arithmetic": "DERIVED total (not printed by Google; every input is a Google-published rate). On-demand: 180 x $0.029563 = $5.321340 + 720 x $0.003959 = $2.850480 = $8.171820 (matches Google's c3d-standard-180 row) + SSD $0.657534 = $8.829354/h. Spot: 180 x $0.00675 = $1.215000 + 720 x $0.000908 = $0.653760 = $1.868760 (matches Google's Spot row) + SSD $0.392877 = $2.261637/h.",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/general-purpose",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=C3D%20us-central1",
+     "https://cloud.google.com/skus?currency=USD&filter=SSD%20backed%20Local%20Storage%20us-central1",
+     "https://cloud.google.com/compute/disks-image-pricing",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines",
+     "https://docs.cloud.google.com/compute/docs/disks/local-ssd"
+    ]
+   },
+   {
+    "machine_type": "c3d-standard-360-lssd",
+    "vcpus": 360,
+    "mem_gb": 1440,
+    "first_party": true,
+    "physical_cores": 180,
+    "ondemand_usd_hour": 17.658708,
+    "spot_usd_hour": 4.523273,
+    "local_ssd_usd_hour": 1.315068,
+    "bundled_local_ssd": "32 x 375 GiB Local SSD (original Local SSD, not Titanium) = 12,000 GiB (docs label it '12 TiB'), attached automatically. NOT included in any Google-listed machine price (only c3d-standard-360 is listed: $16.34364 on-demand, $3.73752 Spot). Billed SEPARATELY at the generic Local SSD rate: on-demand 12,000 x $0.08 / 730 = $1.315068/h; Spot 12,000 x $0.0478 / 730 = $0.785753/h. Figures here are all-in computed totals.",
+    "arithmetic": "DERIVED total (not printed by Google). On-demand: 360 x $0.029563 = $10.642680 + 1440 x $0.003959 = $5.700960 = $16.343640 (matches Google's c3d-standard-360 row) + SSD $1.315068 = $17.658708/h. Spot: 360 x $0.00675 = $2.430000 + 1440 x $0.000908 = $1.307520 = $3.737520 (matches Google's Spot row) + SSD $0.785753 = $4.523273/h. Third-party cross-check (gcloud-compute.com, data dated 2026-11-18, NOT first-party): $17.6587 on-demand (agrees), $4.722 Spot (about 4% higher than computed here; Spot moves daily). 180 physical cores: $0.098 per core-hour on-demand, $0.0251 Spot.",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/general-purpose",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=C3D%20us-central1",
+     "https://cloud.google.com/skus?currency=USD&filter=SSD%20backed%20Local%20Storage%20us-central1",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines",
+     "https://gcloud-compute.com/c3d-standard-360-lssd.html"
+    ]
+   },
+   {
+    "machine_type": "z4d-highmem-96-standardlssd",
+    "vcpus": 96,
+    "mem_gb": 756,
+    "first_party": true,
+    "physical_cores": 48,
+    "ondemand_usd_hour": 12.870779,
+    "spot_usd_hour": 5.147952,
+    "local_ssd_usd_hour": 7.088219,
+    "bundled_local_ssd": "6 x 3,500 GiB Titanium SSD = 21,000 GiB, attached automatically. Separate per-GiB SKU but INCLUDED in Google's listed machine price. On-demand: 21,000 x $0.2464/GiB-month / 730 = $7.088219/h (55% of the machine price). Spot: 21,000 x $0.09856 / 730 = $2.835288/h. Compute-only portion is $5.782560 on-demand, $2.312664 Spot, but the SSD cannot be dropped.",
+    "arithmetic": "On-demand: 96 x $0.032704 = $3.139584 + 756 x $0.003496 = $2.642976 + SSD $7.088219 = $12.870779/h (Google lists $12.870779178). Spot: 96 x $0.013081 = $1.255776 + 756 x $0.001398 = $1.056888 + SSD $2.835288 = $5.147952/h (Google lists $5.147951671).",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/storage-optimized",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=Z4D%20us-central1",
+     "https://cloud.google.com/skus?currency=USD&filter=Spot%20Preemptible%20Z4D%20us-central1",
+     "https://docs.cloud.google.com/compute/docs/storage-optimized-machines"
+    ]
+   },
+   {
+    "machine_type": "z4d-highmem-192-standardlssd",
+    "vcpus": 192,
+    "mem_gb": 1512,
+    "first_party": true,
+    "physical_cores": 96,
+    "ondemand_usd_hour": 25.741558,
+    "spot_usd_hour": 10.295903,
+    "local_ssd_usd_hour": 14.176438,
+    "bundled_local_ssd": "12 x 3,500 GiB Titanium SSD = 42,000 GiB, attached automatically. Separate per-GiB SKU but INCLUDED in Google's listed machine price. On-demand: 42,000 x $0.2464 / 730 = $14.176438/h. Spot: 42,000 x $0.09856 / 730 = $5.670575/h. Compute-only portion $11.565120 on-demand, $4.625328 Spot.",
+    "arithmetic": "On-demand: 192 x $0.032704 = $6.279168 + 1512 x $0.003496 = $5.285952 + SSD $14.176438 = $25.741558/h (Google lists $25.741558356). Spot: 192 x $0.013081 = $2.511552 + 1512 x $0.001398 = $2.113776 + SSD $5.670575 = $10.295903/h (Google lists $10.295903342).",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/storage-optimized",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=Z4D%20us-central1",
+     "https://cloud.google.com/skus?currency=USD&filter=Spot%20Preemptible%20Z4D%20us-central1",
+     "https://docs.cloud.google.com/compute/docs/storage-optimized-machines"
+    ]
+   },
+   {
+    "machine_type": "n2d-standard-224",
+    "vcpus": 224,
+    "mem_gb": 896,
+    "first_party": true,
+    "physical_cores": 112,
+    "ondemand_usd_hour": 9.463104,
+    "spot_usd_hour": 4.781952,
+    "arithmetic": "On-demand: 224 x $0.027502 = $6.160448 + 896 x $0.003686 = $3.302656 -> $9.463104/h (Google lists $9.463104). Spot: 224 x $0.0139 = $3.113600 + 896 x $0.001862 = $1.668352 -> $4.781952/h (Google lists $4.781952). No bundled local SSD (optional 8/16/24 x 375 GiB billed separately). 112 physical cores: $0.0845 per core-hour on-demand, $0.0427 Spot.",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/general-purpose",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=N2D%20AMD%20Instance%20us-central1",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines"
+    ]
+   },
+   {
+    "machine_type": "c2d-highmem-112",
+    "vcpus": 112,
+    "mem_gb": 896,
+    "first_party": true,
+    "physical_cores": 56,
+    "ondemand_usd_hour": 6.85832,
+    "spot_usd_hour": 2.984128,
+    "arithmetic": "On-demand: 112 x $0.029563 = $3.311056 + 896 x $0.003959 = $3.547264 -> $6.858320/h (Google lists $6.85832). Spot: 112 x $0.01286 = $1.440320 + 896 x $0.001723 = $1.543808 -> $2.984128/h (Google lists $2.984128). No bundled local SSD (optional 8 x 375 GiB billed separately). 56 physical cores: $0.1225 per core-hour on-demand, $0.0533 Spot.",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/compute-optimized",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=C2D%20AMD%20Instance%20us-central1",
+     "https://docs.cloud.google.com/compute/docs/compute-optimized-machines"
+    ]
+   }
+  ],
+  "caveats": [
+   "All prices were read on 2026-11-20 from Google pages for us-central1 (Iowa), USD, Linux, no licences, no CUDs, excluding tax. No cloud account was accessed and no cloud CLI was run.",
+   "Method: cloud.google.com/compute/vm-instance-pricing is now only an index page, and the pricing pages are too large for the fetch tool, so the per-family pages (cloud.google.com/products/compute/pricing/general-purpose, /compute-optimized, /storage-optimized) and cloud.google.com/spot-vms/pricing were downloaded and their embedded 'Iowa (us-central1)' hourly tables parsed. Per-vCPU, per-GB and per-GiB-SSD component rates came from Google's SKU catalog (cloud.google.com/skus), read in a browser. Every whole-machine price computed from the SKU rates matches Google's listed machine price to at least 6 decimals, except the two C3D -lssd shapes, which Google does not list.",
+   "c3d-standard-180-lssd and c3d-standard-360-lssd: the all-in totals are DERIVED (Google-listed base machine price + generic Local SSD rate of $0.08/GiB-month on-demand, $0.0478 Spot). The inference that the generic Local SSD SKU applies rests on (a) no C3D Local SSD SKU existing in the catalog and (b) docs classing C3D storage as original Local SSD, not Titanium SSD. The on-demand total agrees with the third-party gcloud-compute.com figure ($17.6587 for the 360 shape); its Spot figure ($4.722) is about 4% above the $4.523 computed here.",
+   "Spot prices are variable. Google's Spot pricing page and Spot docs say they can change up to once every day (the disk pricing page still carries older wording of 'once every 30 days'). Treat every Spot figure as a 2026-11-20 snapshot. Spot VMs can be preempted at any time and Spot capacity for very large shapes (192-384 vCPU, whole-host H4D) is not guaranteed; availability was not and could not be checked here.",
+   "H4D Spot: prices and Spot SKUs are published for us-central1, and the Spot docs do not exclude H4D, but the H4D docs section itself only says 'available on-demand, or with one- and three-year CUDs'. Confirm Spot H4D can actually be created before relying on the Spot figure.",
+   "C4D memory is priced per gigabyte (10^9 bytes) while machine memory is in GiB; the per-GB SKU must be multiplied by 1.073741824. Using the raw SKU rate against the GiB figure under-prices C4D by about 2%. All other families here are priced per GiB.",
+   "Local SSD per-GiB-month SKUs are converted to hourly by Google at 730 hours per month (confirmed by matching listed machine prices). For H4D, C4D and Z4D the Titanium SSD is a separate billing SKU yet already included in the listed -lssd machine price; ondemand_usd_hour and spot_usd_hour for all -lssd shapes in this output are all-in, and local_ssd_usd_hour is the on-demand SSD portion of that total (not an extra).",
+   "Not included in any figure: boot or data disks (C4D, H4D and Z4D accept Hyperdisk only), network egress, Tier_1 networking, snapshots, tax. H4D internet-bound bandwidth is limited to 1 Gbps and H4D has no live migration, which may matter for a build that pulls large sources.",
+   "Physical cores: only H4D gives one full core per vCPU (192 cores). On C4D, C3D, Z4D, N2D and C2D a vCPU is one SMT thread, so core counts are half the vCPU counts. Per physical core-hour, H4D is by far the cheapest on-demand (about $0.041 vs $0.085-$0.12 for the others); on Spot, H4D (about $0.020) and C3D (about $0.021-$0.025) are closest.",
+   "Sustained use discounts: only N2D is eligible (max 20%), and only beyond 25% of a billing month, never on Spot, so it is irrelevant to a one-off build.",
+   "Third-party cross-checks (NOT first-party, context only): gcloud-compute.com c3d-standard-360-lssd as above; an aggregator search snippet showed c4d-standard-384 at $18.1431 on-demand (agrees with Google's $18.143126) and $8.0368 Spot (Google's page today: $7.635695), consistent with Spot drift.",
+   "Quota rules and zone-level availability of these shapes in us-central1 were not part of this step and were not researched."
+  ]
+ },
+ "intel": {
+  "web_access": true,
+  "family_rates": [
+   {
+    "family": "N2",
+    "first_party": true,
+    "ondemand_vcpu_hour": 0.031611,
+    "ondemand_gb_hour": 0.004237,
+    "spot_vcpu_hour": 0.01801,
+    "spot_gb_hour": 0.002415,
+    "cpu_platform": "Intel Xeon Scalable. N2 with 96 or more vCPUs runs only on 3rd-generation Ice Lake (Xeon Platinum 8373C; 2.6 GHz base, 3.4 GHz all-core turbo, 3.5 GHz single-core max). N2 below 96 vCPUs can run on 2nd-generation Cascade Lake (Xeon Gold 6268CL; 2.8 / 3.4 / 3.9 GHz) or Ice Lake. All three N2 shapes priced here (96 and 128 vCPU) are therefore Ice Lake. One vCPU is one SMT hardware thread (Hyper-Threading), two vCPUs per physical core by default.",
+    "sustained_use_discount": "Eligible and automatic, but worth nothing on a 1-2 day run. N2 is in the 20%-maximum class. Usage in the first 25% of the billing month is charged at 100% of on-demand; 25-50% at 86.78%, 50-75% at 73.3%, 75-100% at 60%. 25% of a 30-day month is 180 hours; a 24-48 hour run is 3.3-6.7% of the month, so the discount is $0. Two qualifications from Google's page: usage time is aggregated across the same machine family and region within the billing account (other N2 usage in us-central1 the same month would count towards the threshold), and only self-serve (online) billing accounts get SUDs. Spot VMs never receive SUDs.",
+    "note": "Component rates read directly from Google's SKU list: 'N2 Instance Core running in Americas' (SKU BB77-5FDA-69D9), 'N2 Instance Ram running in Americas' (5B01-D157-A097), 'Spot Preemptible N2 Instance Core running in Americas' (2856-91B1-406A), 'Spot Preemptible N2 Instance Ram running in Americas' (6276-ABCE-E764); each lists us-central1, us-east1, us-west1. Memory is priced per GiB-hour. Spot is about 43% below on-demand today. N2 can attach Local SSD optionally: machine types with 82-128 vCPUs take 16 or 24 disks of 375 GiB (6,000 or 9,000 GiB), chosen at creation and billed separately at $0.000109589/GiB-hour on-demand ($0.08/GiB-month) or $0.000065479/GiB-hour Spot.",
+    "source_urls": [
+     "https://cloud.google.com/skus?currency=USD&filter=N2%20Instance%20Core%20running%20in%20Americas",
+     "https://cloud.google.com/skus?currency=USD&filter=N2%20Instance%20Ram%20running%20in%20Americas",
+     "https://cloud.google.com/products/compute/pricing/general-purpose#n2-machine-types",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://docs.cloud.google.com/compute/docs/cpu-platforms",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines",
+     "https://docs.cloud.google.com/compute/docs/sustained-use-discounts",
+     "https://docs.cloud.google.com/compute/docs/disks/local-ssd",
+     "https://cloud.google.com/compute/disks-image-pricing"
+    ]
+   },
+   {
+    "family": "C4",
+    "first_party": true,
+    "ondemand_vcpu_hour": 0.03465,
+    "ondemand_gb_hour": 0.003938,
+    "spot_vcpu_hour": 0.02074,
+    "spot_gb_hour": 0.002357,
+    "cpu_platform": "Intel Xeon Scalable on Titanium. C4 '-lssd' shapes and all 144- and 288-vCPU shapes run only on 6th-generation Granite Rapids (Xeon Platinum 6985P-C; 2.8 GHz base, 3.9 GHz all-core turbo, 4.2 GHz single-core max). Other shapes, including 192 vCPU without Titanium SSD, default to 5th-generation Emerald Rapids (Xeon Platinum 8581C; 2.3 / 3.1 / 4.0 GHz) and can be Granite Rapids where selectable as minimum CPU platform. So c4-standard-192-lssd and c4-standard-288-lssd are Granite Rapids; c4-highmem-192 is Emerald Rapids by default. One vCPU is one SMT hardware thread, two vCPUs per physical core.",
+    "sustained_use_discount": "Not eligible. Google's SUD page says SUDs apply only to the series it lists (N1, N2, N2D, C2, M1, M2); C4 is not listed. Nothing to gain or lose on a 1-2 day run.",
+    "note": "Component rates read directly from Google's SKU list: 'C4 Instance Core running in Americas' (4AA0-9497-B351), 'C4 Instance Ram running in Americas' (E259-34D3-C50F), 'Spot Preemptible C4 Instance Core running in Americas' (F8D5-5FD0-DFD1), 'Spot Preemptible C4 Instance Ram running in Americas' (6DF6-6CCD-40BB); us-central1, us-east1, us-west1. C4 Titanium/Local SSD has its own SKU and a higher rate than ordinary Local SSD: 'C4 Instance Local SSD running in Americas' (E0C4-9777-003A) $0.16 per GiB-month on-demand (= $0.000219178/GiB-hour at 730 h/month); 'Spot Preemptible C4 Instance Local SSD running in Americas' (B3CD-2048-BC06) $0.0958 per GiB-month (= $0.000131233/GiB-hour, as shown on the Spot page). Spot is about 40% below on-demand today. C4 does not support Persistent Disk; boot and data disks must be Hyperdisk (Hyperdisk Balanced capacity $0.000109589/GiB-hour in Iowa, plus charges for IOPS/throughput above the 3,000 IOPS / 140 MBps baseline) - not included in the machine prices.",
+    "source_urls": [
+     "https://cloud.google.com/skus?currency=USD&filter=C4%20Instance%20Core%20running%20in%20Americas",
+     "https://cloud.google.com/skus?currency=USD&filter=C4%20Instance%20Ram%20running%20in%20Americas",
+     "https://cloud.google.com/skus?currency=USD&filter=C4%20Local%20SSD%20Americas",
+     "https://cloud.google.com/products/compute/pricing/general-purpose#c4-machine-types",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://docs.cloud.google.com/compute/docs/cpu-platforms",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines",
+     "https://docs.cloud.google.com/compute/docs/sustained-use-discounts",
+     "https://cloud.google.com/compute/disks-image-pricing"
+    ]
+   },
+   {
+    "family": "M3",
+    "first_party": true,
+    "ondemand_vcpu_hour": 0.0348,
+    "ondemand_gb_hour": 0.0051,
+    "spot_vcpu_hour": 0.01452,
+    "spot_gb_hour": 0.002125,
+    "cpu_platform": "Intel Xeon Scalable 3rd-generation Ice Lake (Xeon Platinum 8373C; 2.6 GHz base, 3.4 GHz all-core turbo, 3.5 GHz single-core max) - the same processor as large N2. One vCPU is one SMT hardware thread, two vCPUs per physical core.",
+    "sustained_use_discount": "Not eligible. Google's pricing page states 'M3 machine types do not offer sustained use discounts', and M3 is absent from the SUD eligibility list (only M1 and M2 among memory-optimized). Nothing on a 1-2 day run.",
+    "note": "Component rates read directly from Google's SKU list: 'M3 Memory-optimized Instance Core running in Americas' (2B4F-981A-703B), 'M3 Memory-optimized Instance Ram running in Americas' (D493-0B62-1972), 'Spot Preemptible M3 Memory-optimized Instance Core running in Americas' (A82E-F92D-A3B9), 'Spot Preemptible M3 Memory-optimized Instance Ram running in Americas' (7896-6DE7-532A); us-central1, us-east1, us-west1. Spot is about 58% below on-demand today. Google notes M3 is only available in certain regions and zones. m3-megamem-128 can optionally take 8 Local SSD disks of 375 GiB (3,000 GiB) at the ordinary Local SSD rate ($0.000109589/GiB-hour on-demand).",
+    "source_urls": [
+     "https://cloud.google.com/skus?currency=USD&filter=M3%20Memory-optimized%20Instance%20running%20in%20Americas",
+     "https://cloud.google.com/products/compute/pricing/memory-optimized#m3-machine-types",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://docs.cloud.google.com/compute/docs/cpu-platforms",
+     "https://docs.cloud.google.com/compute/docs/memory-optimized-machines",
+     "https://docs.cloud.google.com/compute/docs/sustained-use-discounts"
+    ]
+   }
+  ],
+  "machines": [
+   {
+    "machine_type": "n2-standard-128",
+    "vcpus": 128,
+    "mem_gb": 512,
+    "physical_cores": 64,
+    "first_party": true,
+    "ondemand_usd_hour": 6.215552,
+    "spot_usd_hour": 3.54176,
+    "arithmetic": "On-demand: 128 x 0.031611 = 4.046208; 512 x 0.004237 = 2.169344; total 6.215552 (matches Google's table figure $6.215552). Spot: 128 x 0.01801 = 2.30528; 512 x 0.002415 = 1.23648; total 3.54176 (matches Google's Spot table $3.54176). 24 h: $149.17 on-demand / $85.00 Spot; 48 h: $298.35 / $170.00.",
+    "bundled_local_ssd": "None attached by default (not an -lssd shape). Optional: 16 or 24 Local SSD disks of 375 GiB (6,000 or 9,000 GiB), chosen at creation, billed separately: on-demand 6,000 x 0.000109589 = $0.657534/h or 9,000 x 0.000109589 = $0.986301/h; Spot 6,000 x 0.000065479 = $0.392874/h or 9,000 x 0.000065479 = $0.589311/h.",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/general-purpose#n2-machine-types",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=N2%20Instance%20Core%20running%20in%20Americas",
+     "https://cloud.google.com/skus?currency=USD&filter=N2%20Instance%20Ram%20running%20in%20Americas",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines",
+     "https://cloud.google.com/compute/disks-image-pricing"
+    ]
+   },
+   {
+    "machine_type": "n2-highmem-128",
+    "vcpus": 128,
+    "mem_gb": 864,
+    "physical_cores": 64,
+    "first_party": true,
+    "ondemand_usd_hour": 7.706976,
+    "spot_usd_hour": 4.39184,
+    "arithmetic": "On-demand: 128 x 0.031611 = 4.046208; 864 x 0.004237 = 3.660768; total 7.706976 (matches Google's table $7.706976). Spot: 128 x 0.01801 = 2.30528; 864 x 0.002415 = 2.08656; total 4.39184 (matches Google's Spot table $4.39184). 24 h: $184.97 on-demand / $105.40 Spot; 48 h: $369.93 / $210.81.",
+    "bundled_local_ssd": "None attached by default. Optional: 16 or 24 Local SSD disks of 375 GiB (6,000 or 9,000 GiB), billed separately: on-demand $0.657534/h or $0.986301/h; Spot $0.392874/h or $0.589311/h.",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/general-purpose#n2-machine-types",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=N2%20Instance%20Core%20running%20in%20Americas",
+     "https://cloud.google.com/skus?currency=USD&filter=N2%20Instance%20Ram%20running%20in%20Americas",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines"
+    ]
+   },
+   {
+    "machine_type": "n2-highmem-96",
+    "vcpus": 96,
+    "mem_gb": 768,
+    "physical_cores": 48,
+    "first_party": true,
+    "ondemand_usd_hour": 6.288672,
+    "spot_usd_hour": 3.58368,
+    "arithmetic": "On-demand: 96 x 0.031611 = 3.034656; 768 x 0.004237 = 3.254016; total 6.288672 (matches Google's table $6.288672). Spot: 96 x 0.01801 = 1.72896; 768 x 0.002415 = 1.85472; total 3.58368 (matches Google's Spot table $3.58368). 24 h: $150.93 on-demand / $86.01 Spot; 48 h: $301.86 / $172.02.",
+    "bundled_local_ssd": "None attached by default. Optional: 16 or 24 Local SSD disks of 375 GiB (6,000 or 9,000 GiB), billed separately: on-demand $0.657534/h or $0.986301/h; Spot $0.392874/h or $0.589311/h.",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/general-purpose#n2-machine-types",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=N2%20Instance%20Core%20running%20in%20Americas",
+     "https://cloud.google.com/skus?currency=USD&filter=N2%20Instance%20Ram%20running%20in%20Americas",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines"
+    ]
+   },
+   {
+    "machine_type": "c4-standard-192-lssd",
+    "vcpus": 192,
+    "mem_gb": 720,
+    "physical_cores": 96,
+    "first_party": true,
+    "ondemand_usd_hour": 12.118296986,
+    "spot_usd_hour": 7.253914521,
+    "local_ssd_usd_hour": 2.630136986,
+    "arithmetic": "On-demand: 192 x 0.03465 = 6.6528; 720 x 0.003938 = 2.83536; vCPU+memory = 9.48816 (equals Google's c4-standard-192 price). Local SSD: 12,000 GiB x $0.16/GiB-month / 730 h = 2.630136986. Total 12.118296986 (matches Google's 'C4 Standard with Local SSD' table $12.118296986). Spot: 192 x 0.02074 = 3.98208; 720 x 0.002357 = 1.69704; = 5.67912; Local SSD 12,000 x $0.0958/GiB-month / 730 = 1.574794521; total 7.253914521 (matches Google's Spot table). 24 h: $290.84 on-demand / $174.09 Spot; 48 h: $581.68 / $348.19.",
+    "bundled_local_ssd": "32 Titanium SSD disks x 375 GiB = 12,000 GiB, attached automatically by choosing the -lssd type; they cannot be attached separately or omitted. They are metered under their own SKU (C4 Instance Local SSD, $0.16/GiB-month), so they appear as a separate bill line of $2.630137/h on-demand ($1.574795/h Spot), but Google's published price for this machine type already includes that amount - the hourly prices given here are all-in, do not add it again. Data is lost on stop or preemption.",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/general-purpose#c4-machine-types",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=C4%20Instance%20Core%20running%20in%20Americas",
+     "https://cloud.google.com/skus?currency=USD&filter=C4%20Instance%20Ram%20running%20in%20Americas",
+     "https://cloud.google.com/skus?currency=USD&filter=C4%20Local%20SSD%20Americas",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines",
+     "https://docs.cloud.google.com/compute/docs/disks/local-ssd"
+    ]
+   },
+   {
+    "machine_type": "c4-standard-288-lssd",
+    "vcpus": 288,
+    "mem_gb": 1080,
+    "physical_cores": 144,
+    "first_party": true,
+    "ondemand_usd_hour": 18.177445479,
+    "spot_usd_hour": 10.880871781,
+    "local_ssd_usd_hour": 3.945205479,
+    "arithmetic": "On-demand: 288 x 0.03465 = 9.9792; 1,080 x 0.003938 = 4.25304; vCPU+memory = 14.23224 (equals Google's c4-standard-288 price). Local SSD: 18,000 GiB x $0.16/GiB-month / 730 h = 3.945205479. Total 18.177445479 (matches Google's table $18.177445479). Spot: 288 x 0.02074 = 5.97312; 1,080 x 0.002357 = 2.54556; = 8.51868; Local SSD 18,000 x $0.0958 / 730 = 2.362191781; total 10.880871781 (matches Google's Spot table). 24 h: $436.26 on-demand / $261.14 Spot; 48 h: $872.52 / $522.28.",
+    "bundled_local_ssd": "48 Titanium SSD disks x 375 GiB = 18,000 GiB, attached automatically with the -lssd type; cannot be attached separately or omitted. Metered under its own SKU ($0.16/GiB-month): $3.945205/h on-demand ($2.362192/h Spot) as a separate bill line, already included in Google's published price for this machine type and in the hourly prices given here. Data is lost on stop or preemption.",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/general-purpose#c4-machine-types",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=C4%20Instance%20Core%20running%20in%20Americas",
+     "https://cloud.google.com/skus?currency=USD&filter=C4%20Instance%20Ram%20running%20in%20Americas",
+     "https://cloud.google.com/skus?currency=USD&filter=C4%20Local%20SSD%20Americas",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines",
+     "https://docs.cloud.google.com/compute/docs/disks/local-ssd"
+    ]
+   },
+   {
+    "machine_type": "c4-highmem-192",
+    "vcpus": 192,
+    "mem_gb": 1488,
+    "physical_cores": 96,
+    "first_party": true,
+    "ondemand_usd_hour": 12.512544,
+    "spot_usd_hour": 7.489296,
+    "arithmetic": "On-demand: 192 x 0.03465 = 6.6528; 1,488 x 0.003938 = 5.859744; total 12.512544 (matches Google's table $12.512544). Spot: 192 x 0.02074 = 3.98208; 1,488 x 0.002357 = 3.507216; total 7.489296 (matches Google's Spot table $7.489296). 24 h: $300.30 on-demand / $179.74 Spot; 48 h: $600.60 / $359.49.",
+    "bundled_local_ssd": "None (Titanium SSD column is 'No'; C4 Local SSD is only available on -lssd types). Storage must be Hyperdisk, billed separately.",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/general-purpose#c4-machine-types",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=C4%20Instance%20Core%20running%20in%20Americas",
+     "https://cloud.google.com/skus?currency=USD&filter=C4%20Instance%20Ram%20running%20in%20Americas",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines"
+    ]
+   },
+   {
+    "machine_type": "m3-megamem-128",
+    "vcpus": 128,
+    "mem_gb": 1952,
+    "physical_cores": 64,
+    "first_party": true,
+    "ondemand_usd_hour": 14.4096,
+    "spot_usd_hour": 6.00656,
+    "arithmetic": "On-demand: 128 x 0.0348 = 4.4544; 1,952 x 0.0051 = 9.9552; total 14.4096 (matches Google's table $14.4096). Spot: 128 x 0.01452 = 1.85856; 1,952 x 0.002125 = 4.148; total 6.00656 (matches Google's Spot table $6.00656). 24 h: $345.83 on-demand / $144.16 Spot; 48 h: $691.66 / $288.31.",
+    "bundled_local_ssd": "None attached by default. Optional: 8 Local SSD disks of 375 GiB (3,000 GiB), chosen at creation, billed separately: on-demand 3,000 x 0.000109589 = $0.328767/h; Spot 3,000 x 0.000065479 = $0.196437/h.",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/memory-optimized#m3-machine-types",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://cloud.google.com/skus?currency=USD&filter=M3%20Memory-optimized%20Instance%20running%20in%20Americas",
+     "https://docs.cloud.google.com/compute/docs/memory-optimized-machines",
+     "https://docs.cloud.google.com/compute/docs/disks/local-ssd"
+    ]
+   }
+  ],
+  "caveats": [
+   "All prices were read on 2026-11-20 from Google's own pages rendered in a browser (WebFetch could not load the pricing pages: too large / JavaScript-rendered). cloud.google.com/compute/vm-instance-pricing and /compute/all-pricing now redirect to cloud.google.com/products/compute/pricing, which links to per-family pages; region selector showed 'Iowa (us-central1)' on every table used.",
+   "Google's per-family pricing pages now publish only whole-machine prices; the per-vCPU and per-GiB component rates were taken from Google's SKU list (cloud.google.com/skus) and reproduce every whole-machine figure exactly, so components and totals are both first-party and mutually consistent.",
+   "Spot prices are not fixed: Google's Spot page says they 'can change up to once every day' (another Google page says up to once every 30 days). The Spot figures are today's snapshot and should be re-read just before the build. Spot VMs can be preempted at any time and Local SSD data does not survive preemption.",
+   "Memory and disk are priced per GiB (binary). Prices are USD, exclude tax, Linux with no licence fees, no committed-use discounts.",
+   "Machine prices exclude boot/data disks, network egress and any premium OS image. C4 cannot use Persistent Disk, so a C4 build needs at least a Hyperdisk Balanced boot disk ($0.000109589/GiB-hour capacity in Iowa, plus IOPS/throughput above the free baseline). N2 and M3 can use Persistent Disk.",
+   "For the C4 -lssd shapes the hourly prices given already include the Titanium SSD charge (as Google's own table does); the local_ssd_usd_hour field is the on-demand portion of that total, not an extra.",
+   "Billing is per second with a one-minute minimum, so a 1-2 day run costs hours x hourly rate with no rounding to whole days or months. The 24 h / 48 h figures in the arithmetic are my multiplication of Google's hourly prices.",
+   "Sustained-use discounts: only N2 is eligible, and a 1-2 day run earns $0 unless the same billing account has other N2 usage in us-central1 that month pushing aggregated usage past 25% of the month. C4 and M3 get none. Spot usage never earns SUDs.",
+   "Physical core counts are vCPUs / 2, derived from Google's statement that these series have two vCPUs (hardware threads) per core by default; Google does not publish a per-machine-type core count table.",
+   "Availability and quota were not checked (no cloud account access was used). Google's docs say N2 Ice Lake (required for 96+ vCPU N2) and M3 are offered only in specific regions/zones; large shapes normally also need a regional CPU quota increase (per-family quotas for C4 and M3), which is outside this pricing task.",
+   "M3 facts on Local SSD count and Spot support came from an automated summary of Google's memory-optimized machines page rather than a direct read of the table; the M3 CPU model and all M3 prices were read directly.",
+   "Third-party cross-check (cloudprice.net, data stamped 2026-11-20 03:02 UTC, not a Google source): n2-standard-128 $6.2156/h, c4-highmem-192 $12.5125/h, m3-megamem-128 $14.4096/h on-demand in us-central1 - all agree with Google's figures. It showed no Spot prices. Other aggregators surfaced by search disagreed with each other on Spot (e.g. n2-standard-4 at $0.1107 vs $0.0660) and were not used."
+  ]
+ },
+ "storage": {
+  "web_access": true,
+  "storage": [
+   {
+    "option": "Local SSD, separately attached 375 GiB partitions (non-Titanium; N2 / N2D / N1 / C2 / C2D)",
+    "first_party": true,
+    "price_basis": "On demand $0.000109589 per GiB-hour in Iowa (us-central1) = $0.08 per GiB-month at Google's 730-hour month. Billed per second on provisioned capacity 'for the lifetime of the VM that it is attached to'; no IOPS or throughput charge. Spot rate $0.000065479 per GiB-hour (variable). Arithmetic: valid disk counts on N2/N2D are 1, 2, 4, 8, 16 or 24 (larger machine sizes force a minimum of 4, 8 or 16), so the smallest count that reaches 2 TB is 8 x 375 = 3,000 GiB: 3,000 x 0.000109589 = $0.328767/hr x 24 = $7.89/day. For reference 6 x 375 = 2,250 GiB would be $0.246575/hr = $5.92/day, but 6 is a valid count only on N1. Spot: 3,000 x 0.000065479 = $0.196437/hr = $4.71/day.",
+    "cost_2tb_per_day_usd": 7.89,
+    "performance": "NVMe, 4 to 8 disks (1,500 to 3,000 GiB): 680,000 read / 360,000 write IOPS and 2,650 / 1,400 MiB/s read / write; N2 and N2D need at least 24 vCPUs (N1: 32) to reach this. One disk: 170,000 / 90,000 IOPS, 660 / 350 MiB/s. SCSI is lower (8 disks: 400,000 / 280,000 IOPS, 1,560 / 1,090 MiB/s). Far above the stated 150 MB/s write need.",
+    "survives_stop": "No by default. Stop, suspend, guest-OS shutdown, Spot preemption, an instance max-run-duration STOP, and disabling billing all discard the data; a restarted VM gets blank disks. Data does survive a guest reboot and live migration. A Preview-only option (gcloud beta compute instances stop --discard-local-ssd=false, or REST; not available in the console; max 48 disks) copies the data to durable storage, which is billed as storage and consumes Persistent disk standard GB quota. Cannot be snapshotted or imaged.",
+    "compatible_families": "Choose-your-own disk count: N1, N2, N2D, C2, C2D (also A2, G2, M1, M3). Disks can only be added at VM creation. C3 and C3D get non-Titanium Local SSD only via fixed-count '-lssd' machine types (c3-standard-44-lssd = 8 disks, c3d-*-90-lssd = 8 disks); I could not find c3/c3d '-lssd' price rows in the page HTML, so their rate is unconfirmed. Not supported: E2, N4, N4A, N4D, H3, T2D, shared-core.",
+    "source_urls": [
+     "https://cloud.google.com/compute/disks-image-pricing",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://docs.cloud.google.com/compute/docs/disks/local-ssd",
+     "https://docs.cloud.google.com/compute/docs/instances/stop-start-instance"
+    ]
+   },
+   {
+    "option": "Titanium SSD bundled in C4D '-lssd' machine types (cannot be attached separately)",
+    "first_party": true,
+    "price_basis": "Google publishes whole-machine prices for c4d-*-lssd, not a separate on-demand Titanium line. Derived by subtracting the non-lssd price: (c4d-standard-64-lssd $3.517005063 - c4d-standard-64 $3.023854378) / 2,250 GiB = $0.000219178 per GiB-hour = $0.16 per GiB-month, i.e. double the generic Local SSD rate (same result from the 16, 48 and 96 vCPU pairs). C4D component rates, also derived from Google's table (standard-8 vs highmem-8, checked against highcpu-8): $0.0327035 per vCPU-hour and $0.00375335 per GiB-memory-hour. Smallest C4D shape with >= 2 TB is c4d-standard-64-lssd (6 x 375 = 2,250 GiB): 64 x 0.0327035 = 2.093024 + 248 x 0.00375335 = 0.930830 + 2,250 x 0.000219178 = 0.493151 -> $3.517005/hr (matches published) = $84.41/day whole machine, of which the SSD is $0.493151/hr = $11.84/day. c4d-standard-96-lssd (3,000 GiB): 3.139536 + 1.396246 + 0.657534 = $5.193316/hr = $124.64/day (SSD part $15.78/day). c4d-highmem-64-lssd (504 GiB RAM, 2,250 GiB): $4.477862/hr = $107.47/day. c4d-*-48-lssd has only 1,500 GiB. Spot (variable): C4D local SSD $0.000092329 per GiB-hour is published explicitly; c4d-standard-64-lssd Spot $1.480356/hr = $35.53/day.",
+    "cost_2tb_per_day_usd": 11.84,
+    "performance": "c4d-*-64-lssd (6 disks, 2,250 GiB): 900,000 read / 450,000 write IOPS, 3,750 / 1,980 MiB/s. c4d-*-96-lssd (8 disks, 3,000 GiB): 1,200,000 / 600,000 IOPS, 5,000 / 2,640 MiB/s. c4d-*-48-lssd (4 disks, 1,500 GiB): 600,000 / 300,000 IOPS, 2,500 / 1,320 MiB/s.",
+    "survives_stop": "No. Data is discarded on stop and the Preview 'preserve Local SSD data' option is explicitly not available for machine types that use Titanium SSD. c4d-*-lssd VMs do live migrate through host maintenance. Google also warns that Local SSD on C4, C4A, C4D, C4N and H4D 'might not recover all writes that completed before a power loss event'.",
+    "compatible_families": "C4D only, in fixed sizes tied to vCPU count: 8/16 vCPU = 375 GiB, 32 = 750, 48 = 1,500, 64 = 2,250, 96 = 3,000, 192 = 6,000, 384 = 12,000 GiB. C4D 'supports only Hyperdisk volumes' and 'doesn't support Persistent Disk', so the boot disk must be Hyperdisk Balanced.",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/general-purpose",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://docs.cloud.google.com/compute/docs/disks/local-ssd",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines"
+    ]
+   },
+   {
+    "option": "Titanium SSD bundled in C4 (Intel) and C4A (Arm) '-lssd' machine types",
+    "first_party": true,
+    "price_basis": "Derived from Google's whole-machine tables in the same way. C4: (c4-standard-8-lssd $0.477531781 - c4-standard-8 $0.39534) / 375 GiB = $0.000219178 per GiB-hour = $0.16 per GiB-month; C4 components derived as $0.03465 per vCPU-hour and $0.003938 per GiB-hour. c4-standard-48-lssd (48 vCPU, 180 GiB, 3,000 GiB): 48 x 0.03465 = 1.6632 + 180 x 0.003938 = 0.70884 + 3,000 x 0.000219178 = 0.657534 -> $3.029574/hr = $72.71/day (SSD part $15.78/day). c4-standard-32-lssd (1,875 GiB = 2.01 TB decimal, no headroom): 1.1088 + 0.47256 + 0.410959 = $1.992319/hr = $47.82/day (SSD part $9.86/day). C4A: (c4a-standard-8-lssd $0.482487671 - c4a-standard-8 $0.3592) / 750 GiB = $0.000164384 per GiB-hour = $0.12 per GiB-month; components $0.03086 per vCPU-hour, $0.00351 per GiB-hour; c4a-standard-32-lssd (32 vCPU, 128 GiB, 2,250 GiB) = $1.4368 + 0.369863 = $1.806663/hr = $43.36/day (SSD part $8.88/day). Spot local SSD (published, variable): C4 $0.000131233, C4A $0.000089315 per GiB-hour.",
+    "cost_2tb_per_day_usd": 15.78,
+    "performance": "c4-*-48-lssd (8 disks, 3,000 GiB): 1,200,000 / 600,000 IOPS, 5,000 / 2,640 MiB/s. c4-*-32-lssd (5 disks, 1,875 GiB): 750,000 / 375,000 IOPS, 3,125 / 1,650 MiB/s. c4a-*-32-lssd (6 disks, 2,250 GiB): 900,000 / 450,000 IOPS, 3,900 / 1,980 MiB/s.",
+    "survives_stop": "No. Titanium SSD cannot be preserved on stop or suspend; C4A additionally does not support suspend with Titanium SSD attached.",
+    "compatible_families": "C4 '-lssd' (4 to 288 vCPU; 375 GiB to 18,000 GiB) and C4A '-lssd' (Arm/Axion, 4 to 72 vCPU; 375 to 6,000 GiB). Both families are Hyperdisk-only for persistent storage ('C4 doesn't support Persistent Disk', 'C4A doesn't support Persistent Disk').",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/general-purpose",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://docs.cloud.google.com/compute/docs/disks/local-ssd",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines"
+    ]
+   },
+   {
+    "option": "Z3 storage-optimized machine types (Titanium SSD bundled in 3,000 GiB disks)",
+    "first_party": true,
+    "price_basis": "Whole-machine prices published for Iowa; components not broken out. Derived from three rows: every Z3 shape is 8 GiB per vCPU, and the table fits (vCPU + 8 GiB) = $0.1028955/hr plus SSD at $0.000109589 per GiB-hour ($0.08 per GiB-month); vCPU and memory cannot be separated from this table. z3-highmem-8-highlssd (8 vCPU, 64 GiB, 3,000 GiB): 8 x 0.1028955 = 0.823164 + 3,000 x 0.000109589 = 0.328767 -> $1.151931/hr = $27.65/day. z3-highmem-14-standardlssd (14 vCPU, 112 GiB, 3,000 GiB): 1.440537 + 0.328767 = $1.769304/hr = $42.46/day. z3-highmem-22-standardlssd (22 vCPU, 176 GiB, 6,000 GiB): $2.921235/hr = $70.11/day. SSD portion of 3,000 GiB = $7.89/day. Spot (variable): z3-highmem-8-highlssd $0.637030/hr, z3-highmem-14-standardlssd $0.967474/hr.",
+    "cost_2tb_per_day_usd": 7.89,
+    "performance": "One 3,000 GiB disk (z3-highmem-8-highlssd, z3-highmem-14-standardlssd): 750,000 read / 500,000 write IOPS, 3,000 / 2,500 MiB/s. Two disks (6,000 GiB): 1,500,000 / 1,000,000 IOPS, 6,000 / 5,000 MiB/s.",
+    "survives_stop": "No. Titanium SSD; preserve-on-stop is not available.",
+    "compatible_families": "Z3 only (8 to 176 vCPU, plus a 192-vCPU bare metal shape); the minimum bundle is 3,000 GiB. Persistent storage on Z3 is Hyperdisk.",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/storage-optimized",
+     "https://cloud.google.com/spot-vms/pricing",
+     "https://docs.cloud.google.com/compute/docs/disks/local-ssd"
+    ]
+   },
+   {
+    "option": "H4D '-lssd' (HPC family; Titanium SSD bundled)",
+    "first_party": true,
+    "price_basis": "H4D exists only as 192-vCPU shapes. Iowa: h4d-standard-192 (720 GiB) $7.85376/hr; h4d-highmem-192 (1,488 GiB) $8.842944/hr; h4d-highmem-192-lssd (1,488 GiB + 3,750 GiB Titanium) $9.42409126/hr = $226.18/day. Derived components: memory (8.842944 - 7.85376) / 768 = $0.001288 per GiB-hour; vCPU (7.85376 - 720 x 0.001288) / 192 = $0.036075 per vCPU-hour; SSD (9.42409126 - 8.842944) / 3,750 = $0.000154973 per GiB-hour (about $0.113 per GiB-month) = $0.581147/hr = $13.95/day for the 3,750 GiB bundle.",
+    "cost_2tb_per_day_usd": 13.95,
+    "performance": "h4d-highmem-192-lssd: 10 x 375 GiB = 3,750 GiB, 1,500,000 read / 750,000 write IOPS, 6,250 / 3,300 MiB/s. Important: Hyperdisk Balanced on H4D is capped at 15,000 IOPS and 240 MBps per instance, so the local SSD is the only fast storage on this family.",
+    "survives_stop": "No (Titanium SSD). Live migration is not supported on H4D; maintenance behaviour is terminate/restart with Local SSD data persistence.",
+    "compatible_families": "H4D only. H4D supports just two block storage types: Hyperdisk Balanced and local Titanium SSD (no Persistent Disk, no Hyperdisk Throughput/Extreme).",
+    "source_urls": [
+     "https://cloud.google.com/products/compute/pricing/compute-optimized",
+     "https://docs.cloud.google.com/compute/docs/compute-optimized-machines",
+     "https://docs.cloud.google.com/compute/docs/disks/local-ssd",
+     "https://docs.cloud.google.com/compute/docs/disks/hd-types/hyperdisk-balanced"
+    ]
+   },
+   {
+    "option": "Hyperdisk Balanced, 2 TiB (2,048 GiB) at 16,000 IOPS and 1,000 MiB/s",
+    "first_party": true,
+    "price_basis": "Iowa: capacity $0.000109589 per GiB-hour ($0.08 per GiB-month); provisioned IOPS $0.000006849 per IOPS-hour ($0.005 per IOPS-month); provisioned throughput $0.000054795 per MiB/s-hour ($0.04 per MiB/s-month). Only performance above the free baseline of 3,000 IOPS and 140 MiB/s is billed. Billed per second on provisioned values until the disk is deleted. Arithmetic: 2,048 x 0.000109589 = $0.224438/hr; (16,000 - 3,000) x 0.000006849 = $0.089037/hr; (1,000 - 140) x 0.000054795 = $0.047124/hr; total $0.360599/hr x 24 = $8.65/day ($5.39 capacity + $2.14 IOPS + $1.13 throughput). At baseline performance only (3,000 IOPS / 140 MiB/s): $5.39/day. At 6,000 IOPS / 300 MiB/s: $6.09/day. Gotcha: if IOPS and throughput are not specified, the defaults for a 2,048 GiB volume are 6 x 2,048 + 3,000 = 15,288 IOPS and MIN(2,400, 1.5 x 2,048 + 140) = 2,400 MiB/s, which bills $10.38/day.",
+    "cost_2tb_per_day_usd": 8.65,
+    "performance": "Per volume: 4 GiB to 64 TiB, 3,000 to 160,000 IOPS (volumes >= 320 GiB), 140 to 2,400 MiB/s; throughput must be between MAX(140, IOPS/256) and MIN(2,400, IOPS/4). Also capped by the VM: C4D 16 vCPU 75,000 IOPS / 1,200 MiB/s; C4D 32 and 48 vCPU 75,000 / 1,600; C4D 64 vCPU 160,000 / 2,400; C4D 96 vCPU 160,000 / 3,125; C4 48 vCPU 160,000 / 2,400; N4 32 vCPU 100,000 / 1,600; H4D 15,000 / 240. Limits are shared between reads and writes (half-duplex); IOPS limits assume 4 KB I/O and throughput limits >= 256 KB I/O. Provisioned performance can be changed once every 4 hours; size at most twice per 4 hours. Note the 140 MiB/s baseline is about 147 MB/s, just under the stated 150 MB/s peak write rate.",
+    "survives_stop": "Yes. Durable network storage; data persists across stop/start and the disk can be detached and re-attached. It keeps billing while the VM is stopped or after the VM is deleted, until the disk itself is deleted.",
+    "compatible_families": "C3, C3D, C4, C4A, C4D, C4N, N4, N4A, N4D, H3, H4D, Z3, Z4D, M-series, G4 and others. On C2D, E2, N1, N2 and N2D Google says you must contact your account team to use Hyperdisk Balanced. It is the only persistent option on C4, C4A, C4D, N4, N4D and H4D.",
+    "source_urls": [
+     "https://cloud.google.com/compute/disks-image-pricing",
+     "https://cloud.google.com/products/block-storage",
+     "https://docs.cloud.google.com/compute/docs/disks/hd-types/hyperdisk-balanced",
+     "https://docs.cloud.google.com/compute/docs/disks/hyperdisks"
+    ]
+   },
+   {
+    "option": "Hyperdisk Throughput, 2 TiB at its 180 MiB/s maximum (not recommended for this workload)",
+    "first_party": true,
+    "price_basis": "Iowa: capacity $0.000006849 per GiB-hour ($0.005 per GiB-month) plus provisioned throughput $0.000342466 per MiB/s-hour ($0.25 per MiB/s-month); no free baseline. Arithmetic: 2,048 x 0.000006849 = $0.014027/hr + 180 x 0.000342466 = $0.061644/hr = $0.075671/hr = $1.82/day.",
+    "cost_2tb_per_day_usd": 1.82,
+    "performance": "HDD-class. Size 2 TiB to 32 TiB; throughput between MAX(20, 5 x TiB) and MIN(90 x TiB, 2,400) MiB/s, so a 2 TiB volume tops out at 180 MiB/s. IOPS cannot be provisioned: 4 IOPS per MiB/s, i.e. only 720 IOPS at 180 MiB/s (9,600 maximum on any volume). Poor fit for 350,000 small files and heavy random memory-mapped reads.",
+    "survives_stop": "Yes; billed until deleted.",
+    "compatible_families": "C3, C3D, C4, C4A, C4D, C4N, N2, N2D, N4, N4A, N4D, H3, T2D, G2, Z3 and others. Not H4D.",
+    "source_urls": [
+     "https://cloud.google.com/compute/disks-image-pricing",
+     "https://docs.cloud.google.com/compute/docs/disks/hd-types/hyperdisk-throughput",
+     "https://docs.cloud.google.com/compute/docs/disks/hyperdisks"
+    ]
+   },
+   {
+    "option": "Hyperdisk Extreme, 2 TiB at 16,000 IOPS (overkill; included for completeness)",
+    "first_party": true,
+    "price_basis": "Iowa: capacity $0.000171233 per GiB-hour ($0.125 per GiB-month) plus every provisioned IOPS at $0.000043836 per IOPS-hour ($0.032 per IOPS-month); no free baseline. Arithmetic: 2,048 x 0.000171233 = $0.350685/hr + 16,000 x 0.000043836 = $0.701376/hr = $1.052061/hr = $25.25/day. At the minimum allowed 2 IOPS per GiB (4,096 IOPS): $12.73/day.",
+    "cost_2tb_per_day_usd": 25.25,
+    "performance": "64 GiB to 64 TiB; up to 350,000 IOPS; throughput is not configurable (250 MiB/s per 1,000 IOPS, up to 5,000 MiB/s). Intended for workloads that need more than 160,000 IOPS or 2,400 MiB/s from one volume.",
+    "survives_stop": "Yes; billed until deleted.",
+    "compatible_families": "Large shapes only: C4A, C4D, M3, M4 need >= 64 vCPUs; C4 and G4 >= 96; C3 >= 88; C3D >= 60; N2 >= 80. Not H4D, N4 or N4D.",
+    "source_urls": [
+     "https://cloud.google.com/compute/disks-image-pricing",
+     "https://docs.cloud.google.com/compute/docs/disks/hd-types/hyperdisk-extreme"
+    ]
+   },
+   {
+    "option": "Balanced Persistent Disk (pd-balanced), 2,048 GiB",
+    "first_party": true,
+    "price_basis": "Iowa: $0.000136986 per GiB-hour ($0.10 per GiB-month); I/O is included in the capacity price. Billed per second on provisioned size until deleted. Arithmetic: 2,048 x 0.000136986 = $0.280547/hr x 24 = $6.73/day.",
+    "cost_2tb_per_day_usd": 6.73,
+    "performance": "Scales with size: baseline 3,000 IOPS + 6 IOPS per GiB and 140 MiB/s + 0.28 MiB/s per GiB, so 2,048 GiB gives up to 15,288 IOPS and about 713 MiB/s; hard caps 80,000 IOPS and 1,200 MiB/s per instance. Also capped by vCPU count, e.g. N2/N2D pd-balanced: 16-31 vCPU 20,000 IOPS, 32-63 vCPU 50,000, 64+ 80,000, with 1,200 MiB/s from 16 vCPU up.",
+    "survives_stop": "Yes; billed until deleted.",
+    "compatible_families": "N1, N2, N2D, E2, C3, C3D, C2, C2D, H3 and other older series. NOT available on C4, C4A, C4D, C4N, N4, N4A, N4D or H4D (Google's Persistent Disk support table shows no PD type for those series; the C4, C4A, C4D and N4D pages each say the series doesn't support Persistent Disk).",
+    "source_urls": [
+     "https://cloud.google.com/compute/disks-image-pricing",
+     "https://docs.cloud.google.com/compute/docs/disks/performance",
+     "https://docs.cloud.google.com/compute/docs/disks/persistent-disks",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines"
+    ]
+   },
+   {
+    "option": "SSD Persistent Disk (pd-ssd), 2,048 GiB",
+    "first_party": true,
+    "price_basis": "Iowa: $0.000232877 per GiB-hour ($0.17 per GiB-month); I/O included. Arithmetic: 2,048 x 0.000232877 = $0.476932/hr x 24 = $11.45/day.",
+    "cost_2tb_per_day_usd": 11.45,
+    "performance": "Baseline 6,000 IOPS + 30 IOPS per GiB and 240 MiB/s + 0.48 MiB/s per GiB, so 2,048 GiB gives up to 67,440 IOPS and hits the 1,200 MiB/s per-instance throughput cap; hard cap 100,000 IOPS. vCPU-tiered, e.g. N2/N2D pd-ssd: 16-31 vCPU 25,000 IOPS, 32-63 vCPU 60,000, 64+ 100,000.",
+    "survives_stop": "Yes; billed until deleted.",
+    "compatible_families": "Same as pd-balanced: N1, N2, N2D, E2, C3, C3D, C2, C2D and other older series; not C4, C4A, C4D, N4, N4D or H4D.",
+    "source_urls": [
+     "https://cloud.google.com/compute/disks-image-pricing",
+     "https://docs.cloud.google.com/compute/docs/disks/performance",
+     "https://docs.cloud.google.com/compute/docs/disks/persistent-disks"
+    ]
+   }
+  ],
+  "billing_rules": "All from Google pages read on 2026-11-20 (first party).\n\nVM granularity and minimum: 'All vCPUs, GPUs, and GB of memory are charged a minimum of 1 minute ... After 1 minute, instances are charged in 1 second increments.' Uptime runs from start until the instance reaches the STOPPING state; an idle VM that is still RUNNING is billed in full. Source: https://cloud.google.com/products/compute/pricing (FAQ; /compute/vm-instance-pricing redirects here).\n\nDisk granularity: 'All disk-related charges in this section are prorated based on a granularity of seconds. This includes all persistent disk types, snapshot storage, and Local SSD pricing.' You pay for provisioned size (and, for Hyperdisk, provisioned IOPS/throughput), used or not, until the disk is deleted. Standard snapshots have a 1-hour minimum. Source: https://cloud.google.com/compute/disks-image-pricing\n\nWhat a STOPPED (TERMINATED) VM still costs: CPU and memory charges stop (CPU billed only in RUNNING and PENDING_STOP; memory also in SUSPENDING/SUSPENDED). 'For attached resources like disks or external IP addresses, you incur charges while the resources exist, regardless of the compute instance state.' So a stopped VM keeps paying for its boot disk and any Persistent Disk or Hyperdisk at the full rates above (for example a 2 TiB Hyperdisk Balanced keeps costing $5.39 to $8.65 per day), for snapshots, and for a static external IP (a static IP on a stopped VM is charged at the higher unused rate, $0.01/hr versus $0.005/hr in use on a standard VM; an ephemeral IP is released on stop). To stop paying you must delete the disks or the VM. Sources: https://docs.cloud.google.com/compute/docs/instances/instance-lifecycle , https://docs.cloud.google.com/compute/docs/instances/suspend-stop-reset-instances-overview , https://docs.cloud.google.com/compute/docs/instances/stop-start-instance , https://cloud.google.com/vpc/network-pricing\n\nDoes a stopped VM with local SSD keep its data: no. 'When you stop or suspend an instance, Compute Engine discards the data of any Local SSD disks attached to the instance by default.' Shutting down from inside the guest OS also discards it, as does Spot preemption and a max-run-duration STOP. The only exception is a Preview feature (gcloud beta ... stop --discard-local-ssd=false, or REST; not from the console; at most 48 disks) that is NOT available for Titanium SSD machine types (C4, C4A, C4D, H4D, Z3 '-lssd'); preserved data is billed as storage and uses Persistent disk standard quota. Local SSD cannot be snapshotted; copy anything you want to keep to a Hyperdisk/Persistent Disk or a bucket before stopping. Not stated by Google: whether discarded Local SSD capacity keeps billing while the VM sits stopped. The wording is 'billed for the total capacity of the disk for the lifetime of the instance that it is attached to' and 'You can't delete Local SSD disks unless you delete the instance', so treat deletion of the VM as the only certain way to end Local SSD charges. Source: https://docs.cloud.google.com/compute/docs/disks/local-ssd\n\nEgress for a few hundred MB of logs: inbound transfer is free. Premium Tier (the default) internet egress from us-central1: first 1 GiB per month per account free, then $0.12 per GiB (1 GiB to 1 TiB tier) to North America, Europe or most of Asia; $0.15 to Middle East/Africa; $0.19 to Australia, Indonesia, Korea, South America; $0.23 to China. So 300 to 500 MB is $0.00 if it falls in the free first GiB and at most about $0.04 to $0.06 otherwise (0.5 GiB x $0.12). Standard Tier: first 200 GiB per month free, then $0.085 per GiB. Copying to a Cloud Storage bucket in the same region has no network charge ('Data moves within the same location'); normal bucket storage charges apply. An in-use external IPv4 address costs $0.005/hr ($0.12/day) on a standard VM, $0.0025/hr on Spot. Sources: https://cloud.google.com/vpc/network-pricing , https://cloud.google.com/storage/pricing\n\nSpot: 'If Compute Engine preempts Spot VMs less than one minute after they are created, you are not billed'; Spot prices can change up to once a day; Local SSD on Spot is billed at the lower Spot local SSD rate; preemption loses Local SSD data. Sources: https://docs.cloud.google.com/compute/docs/instances/spot , https://cloud.google.com/spot-vms/pricing\n\nFree tier: irrelevant at this scale. Always-free Compute Engine is one e2-micro per month in us-west1, us-central1 or us-east1, 30 GB-months of standard persistent disk and 1 GB of outbound transfer from North America per month. The Free Trial is a $300 credit valid for 90 days; while the billing account is still a Free Trial account you cannot request a quota increase or add GPUs. Standard persistent disk pricing also shows the first 30 GiB-month free. Source: https://docs.cloud.google.com/free/docs/free-cloud-features\n\nQuotas that gate storage (per region; values differ per project and are not published, so they must be read on the project's Quotas page): 'Local SSD per machine family (GB)', 'Hyperdisk Balanced Capacity (GB)', 'Hyperdisk Balanced IOPS', 'Hyperdisk Balanced Throughput (MB/s)', 'Persistent disk SSD (GB)' (covers pd-ssd and pd-balanced). Hyperdisk baseline IOPS/throughput do not count against quota. Source: https://docs.cloud.google.com/compute/resource-usage",
+  "budget_alerts": "All from Google pages read on 2026-11-20 (first party).\n\nHow to create one: Google Cloud console > Billing > Budgets & alerts > Create budget. (1) In Define choose 'Alerts only' and name it. (2) Scope: time range (monthly default, quarterly, yearly or custom), plus optional filters by project, service (for example Compute Engine) and, for billing-account budgets, labels. (3) Amount: a specified amount or last period's spend. (4) Threshold rules: defaults are 50%, 90% and 100% of the budget; each rule triggers on Actual or Forecasted spend (custom-range budgets cannot use Forecasted). (5) Notifications, then Finish. Source: https://docs.cloud.google.com/billing/docs/how-to/budgets\n\nWho can create one: on the Cloud Billing account, a role with billing.budgets.create (plus get/list and billing.accounts.getSpendingInformation), i.e. Billing Account Administrator or Billing Account Costs Manager. Without billing-account access, a project user with billing.resourcebudgets.read / billing.resourcebudgets.write on a project can create a single-project budget. Pub/Sub notifications additionally need Pub/Sub Admin on the topic's project.\n\nWhat notifications do: email to Billing Account Administrators and Billing Account Users by default; optionally to Project Owners (single-project budgets only); optionally to arbitrary addresses through Cloud Monitoring email notification channels; optionally a Pub/Sub topic, which receives budget status messages multiple times per day and can drive automation.\n\nWhat a budget does NOT do (verified): 'Setting an alerts-only budget doesn't automatically cap Google Cloud or Google Maps Platform usage or spending ... they don't automatically prevent the use or billing of your services when the alerts-only budget amount or threshold rules are met or exceeded.' Alerts also lag: 'it may take several hours before receiving the first email or Pub/Sub notification' after creating a budget, and 'there is a delay between your use of Google Cloud resources, and the usage costs reporting to Cloud Billing', so Google recommends setting the budget below available funds. For a one to three day job, an alert can easily arrive after most of the money is spent.\n\nSpend cap budgets (a newer, separate budget type) do pause usage at 100% of the budget, but they do not help here: eligible services are only Gemini API, Gemini Enterprise Agent Platform (formerly Vertex AI), Cloud Run and Cloud Run functions, not Compute Engine, and 'Spend caps don't pause any on-going, fixed usage associated with persistent resources (such as compute and storage services), which remain active and continue to accrue charges.' Source: https://docs.cloud.google.com/billing/docs/how-to/budgets-spend-caps\n\nMechanisms that actually stop spend:\n1. VM run-time limit: create the VM with --max-run-duration=DURATION (or --termination-time=RFC3339) and --instance-termination-action=STOP or DELETE. Range 30 seconds to 120 days; termination may begin up to 30 seconds late; the timer resets if the VM is stopped and restarted. 'A VM's local SSD data cannot be preserved when the VM is automatically stopped due to a time limit', and with gcloud a VM that has local SSDs and action STOP must also pass --discard-local-ssds-at-termination-timestamp=true. STOP ends vCPU/memory charges but leaves disks billing; DELETE ends the VM and its local SSD (persistent disks only if set to auto-delete). Source: https://docs.cloud.google.com/compute/docs/instances/limit-vm-runtime\n2. Shutting down from inside the guest at the end of the build script (sudo shutdown -h now): compute billing stops once the instance reaches STOPPING; this discards Local SSD data. Source: https://docs.cloud.google.com/compute/docs/instances/stop-start-instance\n3. Instance schedules (scheduled stop): can run up to 15 minutes late, need the Compute Engine Service Agent to hold Compute Instance Admin (v1), and 'You can't use instance schedules to stop an instance that has Local SSD disks', so they do not work for any local-SSD option. Source: https://docs.cloud.google.com/compute/docs/instances/schedule-instance-start-stop\n4. Budget Pub/Sub notification driving a Cloud Run function that stops the VMs, or that disables billing on the project. Disabling billing is drastic ('shutting down all resources. Resources might be irretrievably deleted') and, because of reporting delay, 'doesn't guarantee that you won't spend more than your budget'. Sources: https://docs.cloud.google.com/billing/docs/how-to/control-usage , https://docs.cloud.google.com/billing/docs/how-to/disable-billing-with-notifications\n5. Quotas bound how much can be running at once (vCPUs, disk GB) but do not bound spend over time. Source: https://docs.cloud.google.com/compute/resource-usage\n\nPractical reading for this job: use a budget with low thresholds as an early-warning only, and rely on a max-run-duration with DELETE (or STOP plus a persistent boot disk) as the hard stop; nothing at the billing-account level will stop a Compute Engine VM by itself.",
+  "caveats": [
+   "Method: Google's pricing pages (cloud.google.com/compute/disks-image-pricing, /products/compute/pricing/*, /spot-vms/pricing, /vpc/network-pricing) came back truncated through the normal page-fetch tool, so I retrieved the raw HTML with plain HTTP GETs and read the embedded tables. The tables in the static HTML are the default region, Iowa (us-central1); this is corroborated by cloud.google.com/products/block-storage, which states 'All prices are for the Iowa (us-central1) region' and lists the same Hyperdisk and Persistent Disk rates. I did not open the per-SKU pages at cloud.google.com/skus or the pricing calculator, and nothing was checked against a real billing account.",
+   "Titanium SSD per-GiB on-demand rates (C4D and C4 $0.16, C4A $0.12, Z3 $0.08, H4D about $0.113 per GiB-month) and all per-vCPU / per-GiB-memory component rates are DERIVED by me from Google's whole-machine price tables (differences between machine types), not quoted lines. They reproduce the published machine prices to six decimals, and the same subtraction on the Spot page reproduces Google's explicitly published C4D Spot local SSD rate, but treat them as derived.",
+   "Discrepancy on Google's own pages: the block-storage marketing page lists Local SSD at $0.036 per GB for us-central1, whereas the disk pricing page lists $0.000109589 per GiB-hour ($0.08 per GiB-month) on demand; $0.036 equals the 3-year resource-CUD column. I used the on-demand $0.08 figure.",
+   "Daily costs are hourly rate x 24; monthly equivalents use Google's 730-hour month. '2 TB' was costed as 2,048 GiB (2 TiB) for network disks. Local SSD comes only in fixed steps, so the practical sizes are 2,250 GiB (C4D/C4A 64- and 32-vCPU lssd shapes) or 3,000 GiB (8 x 375 on N2/N2D, c4d-96, c4-48, any Z3); 1,875 GiB (c4-*-32-lssd) is only 2.01 TB decimal before filesystem overhead.",
+   "Bundled '-lssd' storage is tied to machine size: on C4D you cannot get 2 TB of Titanium SSD below 64 vCPUs, so the storage choice partly dictates the VM. If a smaller or different VM is wanted, Hyperdisk Balanced is the only fast storage that sizes independently on C4/C4D/N4.",
+   "Hyperdisk Balanced bills on provisioned performance, and the defaults for a 2 TiB volume (15,288 IOPS, 2,400 MiB/s) cost $10.38/day versus $5.39/day at baseline; set IOPS and throughput explicitly. Performance can be changed only once every 4 hours. Its 140 MiB/s free baseline (about 147 MB/s) is marginally below the stated 150 MB/s peak write rate, so provision some headroom (each extra 100 MiB/s is $4/month, about $0.13/day).",
+   "Google's documentation does not say explicitly whether Local SSD capacity whose data was discarded continues to be billed while the VM remains stopped. Assume it might, and delete the VM rather than leaving it stopped.",
+   "Every VM also needs a boot disk, not included in the per-day storage figures: for example 100 GiB Hyperdisk Balanced at baseline is $0.26/day, or 100 GiB pd-balanced $0.33/day, and it keeps billing while the VM is stopped.",
+   "Spot figures are a snapshot from 2026-11-20; Google says Spot prices can change up to once per day. On-demand prices exclude tax and any negotiated discounts.",
+   "Disk quota values for the target project (Local SSD per machine family, Hyperdisk Balanced capacity/IOPS/throughput, Persistent disk SSD GB) could not be checked because no cloud account was accessed; new or free-trial projects may have limits below 2 TB or below 64 vCPUs and free-trial accounts cannot request increases.",
+   "Inference, not from a Google page: the 6 GB memory-mapped file set will be served from the Linux page cache once read, so that part of the workload depends on RAM rather than disk IOPS; the disk choice mainly matters for the 1.5 to 2 TB of output writes.",
+   "No third-party figures are used in this answer. A web search surfaced third-party aggregators (for example gcloud-compute.com), which I did not rely on.",
+   "Fetched page copies used for this answer are in <SCRATCH>/pages (temporary; may be cleared)."
+  ]
+ },
+ "quota": {
+  "web_access": true,
+  "findings": [
+   {
+    "question": "1. Does CPUS_ALL_REGIONS = 32 really cap total vCPUs across all regions, blocking a 128- or 192-vCPU VM regardless of regional quotas?",
+    "answer": "Yes. Google's Compute Engine allocation-quotas page (console name 'CPUs (All Regions)') says: \"To help protect Compute Engine systems and other users, some new accounts and projects also have a global CPUs (All Regions) quota. That quota applies to all regions and is measured as a sum of all your vCPUs in all regions.\" It applies in addition to regional quotas; the page's own example is a project with 48 regional vCPUs left but 32 global vCPUs left: you \"can launch only 32 vCPUs in the us-central1 region, even though there is remaining quota in the region.\" So with a limit of 32 and no VMs running, the largest VM this project can start anywhere is 32 vCPUs. N2_CPUS 200 / M1_CPUS 640 / M3_CPUS 248 are irrelevant until the global quota is raised to at least the target VM's vCPU count. The page does not carve out Spot VMs from the global sum (it says both standard and preemptible VMs consume CPU quota), so Spot does not get round it.",
+    "confidence": "high",
+    "first_party": true,
+    "source_urls": [
+     "https://docs.cloud.google.com/compute/resource-usage",
+     "https://docs.cloud.google.com/compute/quotas"
+    ]
+   },
+   {
+    "question": "2a. What quota governs the newer families (C4D, H4D, C3D, C4, Z4D, also N4)? Exact names.",
+    "answer": "There are NO per-family metrics named C4D_CPUS, H4D_CPUS, C3D_CPUS, C4_CPUS or Z4D_CPUS. Google's CPU quota table lists these families under one regional quota, CPUS_PER_VM_FAMILY, with a vm_family dimension (values C3D, C4, C4A, C4D, C4N, H3, H4D, M4, N4, N4A, N4D, X4, Z3, Z4D, Z4M ...). Console display name: 'CPUs per VM family' (filter by dimensions region + vm_family). Cloud Quotas API quota ID: CPUS-PER-VM-FAMILY-per-project-region (named on Google's Cloud Quotas terminology page). Error text on a miss is \"Quota 'CPUS_PER_VM_FAMILY' exceeded. Limit: X in region R\". Older families keep legacy per-family names: N2_CPUS, N2D_CPUS, C2_CPUS, C2D_CPUS, C3_CPUS, M1_CPUS, M2_CPUS, M3_CPUS, T2D_CPUS, T2A_CPUS. Only N1 and E2 draw from the generic regional CPUS quota (\"E2 and N1 machine types share a CPU quota pool. Unless otherwise noted, all other machine types have unique, separate CPU quota pools\"). Note C3 (not C3D) is the legacy C3_CPUS = 24 on this project.",
+    "confidence": "high",
+    "first_party": true,
+    "source_urls": [
+     "https://docs.cloud.google.com/compute/resource-usage",
+     "https://docs.cloud.google.com/docs/quotas/terminology"
+    ]
+   },
+   {
+    "question": "2b. What is the default CPUS_PER_VM_FAMILY for a project that has never used these families, and why are they missing from the legacy regions.get quota list?",
+    "answer": "Default: NOT PUBLISHED. Google's pages give no numeric defaults for any CPU quota; the Cloud Quotas docs only say \"Quota values are specific to your project, folder, and organization.\" The only evidence is community: a Sept 2025 Google Developer Forum thread reports an N4 insert failing with \"Quota 'CPUS_PER_VM_FAMILY' exceeded. Limit: 0.0 in region us-west4\", the quota row appearing in the console only after the failed attempt, and a respondent explaining the row was an adjustable quota pre-configured at 0 that the console had not been showing. So assume the C4D/H4D/C3D value may be 0 or small and must be read from the console/Cloud Quotas API, not assumed. Why missing from regions.get: Google does not state this explicitly. Inference: the legacy Compute API quotas[] list is a flat {metric, limit, usage} list with no dimension field, while these families are one metric split by vm_family; a March 2025 forum poster likewise could not see CPUS_PER_VM_FAMILY in `gcloud compute regions describe us-central1` or `project-info describe`. Google's Cloud Quotas known-issues page also says the console \"doesn't support quota adjustment requests for quotas that have no prior usage\" and that you must use the REST API or gcloud CLI instead (its example is the local-SSD-per-VM-family quota). Absence from the legacy list therefore means 'not visible there', not 'unlimited'.",
+    "confidence": "medium",
+    "first_party": false,
+    "source_urls": [
+     "https://discuss.google.dev/t/automatically-generated-0-value-compute-quotas/267549",
+     "https://discuss.google.dev/t/what-to-do-when-quota-page-shows-cpus-per-vm-family-is-at-14-but-i-have-no-running-instances/185374",
+     "https://docs.cloud.google.com/docs/quotas/known-issues",
+     "https://docs.cloud.google.com/docs/quotas/overview"
+    ]
+   },
+   {
+    "question": "3. What quotas apply to Hyperdisk (capacity, IOPS, throughput) and local SSD, and what are typical defaults?",
+    "answer": "Hyperdisk Balanced: capacity 'Hyperdisk Balanced Capacity (GB)' = HDB-TOTAL-GB (regional; shared with Hyperdisk Balanced High Availability, which consumes at 2x); 'Hyperdisk Balanced IOPS' = HDB-TOTAL-IOPS (per zone); 'Hyperdisk Balanced Throughput (MB/s)' = HDB-TOTAL-THROUGHPUT (per zone). Baseline performance does not consume IOPS/throughput quota: \"Baseline IOPS and throughput don't affect the IOPS and throughput quota\" (baseline = first 3,000 IOPS and 140 MiB/s per volume), so a boot disk left at baseline needs only capacity quota. Other Hyperdisk: HDX-TOTAL-GB (Extreme; also counts against SSD-TOTAL-GB), HDT-TOTAL-GB (Throughput; also counts against DISKS-TOTAL-GB), HDML-TOTAL-GB / HDML-TOTAL-THROUGHPUT. Persistent Disk: SSD-TOTAL-GB covers pd-ssd AND pd-balanced (this project: 500 GB); DISKS-TOTAL-GB covers pd-standard (4,096 GB). Local SSD: governed by 'Local SSD per VM family (GB)' = LOCAL_SSD_TOTAL_GB_PER_VM_FAMILY (metric compute.googleapis.com/local_ssd_total_storage_per_vm_family; limit names LOCAL-SSD-TOTAL-GB-PER-VM-FAMILY-per-project-region and -per-project-zone). Google states \"LOCAL_SSD_TOTAL_GB quota has been deprecated\", so the 'effectively unlimited' LOCAL_SSD_TOTAL_GB seen in the legacy list is NOT the governing figure. Only GPU families (A2 Ultra, A3, A4, G4 ...) are exempt; C4D/H4D/C3D -lssd shapes are not listed as exempt. Defaults: NOT PUBLISHED for any of these (the '500,000 IOPS' figure in the Hyperdisk Balanced page is only a worked example). C4D and H4D do not support Persistent Disk at all (\"C4D doesn't support Persistent Disk\"; H4D lists only Hyperdisk Balanced + Titanium SSD), so their boot disk needs HDB-TOTAL-GB quota, which the legacy list does not show for this project.",
+    "confidence": "medium",
+    "first_party": true,
+    "source_urls": [
+     "https://docs.cloud.google.com/compute/resource-usage",
+     "https://docs.cloud.google.com/compute/docs/disks/hd-types/hyperdisk-balanced",
+     "https://docs.cloud.google.com/compute/docs/quotas/migrate-local-ssd-quota",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines",
+     "https://docs.cloud.google.com/compute/docs/compute-optimized-machines"
+    ]
+   },
+   {
+    "question": "4. What quota governs Spot / preemptible VMs, and what happens when it is zero or absent?",
+    "answer": "One shared pool: PREEMPTIBLE_CPUS ('Preemptible CPUs'), plus 'Preemptible GPUs' and 'Preemptible Local SSDs (GB)'. Google's table shows no per-family preemptible CPU quota. If it has never been requested (this project's case: no entry), Spot falls back to standard quota: \"If your project does not have preemptible quota, and you have never requested preemptible quota, these resources consume standard quota\"; Spot docs: \"In regions where you don't have preemptible quota, you can use standard quota to launch Spot VMs.\" So a Spot c4d/n2 VM here needs exactly the same standard quotas as on-demand (CPUs (All Regions) + family quota + local SSD per family). Warning: the fallback is one-way. \"After you request preemptible quota in your project, the applicable resources can only consume preemptible quota and can't revert to consuming standard quotas\"; \"Once you request preemptible quota in a region, you are limited to using that quota for Spot VMs in that region.\" Recommendation: do NOT file a preemptible-quota request unless you intend all Spot use to live in that pool. Google does not document the case of preemptible quota explicitly set to 0 (page is silent). Flex-start VMs follow the same rule.",
+    "confidence": "high",
+    "first_party": true,
+    "source_urls": [
+     "https://docs.cloud.google.com/compute/resource-usage",
+     "https://docs.cloud.google.com/compute/docs/instances/spot",
+     "https://docs.cloud.google.com/compute/docs/instances/provisioning-models"
+    ]
+   },
+   {
+    "question": "5a. How is an increase requested, and what determines approval?",
+    "answer": "Three routes. (1) Console: IAM & Admin > Quotas & System Limits, tick the quota, Edit, enter New value (or 'Apply for higher quota' with a justification and contact details), Submit request; needs Quota Administrator (roles/servicemanagement.quotaAdmin) or Owner/Editor. (2) gcloud, after `gcloud services enable cloudquotas.googleapis.com` (currently not enabled on this project): `gcloud quotas preferences create --project=P --service=compute.googleapis.com --quota-id=QUOTA_ID --dimensions=region=us-central1,vm_family=C4D --preferred-value=N --email=CONTACT --justification=TEXT` (contact email cannot be a group address); list IDs with `gcloud quotas info list --service=compute.googleapis.com --project=P`. (3) Cloud Quotas REST API (QuotaPreference). Fallbacks named by Google: Cloud Customer Care support case, or account team/TAM. For rows the console does not show because there is no prior usage, Google says to use gcloud/REST. What decides it: \"Most quota adjustment requests are evaluated by automated systems. Their decision is based on criteria including the availability of resources, the length of time you've used Google Cloud, and other factors. Requests that don't meet the criteria are denied.\" Criteria are deliberately undisclosed. \"Sometimes quota adjustment requests are escalated to human reviewers.\" Prepayment: \"For quota adjustment requests that increase your quota value, you might be asked to pay in advance\"; it is held as account credit. Partial approval/refusal: \"Sometimes Google Cloud approves part of your increase request instead of approving the full increase, or denies the request entirely\" (grantedValue vs preferredValue; reconciling=true while under review). No auto-approval threshold is published. Also: \"Batching requests can increase the amount of time it takes\" and \"To reduce review time, group quota adjustment requests by product and area\"; and quotas reset to defaults if the billing account is changed or billing is disrupted.",
+    "confidence": "high",
+    "first_party": true,
+    "source_urls": [
+     "https://docs.cloud.google.com/docs/quotas/overview",
+     "https://docs.cloud.google.com/docs/quotas/view-manage",
+     "https://docs.cloud.google.com/docs/quotas/help/request_increase",
+     "https://docs.cloud.google.com/docs/quotas/gcloud-cli-examples",
+     "https://docs.cloud.google.com/docs/quotas/implement-common-use-cases",
+     "https://docs.cloud.google.com/docs/quotas/api-overview",
+     "https://docs.cloud.google.com/docs/quotas/known-issues",
+     "https://docs.cloud.google.com/support/docs/peak-events/secure-capacity",
+     "https://docs.cloud.google.com/compute/quotas-limits"
+    ]
+   },
+   {
+    "question": "5b. What turnaround do Google's documents and recent user reports give for 128-384 vCPU requests?",
+    "answer": "Current Cloud Quotas and Compute Engine docs state NO processing time or SLA. The only Google-published figures found are older/adjacent: a Google Cloud blog (24 Sep 2021): \"In the vast majority of cases, quota increase requests are evaluated and processed automatically ... a small number ... handled by human reviewers. They typically process your request within 2-3 business days\"; and the support page for project-count quota: \"We typically handle your quota requests within 2 business days.\" A Google support FAQ on cores quota (support.google.com/cloud/answer/6376374) would not load (HTTP 404 on three attempts); search snippets of it say a payment may be requested when a cores request goes well beyond typical usage and spend, the amount depending on billing history, use case and cores requested - treat as unverified. User reports (third-party, anecdotal): no dated 2025-26 report specific to 128-384 vCPU was found. Blogs claim modest CPU increases are auto-approved within minutes and larger ones take about 1-2 business days. Forum threads show the downside: automated denials with the stock reply to wait 48h or until the billing account has more history; a 2023 thread where a CPUS_ALL_REGIONS increase from 12 was refused and sales said quota was not their area; a 2021 case where the auto-approval granted a different value from the request; GitLab asked for 19,200 N2D CPUs per project and was granted 6,000 (partial). Net: an established org with paid billing history is better placed than those reports, but a first-ever jump from 32 to 192-384 global vCPUs with zero Compute usage is the profile most likely to go to manual review.",
+    "confidence": "low",
+    "first_party": false,
+    "source_urls": [
+     "https://cloud.google.com/blog/products/gcp/google-cloud-introduces-quota-monitoring-solution",
+     "https://support.google.com/cloud/answer/6330231?hl=en",
+     "https://support.google.com/cloud/answer/6376374?hl=en",
+     "https://discuss.google.dev/t/increase-cpus-all-regions-quota/136570",
+     "https://groups.google.com/g/gce-discussion/c/phDEjP3BlDA",
+     "https://gitlab.com/gitlab-com/gl-infra/observability/team/-/issues/3344",
+     "https://oneuptime.com/blog/post/2026-02-17-how-to-resolve-quota-exceeded-errors-for-compute-engine-cpu-and-gpu-resources/view",
+     "https://devopsaitoolkit.com/blog/gcp-error-quota-cpus-exceeded/"
+    ]
+   },
+   {
+    "question": "6. Does H4D require anything beyond quota (allow-listing, sales contact, specific zones, compact placement, Spot restrictions)?",
+    "answer": "No allow-list or sales approval is documented for a single on-demand H4D VM. H4D went GA on 4 Mar 2026; the machine-series page says \"H4D instances are available on-demand, or with one- and three-year committed use discounts\" and no access-request step appears. Spot is supported (H4D is not in the Spot exclusion list, and Google publishes an 'H4D Spot Preemptible VMs' SKU group); flex-start (Dynamic Workload Scheduler) is also supported. Constraints that do apply: (a) Zones: in us-central1 the regions/zones table shows H4D in us-central1-a, -b and -f, not -c; Cloud RDMA docs say to use us-central1-a (or europe-west4-b). (b) Whole-host VM: every H4D shape is 192 vCPUs, SMT off, so the quota ask is always 192 per VM. (c) \"Live migration isn't supported for H4D instances\" - VMs terminate on host maintenance (~30-day cadence, 7-day notice); -lssd shapes keep Local SSD data. (d) Storage: Hyperdisk Balanced only (capped at 15,000 IOPS / 240 MB/s per VM) plus Titanium SSD on -lssd shapes; no Persistent Disk; no machine images; no disk sharing; no GPUs; no custom types; internet egress capped at 1 Gbps. (e) Compact placement policy and a Falcon RDMA VPC (second IRDMA vNIC, MTU 8896, max-distance <= 3) are needed ONLY for multi-node Cloud RDMA clusters, not for one VM; with Spot, VMs \"might not be compactly collocated\". (f) The account team/sales IS required for reserved capacity: capacity blocks, and future reservations (calendar mode needs standard CPU quota, 1-256 VMs, contact the account team beyond that or if you are not eligible).",
+    "confidence": "medium",
+    "first_party": true,
+    "source_urls": [
+     "https://docs.cloud.google.com/compute/docs/compute-optimized-machines",
+     "https://cloud.google.com/blog/products/compute/h4d-vms-now-ga",
+     "https://docs.cloud.google.com/compute/docs/regions-zones",
+     "https://docs.cloud.google.com/compute/docs/instances/provisioning-models",
+     "https://docs.cloud.google.com/compute/docs/instances/create-vm-with-rdma",
+     "https://docs.cloud.google.com/compute/docs/hpc/bulk-create-hpc-vms",
+     "https://docs.cloud.google.com/compute/docs/instances/choose-reservation-type",
+     "https://cloud.google.com/skus/sku-groups/h4d-spot-preemptible-vms"
+    ]
+   },
+   {
+    "question": "7. Is there any N2 / M1 / M3 machine this customer could launch after raising ONLY CPUS_ALL_REGIONS?",
+    "answer": "Yes - all of them fit the existing us-central1 regional quotas; only the global quota blocks them. N2_CPUS 200 covers every N2 shape up to n2-highmem-128 (128 vCPU, 864 GB), n2-standard-128, n2-highcpu-96: needs CPUs (All Regions) >= 128. M1_CPUS 640 covers m1-megamem-96 (96 vCPU, 1,433.6 GB; global >= 96), m1-ultramem-40 (961 GB), m1-ultramem-80 (1,922 GB) and m1-ultramem-160 (160 vCPU, 3,844 GB; global >= 160). M3_CPUS 248 covers m3-megamem-64 (976 GB), m3-megamem-128 (128 vCPU, 1,952 GB), m3-ultramem-32 (976 GB), m3-ultramem-64 (1,952 GB), m3-ultramem-128 (128 vCPU, 3,904 GB): global >= 128. (Not asked but also true: regional CPUS 200 covers N1/E2 up to n1-highmem-96; C2D_CPUS 100 covers c2d-*-56.) INSTANCES 24 is not a constraint for one VM. Conditions: (i) boot/data disks must fit existing disk quota - pd-balanced/pd-ssd share SSD_TOTAL_GB = 500 GB; pd-standard has 4,096 GB (N2 only; M3 does not support pd-standard); Hyperdisk Balanced on N2 requires contacting the account team per Google's Hyperdisk page. (ii) Optional Local SSD (n2-highmem-128 takes 16 or 24 x 375 GiB) is governed by the per-VM-family local SSD quota, whose value for this project is unknown. (iii) N2 above 80 vCPUs runs on Ice Lake only; M1 and M3 are 'available in only select zones' (M3 is in us-central1-a/b/c, not -f). (iv) Quota is not capacity: a zone can still return a resource-availability error. So the single-request fast path is: raise CPUs (All Regions) to 128 (or 160) and run n2-highmem-128.",
+    "confidence": "high",
+    "first_party": true,
+    "source_urls": [
+     "https://docs.cloud.google.com/compute/resource-usage",
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines",
+     "https://docs.cloud.google.com/compute/docs/memory-optimized-machines",
+     "https://docs.cloud.google.com/compute/docs/regions-zones",
+     "https://docs.cloud.google.com/compute/docs/disks/hyperdisks"
+    ]
+   },
+   {
+    "question": "Supporting facts: shapes of the five target machines (drives the quota values).",
+    "answer": "From Google's machine-series pages: n2-highmem-128 = 128 vCPU, 864 GB, Local SSD optional (16 or 24 x 375 GiB). c4d-standard-192-lssd = 192 vCPU, 744 GB, 16 x 375 GiB = 6,000 GiB Titanium SSD. c4d-standard-384-lssd = 384 vCPU, 1,488 GB, 32 x 375 GiB = 12,000 GiB. h4d-highmem-192-lssd = 192 vCPU (no SMT), 1,488 GB, 10 x 375 GiB = 3,750 GiB. c3d-standard-180-lssd = 180 vCPU, 720 GB, 16 x 375 GiB = 6,000 GiB. All five families are listed in us-central1-a/b/c/f except H4D (a/b/f only). C4D and C3D support Spot; C3D supports pd-balanced/pd-ssd and Hyperdisk; C4D and H4D are Hyperdisk-only for persistent storage.",
+    "confidence": "high",
+    "first_party": true,
+    "source_urls": [
+     "https://docs.cloud.google.com/compute/docs/general-purpose-machines",
+     "https://docs.cloud.google.com/compute/docs/compute-optimized-machines",
+     "https://docs.cloud.google.com/compute/docs/regions-zones"
+    ]
+   }
+  ],
+  "quota_requests_needed": [
+   {
+    "for_machine": "n2-highmem-128 (128 vCPU, 864 GB)",
+    "quotas": "REQUIRED: 'CPUs (All Regions)' / CPUS_ALL_REGIONS (global): 32 -> 128 minimum (ask 136-160 if any other VM must run alongside). NOT NEEDED: N2_CPUS us-central1 already 200. Disk: none if boot+data on pd-balanced/pd-ssd total <= 500 GB (SSD_TOTAL_GB) or on pd-standard <= 4,096 GB; otherwise raise 'Persistent Disk SSD (GB)' / SSD-TOTAL-GB us-central1 to the size needed. ONLY IF Local SSD is attached: 'Local SSD per VM family (GB)' / LOCAL_SSD_TOTAL_GB_PER_VM_FAMILY, region us-central1, vm_family N2: 6,000 GB (16 disks) or 9,000 GB (24 disks) - check current value first, it is not in the legacy list. Spot: nothing extra (falls back to standard quota); do not request Preemptible CPUs.",
+    "where_to_request": "Console: IAM & Admin > Quotas & System Limits, filter service 'Compute Engine API', quota 'CPUs (All Regions)', Edit > New value > Submit request. One quota, visible in the console, so no Cloud Quotas API needed."
+   },
+   {
+    "for_machine": "c4d-standard-192-lssd (192 vCPU, 744 GB, 6,000 GiB Titanium SSD)",
+    "quotas": "1) 'CPUs (All Regions)' / CPUS_ALL_REGIONS: 32 -> 192 minimum (suggest 200). 2) 'CPUs per VM family' / CPUS_PER_VM_FAMILY, quota ID CPUS-PER-VM-FAMILY-per-project-region, dimensions region=us-central1, vm_family=C4D: -> 192. 3) 'Local SSD per VM family (GB)' / LOCAL_SSD_TOTAL_GB_PER_VM_FAMILY, region=us-central1, vm_family=C4D: -> 6,000 GB. 4) 'Hyperdisk Balanced Capacity (GB)' / HDB-TOTAL-GB, us-central1: at least the boot disk size (e.g. 100-200 GB) - check current value; C4D cannot boot from Persistent Disk. 5) Hyperdisk Balanced IOPS / Throughput (HDB-TOTAL-IOPS, HDB-TOTAL-THROUGHPUT, per zone): only if provisioning above the free 3,000 IOPS / 140 MiB/s baseline. Spot: same quotas; none extra.",
+    "where_to_request": "Console Quotas & System Limits if the C4D rows are listed (filter 'CPUs per VM family', dimension vm_family: C4D, region: us-central1). If rows are absent (no prior usage), enable cloudquotas.googleapis.com and use `gcloud quotas preferences create --service=compute.googleapis.com --quota-id=CPUS-PER-VM-FAMILY-per-project-region --dimensions=region=us-central1,vm_family=C4D --preferred-value=192 --email=... --justification=...`; confirm exact quota IDs with `gcloud quotas info list --service=compute.googleapis.com`. Submit all Compute Engine/us-central1 items together."
+   },
+   {
+    "for_machine": "c4d-standard-384-lssd (384 vCPU, 1,488 GB, 12,000 GiB Titanium SSD)",
+    "quotas": "1) 'CPUs (All Regions)' / CPUS_ALL_REGIONS: 32 -> 384 minimum (suggest 400). 2) 'CPUs per VM family' / CPUS_PER_VM_FAMILY (CPUS-PER-VM-FAMILY-per-project-region), region=us-central1, vm_family=C4D: -> 384. 3) 'Local SSD per VM family (GB)' / LOCAL_SSD_TOTAL_GB_PER_VM_FAMILY, region=us-central1, vm_family=C4D: -> 12,000 GB. 4) 'Hyperdisk Balanced Capacity (GB)' / HDB-TOTAL-GB us-central1: >= boot disk size. 5) Hyperdisk Balanced IOPS/Throughput (zonal) only if above baseline. This is the largest ask (12x the current global limit) and the most likely to get manual review, a partial grant or a prepayment request.",
+    "where_to_request": "Same as c4d-192: console if rows are visible, otherwise Cloud Quotas API / gcloud quotas preferences create with dimensions region=us-central1,vm_family=C4D. If denied or partially granted, open a Cloud Customer Care case or go through the account team."
+   },
+   {
+    "for_machine": "h4d-highmem-192-lssd (192 vCPU no-SMT, 1,488 GB, 3,750 GiB Titanium SSD)",
+    "quotas": "1) 'CPUs (All Regions)' / CPUS_ALL_REGIONS: 32 -> 192 minimum (suggest 200). 2) 'CPUs per VM family' / CPUS_PER_VM_FAMILY (CPUS-PER-VM-FAMILY-per-project-region), region=us-central1, vm_family=H4D: -> 192. 3) 'Local SSD per VM family (GB)' / LOCAL_SSD_TOTAL_GB_PER_VM_FAMILY, region=us-central1, vm_family=H4D: -> 3,750 GB. 4) 'Hyperdisk Balanced Capacity (GB)' / HDB-TOTAL-GB us-central1: >= boot disk size (H4D supports only Hyperdisk Balanced for persistent disks). No RDMA, placement-policy or reservation quota needed for a single VM. Create in us-central1-a, -b or -f (not -c).",
+    "where_to_request": "Console if the H4D rows exist; otherwise gcloud quotas preferences create / Cloud Quotas REST with dimensions region=us-central1,vm_family=H4D. Account team/sales only if reserved capacity (calendar-mode future reservation or capacity block) is wanted."
+   },
+   {
+    "for_machine": "c3d-standard-180-lssd (180 vCPU, 720 GB, 6,000 GiB Local SSD)",
+    "quotas": "1) 'CPUs (All Regions)' / CPUS_ALL_REGIONS: 32 -> 180 minimum (suggest 192-200). 2) 'CPUs per VM family' / CPUS_PER_VM_FAMILY (CPUS-PER-VM-FAMILY-per-project-region), region=us-central1, vm_family=C3D: -> 180. 3) 'Local SSD per VM family (GB)' / LOCAL_SSD_TOTAL_GB_PER_VM_FAMILY, region=us-central1, vm_family=C3D: -> 6,000 GB. 4) Disk: none if boot is pd-balanced/pd-ssd within the existing 500 GB SSD_TOTAL_GB (C3D supports Persistent Disk); HDB-TOTAL-GB only if choosing Hyperdisk Balanced. Note the existing C3_CPUS = 24 is for C3, not C3D, and does not help.",
+    "where_to_request": "Console if the C3D rows exist; otherwise gcloud quotas preferences create / Cloud Quotas REST with dimensions region=us-central1,vm_family=C3D."
+   },
+   {
+    "for_machine": "All targets - things NOT to request",
+    "quotas": "Do not request 'Preemptible CPUs' / PREEMPTIBLE_CPUS or 'Preemptible Local SSDs (GB)' just to use Spot: with none ever requested, Spot uses standard quota, and once requested Spot can only use the preemptible pool. 'VM instances' (INSTANCES 24) cannot and need not be requested (derived automatically from CPU quota). LOCAL_SSD_TOTAL_GB is deprecated - ignore it. Ask only for what one VM needs plus small headroom: larger asks raise the chance of manual review or partial approval.",
+    "where_to_request": "n/a"
+   }
+  ],
+  "realistic_lead_time": "Estimate, not a Google commitment (current Google docs publish no SLA). Fast path - n2-highmem-128, one request raising 'CPUs (All Regions)' 32 -> 128: plausibly minutes to a few hours if the automated system approves it; plan for 1-3 business days. C4D-192 / H4D-192 / C3D-180 (global quota plus per-family CPU, per-family local SSD and possibly Hyperdisk capacity, some rows not visible in the console until the Cloud Quotas API is enabled): plan for 2-5 business days, since Google's only published figure for human review is 'typically 2-3 business days' (2021 Google blog) and multiple line items slow review. C4D-384 (384 global vCPUs from 32, no Compute history): 3-10 business days, with a real chance of partial approval, a prepayment request, or an automated denial followed by a support case or account-team escalation; allow up to about 2 weeks before treating it as blocked. Add roughly 15 minutes after approval for the new limit to propagate. Approval of quota does not guarantee capacity for 192/384-vCPU shapes in a given zone. Recommended sequencing: file the 128-vCPU global request first (unblocks N2/M1/M3 on existing regional quota), and file the newer-family requests in parallel.",
+  "caveats": [
+   "Default quota values for CPUS_PER_VM_FAMILY, local SSD per VM family and Hyperdisk are not published by Google; the customer's real values for C4D/H4D/C3D must be read from the console Quotas & System Limits page or `gcloud quotas info list` (requires enabling cloudquotas.googleapis.com). I had no account access and ran no cloud CLI.",
+   "The explanation for why the newer families are absent from the legacy regions.get list is an inference backed by forum reports, not an explicit Google statement. Absent does not mean unlimited; community evidence shows such quotas can be pre-set to 0.",
+   "The Cloud Quotas quota ID for 'CPUs (All Regions)' could not be confirmed on a Google page (only CPUS-per-project-region and CPUS-PER-VM-FAMILY-per-project-region were found); look it up with `gcloud quotas info list` or just use the console for that one.",
+   "support.google.com/cloud/answer/6376374 ('Request cores quota increase FAQs') returned HTTP 404 on three fetch attempts; statements attributed to it (payment may be requested depending on billing history and cores requested) come from search-result snippets only. docs.cloud.google.com/docs/quotas/quota-adjustments also returned 404; the same content was read from docs.cloud.google.com/docs/quotas/overview.",
+   "Turnaround evidence is thin: Google's '2-3 business days' is from a 2021 blog and the '2 business days' figure is for project-count quota; no dated 2025-26 user report specific to 128-384 vCPU requests was found. The lead-time range is my estimate. Third-party blogs (oneuptime, devopsaitoolkit) are cross-checks only.",
+   "Google's docs do not say explicitly that -lssd Titanium SSD on C4D/H4D/C3D consumes 'Local SSD per VM family' quota; this is inferred from the fact that only GPU families are listed as exempt. Treat the local-SSD line items as required until the console shows otherwise.",
+   "The statement that Hyperdisk Balanced on N2 requires contacting the account team, and the per-zone family availability table, were extracted by an automated page reader from Google's pages; verify in the console before relying on them. Zone-level availability of the specific 192/384-vCPU shapes was not confirmed, only the series.",
+   "Behaviour when preemptible quota exists but is explicitly 0 is not documented by Google; the documented fallback to standard quota applies only when preemptible quota has never been requested.",
+   "Changing the project's billing account, or a billing disruption, resets quotas to defaults (Google's statement) - do this before, not after, requesting increases.",
+   "Pricing was out of scope for this step (the seven questions are all quota questions); no prices or per-vCPU/per-GB rates are reported here.",
+   "The local memory directory was re-checked as the user asked; no memory file mentions Google Cloud quotas or Compute Engine, so nothing there changes these findings."
+  ]
+ },
+ "checks": [
+  {
+   "web_access": true,
+   "checks": [
+    {
+     "machine_type": "h4d-standard-192",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 7.85376,
+     "claimed_spot_usd_hour": 3.82032,
+     "found_ondemand_usd_hour": 7.85376,
+     "found_spot_usd_hour": 3.82032,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?hl=en&filter=H4D&currency=USD",
+     "note": "Read 2026-11-20 from Google's SKU list (independent route), then cross-checked against Google's whole-machine tables. SKU rates for 'Americas' (us-west1, us-central1, us-east1): H4D Instance Core BC19-B28B-65DD $0.036075/vCPU-hr; H4D Instance Ram FBCE-62F8-5058 $0.001288/GiB-hr (https://cloud.google.com/skus?hl=en&filter=H4D%20Instance%20Ram&currency=USD); Spot Core 324D-AC49-054C $0.01755/vCPU-hr; Spot Ram 3119-598D-9AA1 $0.000626/GiB-hr. On demand: 192 x 0.036075 = 6.9264 + 720 x 0.001288 = 0.92736 -> $7.85376/hr. Spot: 192 x 0.01755 = 3.3696 + 720 x 0.000626 = 0.45072 -> $3.82032/hr. Whole-machine tables agree exactly: on demand $7.85376 at https://cloud.google.com/products/compute/pricing/compute-optimized (Iowa us-central1 selected), Spot $3.82032 at https://cloud.google.com/spot-vms/pricing (Iowa). Difference 0.00% both. Spot is dynamic (Google says it can change up to once a day), so the Spot figure is a today-only snapshot."
+    },
+    {
+     "machine_type": "h4d-highmem-192",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 8.842944,
+     "claimed_spot_usd_hour": 4.301088,
+     "found_ondemand_usd_hour": 8.842944,
+     "found_spot_usd_hour": 4.301088,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?hl=en&filter=H4D%20Instance%20Ram&currency=USD",
+     "note": "Same H4D SKU rates as above (Core $0.036075/vCPU-hr, Ram $0.001288/GiB-hr on demand; Spot Core $0.01755, Spot Ram $0.000626/GiB-hr; Americas incl. us-central1). On demand: 192 x 0.036075 = 6.9264 + 1488 x 0.001288 = 1.916544 -> $8.842944/hr. Spot: 192 x 0.01755 = 3.3696 + 1488 x 0.000626 = 0.931488 -> $4.301088/hr. Whole-machine tables agree exactly: $8.842944 on https://cloud.google.com/products/compute/pricing/compute-optimized (Iowa) and $4.301088 on https://cloud.google.com/spot-vms/pricing (Iowa). Difference 0.00% both."
+    },
+    {
+     "machine_type": "h4d-highmem-192-lssd",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 9.424091,
+     "claimed_spot_usd_hour": 4.583622,
+     "found_ondemand_usd_hour": 9.42409126,
+     "found_spot_usd_hour": 4.583622247,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?hl=en&filter=H4D%20Instance%20Local%20SSD&currency=USD",
+     "note": "vCPU and memory as for h4d-highmem-192, plus the bundled 3750 GiB Local SSD (size taken from Google's pricing table). SKU: H4D Instance Local SSD Americas AD31-3C65-B926 $0.11313/GiB-month; Spot Preemptible H4D Instance Local SSD Americas 1C30-DF24-86F4 $0.055/GiB-month. Google's hourly tables use 730 h/month. On demand: 6.9264 + 1.916544 + 3750 x 0.11313/730 (=0.581147) -> $9.424091/hr. Spot: 3.3696 + 0.931488 + 3750 x 0.055/730 (=0.282534) -> $4.583622/hr. Whole-machine tables: $9.42409126 on https://cloud.google.com/products/compute/pricing/compute-optimized and $4.583622247 on https://cloud.google.com/spot-vms/pricing (both Iowa). Difference 0.00%. Note the Local SSD is part of the machine price here, not an optional extra."
+    },
+    {
+     "machine_type": "c4d-standard-96-lssd",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 5.193316,
+     "claimed_spot_usd_hour": 2.18591,
+     "found_ondemand_usd_hour": 5.193315814,
+     "found_spot_usd_hour": 2.185910144,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?hl=en&filter=C4D%20Instance%20Core%20running%20in%20Americas&currency=USD",
+     "note": "SKU rates for 'Americas' (us-west1, us-central1, us-east1), read 2026-11-20: C4D Instance Core 80C2-B3C5-BD5E $0.0327035/vCPU-hr; Spot Core 98F9-9C75-24C5 $0.01376/vCPU-hr; C4D Instance Ram 159A-6F40-D544 $0.003495578 per GIGABYTE-hr and Spot Ram 06A4-288A-B3FF $0.001472 per GIGABYTE-hr (https://cloud.google.com/skus?hl=en&filter=C4D%20Instance%20Ram%20running%20in%20Americas&currency=USD); Local SSD CFC3-253B-FE5A $0.16/GiB-month, Spot 54D1-AA60-1A9F $0.0674/GiB-month (https://cloud.google.com/skus?hl=en&filter=C4D%20Instance%20Local%20SSD&currency=USD). TRAP: the C4D RAM SKU is priced per decimal GB while machine memory is in GiB, so the per-GiB rate is x1.073741824 = $0.003753348 on demand / $0.001580548 Spot (H4D RAM is quoted per GiB directly). Using the raw SKU rate against 372 would understate memory by about 7%. On demand: 96 x 0.0327035 = 3.139536 + 372 x 0.003753348 = 1.396246 + 3000 GiB x 0.16/730 = 0.657534 -> $5.193316/hr. Spot: 96 x 0.01376 = 1.32096 + 372 x 0.001580548 = 0.587964 + 3000 x 0.0674/730 = 0.276986 -> $2.185910/hr. Whole-machine tables agree: $5.193315814 on https://cloud.google.com/products/compute/pricing/general-purpose (Iowa) and $2.185910144 on https://cloud.google.com/spot-vms/pricing (Iowa). Difference 0.00%. Spot drift evidence: a search-engine snapshot of the same Google Spot page showed $2.19120979 for this type (0.24% higher), so Spot has already moved slightly; treat it as a today-only figure."
+    },
+    {
+     "machine_type": "c4d-highmem-96-lssd",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 6.634602,
+     "claimed_spot_usd_hour": 2.792841,
+     "found_ondemand_usd_hour": 6.63460156,
+     "found_spot_usd_hour": 2.792840562,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?hl=en&filter=C4D%20Instance%20Ram%20running%20in%20Americas&currency=USD",
+     "note": "Same C4D SKU rates as above (Core $0.0327035 / Spot $0.01376 per vCPU-hr; Ram $0.003495578 / Spot $0.001472 per decimal GB-hr = $0.003753348 / $0.001580548 per GiB-hr; Local SSD $0.16 / Spot $0.0674 per GiB-month over 730 h). On demand: 96 x 0.0327035 = 3.139536 + 756 x 0.003753348 = 2.837531 + 3000 x 0.16/730 = 0.657534 -> $6.634602/hr. Spot: 1.32096 + 756 x 0.001580548 = 1.194894 + 0.276986 -> $2.792841/hr. Whole-machine tables: $6.63460156 on https://cloud.google.com/products/compute/pricing/general-purpose and $2.792840562 on https://cloud.google.com/spot-vms/pricing (both Iowa). Difference 0.00%."
+    },
+    {
+     "machine_type": "c4d-standard-192",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 9.071563,
+     "claimed_spot_usd_hour": 3.817848,
+     "found_ondemand_usd_hour": 9.071563133,
+     "found_spot_usd_hour": 3.817847686,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?hl=en&filter=C4D%20Instance%20Core%20running%20in%20Americas&currency=USD",
+     "note": "C4D SKU rates as above. On demand: 192 x 0.0327035 = 6.279072 + 744 GiB x 0.003753348 = 2.792491 -> $9.071563/hr. Spot: 192 x 0.01376 = 2.64192 + 744 x 0.001580548 = 1.175928 -> $3.817848/hr. Whole-machine tables: $9.071563133 on https://cloud.google.com/products/compute/pricing/general-purpose and $3.817847686 on https://cloud.google.com/spot-vms/pricing (both Iowa). Difference 0.00%. No Local SSD on this shape."
+    },
+    {
+     "machine_type": "c4d-standard-192-lssd",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 10.386632,
+     "claimed_spot_usd_hour": 4.37182,
+     "found_ondemand_usd_hour": 10.386631626,
+     "found_spot_usd_hour": 4.371820289,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?hl=en&filter=C4D%20Instance%20Local%20SSD&currency=USD",
+     "note": "C4D SKU rates as above; bundled Local SSD is 6000 GiB per Google's table. On demand: 6.279072 + 2.792491 + 6000 x 0.16/730 (=1.315068) -> $10.386632/hr. Spot: 2.64192 + 1.175928 + 6000 x 0.0674/730 (=0.553973) -> $4.371820/hr. Whole-machine tables: $10.386631626 on https://cloud.google.com/products/compute/pricing/general-purpose and $4.371820289 on https://cloud.google.com/spot-vms/pricing (both Iowa). Difference 0.00%."
+    },
+    {
+     "machine_type": "c4d-highmem-192-lssd",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 13.269203,
+     "claimed_spot_usd_hour": 5.585681,
+     "found_ondemand_usd_hour": 13.269203119,
+     "found_spot_usd_hour": 5.585681126,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?hl=en&filter=C4D%20Instance%20Ram%20running%20in%20Americas&currency=USD",
+     "note": "C4D SKU rates as above; 6000 GiB bundled Local SSD. On demand: 192 x 0.0327035 = 6.279072 + 1512 GiB x 0.003753348 = 5.675063 + 6000 x 0.16/730 = 1.315068 -> $13.269203/hr. Spot: 2.64192 + 1512 x 0.001580548 = 2.389789 + 0.553973 -> $5.585681/hr. Whole-machine tables: $13.269203119 on https://cloud.google.com/products/compute/pricing/general-purpose and $5.585681126 on https://cloud.google.com/spot-vms/pricing (both Iowa). Difference 0.00%. General caveats for all eight rows: every figure came from Google pages (no third-party aggregator used); the pricing calculator was not used; WebFetch could not load the pricing pages (over its size limit), so they were read in a browser tab without signing in; no cloud account or CLI was touched. On-demand list prices are stable; Spot prices are dynamic and should be re-read on the day of use. Prices are USD, Linux, excluding tax, with no CUDs, and exclude boot/persistent disks and network egress."
+    }
+   ]
+  },
+  {
+   "web_access": true,
+   "checks": [
+    {
+     "machine_type": "c4d-standard-384-lssd",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 20.773263,
+     "claimed_spot_usd_hour": 8.743641,
+     "found_ondemand_usd_hour": 20.773263,
+     "found_spot_usd_hour": 8.743641,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?currency=USD&filter=C4D+us-central1",
+     "note": "Route: Google SKU list (component rates), then cross-checked against Google's whole-machine tables. SKU rates us-central1: C4D Instance Core 80C2-B3C5-BD5E $0.0327035/vCPU-h; C4D Instance Ram 159A-6F40-D544 $0.003495578 per GIGABYTE-hour; C4D Instance Local SSD CFC3-253B-FE5A $0.16/GiB-month. Spot: Core 98F9-9C75-24C5 $0.01376; Ram 06A4-288A-B3FF $0.001472 per gigabyte-hour; Local SSD 54D1-AA60-1A9F $0.0674/GiB-month. On demand: 384 x 0.0327035 = 12.558144; memory 1488 GiB x 1.073741824 x 0.003495578 = 5.584982; Local SSD 12,000 GiB x 0.16/730 = 2.630137; total 20.773263. Spot: 384 x 0.01376 = 5.283840; 1488 x 1.073741824 x 0.001472 = 2.351855; 12,000 x 0.0674/730 = 1.107945; total 8.743641. Google's own tables show $20.773263253 on demand (https://cloud.google.com/products/compute/pricing/general-purpose, 'C4D Standard with Local SSD', Iowa) and $8.743640577 Spot (https://cloud.google.com/spot-vms/pricing, Iowa). CAVEATS: (1) C4D memory SKU is priced per gigabyte, not gibibyte; Google's table applies a 1.0737 GiB-to-GB factor. A plain 1488 x rate calculation gives 20.389701 / 8.582121, about 1.9 percent lower than Google's published machine price. (2) Price includes the bundled 12,000 GiB Local SSD (32 x 375 GiB per https://docs.cloud.google.com/compute/docs/general-purpose-machines); vCPU+memory alone is 18.143126 on demand / 7.635695 Spot. (3) Spot prices can change up to once a day; figures read 2026-11-20."
+    },
+    {
+     "machine_type": "c3d-standard-180-lssd",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 8.829354,
+     "claimed_spot_usd_hour": 2.261637,
+     "found_ondemand_usd_hour": 8.829354,
+     "found_spot_usd_hour": 2.261637,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?currency=USD&filter=C3D+us-central1",
+     "note": "SKU rates us-central1: C3D Instance Core CEE0-1AE0-3422 $0.029563/vCPU-h; C3D Instance Ram 79E9-0431-3CD3 $0.003959/GiB-h. Spot: Core DCB1-2557-F8CB $0.00675; Ram F33C-AA89-DE6D $0.000908. No C3D-specific Local SSD SKU exists on the SKU list; the generic SKUs apply: 'SSD backed Local Storage' 62AF-A39E-269B $0.08/GiB-month and 'SSD backed Local Storage attached to Spot Preemptible VMs' E725-3CC5-D4BE $0.0478/GiB-month (https://cloud.google.com/skus?currency=USD&filter=SSD+backed+Local+Storage). Local SSD size 16 x 375 GiB = 6,000 GiB from https://docs.cloud.google.com/compute/docs/general-purpose-machines. On demand: 180 x 0.029563 = 5.321340; 720 x 0.003959 = 2.850480; SSD 6,000 x 0.08/730 = 0.657534; total 8.829354. Spot: 180 x 0.00675 = 1.215000; 720 x 0.000908 = 0.653760; SSD 6,000 x 0.0478/730 = 0.392877; total 2.261637. Cross-check: Google's tables list c3d-standard-180 (no SSD) at $8.17182 on demand (https://cloud.google.com/products/compute/pricing/general-purpose) and $1.86876 Spot (https://cloud.google.com/spot-vms/pricing), matching the vCPU+memory part exactly. CAVEAT: Google's pricing pages have no whole-machine row for the -lssd variant, so the SSD-inclusive total is my calculation from Google's rates and Google's documented disk count, not a figure Google prints. Spot prices change up to daily; read 2026-11-20."
+    },
+    {
+     "machine_type": "c3d-standard-360-lssd",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 17.658708,
+     "claimed_spot_usd_hour": 4.523273,
+     "found_ondemand_usd_hour": 17.658708,
+     "found_spot_usd_hour": 4.523273,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?currency=USD&filter=C3D+us-central1",
+     "note": "Same C3D SKU rates as the 180 size: Core $0.029563/vCPU-h, Ram $0.003959/GiB-h; Spot Core $0.00675, Spot Ram $0.000908; generic Local SSD $0.08/GiB-month on demand, $0.0478/GiB-month Spot (https://cloud.google.com/skus?currency=USD&filter=SSD+backed+Local+Storage). Local SSD size 32 x 375 GiB = 12,000 GiB from https://docs.cloud.google.com/compute/docs/general-purpose-machines. On demand: 360 x 0.029563 = 10.642680; 1440 x 0.003959 = 5.700960; SSD 12,000 x 0.08/730 = 1.315068; total 17.658708. Spot: 360 x 0.00675 = 2.430000; 1440 x 0.000908 = 1.307520; SSD 12,000 x 0.0478/730 = 0.785753; total 4.523273. Cross-check: Google's tables list c3d-standard-360 (no SSD) at $16.34364 on demand (https://cloud.google.com/products/compute/pricing/general-purpose) and $3.73752 Spot (https://cloud.google.com/spot-vms/pricing). CAVEAT: no whole-machine -lssd row on Google's pricing pages; SSD-inclusive total is calculated from Google's rates. Spot prices change up to daily; read 2026-11-20."
+    },
+    {
+     "machine_type": "z4d-highmem-96-standardlssd",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 12.870779,
+     "claimed_spot_usd_hour": 5.147952,
+     "found_ondemand_usd_hour": 12.870779,
+     "found_spot_usd_hour": 5.147952,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?currency=USD&filter=Z4D-HIGHMEM-STANDARDLSSD",
+     "note": "SKU rates Iowa: Z4D-HIGHMEM-STANDARDLSSD Instance Core EF0E-0884-D622 $0.032704/vCPU-h; Ram 42F4-4D69-4402 $0.003496/GiB-h; Local SSD 3AAB-3409-955B $0.2464/GiB-month. Spot: Core 8537-1870-5F87 $0.013081; Ram 000B-2E5A-EE6A $0.001398; Local SSD 8300-A647-FBF3 $0.09856/GiB-month. On demand: 96 x 0.032704 = 3.139584; 756 x 0.003496 = 2.642976; SSD 21,000 GiB x 0.2464/730 = 7.088219; total 12.870779. Spot: 96 x 0.013081 = 1.255776; 756 x 0.001398 = 1.056888; SSD 21,000 x 0.09856/730 = 2.835288; total 5.147952. Google's whole-machine tables agree: $12.870779178 on demand (https://cloud.google.com/products/compute/pricing/storage-optimized, 'Z4D highmem with standardlssd', Iowa) and $5.147951671 Spot (https://cloud.google.com/spot-vms/pricing). SSD size 6 x 3,500 GiB = 21,000 GiB confirmed at https://docs.cloud.google.com/compute/docs/storage-optimized-machines. CAVEAT: 55 percent of the price is the bundled SSD; vCPU+memory alone is 5.782560 on demand / 2.312664 Spot, so a plain vCPU+GB formula would badly understate this machine. Spot prices change up to daily; read 2026-11-20."
+    },
+    {
+     "machine_type": "z4d-highmem-192-standardlssd",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 25.741558,
+     "claimed_spot_usd_hour": 10.295903,
+     "found_ondemand_usd_hour": 25.741558,
+     "found_spot_usd_hour": 10.295903,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?currency=USD&filter=Z4D-HIGHMEM-STANDARDLSSD",
+     "note": "Same Z4D standardlssd SKU rates as the 96 size: Core $0.032704/vCPU-h, Ram $0.003496/GiB-h, Local SSD $0.2464/GiB-month; Spot Core $0.013081, Spot Ram $0.001398, Spot Local SSD $0.09856/GiB-month. On demand: 192 x 0.032704 = 6.279168; 1512 x 0.003496 = 5.285952; SSD 42,000 GiB x 0.2464/730 = 14.176438; total 25.741558. Spot: 192 x 0.013081 = 2.511552; 1512 x 0.001398 = 2.113776; SSD 42,000 x 0.09856/730 = 5.670575; total 10.295903. Google's whole-machine tables agree: $25.741558356 on demand (https://cloud.google.com/products/compute/pricing/storage-optimized) and $10.295903342 Spot (https://cloud.google.com/spot-vms/pricing). SSD size 12 x 3,500 GiB = 42,000 GiB confirmed at https://docs.cloud.google.com/compute/docs/storage-optimized-machines. CAVEAT: bundled SSD is 55 percent of the price; vCPU+memory alone is 11.565120 on demand / 4.625328 Spot. Spot prices change up to daily; read 2026-11-20."
+    },
+    {
+     "machine_type": "n2d-standard-224",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 9.463104,
+     "claimed_spot_usd_hour": 4.781952,
+     "found_ondemand_usd_hour": 9.463104,
+     "found_spot_usd_hour": 4.781952,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?currency=USD&filter=N2D+us-central1",
+     "note": "SKU rates us-central1: N2D AMD Instance Core A03E-E620-7389 $0.027502/vCPU-h; N2D AMD Instance Ram 5535-6D2D-4B50 $0.003686/GiB-h. Spot: Core 0434-AD25-7163 $0.0139; Ram AFA5-CB36-99F6 $0.001862. On demand: 224 x 0.027502 = 6.160448; 896 x 0.003686 = 3.302656; total 9.463104. Spot: 224 x 0.0139 = 3.113600; 896 x 0.001862 = 1.668352; total 4.781952. Google's whole-machine tables agree exactly: $9.463104 on demand (https://cloud.google.com/products/compute/pricing/general-purpose, 'N2D standard machine types', Iowa) and $4.781952 Spot (https://cloud.google.com/spot-vms/pricing). Shape 224 vCPU / 896 GB confirmed at https://docs.cloud.google.com/compute/docs/general-purpose-machines. Spot prices change up to daily; read 2026-11-20."
+    },
+    {
+     "machine_type": "c2d-highmem-112",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 6.85832,
+     "claimed_spot_usd_hour": 2.984128,
+     "found_ondemand_usd_hour": 6.85832,
+     "found_spot_usd_hour": 2.984128,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?currency=USD&filter=C2D+us-central1",
+     "note": "SKU rates us-central1: C2D AMD Instance Core 5E86-72F2-5688 $0.029563/vCPU-h; C2D AMD Instance Ram C79B-C925-A9B9 $0.003959/GiB-h. Spot: Core CD98-F792-88FF $0.01286; Ram 9BFD-9B1F-9AC4 $0.001723. On demand: 112 x 0.029563 = 3.311056; 896 x 0.003959 = 3.547264; total 6.858320. Spot: 112 x 0.01286 = 1.440320; 896 x 0.001723 = 1.543808; total 2.984128. Google's whole-machine tables agree exactly: $6.85832 on demand (https://cloud.google.com/products/compute/pricing/compute-optimized, 'C2D Highmem machine types', Iowa) and $2.984128 Spot (https://cloud.google.com/spot-vms/pricing). Spot prices change up to daily; read 2026-11-20."
+    },
+    {
+     "machine_type": "n2-standard-128",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 6.215552,
+     "claimed_spot_usd_hour": 3.54176,
+     "found_ondemand_usd_hour": 6.215552,
+     "found_spot_usd_hour": 3.54176,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?currency=USD&filter=N2+Instance+running+in+Americas",
+     "note": "SKU rates us-central1: N2 Instance Core BB77-5FDA-69D9 $0.031611/vCPU-h; N2 Instance Ram 5B01-D157-A097 $0.004237/GiB-h. Spot: Core 2856-91B1-406A $0.01801; Ram 6276-ABCE-E764 $0.002415 (https://cloud.google.com/skus?currency=USD&filter=Spot+Preemptible+N2+Instance+Ram+running+in+Americas). On demand: 128 x 0.031611 = 4.046208; 512 x 0.004237 = 2.169344; total 6.215552. Spot: 128 x 0.01801 = 2.305280; 512 x 0.002415 = 1.236480; total 3.541760. Google's whole-machine tables agree exactly: $6.215552 on demand (https://cloud.google.com/products/compute/pricing/general-purpose, 'N2 standard machine types', Iowa) and $3.54176 Spot (https://cloud.google.com/spot-vms/pricing). Shape 128 vCPU / 512 GB confirmed at https://docs.cloud.google.com/compute/docs/general-purpose-machines. Spot prices change up to daily; read 2026-11-20."
+    }
+   ]
+  },
+  {
+   "web_access": true,
+   "checks": [
+    {
+     "machine_type": "n2-highmem-128",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 7.706976,
+     "claimed_spot_usd_hour": 4.39184,
+     "found_ondemand_usd_hour": 7.706976,
+     "found_spot_usd_hour": 4.39184,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?filter=N2%20Instance%20Core%20running%20in%20Americas&currency=USD",
+     "note": "Read 2026-11-20, us-central1, all figures from Google pages. Component rates from Google's SKU list (cloud.google.com/skus; SKUs cover us-central1/us-east1/us-west1): N2 Instance Core running in Americas (BB77-5FDA-69D9) $0.031611 per vCPU-hour; N2 Instance Ram running in Americas (5B01-D157-A097) $0.004237 per GiB-hour (filter 'N2 Instance Ram running in Americas'). Spot Preemptible N2 Instance Core (2856-91B1-406A) $0.01801 per vCPU-hour; Spot Preemptible N2 Instance Ram (6276-ABCE-E764) $0.002415 per GiB-hour. On-demand: 128 x 0.031611 = 4.046208; 864 x 0.004237 = 3.660768; total 7.706976. Spot: 128 x 0.01801 = 2.30528; 864 x 0.002415 = 2.08656; total 4.39184 (43.0% below on-demand). Second Google route agrees exactly: whole-machine row n2-highmem-128 (128 vCPU, 864 GiB) = $7.706976/hour on https://cloud.google.com/products/compute/pricing/general-purpose (Iowa table) and $4.39184/hour on https://cloud.google.com/spot-vms/pricing (Iowa table). Caveats: Google states Spot prices can change up to once every day, so the Spot figure is a same-day reading only. Price is vCPU + memory only (no boot disk, network, or tax). Sustained-use discount treatment for N2 was not checked. WebFetch could not read Google's pricing pages (truncated / over 10 MB), so they were read rendered in a browser, not signed in. Pricing calculator not used."
+    },
+    {
+     "machine_type": "n2-highmem-96",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 6.288672,
+     "claimed_spot_usd_hour": 3.58368,
+     "found_ondemand_usd_hour": 6.288672,
+     "found_spot_usd_hour": 3.58368,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?filter=N2%20Instance%20Ram%20running%20in%20Americas&currency=USD",
+     "note": "Read 2026-11-20, us-central1, all figures from Google pages. Same N2 component SKUs as n2-highmem-128: on-demand $0.031611 per vCPU-hour (BB77-5FDA-69D9) and $0.004237 per GiB-hour (5B01-D157-A097); Spot $0.01801 per vCPU-hour (2856-91B1-406A) and $0.002415 per GiB-hour (6276-ABCE-E764). On-demand: 96 x 0.031611 = 3.034656; 768 x 0.004237 = 3.254016; total 6.288672. Spot: 96 x 0.01801 = 1.72896; 768 x 0.002415 = 1.85472; total 3.58368 (43.0% below on-demand). Second Google route agrees exactly: n2-highmem-96 (96 vCPU, 768 GiB) = $6.288672/hour on https://cloud.google.com/products/compute/pricing/general-purpose and $3.58368/hour on https://cloud.google.com/spot-vms/pricing (both Iowa tables). Third-party cross-check only (economize.cloud search snippet, not Google): n2-standard-4 about $0.1942/hour, consistent with Google's $0.194236. Caveat: Spot price is dynamic (can change up to once per day)."
+    },
+    {
+     "machine_type": "c4-standard-192-lssd",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 12.118296986,
+     "claimed_spot_usd_hour": 7.253914521,
+     "found_ondemand_usd_hour": 12.118296986,
+     "found_spot_usd_hour": 7.253914521,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?filter=C4%20Instance%20Core%20running%20in%20Americas&currency=USD",
+     "note": "Read 2026-11-20, us-central1, all figures from Google pages. This type has three billed components: vCPU, memory and 12,000 GiB of bundled Local SSD. Google SKU list (cloud.google.com/skus): C4 Instance Core running in Americas (4AA0-9497-B351) $0.03465 per vCPU-hour; C4 Instance Ram running in Americas (E259-34D3-C50F) $0.003938 per GiB-hour; C4 Instance Local SSD running in Americas (E0C4-9777-003A) $0.16 per GiB-month (= $0.000219178 per GiB-hour at 730 h/month). Spot: Spot Preemptible C4 Instance Core (F8D5-5FD0-DFD1) $0.02074 per vCPU-hour; Spot Preemptible C4 Instance Ram (6DF6-6CCD-40BB) $0.002357 per GiB-hour; Spot Preemptible C4 Instance Local SSD (B3CD-2048-BC06) $0.0958 per GiB-month (= $0.000131233 per GiB-hour, which is also the C4 row in the Local SSD table on the Spot page). On-demand: 192 x 0.03465 = 6.6528; 720 x 0.003938 = 2.83536; Local SSD 12000 x 0.16 / 730 = 2.630136986; total 12.118296986. Spot: 192 x 0.02074 = 3.98208; 720 x 0.002357 = 1.69704; Local SSD 12000 x 0.0958 / 730 = 1.574794521; total 7.253914521 (40.1% below on-demand). Second Google route agrees exactly: row c4-standard-192-lssd (192 vCPU, 720 GiB, 12000 GiB Local SSD) = $12.118296986/hour in 'C4 Standard with Local SSD' on https://cloud.google.com/products/compute/pricing/general-purpose and $7.253914521/hour on https://cloud.google.com/spot-vms/pricing (Iowa tables). Without Local SSD, c4-standard-192 is $9.48816 on-demand / $5.67912 Spot. Caveats: about 22% of the on-demand price is the Local SSD, charged whether used or not; Spot price is dynamic (can change up to once per day)."
+    },
+    {
+     "machine_type": "c4-standard-288-lssd",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 18.177445479,
+     "claimed_spot_usd_hour": 10.880871781,
+     "found_ondemand_usd_hour": 18.177445479,
+     "found_spot_usd_hour": 10.880871781,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/products/compute/pricing/general-purpose",
+     "note": "Read 2026-11-20, us-central1, all figures from Google pages. Same C4 component SKUs as c4-standard-192-lssd (cloud.google.com/skus): on-demand $0.03465 per vCPU-hour (4AA0-9497-B351), $0.003938 per GiB-hour (E259-34D3-C50F), Local SSD $0.16 per GiB-month (E0C4-9777-003A); Spot $0.02074 per vCPU-hour (F8D5-5FD0-DFD1), $0.002357 per GiB-hour (6DF6-6CCD-40BB), Local SSD $0.0958 per GiB-month (B3CD-2048-BC06). Bundled Local SSD is 18,000 GiB. On-demand: 288 x 0.03465 = 9.9792; 1080 x 0.003938 = 4.25304; Local SSD 18000 x 0.16 / 730 = 3.945205479; total 18.177445479. Spot: 288 x 0.02074 = 5.97312; 1080 x 0.002357 = 2.54556; Local SSD 18000 x 0.0958 / 730 = 2.362191781; total 10.880871781 (40.1% below on-demand). Second Google route agrees exactly: row c4-standard-288-lssd (288 vCPU, 1080 GiB, 18000 GiB Local SSD) = $18.177445479/hour in 'C4 Standard with Local SSD' on the general-purpose pricing page and $10.880871781/hour on https://cloud.google.com/spot-vms/pricing (Iowa tables). Without Local SSD, c4-standard-288 is $14.23224 on-demand / $8.51868 Spot. Caveat: Spot price is dynamic (can change up to once per day)."
+    },
+    {
+     "machine_type": "c4-highmem-192",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 12.512544,
+     "claimed_spot_usd_hour": 7.489296,
+     "found_ondemand_usd_hour": 12.512544,
+     "found_spot_usd_hour": 7.489296,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?filter=C4%20Instance%20Ram%20running%20in%20Americas&currency=USD",
+     "note": "Read 2026-11-20, us-central1, all figures from Google pages. C4 component SKUs (cloud.google.com/skus): on-demand $0.03465 per vCPU-hour (C4 Instance Core running in Americas, 4AA0-9497-B351) and $0.003938 per GiB-hour (C4 Instance Ram running in Americas, E259-34D3-C50F); Spot $0.02074 per vCPU-hour (F8D5-5FD0-DFD1) and $0.002357 per GiB-hour (6DF6-6CCD-40BB). No Local SSD on this type. On-demand: 192 x 0.03465 = 6.6528; 1488 x 0.003938 = 5.859744; total 12.512544. Spot: 192 x 0.02074 = 3.98208; 1488 x 0.002357 = 3.507216; total 7.489296 (40.1% below on-demand). Second Google route agrees exactly: row c4-highmem-192 (192 vCPU, 1488 GiB) = $12.512544/hour on https://cloud.google.com/products/compute/pricing/general-purpose and $7.489296/hour on https://cloud.google.com/spot-vms/pricing (Iowa tables). Caveat: Spot price is dynamic (can change up to once per day)."
+    },
+    {
+     "machine_type": "m3-megamem-128",
+     "verdict": "confirmed",
+     "claimed_ondemand_usd_hour": 14.4096,
+     "claimed_spot_usd_hour": 6.00656,
+     "found_ondemand_usd_hour": 14.4096,
+     "found_spot_usd_hour": 6.00656,
+     "first_party_source": true,
+     "source_url": "https://cloud.google.com/skus?filter=M3%20Memory-optimized%20Instance&currency=USD",
+     "note": "Read 2026-11-20, us-central1, all figures from Google pages. Component rates from Google's SKU list (cloud.google.com/skus): M3 Memory-optimized Instance Core running in Americas (2B4F-981A-703B) $0.0348 per vCPU-hour; M3 Memory-optimized Instance Ram running in Americas (D493-0B62-1972) $0.0051 per GiB-hour; Spot Preemptible M3 Memory-optimized Instance Core (A82E-F92D-A3B9) $0.01452 per vCPU-hour; Spot Preemptible M3 Memory-optimized Instance Ram (7896-6DE7-532A) $0.002125 per GiB-hour. On-demand: 128 x 0.0348 = 4.4544; 1952 x 0.0051 = 9.9552; total 14.4096. Spot: 128 x 0.01452 = 1.85856; 1952 x 0.002125 = 4.148; total 6.00656 (58.3% below on-demand). Second Google route agrees exactly: row m3-megamem-128 (128 vCPU, 1952 GiB) = $14.4096/hour on https://cloud.google.com/products/compute/pricing/memory-optimized and $6.00656/hour on https://cloud.google.com/spot-vms/pricing (Iowa tables). Caveats from Google's own text: M3 types are 'only available in select zones' and do not get sustained use discounts; the 1-year Flexible CUD column for M3 shows no discount ($14.4096). Spot price is dynamic (can change up to once per day). Zone availability and quota for M3 in us-central1 were not checked here."
+    }
+   ]
+  }
+ ]
+}

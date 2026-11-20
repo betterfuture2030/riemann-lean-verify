@@ -1,0 +1,367 @@
+{
+ "modules_total": 175187,
+ "lines_total": 17374215,
+ "main_closure_modules": 175187,
+ "main_closure_lines": 17374215,
+ "statements_closure_modules": 1,
+ "not_in_main_closure": 0,
+ "critical_path_depth_modules": 203,
+ "critical_path_lines": 49751,
+ "by_top_all": {
+  "Development": 141928,
+  "Formalism": 18254,
+  "ReciprocityTheory": 3845,
+  "GroundTheory": 8507,
+  "Lemmata": 167,
+  "CompanionTheory": 2027,
+  "PositivityTheory": 449,
+  "Main": 1,
+  "BuildAid": 5,
+  "Supplements": 3,
+  "Statements": 1
+ },
+ "by_top_main": {
+  "Development": 141928,
+  "Formalism": 18254,
+  "ReciprocityTheory": 3845,
+  "GroundTheory": 8507,
+  "Lemmata": 167,
+  "CompanionTheory": 2027,
+  "PositivityTheory": 449,
+  "Main": 1,
+  "BuildAid": 5,
+  "Supplements": 3,
+  "Statements": 1
+ },
+ "external_imports_top30": [
+  [
+   "Mathlib",
+   155753
+  ],
+  [
+   "Mathlib.Topology.Algebra.ClopenNhdofOne",
+   18
+  ],
+  [
+   "Mathlib.RingTheory.Teichmuller",
+   6
+  ],
+  [
+   "Mathlib.Analysis.Calculus.BumpFunction.FiniteDimension",
+   5
+  ],
+  [
+   "Lean.LibrarySuggestions.Basic",
+   5
+  ],
+  [
+   "Lean.Elab.Command",
+   5
+  ],
+  [
+   "Mathlib.Analysis.Fourier.FiniteAbelian.PontryaginDuality",
+   4
+  ],
+  [
+   "Mathlib.NumberTheory.Multiplicity",
+   4
+  ],
+  [
+   "Mathlib.RingTheory.Jacobson.Ring",
+   4
+  ],
+  [
+   "Mathlib.RingTheory.PowerSeries.Substitution",
+   4
+  ],
+  [
+   "Mathlib.AlgebraicGeometry.AlgClosed.Basic",
+   4
+  ],
+  [
+   "Mathlib.GroupTheory.FiniteAbelian.Duality",
+   4
+  ],
+  [
+   "Mathlib.RingTheory.Ideal.KrullsHeightTheorem",
+   4
+  ],
+  [
+   "Mathlib.Analysis.Complex.Liouville",
+   4
+  ],
+  [
+   "Mathlib.RingTheory.RingHom.Etale",
+   3
+  ],
+  [
+   "Mathlib.RingTheory.Ideal.GoingUp",
+   3
+  ],
+  [
+   "Mathlib.RingTheory.PowerSeries.WeierstrassPreparation",
+   3
+  ],
+  [
+   "Mathlib.LinearAlgebra.Lagrange",
+   3
+  ],
+  [
+   "Mathlib.RingTheory.LocalRing.ResidueField.Ideal",
+   3
+  ],
+  [
+   "Mathlib.FieldTheory.IsAlgClosed.Basic",
+   3
+  ],
+  [
+   "Mathlib.Analysis.Matrix.PosDef",
+   3
+  ],
+  [
+   "Mathlib.Analysis.SpecialFunctions.Log.Base",
+   3
+  ],
+  [
+   "Mathlib.NumberTheory.Padics.Hensel",
+   3
+  ],
+  [
+   "Mathlib.RingTheory.Valuation.LocalSubring",
+   3
+  ],
+  [
+   "Mathlib.Algebra.DualNumber",
+   3
+  ],
+  [
+   "Mathlib.Topology.Algebra.MvPolynomial",
+   3
+  ],
+  [
+   "Mathlib.Analysis.InnerProductSpace.TensorProduct",
+   3
+  ],
+  [
+   "Mathlib.Analysis.Calculus.Deriv.ZPow",
+   3
+  ],
+  [
+   "Mathlib.Analysis.SpecialFunctions.JapaneseBracket",
+   3
+  ],
+  [
+   "Mathlib.Geometry.Manifold.PartitionOfUnity",
+   3
+  ]
+ ],
+ "external_import_roots": {
+  "Mathlib": 156238,
+  "Lean": 12,
+  "Batteries": 3
+ },
+ "most_imported_in_main_closure_top25": [
+  [
+   "Development.AbelianVarietyTheory.Definitions.Divisors.CTSmallCone",
+   3088
+  ],
+  [
+   "Development.AbelianVarietyTheory.Definitions.Divisors.SiegelWeilAnisotropicHermitian",
+   2972
+  ],
+  [
+   "Development.AbelianVarietyTheory.Definitions.Divisors.DiscreteSeriesHermitianUnique",
+   2518
+  ],
+  [
+   "Development.AbelianVarietyTheory.PublishedTheorems.AutomorphicForms\u2082.ExistsNormLeHeightPow",
+   2460
+  ],
+  [
+   "ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.BirationalGeometry.ToroidalCompactification.UniformisationConclusion",
+   2390
+  ],
+  [
+   "ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.ExtensionDescent.UnifUniqSt",
+   2284
+  ],
+  [
+   "Development.AutomorphicArithmetic.ThetaCorrespondence.ThetaPairLifts.ThirdPlaceSeries.CohomologicalCsdTempered",
+   2242
+  ],
+  [
+   "Development.AbelianVarietyTheory.Definitions.Divisors.ToKnownTheoremsOf",
+   1840
+  ],
+  [
+   "Development.AbelianVarietyTheory.PublishedTheorems.TwistedTraceFormula.HarishChandraModulesOn",
+   1684
+  ],
+  [
+   "ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.BirationalGeometry.ToroidalCompactification.HeckeKer",
+   1429
+  ],
+  [
+   "Development.AbelianVarietyTheory.PublishedTheorems.TwistedTraceFormula.AdmissibleDiscreteSeriesOfHasParam",
+   1354
+  ],
+  [
+   "ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.ExtensionDescent.SecBaseChangeAnySt",
+   1340
+  ],
+  [
+   "Development.AbelianVarietyTheory.BlockTheory.DivisorBase.WeilTensorModels",
+   1307
+  ],
+  [
+   "ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.BirationalGeometry.ToroidalCompactification.IsHolPeriods",
+   1206
+  ],
+  [
+   "Development.AbelianVarietyTheory.Definitions.Degenerations.AdmissibleBaseOfCompleteDvr",
+   1063
+  ],
+  [
+   "Development.AbelianVarietyTheory.PublishedTheorems.AutomorphicForms\u2082.HasDRepIffHasDerivAt",
+   1051
+  ],
+  [
+   "Development.AbelianVarietyTheory.Definitions.AbelianSchemeLaws.FirstCohomologyVanishesSpecOfIsLocalRing",
+   963
+  ],
+  [
+   "Development.AbelianVarietyTheory.PublishedTheorems.Divisors\u2082.GeometricallyConnectedOfIsIsoRestrict",
+   937
+  ],
+  [
+   "Formalism.LocalRingCardinality.RhoDetPrimeEqMuTildeMulChiPow",
+   921
+  ],
+  [
+   "Development.AbelianVarietyTheory.PublishedTheorems.GaloisGeometry\u2082.HoweUnram",
+   885
+  ],
+  [
+   "Formalism.SharpRestriction.Divisibility.GeneratorPowers.ThExprUniqOfChartIndep2",
+   873
+  ],
+  [
+   "Development.AbelianVarietyTheory.PublishedTheorems.Divisors\u2082.CrysToDRBijective",
+   859
+  ],
+  [
+   "Development.AbelianVarietyTheory.Definitions.Divisors.DivisorSupportCondition",
+   858
+  ],
+  [
+   "Development.AbelianVarietyTheory.Definitions.Foundations.NormSumPairRankZeroOfCurveCoordNorm",
+   829
+  ],
+  [
+   "Development.AbelianVarietyTheory.PublishedTheorems.AutomorphicForms\u2082.HarishChandraFinite",
+   814
+  ]
+ ],
+ "largest_files_top25": [
+  [
+   17981,
+   "Formalism.HermitianCurvature.HermitianCurvatureProofs.IsAdmissibleSplittingCharPairMulTwist"
+  ],
+  [
+   9252,
+   "Formalism.SharpRestriction.CuspSpanNormBounds.LatticeGluingRadicals"
+  ],
+  [
+   8029,
+   "Development.AutomorphicArithmetic.IntegralCasts.CapelliIdentities.FixPiIff"
+  ],
+  [
+   6945,
+   "Formalism.SharpRestriction.CuspSpanNormBounds.KappaEndpoints"
+  ],
+  [
+   6929,
+   "Formalism.HermitianCurvature.HermitianCurvatureProofs.UnipotentCoordinatesMeasurePreserving"
+  ],
+  [
+   6333,
+   "Formalism.SharpRestriction.CuspSpanNormBounds.OscillatoryIntegralBounds"
+  ],
+  [
+   6205,
+   "Formalism.HermitianCurvature.HermitianCurvatureProofs.CoordinateCommuteRaisingConstant"
+  ],
+  [
+   6170,
+   "Development.AutomorphicArithmetic.IntegralCasts.CapelliIdentities.CovariantDegrees"
+  ],
+  [
+   5833,
+   "Formalism.SharpRestriction.GrowthBounds.WittFrameLocaliserOrders"
+  ],
+  [
+   5746,
+   "Development.AutomorphicArithmetic.IntegralCasts.CapelliIdentities.MemOfClosed"
+  ],
+  [
+   5303,
+   "Formalism.LocalToGlobal.KernelLattices.KernelLocalFactors.InterlaceDifferenceShiftInvariant"
+  ],
+  [
+   4969,
+   "Development.AutomorphicArithmetic.IntegralCasts.CapelliIdentities.MulMemIntA"
+  ],
+  [
+   4861,
+   "Formalism.SharpRestriction.LevelLetterCocycles.BaseChangePreservesUnitaryOf"
+  ],
+  [
+   4707,
+   "Formalism.SharpRestriction.LevelLetterCocycles.FrobeniusPowUniformizerFactorisation"
+  ],
+  [
+   4671,
+   "Formalism.SharpRestriction.CuspSpanNormBounds.BlockEstimateWords"
+  ],
+  [
+   4546,
+   "Formalism.FlagUnipotentLattices.MinkowskiFactorialBounds.SuperdiagonalAdditionInvariance"
+  ],
+  [
+   4516,
+   "Formalism.SharpRestriction.GrowthBounds.TopChoiceBounds"
+  ],
+  [
+   4451,
+   "Formalism.SharpRestriction.GrowthBounds.LatticeSystems"
+  ],
+  [
+   3880,
+   "Formalism.SharpRestriction.GrowthBounds.CountingStatementReduction"
+  ],
+  [
+   3669,
+   "Development.AutomorphicArithmetic.IntegralCasts.CapelliIdentities.ComplexNormedInstanceCompat"
+  ],
+  [
+   3658,
+   "Development.AutomorphicArithmetic.IntegralCasts.CapelliIdentities.HloweqTransfer"
+  ],
+  [
+   3547,
+   "Development.AutomorphicArithmetic.IntegralCasts.CapelliIdentities.SelectionLemmas"
+  ],
+  [
+   3480,
+   "Formalism.PolynomialDimension.MultinomialDepth.TieOps"
+  ],
+  [
+   3447,
+   "Formalism.HermitianCurvature.HermitianCurvatureProofs.RestrictionIrrelevantDoubleLevelOperator"
+  ],
+  [
+   3397,
+   "Formalism.SharpRestriction.GlobalSchurBounds.FirstClaimLemmaTwoFourOfLemmaTwoThree"
+  ]
+ ]
+}
