@@ -2,7 +2,7 @@
 
 An independent, reproducible check of a published Lean 4 formalization that claims to prove the Riemann Hypothesis.
 
-The formalization is distributed as a source tarball from `alpo.ge`, with a short announcement at <https://alpo.ge/remark.pdf>. It is about 175,000 Lean files and 17.4 million lines, roughly eight times the size of Mathlib. This repository does not contain that source. Its tooling downloads it, checks it against a recorded SHA-256, inspects it before anything is executed, compiles it with the pinned Lean and Mathlib versions, and runs the checks that decide whether the claimed theorem has actually been proved.
+The formalization is the work of Levent Alpöge, who announced it on 2026-11-20 at <https://alpo.ge/remark.pdf> and distributes it as a source tarball from `alpo.ge`. It is about 175,000 Lean files and 17.4 million lines, roughly eight times the size of Mathlib. This repository does not contain that source. Its tooling downloads it, checks it against a recorded SHA-256, inspects it before anything is executed, compiles it with the pinned Lean and Mathlib versions, and runs the checks that decide whether the claimed theorem has actually been proved.
 
 Everything here is meant to be reviewed or re-run by anyone with a Mac, a Linux machine or a Google Cloud account, by hand or with a basic coding agent.
 
