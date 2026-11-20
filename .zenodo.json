@@ -1,0 +1,8 @@
+{
+  "title": "riemann-lean-verify: pre-registered, reproducible verification of a published Lean 4 formalization claiming the Riemann Hypothesis",
+  "upload_type": "software",
+  "description": "<p>Tooling, records and pre-registered criteria for an independent check of a published Lean 4 formalization that claims to prove the Riemann Hypothesis. The criteria for a verdict were fixed before the outcome was known (see PREREGISTRATION.md). The proof's source is not redistributed; the tooling downloads it and checks a recorded SHA-256.</p>",
+  "creators": [{ "name": "Lowes, Peter" }],
+  "license": "MIT",
+  "keywords": ["Lean 4", "Mathlib", "formal verification", "Riemann Hypothesis", "reproducibility", "pre-registration"]
+}

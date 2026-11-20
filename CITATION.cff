@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it as below."
+title: "riemann-lean-verify: pre-registered, reproducible verification of a published Lean 4 formalization claiming the Riemann Hypothesis"
+type: software
+authors:
+  - family-names: Lowes
+    given-names: Peter
+    email: peter.lowes@sie.life
+repository-code: "https://github.com/betterfuture2030/riemann-lean-verify"
+license: MIT
+date-released: "2026-11-20"
+keywords:
+  - Lean 4
+  - Mathlib
+  - formal verification
+  - Riemann Hypothesis
+  - reproducibility
+  - pre-registration

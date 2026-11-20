@@ -1,0 +1,14 @@
+# Private, machine-specific settings. Never commit.
+config.env
+# Working data: downloads, the extracted proof source, build products, logs.
+/work/
+*.olean
+*.ilean
+.lake/
+# OS and editor noise
+.DS_Store
+*.swp
+__pycache__/
+
+# Private pattern list for the pre-push scrub check. Never commit.
+.private-patterns
