@@ -1,0 +1,1 @@
+{"phase": "setup", "state": "FAIL", "message": "setup step failed: smoke_build", "elapsed_s": 112, "deadline_in_s": 3188, "mode": "full-rehearsal", "nmax": 32, "utc": "2026-11-21T03:21:13Z"}

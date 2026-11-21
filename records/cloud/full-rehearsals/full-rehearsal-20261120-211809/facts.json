@@ -1,0 +1,69 @@
+{
+ "what": "facts from one run of cloud/gcp/full_guest.sh; not a verdict (see PREREGISTRATION.md, section 5)",
+ "state": "FAIL",
+ "message": "setup step failed: smoke_build",
+ "written_utc": "2026-11-21T03:21:12Z",
+ "elapsed_s": 111,
+ "mode": "full-rehearsal",
+ "time_boxed_build": true,
+ "jobs": 32,
+ "inputs": {
+  "tarball_sha256": "9631b4f020199e580ba86178cb56c6e9b09f690c2369a80dc4334aa93f49c7fc",
+  "tools_commit": "5dcd67e5a6a8c9d109c19ec3229536619ffee854",
+  "tools_archive_sha256": "85d037954dba6633c1e7eb56e3ffa41bbc716ccac40d9520d03eea2ac25e81fd",
+  "guest_script_sha256": "013049e8d874facde2df7ef81e47be3f5d0f2f5dc4147e508b00f734af81a5ef",
+  "guest_script_is_the_one_sent": true
+ },
+ "c1_build": {
+  "state": "not_reached",
+  "source_modules": 175187,
+  "compiled_modules": 2,
+  "source_modules_not_compiled": null,
+  "compiled_modules_without_source": null,
+  "compiled_modules_named_like_a_library": null,
+  "failed_job_lines_in_all_logs": 0,
+  "last_lake_exit_status": null,
+  "retried_after_failure": false,
+  "failed_jobs_in_last_pass": null,
+  "of_which_compiler_killed_from_outside": null,
+  "of_which_compiler_crashed": null,
+  "restart_tests": {
+   "plain_restart": {
+    "finished_modules_recompiled": null,
+    "new_modules_built": null
+   },
+   "restart_after_pruning": {
+    "finished_modules_recompiled": null,
+    "new_modules_built": null
+   }
+  }
+ },
+ "seal": {
+  "source_tree_unchanged_since_extraction": null,
+  "toolchain_and_mathlib_unchanged_since_before_first_compile": null,
+  "sealed_copy_of_toolchain_matches": null,
+  "files_beside_the_compiled_modules_that_the_build_does_not_write": null,
+  "compiled_files_manifest_sha256": null
+ },
+ "c2_axioms": {
+  "plain_exit_status": null,
+  "deep_exit_status": null,
+  "deep_walk_ran": "not_run",
+  "plain": null,
+  "deep": null
+ },
+ "c3_kernel_replay": {
+  "last_exit_status": null,
+  "jobs": null,
+  "summary": null
+ },
+ "end": {
+  "compiled_files_unchanged_since_seal": null,
+  "toolchain_and_mathlib_unchanged_since_seal": null,
+  "build_user_process_seen_after_seal": false
+ },
+ "archive_of_compiled_files": {
+  "state": "not_requested",
+  "objects_uploaded": null
+ }
+}

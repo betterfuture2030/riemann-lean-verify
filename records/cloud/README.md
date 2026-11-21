@@ -32,6 +32,7 @@ This is a dated snapshot, not a quotation. Cloud prices, Spot prices in particul
 | `gcp_candidates.json` | 31 machine types with at least 96 vCPUs that were considered: vCPUs, memory in GB, the US regions that offer them, and the `us-central1` zones that do |
 | `full_run_driver_review.json` | Four AI reviews of the first draft of the full-run driver, made before it had been run. Criticism of code, not a result |
 | `full_run_driver_recheck.json` | Two AI reviews of the driver as rewritten after the first four, also before it had been run |
+| `full-rehearsals/` | Records of each rehearsal of the full-run driver; see its README |
 | `gcp_machine_types.csv` | 1,877 rows, no header: machine type, zone, vCPUs, memory in GB. It lists the 168 machine types with at least 96 vCPUs across 19 zones in `us-central1`, `us-east1`, `us-east4`, `us-east5`, `us-south1` and `us-west1`, as offered on 2026-11-20 |
 
 Where the reviews mention current quota values, such as a limit of 32 vCPUs across all regions, they describe the Google Cloud project that was used for this work on that date. Your project's limits will differ; check them in the console.

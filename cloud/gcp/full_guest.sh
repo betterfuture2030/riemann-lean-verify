@@ -146,7 +146,10 @@ manifest() {
 }
 src_manifest() { ( cd "$PROJ" && manifest . -path ./.lake -prune -o ); }                       # everything but .lake
 tc_manifest() { ( cd "$1" && manifest . ); }                                                   # a whole toolchain directory
-pkgs_manifest() { ( cd "$PROJ/.lake/packages" && manifest . -path '*/.lake/build/lib/lean/*' ); }   # Mathlib and the packages beneath it
+# Mathlib and the packages beneath it: every compiled file a check can read. The build tool's own bookkeeping
+# beside them (.hash and .trace files) is left out: it rewrites some of those as it goes (seen in the first
+# rehearsal: five .hash files of Mathlib, the same five on a Mac), and no check reads them.
+pkgs_manifest() { ( cd "$PROJ/.lake/packages" && manifest . -path '*/.lake/build/lib/lean/*' ! -name '*.hash' ! -name '*.trace' ); }
 lib_manifest() { ( cd "$LIB" && manifest . ); }                                                # everything beside the proof's compiled files
 # Root reads files that another user could have written only if they are plain files, and never waits on them.
 plain() { [ -f "$1" ] && [ ! -L "$1" ]; }
@@ -355,7 +358,7 @@ s_baseline() {
   TC_BIN=$(dirname "$(as_pilot 'elan which lean' | tail -1)"); TC_DIR=$(dirname "$TC_BIN")
   [ -x "$TC_BIN/lean" ] && [ -x "$TC_BIN/leanchecker" ] || { echo "toolchain not found at $TC_BIN"; return 1; }
   tc_manifest "$TC_DIR" > "$PD/baseline_tc.txt" && pkgs_manifest > "$PD/baseline_pkgs.txt" || return 1
-  [ "$(wc -l < "$PD/baseline_tc.txt")" -gt 2000 ] && [ "$(wc -l < "$PD/baseline_pkgs.txt")" -gt 20000 ] \
+  [ "$(wc -l < "$PD/baseline_tc.txt")" -gt 2000 ] && [ "$(wc -l < "$PD/baseline_pkgs.txt")" -gt 20000 ] && [ "$(grep -c '\.olean$' "$PD/baseline_pkgs.txt")" -gt 8000 ] \
     || { echo "library manifests are implausibly short: $(wc -l < "$PD/baseline_tc.txt") and $(wc -l < "$PD/baseline_pkgs.txt") files"; return 1; }
   echo "toolchain: $TC_DIR ($(wc -l < "$PD/baseline_tc.txt") files, manifest sha256 $(sha256sum "$PD/baseline_tc.txt" | cut -d' ' -f1)); library files: $(wc -l < "$PD/baseline_pkgs.txt") (manifest sha256 $(sha256sum "$PD/baseline_pkgs.txt" | cut -d' ' -f1))" >> "$PD/env.txt"
 }

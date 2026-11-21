@@ -1,0 +1,39 @@
+### 2026-11-21T03:19:21Z +0s  PHASE setup
+### 2026-11-21T03:19:21Z +0s  setup: sysctl
+### 2026-11-21T03:19:21Z +0s  setup: packages
+### 2026-11-21T03:19:29Z +8s  setup: disk
+### 2026-11-21T03:19:29Z +8s  setup: user
+### 2026-11-21T03:19:29Z +8s  setup: elan
+elan 4.4.0 (3cc76985a 2026-11-18)
+### 2026-11-21T03:19:30Z +9s  setup: source
+### 2026-11-21T03:19:45Z +24s  setup: mathlib_cache
+Decompressed 8690 file(s)
+Already decompressed 8690 file(s)
+### 2026-11-21T03:20:55Z +94s  setup: baseline
+### 2026-11-21T03:20:59Z +98s  setup: lockdown
+### 2026-11-21T03:20:59Z +98s  setup: smoke_build
+✔ [8706/8707] Built Statements (2.5s)
+✔ [8707/8707] Built Formalism.GammaFactorNonvanishing.RhOfRight (3.2s)
+Build completed successfully (8707 jobs).
+the smoke build changed files under the packages' lib directories
+24908c24908
+< 045579798915f5edbed749c20ad676d168169f2734ad0c0072b8c388be20f10e  ./mathlib/.lake/build/lib/lean/Mathlib/AlgebraicTopology/SimplicialCategory/Basic.ilean.hash
+---
+> d2cf4da7c1127dc5fa147ac3c6d413611f4882763c72e354a43f3b550a34766d  ./mathlib/.lake/build/lib/lean/Mathlib/AlgebraicTopology/SimplicialCategory/Basic.ilean.hash
+53096c53096
+< d26d6a8602a29318189cfaa8d2100deed54d31eeabc001bc8fe20dd72db54610  ./mathlib/.lake/build/lib/lean/Mathlib/Combinatorics/SimpleGraph/Walks/Traversal.ir.sig.hash
+---
+> 917655cf093bc2efcfb409dc091955a012cbf905d44393c43f5de4761a60d51f  ./mathlib/.lake/build/lib/lean/Mathlib/Combinatorics/SimpleGraph/Walks/Traversal.ir.sig.hash
+73764c73764
+< 214fac12a9163e3e152a7cdf93df9ff6b7afed709acb7a084d7f7a40cc057ab8  ./mathlib/.lake/build/lib/lean/Mathlib/LinearAlgebra/Transvection/Basic.ir.hash
+---
+> 87891688d465eecd3b44fa3ee1f27bd3c45b87dd54284ce372d2ff247641b56d  ./mathlib/.lake/build/lib/lean/Mathlib/LinearAlgebra/Transvection/Basic.ir.hash
+100262c100262
+< 7b2492ea043b29e2f48eb000323290a3d3e450f1e4f96b3a8c6bd4ce5f6830c5  ./mathlib/.lake/build/lib/lean/Mathlib/Tactic/FastInstance.olean.hash
+---
+> e88987725d4a6def29326a4e94685810d49d361702bd73157de304aa9424bdfd  ./mathlib/.lake/build/lib/lean/Mathlib/Tactic/FastInstance.olean.hash
+106727c106727
+< 14dc2e11a3853f9a8c2197a96609dd0fb8f6818103e00423cde02ea99e7d6baa  ./mathlib/.lake/build/lib/lean/Mathlib/Topology/Category/TopCat/ULift.olean.server.hash
+---
+> 645a0c0a76099e6ebe79207a441ef6774ef2ef84ed41662d7033187e0d343dd5  ./mathlib/.lake/build/lib/lean/Mathlib/Topology/Category/TopCat/ULift.olean.server.hash
+### 2026-11-21T03:21:10Z +109s  FINISH FAIL: setup step failed: smoke_build
