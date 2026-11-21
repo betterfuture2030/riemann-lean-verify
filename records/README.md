@@ -65,6 +65,8 @@ The proof source itself is not here and is not redistributed. Build logs, the ar
 | `cloud/replay_cost.json` | What a kernel replay of the whole tree is estimated to cost by each of three ways of running it, from `analysis/replay_cost.py` |
 | `cloud/replay_method_review.json`, `cloud/replay_method_recheck.json` | Two rounds of AI review of the second replay program and the scripts around it |
 | `cloud/closure_replay_review.json`, `cloud/closure_replay_recheck.json` | Two rounds of AI review of the kernel replay as it now runs (the stock tool with import-closure search paths) and of the cloud driver's replay phase |
+| `cloud/cap_options_review.json` | Four AI analyses, each independently checked, of what could be done about the full run under a spending cap of 50 USD, and further ways proposed by a ninth agent that no other agent checked; nothing in it has been tried |
+| `cloud/rehearsal6_record_review.json` | AI review of how the sixth rehearsal, the replay estimate and the cap were written up: five areas, each re-checked by a sceptic, with what was done about each point |
 | `cloud/c3_amendment_draft_review.json` | A draft amendment to the pre-registration that was reviewed and **not made**, with the 51 findings of its review |
 
 ### `two-builds/` - the same modules compiled twice

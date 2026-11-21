@@ -1,0 +1,174 @@
+{
+ "allowed_axioms": [
+  "propext",
+  "Classical.choice",
+  "Quot.sound"
+ ],
+ "check": "axioms and statement",
+ "checks": {
+  "statement_is_constant_RiemannHypothesis": {
+   "subject": "Formalism.VW.rh_of_right",
+   "value": true
+  }
+ },
+ "compiled_modules": 1663,
+ "deep_walk": {
+  "axiom_count": 3,
+  "axioms": [
+   {
+    "module": "Init.Core",
+    "name": "propext"
+   },
+   {
+    "module": "Init.Core",
+    "name": "Quot.sound"
+   },
+   {
+    "module": "Init.Prelude",
+    "name": "Classical.choice"
+   }
+  ],
+  "library_constants_visited": 54441,
+  "library_modules_touched": 1759,
+  "missing": [],
+  "module_count": 1760,
+  "modules_file": "axioms-probe-20261121-175112.modules.tsv",
+  "modules_listed_completely": true,
+  "project_constants_visited": 3,
+  "project_modules_touched": 1,
+  "requested": true,
+  "visited": 54444
+ },
+ "defining_modules": {
+  "DirichletCharacter.LFunction": "Mathlib.NumberTheory.LSeries.DirichletContinuation",
+  "RiemannHypothesis": "Mathlib.NumberTheory.LSeries.RiemannZeta",
+  "riemannZeta": "Mathlib.NumberTheory.LSeries.RiemannZeta"
+ },
+ "definitions": {
+  "RiemannHypothesis": "∀ (s : ℂ), riemannZeta s = 0 → (¬∃ n, s = -2 * (↑n + 1)) → s ≠ 1 → s.re = 1 / 2"
+ },
+ "failures": [],
+ "lean_exit_status": 0,
+ "lean_version": "4.33.1",
+ "log_file": "axioms-probe-20261121-175112.log",
+ "mode": "probe",
+ "primary_theorem": "Formalism.VW.rh_of_right",
+ "run_utc": "2026-11-21T17:51:17Z",
+ "source_modules": 175187,
+ "tarball_sha256": "9631b4f020199e580ba86178cb56c6e9b09f690c2369a80dc4334aa93f49c7fc",
+ "theorems": {
+  "Formalism.VW.rh_of_right": {
+   "axiom_count": 3,
+   "axioms": [
+    "propext",
+    "Classical.choice",
+    "Quot.sound"
+   ],
+   "axioms_within_allowed": true,
+   "declared_in": "Formalism.GammaFactorNonvanishing.RhOfRight",
+   "kind": "theorem",
+   "present": true,
+   "statement_library_constants": [
+    {
+     "module": "Mathlib.NumberTheory.LSeries.RiemannZeta",
+     "name": "RiemannHypothesis"
+    },
+    {
+     "module": "Mathlib.Data.Complex.Basic",
+     "name": "Complex.instZero"
+    },
+    {
+     "module": "Init.Data.Zero",
+     "name": "Zero.toOfNat0"
+    },
+    {
+     "module": "Mathlib.NumberTheory.LSeries.RiemannZeta",
+     "name": "riemannZeta"
+    },
+    {
+     "module": "Mathlib.Data.Complex.Basic",
+     "name": "Complex.instOne"
+    },
+    {
+     "module": "Init.Core",
+     "name": "Ne"
+    },
+    {
+     "module": "Mathlib.Data.Complex.Basic",
+     "name": "Complex.re"
+    },
+    {
+     "module": "Init.Data.Nat.Basic",
+     "name": "Nat.instNeZeroSucc"
+    },
+    {
+     "module": "Init.Prelude",
+     "name": "instOfNatNat"
+    },
+    {
+     "module": "Init.Prelude",
+     "name": "Nat"
+    },
+    {
+     "module": "Mathlib.Data.Nat.Init",
+     "name": "Nat.instAtLeastTwoHAddOfNat"
+    },
+    {
+     "module": "Mathlib.Data.Real.Basic",
+     "name": "Real.instNatCast"
+    },
+    {
+     "module": "Mathlib.Data.Nat.Cast.Defs",
+     "name": "instOfNatAtLeastTwo"
+    },
+    {
+     "module": "Mathlib.Data.Real.Basic",
+     "name": "Real.instOne"
+    },
+    {
+     "module": "Init.Data.Zero",
+     "name": "One.toOfNat1"
+    },
+    {
+     "module": "Init.Prelude",
+     "name": "OfNat.ofNat"
+    },
+    {
+     "module": "Mathlib.Data.Real.Basic",
+     "name": "Real.instDivInvMonoid"
+    },
+    {
+     "module": "Mathlib.Algebra.Group.Defs",
+     "name": "DivInvMonoid.toDiv"
+    },
+    {
+     "module": "Init.Prelude",
+     "name": "instHDiv"
+    },
+    {
+     "module": "Init.Prelude",
+     "name": "HDiv.hDiv"
+    },
+    {
+     "module": "Mathlib.Data.Real.Basic",
+     "name": "Real.instLT"
+    },
+    {
+     "module": "Mathlib.Data.Real.Basic",
+     "name": "Real"
+    },
+    {
+     "module": "Init.Prelude",
+     "name": "LT.lt"
+    },
+    {
+     "module": "Mathlib.Data.Complex.Basic",
+     "name": "Complex"
+    }
+   ],
+   "statement_project_constants": [],
+   "type": "(∀ (s : ℂ), 1 / 2 < s.re → s ≠ 1 → riemannZeta s ≠ 0) → RiemannHypothesis"
+  }
+ },
+ "verdict": "PASS"
+}

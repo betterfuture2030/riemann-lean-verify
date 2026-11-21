@@ -71,18 +71,18 @@ prints the estimated hours for a full build and a full kernel replay on the same
 
 ## The full run
 
-**Rehearsed, not yet run in full.** Five rehearsals found three faults, which were fixed; the third ran every phase with the stock tool for the replay, and the fifth with `rhv-replay`, and in both each step did what it should ([`records/cloud/full-rehearsals/`](../../records/cloud/full-rehearsals/)). **The kernel-replay phase has been changed since the fifth rehearsal**, so that the stock tool is shown only what each module imports, and has not been rehearsed as it now stands; rehearse before a full run. A rehearsal builds about one module in a hundred, on shortened settings; the paths no rehearsal reaches are listed at the end of that directory's README. Section 9 of [`docs/cloud-notes.md`](../../docs/cloud-notes.md) lists what four reviews of the scripts found and changed.
+**Rehearsed, not yet run in full.** Six rehearsals found three faults, which were fixed. The third ran every phase with the stock tool for the replay and the whole library on its search path, the fifth with `rhv-replay`, and the sixth with the stock tool shown only what each module imports, which is how the driver now runs (one line of the replay script has changed since, for short passes, and has been tested on a small project only); in each of those every step did what it should ([`records/cloud/full-rehearsals/`](../../records/cloud/full-rehearsals/)). A rehearsal builds about one module in a hundred, all of them shallow, on shortened settings; the paths no rehearsal reaches are listed at the end of that directory's README. Section 9 of [`docs/cloud-notes.md`](../../docs/cloud-notes.md) lists what four reviews of the scripts found and changed.
 
 ```bash
 git status --short scripts cloud                      # must be empty: a full run is tied to one commit
 bash cloud/gcp/pilot_local.sh stage                   # also uploads an archive of scripts/ made from that commit
-bash cloud/gcp/pilot_local.sh launch full-rehearsal   # about 20 minutes (0.68 USD recorded), at most 2.50 USD
+bash cloud/gcp/pilot_local.sh launch full-rehearsal   # about 20 to 25 minutes (0.65 to 0.83 USD recorded), at most 2.57 USD
 bash cloud/gcp/pilot_local.sh watch
-bash cloud/gcp/pilot_local.sh launch full             # refused unless the cap allows 84 USD more; an estimated 26 hours
+bash cloud/gcp/pilot_local.sh launch full             # refused unless the cap allows 84.07 USD more; an estimated 26 hours
 bash cloud/gcp/pilot_local.sh watch                   # can be interrupted and resumed
 ```
 
-`launch full` is refused until `GCP_SPEND_CAP_USD` in `config.env` covers its worst case, 42 hours of machine time, on top of what the ledger already records. Raising the cap is how you authorise the run.
+`launch full` is refused until `GCP_SPEND_CAP_USD` in `config.env` covers its worst case, 42 hours of machine time, on top of what the ledger already records. Raising the cap is how you authorise the run. What that means for a cap below the worst case, and what else could be done, is in [`docs/cloud-notes.md`](../../docs/cloud-notes.md), section 8.6.
 
 A full run is estimated at about 26 hours and 48 USD: 16 hours of build, 8.5 of kernel replay, and the rest set-up, the axiom check and slack ([`docs/cloud-notes.md`](../../docs/cloud-notes.md), section 8.5). The replay figure is a projection. The replay is by the stock tool `leanchecker` on every module, which is what criterion C3 names; each process is given a search path that holds, of the project, only hard links to the compiled files of its module and of what that module imports, because the tool lists everything on its search path before each check and with the whole library there the replay alone would take about 46 hours.
 

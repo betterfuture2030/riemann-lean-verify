@@ -1,0 +1,1102 @@
+{
+ "what": "AI review, 2026-11-21, of how the sixth rehearsal of the full-run driver was written up before it was committed: the new section of records/cloud/full-rehearsals/README.md, the replay estimate rebuilt on that run (analysis/replay_cost.py and records/cloud/replay_cost.json), section 8.6 of docs/cloud-notes.md on the spending cap, a change to the launcher's cap test, and every statement elsewhere that the day's events had made stale. Five reviewers, one area each (the figures, the run against the driver's code, the cost script, the cap section, stale statements), all read-only; then a sceptic for each, who tried to refute every finding and added what the reviewer had missed. Several findings are one fault seen from two or three areas. A rehearsal tests the driver; nothing here is evidence about the proof.",
+ "counts": {
+  "findings_by_the_reviewers": 55,
+  "upheld_by_the_sceptics": 36,
+  "upheld_in_part": 19,
+  "refuted": 0,
+  "added_by_the_sceptics": 13
+ },
+ "the_finding_that_mattered_most": "The first write-up said the rehearsal's checks cost 13 percent more than the fitted line gives, and that the replay of the whole tree would take 9.6 hours if that held. That set two different measures against each other: throughput in a trial window (jobs times the seconds between the first and last result, per module) against a line whose first point is the mean of the seconds recorded per check in another run's main pass. Like for like, trial against trial, the run is 4 to 8 percent above the line's prediction (8.8 to 9.1 hours), which is within what two windows of one run differ by. The script now compares only like with like and reports how far the line moves with the choice of its first point; the documents were corrected.",
+ "what_was_done": [
+  "analysis/replay_cost.py: the ratio of unlike measures removed; the trial at 32 of the sixth rehearsal is set against the trial at 32 of the third, as throughput and as seconds per check, with the ratio the fit predicts beside them; each window now reports how many checks were in flight; the line is also given with its first point taken from the third rehearsal's trial; results recorded as 'holding modules beneath' are counted; the module's own file is counted on the search path; the docstring says which measure is which and how long the script takes.",
+  "Documents: '13 percent' and '9.6 hours' replaced everywhere by the like-for-like figures; the statement that the links cost 'under a tenth of a second' withdrawn (they were not timed, and the difference it rested on is inside the one-second resolution of the record); the main pass of 635 modules explained (26 workers, 21 checks in flight) and no longer compared with anything.",
+  "The sixth run's section: the real half-written file is attributed to the second restart test, not the time box; the driver's own trial rate of 7.13 a second is given beside the 6.9 measured between first and last result; the deep walk is said to be in probe mode and on which lemma; the second replay's exit status 3 is explained; 'made and removed' for the links reduced to what the records show; the zone is given with its source.",
+  "Section 8.6: the two rows that came from the ninth agent alone are marked as unchecked; every Spot cap is said to need a lower ledger rate; the single Spot attempt's time limit is compared with the guest's stop, an hour inside it, not with the deletion time; its spend is given at the ledger rate with its rehearsal; the resumable Spot row says that stopping a machine takes spend outside the cap; the 128 GB row says the axiom check may time out; the cheaper-family row gives its cap, its guessed speed and its deadline risk; the Mac row gives the build's full range, the INCONCLUSIVE outcome and the open-files limit; the review is placed before the rehearsal's result was known and the recomputation for 9.86 USD is stated; 'more than the bill' corrected to 'more than the list price of the machine time'; Spot prices, capacity and the preemptible-quota trap added.",
+  "Stale statements corrected in docs/cloud-notes.md section 9 (five rehearsals, 2.64 USD, 'none of that last change has been rehearsed', the prefix pass as a normal step), docs/performance-notes.md, CLAIMS.md (K3's wording, the count of modules on which the two tools were compared, a reference that led nowhere, rehearsal figures marked as not being verification results), cloud/gcp/README.md (2.50 and 84 USD after the cap test changed), README.md and docs/replication-guide.md ('15 hours more', 'days more on a laptop'), and the record indexes ('each independently checked').",
+  "scripts/09_kernel_replay.sh: a worker is handed fewer than 25 modules when a pass is short, so that every job has a worker (found from the main pass, where 635 modules had made 26 workers for 32 jobs; it matters for the retry passes of a full run). Tested on the small project; not rehearsed in the cloud."
+ ],
+ "left_as_they_are": [
+  "The driver writes its trial rate into facts.json as text where its neighbours are numbers. Cosmetic; not worth a change to the guest script after its rehearsal.",
+  "The driver's estimate of the replay's duration is throughput times modules and leaves out each pass's planning, start and tail. The margin it keeps was not widened on the evidence of a 1,662-module pass; the documents now say what the estimate leaves out."
+ ],
+ "areas": [
+  {
+   "area": "numbers",
+   "review": {
+    "area_summary": "I checked every figure that the uncommitted changes add or alter in README.md, CLAIMS.md, docs/cloud-notes.md (sections 1, 8.5, 8.6, 9), docs/performance-notes.md section 10, cloud/gcp/README.md, records/README.md, records/cloud/README.md and records/cloud/full-rehearsals/README.md. I traced each one to the sixth run's directory, records/cloud/replay_cost.json (re-run without --out, and the output matches the committed-to-be file), records/source/import_graph.json.gz (I recomputed the closures myself), the third rehearsal's c3_results.tsv.gz (to compare like with like), cloud/gcp/pilot_local.sh and records/cloud/cap_options_review.json. Nearly all the counts trace exactly. Four problems matter. (1) The headline \"13 percent above the line, 9.6 hours\" compares a trial-window job-seconds figure with a fit that was calibrated on main-pass seconds per check. Measured the same way, the excess is about 4 to 8 percent, and in the main pass it is about 0. The sentence \"costs nothing extra\" also contradicts the 13 percent. (2) The figure \"under a tenth of a second\" for the links is a difference that sits inside the whole-second noise; it was not measured. (3) The rows of the 8.6 table that say \"cap 50\" (and 46 to 48, 56 to 58) hold only if the ledger rate constant is also lowered from 2.00, and the table does not say so. Two of its rows were never independently checked, although records/README.md says each analysis was. (4) The zone sentence cannot be traced to any record, and several \"five times\" / \"not rehearsed\" statements outside the edited lines are now stale. No sentence presents the rehearsal as evidence about the proof, beyond the existing practice of listing rehearsal passes under K3, which is labelled as samples.",
+    "checked_and_sound": [
+     "Setup 137 s: setup.tsv steps sum to 137 (phases.tsv gives 138 from setup to build, and pilot.log puts the build at +138s)",
+     "Restart tests 307 and 311, and 638 setup files removed: restart_tests.txt, facts.json c1_build.restart_tests, pilot.log '+326s ... of finished modules: 638 ... removed: 638'",
+     "1,662 finished and 1 never finished; 1,663 compiled; 173,524 not compiled (175,187 - 1,663): facts.json c1_build, c3_summary.txt, disk.txt oleans 1663",
+     "Two half-written files, one the planted stand-in and one real: compiler_leftovers.txt (SymplecticTransposeEntryZeroOne.olean.tmp.55059 and RehearsalStandIn.olean.tmp.1); facts.json seal.half_written_files_of_killed_compilers_removed 2",
+     "The trial rates 5.2 and 6.9 per second, 4.65 job-seconds and 4.56 recorded seconds: replay_cost.json leanchecker_with_import_closure_directories_measured windows (5.18, 6.88, 4.65, 4.56); I reproduced them from c3_results.tsv.gz (435 modules in 84 s, 592 in 86 s)",
+     "636 to go, about 90 s needed, 2,409 s left, fits: pilot.log '+891s' line; 636/7.13 = 89",
+     "54,444 constants and the same three axioms: c2_deep.json and facts.json c2_axioms.deep.deep_walk (visited 54444, axiom_count 3); the plain check is the same as in the third rehearsal (c2_plain.json of both)",
+     "'9 others on average, 160 at most': recomputed from import_graph.json.gz over all 1,662 leanchecker modules, mean 9.30 and max 160; none imports a module beneath itself (0 of 1,662), which matches the new not-exercised bullet",
+     "'About 10,460 files': 10,452 + 9.5 (trial mean) ≈ 10,462 (replay_cost.json at_32.files_on_the_search_path)",
+     "4.11 from the fit: 2.6 + 0.000144 x 10,462 + 0.000271 x 9.5 + 60e-6 x 9.5 = 4.11",
+     "12,244 files in the third rehearsal: replay_cost.json points[0].files_on_search_path. Its '4.7 in the same trial' matches its own recorded mean of 4.66 s for the trial at 32 (full-rehearsals/README.md line 75)",
+     "Main pass 5.3 per second, 635 modules, 26 workers (ceil(635/25)), 4.1 s inside: replay_cost.json windows[2] (5.34, 635, 4.09)",
+     "8.5 h and 9.6 h (5.6 x 1.13 = 6.3 s; 175,187 x 6.3 / 32 / 3600 = 9.6): replay_cost.json whole_tree_if_the_same_ratio_held",
+     "21 minutes: facts.json elapsed_s 1251. The 1,487 s and 0.83 USD agree with each other at the ledger rate (1,487 x 2.00 / 3600 = 0.826). The ledger itself is private and I did not check it",
+     "9.86 USD: 6.39 (pilot ledger.tsv, as cited in cap_options_review.json) + 2.64 (README table) + 0.83 = 9.86",
+     "Cap of about 94 (9.86 + 84.07 under the new WORST formula in pilot_local.sh line 152); about 20 hours left ((50 - 9.86) / 2.00 = 20.07); low estimate 22.7 h; 51 USD (45 to 67) at the ledger rate: replay_cost.json whole_run, cap_options_review.json options[0]",
+     "Rows 3 to 5 of the 8.6 table (30 to 33; 22 before any penalty; 14 to 17) match the checks and the missing-options entries of cap_options_review.json; with 9.86 spent the 128 GB caps come to 45.98 and 47.66, so 'about 46 to 48' is right",
+     "Both tools passed for the same compiled file: in c3_results.tsv.gz the leanchecker stamp equals the rhv-replay stamp for all 1,662 modules; every line has status 0, so there is no status 96",
+     "Commit 9c27c33 is HEAD and is facts.json inputs.tools_commit; full_guest.sh and scripts/ are unmodified; 42 = 6 + 36 Mac closure checks in CLAIMS"
+    ],
+    "findings": [
+     {
+      "title": "The '13 percent' excess and the 9.6 hours compare unlike measures",
+      "severity": "misleading",
+      "file": "records/cloud/full-rehearsals/README.md",
+      "where": "'What the timings say' and 'What they do not say' paragraphs; the same figure in CLAIMS.md M8, docs/cloud-notes.md sections 1 and 8.5, docs/performance-notes.md section 10",
+      "what_is_wrong": "The fit was calibrated on recorded seconds per check in the third rehearsal's main pass (4.36). The 4.65 it is compared with is job-seconds, computed from the span of the 32-at-a-time trial window. Measured the same way, the third rehearsal itself exceeds its own fitted value: in its trial at 32, 4.57 job-seconds and 4.66 recorded seconds, against 4.36, so 5 to 7 percent of window effect. Allowing for that, the sixth run exceeds the line by about 4 to 8 percent. In its main pass the recorded seconds are 4.09 against 4.11, about 0 percent. The text states '13 percent' and '9.6 hours' firmly, and attributes 4.65 to 'the 1,662 modules' when it was measured on the 592 checked in the trial. The same paragraph then says the method 'costs nothing extra for shallow modules', which contradicts a 13 percent excess.",
+      "evidence": "replay_cost.json points[0].mean_seconds_per_check 4.36 (745 main-pass checks); recomputed from full-rehearsal-20261120-214914/c3_results.tsv.gz: t32 595 checks, span 85 s, 4.571 job-s/check, mean recorded 4.659 s; main pass 4.364. Sixth run: t32 4.649 job-s, 4.561 recorded; main pass 4.09 recorded (replay_cost.json windows[2]). The analysis/replay_cost.py --closure-run code divides job-seconds (js) by fit_here.",
+      "smallest_fix": "Say that 4.65 is the job-seconds of the 592 checks in the trial at 32, and that the same window measure gives 4.57 for the third rehearsal, whose fitted value is 4.36. Give the excess as 'about 5 to 13 percent, depending on the window measured (about 0 in the main pass)'. Present 9.6 h as an upper reading, not as 'the excess'. Reconcile it with 'costs nothing extra'."
+     },
+     {
+      "title": "'Under a tenth of a second' for the links was not measured",
+      "severity": "unsupported",
+      "file": "records/cloud/full-rehearsals/README.md",
+      "where": "'What the timings say': 'Making and removing the links took under a tenth of a second per check.'",
+      "what_is_wrong": "No record times the links. The figure can only be the gap between job-seconds (4.65) and recorded seconds (4.56), which is 0.09. Both are whole-second measures; replay_cost.json itself says such means are 'good to about 0.1'. In the third rehearsal, which made no links, the same gap is -0.09 (4.57 against 4.66). So the gap is noise at this precision. Note too that the recorded seconds are date +%s around the whole of kernel_check_one.sh, not only leanchecker.",
+      "evidence": "scripts/verify/kernel_check_one.sh lines 79 and 120-121 (t0/t1 from date +%s); rhv_tools.py cmd_closure_worker makes the links before and removes them after the subprocess.call; replay_cost.json points[0].note",
+      "smallest_fix": "Replace it with: 'The links were not timed separately; job-seconds and recorded seconds differ by less than the one-second resolution of the record, so their cost here is too small to see.'"
+     },
+     {
+      "title": "Caps of 50, 46 to 48 and 56 to 58 in the 8.6 table need a lower ledger rate, which the table does not say",
+      "severity": "omission",
+      "file": "docs/cloud-notes.md",
+      "where": "Section 8.6 table, rows 2 to 5, column 'Cap it needs'",
+      "what_is_wrong": "The launcher checks spent + RATE x (MAXRUN + 120 s), and RATE defaults to 2.00. At 2.00 a Spot run with a limit of 33 to 35 h needs 9.86 + 66 to 70 = 76 to 80, not 50. The figures in the table assume the rate constant is set near the Spot price: 1.12 to 1.15 for F, 1.10 to 1.15 for B, 0.86 to 0.90 for C, 0.60 to 0.91 for G. The 'What it takes' column for row 2 ('One flag in the launcher, a shorter limit, one rehearsal') leaves this change out, although the same section stresses that the cap is enforced on the ledger at 2.00 an hour.",
+      "evidence": "cloud/gcp/pilot_local.sh line 41 RATE=${GCP_RATE_USD_PER_HOUR:-2.00} and line 152 WORST formula; cap_options_review.json missing_options[1].changes_needed ('GCP_RATE_USD_PER_HOUR 1.15 (at least 1.12)'), missing_options[2].cap_needed_usd ('RATE up to ... 0.91'), options[2].check.corrected_cap_needed_usd ('47.72 at RATE 0.86')",
+      "smallest_fix": "Add 'and the ledger rate set to about the Spot price (1.12 to 1.15; 0.86 to 0.90 for the 128 GB machine)' to 'What it takes' in rows 2 to 5, or a note under the table saying that each cap assumes that rate."
+     },
+     {
+      "title": "Two rows of the 8.6 table were not independently checked",
+      "severity": "misleading",
+      "file": "records/README.md",
+      "where": "New row for cloud/cap_options_review.json: 'AI analyses, each independently checked'",
+      "what_is_wrong": "Only the four analyses A to D have a check. The single-attempt Spot run (F), the cheaper family (G), the hold-and-decide sequence (E) and option H come from the last agent alone. Rows 2 and 5 of the 8.6 table and the ranked-first sequence were never checked by a second agent. Section 8.6 also leaves out H, which the record considered and ranked seventh.",
+      "evidence": "cap_options_review.json: 'options' has 4 entries each with 'check'; 'what_was_missing_and_a_ranking.missing_options' E, F, G, H have no check; G's own cautions say its c3d-highmem-30 shape is 'from general knowledge, not the records'",
+      "smallest_fix": "records/README.md: 'four AI analyses, each independently checked, and further options and a ranking from one more agent, unchecked'. In 8.6, mark rows 2 and 5 as coming from the last agent only and not checked."
+     },
+     {
+      "title": "The zone statement has no record",
+      "severity": "unsupported",
+      "file": "records/cloud/full-rehearsals/README.md",
+      "where": "Sixth-run section, first paragraph: 'The machine was in a different zone from the last three (us-east1-b): the four zones tried first had no machine of this type free that day.'",
+      "what_is_wrong": "No file in full-rehearsal-20261121-113516 (facts.json, env.txt, pilot.log, status.json, system.tsv.gz) names a zone or the zones tried, and no earlier rehearsal's section records a zone. The sentence also cannot be read with certainty: is us-east1-b the sixth run's zone or the zone of the last three? The only us-east1-b in the records is the pilot (docs/cloud-notes.md line 181).",
+      "evidence": "grep for zone/us-east/us-central over records/cloud/full-rehearsals returns only this README line",
+      "smallest_fix": "Remove the sentence, or name the zone of the sixth run unambiguously and copy into the run directory the launcher output that shows the zones tried."
+     },
+     {
+      "title": "Sentences about the rehearsals outside the edited lines are now stale",
+      "severity": "omission",
+      "file": "docs/cloud-notes.md",
+      "where": "Section 9, line 335 '**It has been rehearsed five times ...**' and line 346 'Done five times, for 2.64 USD in all'; docs/performance-notes.md line 284 '... the driver as it is now, with leanchecker and import-closure directories, has not been rehearsed.'",
+      "what_is_wrong": "The same edit adds a sixth rehearsal to section 9's own table and to the README, so these unedited lines now contradict it. The total is 2.64 + 0.83 = 3.47 USD.",
+      "evidence": "docs/cloud-notes.md section 9 table, new row 'Sixth, 21 minutes'; full-rehearsals/README.md table, new row 0.83 USD",
+      "smallest_fix": "'rehearsed six times'; 'Done six times, for 3.47 USD in all'; in performance-notes line 284: '... was rehearsed in the sixth rehearsal, on 1,662 shallow modules.'"
+     },
+     {
+      "title": "The build time on the Mac is given narrower than the record",
+      "severity": "misleading",
+      "file": "docs/cloud-notes.md",
+      "where": "Section 8.6 table, last row: 'about 2 to 3 days more for the build'",
+      "what_is_wrong": "The analysis and its check give 40 h at the floor, about 60 to 75 h central, and 150 h or more at the high end. Some of that high end is a paging-bound tail of 137 deep modules, which is unmeasured. '2 to 3 days' gives only the central case, while the replay in the same cell is given as a full range (4 days to 6 weeks).",
+      "evidence": "cap_options_review.json options[3].analysis.hours_or_days_expected ('build 40 h / about 60-75 h / 150+ h') and options[3].check.assessment point (5)",
+      "smallest_fix": "'about 2 to 3 days more for the build (40 hours at best, 6 days or more if the top of the graph pages)'."
+     },
+     {
+      "title": "The rate per second in the trial differs from the driver's own figure",
+      "severity": "minor",
+      "file": "records/cloud/full-rehearsals/README.md",
+      "where": "Trial row ('at 32 at a time, 6.9 a second') and docs/cloud-notes.md section 9 table ('at 6.9 a second in the trial')",
+      "what_is_wrong": "facts.json and pilot.log give the trial rate the driver measured and used for its decision as 7.13 per second (428 modules in its counted window). 6.9 is analysis/replay_cost.py's measure over all 592 results in the phase. Both are legitimate, but a reader who checks facts.json will find 7.13 and no explanation.",
+      "evidence": "facts.json c3_kernel_replay.trial_rate_modules_per_second '7.13'; pilot.log '+891s replay: 7.13 modules a second'; replay_cost.json windows[1].modules_per_second 6.88",
+      "smallest_fix": "Add '(the driver's own count over its shorter counted window gave 7.13, facts.json)'."
+     },
+     {
+      "title": "Small inconsistencies in the 8.6 figures",
+      "severity": "minor",
+      "file": "docs/cloud-notes.md",
+      "where": "Section 8.6: '... 2.00 USD an hour for the 42 hours ...: 84 USD'; table row 2 'About 28 to 29'",
+      "what_is_wrong": "With the uncommitted pilot_local.sh change, the launcher counts 42 h plus 120 s, rounded up a cent: 84.07, not 84 (93.93 still rounds to 'about 94'). cloud/gcp/README.md likewise still says the worst case is '42 hours of machine time'. Row 1 gives spend at the ledger rate, but row 2's 28 to 29 is at the list rate: the record gives 28.3 at list and 29.4 recorded at RATE 1.15, plus about 0.4 to 1.5 for the Spot rehearsal the row requires.",
+      "evidence": "pilot_local.sh line 152; cap_options_review.json missing_options[1].expected_additional_spend_usd",
+      "smallest_fix": "'84.07 USD (42 hours and the 120 seconds teardown can add)'; row 2: 'About 29 to 31 at the ledger rate, including its rehearsal'."
+     }
+    ]
+   },
+   "recheck": {
+    "verdicts": [
+     {
+      "title": "The '13 percent' excess and the 9.6 hours compare unlike measures",
+      "upheld": "yes",
+      "why": "Reproduced from the two c3_results.tsv.gz files using the phases.tsv windows. Fit point 1 (replay_cost.json points[0], 4.36) is the mean of recorded seconds over the third rehearsal's 745 main-pass checks (analysis/replay_cost.py, window 'check:N=32'). The 4.65 it is compared with is job-seconds (32 x span / n) from the sixth run's trial at 32, which covered 592 modules, not 1,662. Measured the same way, the third rehearsal's own trial at 32 gives 4.571 job-s and 4.659 recorded, both above its fitted 4.36. Comparing trial with trial and moving the fit to 10,462 files predicts about 4.32 job-s or 4.40 recorded for the sixth run, against 4.65 and 4.56 measured: about 8 and 4 percent over. In the main pass the sixth run records 4.09 against 4.11, about 0. The README's own sentence that the third rehearsal 'measured 4.7 in the same trial' (its recorded mean, 4.66), set against 4.65 job-s, is a third mixed comparison. 'Costs nothing extra for shallow modules' cannot sit beside a 13 percent excess.",
+      "better_fix": "The reviewer's fix is right, but the range is better given as 'about 4 to 8 percent in the trial, measured like for like, and about 0 in the main pass'. 13 percent is an artefact of the mixed measures, so it should not stay as the top of the range. Give 9.6 h only as 'an upper reading', or drop it. In CLAIMS M8 and performance-notes, say that the 4.65 is from the 592 checks of the trial."
+     },
+     {
+      "title": "'Under a tenth of a second' for the links was not measured",
+      "upheld": "yes",
+      "why": "rhv_tools.py closure-worker makes the links (os.link) before it calls kernel_check_one.sh, and that script's timer runs from t0 at line 79 to t1 at line 120, so recorded seconds leave the links out. The only place a link cost can show is the gap between job-seconds and recorded seconds: 4.649 - 4.561 = 0.09. In the third rehearsal, which made no links, the same gap is 4.571 - 4.659 = -0.09. Both measures have one-second resolution. So the figure sits inside the noise and is not a measurement.",
+      "better_fix": "As the reviewer says. Or the shorter: 'The links were not timed; their cost is too small to see at the one-second resolution of the record.'"
+     },
+     {
+      "title": "Caps of 50, 46 to 48 and 56 to 58 in the 8.6 table need a lower ledger rate, which the table does not say",
+      "upheld": "yes",
+      "why": "pilot_local.sh line 41 sets RATE from GCP_RATE_USD_PER_HOUR with a default of 2.00, and line 152 computes WORST = RATE x (MAXRUN+120)/3600 + 0.01. At 2.00, a 33 to 35 h limit gives a worst case of 66 to 70, and with 9.86 spent that needs a cap of 76 to 80, not 50. The record assumes the rate is set near the Spot price. missing_options[1] (F) has 'At RATE 1.15 ... 1.12', options[2] (C) has 'RATE 0.86 / 0.90', missing_options[2] (G) has 'RATE up to ... 0.91', and options[1] (B) has 1.10. The 'What it takes' cells name the Spot flag but not the rate.",
+      "better_fix": "A note under the table is enough: 'Each Spot cap assumes GCP_RATE_USD_PER_HOUR in config.env lowered to about the Spot rate (1.10 to 1.15 for n4d-highmem-32, 0.86 to 0.90 for n4d-standard-32); at the default 2.00 none of them fits 50.'"
+     },
+     {
+      "title": "Two rows of the 8.6 table were not independently checked",
+      "upheld": "yes",
+      "why": "In cap_options_review.json, options[0..3] (A to D) each carry a 'check'. The entries in what_was_missing_and_a_ranking.missing_options (E, F, G, H) have only option/summary/cap/spend/fits/changes/risks/sources, and no check. The file's own 'what' text says that four agents each checked one analysis. So records/README.md's 'AI analyses, each independently checked' overstates. Rows 2 (F) and 5 (G), and the sequence ranked first (E), come from one agent. H (ranked 7th) is not in 8.6, though that is a minor omission.",
+      "better_fix": "As the reviewer says. The records/README.md fix alone is the essential one; in 8.6, mark rows 2 and 5 '(one agent, not checked)'."
+     },
+     {
+      "title": "The zone statement has no record",
+      "upheld": "yes",
+      "why": "A search for zone, us-east and us-central over records/cloud/full-rehearsals finds only the README line itself, and the compressed files of the sixth run hold no such string. Nothing in the run directory names the zone or the zones tried. The parenthesis is also ambiguous: is it the sixth run's zone or that of the last three?",
+      "better_fix": "Remove the sentence, or name the sixth run's zone unambiguously and cite where it was recorded. (This is only an untraced fact, and the small fix is to delete it.)"
+     },
+     {
+      "title": "Sentences about the rehearsals outside the edited lines are now stale",
+      "upheld": "yes",
+      "why": "docs/cloud-notes.md line 335 says 'It has been rehearsed five times', and line 346 says 'Done five times, for 2.64 USD in all'. docs/performance-notes.md line 284 says that the driver as it is now 'has not been rehearsed'. All three are unedited, and they contradict the new section 9 row and the full-rehearsals table. The table's costs sum to 0.20+0.63+0.68+0.48+0.65 = 2.64, and with 0.83 to 3.47.",
+      "better_fix": "As the reviewer says: 'six times', 'Done six times, for 3.47 USD in all', and in performance-notes line 284 'was rehearsed once since, in the sixth rehearsal, on 1,662 shallow modules'."
+     },
+     {
+      "title": "The build time on the Mac is given narrower than the record",
+      "upheld": "yes",
+      "why": "options[3].analysis.hours_or_days_expected says 'build 40 h / about 60-75 h / 150+ h'. options[3].check.assessment point (5) gives a floor of 40 h, a central 60 to 75 h plus an unmeasured tail of 137 deep modules, and a high of 150 h or more. The 8.6 cell's '2 to 3 days' gives only the central case, while the same cell gives the replay as a full range.",
+      "better_fix": "As the reviewer says: 'about 2 to 3 days more for the build (40 hours at best, 6 days or more at the high end)'."
+     },
+     {
+      "title": "The rate per second in the trial differs from the driver's own figure",
+      "upheld": "yes",
+      "why": "facts.json c3_kernel_replay.trial_rate_modules_per_second is '7.13', and pilot.log line 38 reads '+891s replay: 7.13 modules a second ... 636 modules to go need about 90 s'. The 90 s in the README is 636/7.13; 636/6.88 would be 92. The README's 6.9 is replay_cost.json windows[1], over all 592 results. Both figures are legitimate, but the README never says that the decision used 7.13.",
+      "better_fix": "In the 'decision' row: 'at the driver's own trial rate of 7.13 a second (facts.json), counted over a shorter window than the 6.9 above'."
+     },
+     {
+      "title": "Small inconsistencies in the 8.6 figures",
+      "upheld": "in part",
+      "why": "With the new line 152, bc at scale=2 gives 2.00 x 151320 / 3600 = 84.06, plus 0.01 = 84.07. So the launcher's worst case is now 84.07, not 84, but '2.00 USD an hour for the 42 hours: 84 USD' is literally right, and 'about 94' (93.93) still holds. Row 2's '28 to 29' does mix bases: missing_options[1] gives 28.3 at list and 29.4 recorded at 1.15, while row 1 is at the ledger rate. Both points are minor.",
+      "better_fix": "Row 2: 'about 29 recorded at the Spot ledger rate (28 at list), plus up to 1.5 for its rehearsal'. The 84 vs 84.07 point can be left alone, or given as 'about 84'."
+     }
+    ],
+    "missed_by_the_reviewer": [
+     {
+      "title": "replay_cost.json says the sixth run's modules import 10 others on average; the documents say 9",
+      "file": "records/cloud/replay_cost.json",
+      "where": "leanchecker_with_import_closure_directories_measured[0].whole_tree_if_the_same_ratio_held.note ('import 10 others on average'), against records/cloud/full-rehearsals/README.md 'What the timings say', docs/cloud-notes.md section 8.5 and docs/performance-notes.md section 10 ('9 others on average')",
+      "what_is_wrong": "The two figures are means over different sets. The JSON note formats with %.0f the mean closure of the 592 checks in the trial at 32 (9.5, which rounds to 10). The documents give the mean over all 1,662 modules (9.3). A reader who checks the documents against the regenerated JSON finds 10 where the text says 9, and nothing says why. The fit's 4.11 is computed with the trial's 9.5, not the 1,662-module 9.3, so the documents' '4.11 for them' also refers to the trial set.",
+      "evidence": "analysis/replay_cost.py --closure-run block: mc is the module-weighted mean over the at32 windows, and the note is built with '%.0f' % mc. replay_cost.json at_32.mean_closure_of_the_modules_checked is 9.5 and windows[1].modules_checked is 592. The reviewer's recomputation over all 1,662 gives a mean of 9.30.",
+      "smallest_fix": "In the documents, say '9 others on average (9.5 for the 592 checked in the trial at 32)'. Or change the script's note to '%.1f' and 'in the trial at 32', and regenerate."
+     }
+    ]
+   }
+  },
+  {
+   "area": "driver",
+   "review": {
+    "area_summary": "I checked the sixth rehearsal (records/cloud/full-rehearsals/full-rehearsal-20261121-113516) against cloud/gcp/full_guest.sh, scripts/09_kernel_replay.sh, rhv_tools.py (replay-plan, replay-summary, closure-worker, import-graph) and kernel_check_one.sh at HEAD 9c27c33. Every phase ran in the order the code sets and did what the code intends.\n\nThe odd values in facts.json all follow from the code:\n- **`every_compiled_module_passed_by_leanchecker` is false.** 1,663 .olean files exist but one (GelfandPsB) has no .hash file. `replay_state` marks it `no_stamp`, so it is never planned and never counted. Separately, 173,524 sources were never compiled, so `structure_ok` is false.\n- **`passes_after_the_trials` is 1.** `C3_PASSES=1` is set before the main pass. The retry loop never started because `leanchecker_still_to_check` was 0, since the no-stamp module is excluded from that count.\n- **`main_pass_seconds_allowed` is 2101.** It is not tied to the trial estimate. It is `left - FINAL_RESERVE` at +899 s: deadline 55 min = 3,300 s, so 2,401 s left, minus the rehearsal's reserve of 300.\n- **The trial rate is 7.13.** That is 428 results timed between t+30 (the warm-up is a third of the 90 s trial) and the trial's end, divided by `TRIAL_SECS - warm` = 60.\n- **The second replay's exit status is 3.** For `rhv-replay` the script adds `--require-complete`, and `complete_by` is false because `structure_ok` is false. The main pass's status 3 comes from `--require-c3` for the same reason.\n- **The main pass took 129 s against 90 expected.** 635 modules made 26 batches of 25, so only 26 of 32 slots ever worked: concurrency from the results file was 25 to 26 throughout, then about 30 s of tail at 9, 1 and 0.5. The pass also includes planning, the summary and root's `c3_summary`. Time inside `leanchecker` was lower than in the trial (4.1 s against 4.5 s per check).\n\nThe one scale defect: with 25 modules per batch, a retry pass over a few dozen killed modules runs in 2 or 3 serial processes, not the 8 it is given. The README section has one claim the records contradict (which kill left the real half-written file), one fact missing from every file in the run directory (the zone), a rate that does not match the facts.json figure, and a deep-walk row that leaves out \"probe\".",
+    "checked_and_sound": [
+     "Phase order in phases.tsv and pilot.log matches full_guest.sh: setup (137 s, the sum of setup.tsv), build, seal, c2_plain, check_trial:N=16, check_trial:N=32, c2_deep before the replay, main check, check_second, end_check, keep.",
+     "The deep walk ran before the replay as coded: t = 2409 - 300 - 90 - 90/8, capped at C2_TIMEOUT 900, which is at least 900.",
+     "CHECK_JOBS=32 was chosen because 428 > 306. togo=636 is NCOMP 1663 minus 1027 leanchecker passes in the trials (it counts the no-stamp file, an off-by-one that cannot occur after a complete build). C3_NEED = 636*60/428+1 = 90.",
+     "Results file: 3,324 lines, every status 0, 1,662 leanchecker lines all 'import-closure-directory', 1,662 rhv-replay lines all 'batch', no damaged lines. No status 96, so the closure directories never lacked a file. 'how' can be import-closure-directory only when closure-worker built the directory, so the hard-link path, not the whole-library fallback, was used.",
+     "For each of the 1,662 modules the rhv-replay stamp equals the leanchecker stamp, as the README claims.",
+     "No status 143 lines from the trials' TERM cut-offs, as expected: timeout signals the whole process group and kernel_check_one.sh dies before it records anything. In-flight modules simply return to the pool.",
+     "Graph loaded by every closure-worker: the rehearsal's graph is already the full one (175,187 modules, 753,261 edges, env.txt). Job time per module outside leanchecker is about 0 in the steady state of the 32-job trial (4.52 job-s against 4.55 inside), so loading it once per 25-module batch is already measured at full size and is negligible (no more than minutes over about 7,000 batches).",
+     "Memory: the largest anonymous memory in any c3 phase was 9.1 GB of 251 GB (system.tsv.gz). Open files peaked at 1.3 to 1.7 M against fs.file-max of 50 M.",
+     "Lock and temporary directories: the EXIT trap removes tmp and its own lock. A lock left by root's pkill -KILL is taken over because its pid no longer runs 09. tmp is emptied after the lock is taken. Hard links use no inodes; the end-check manifest covers $LIB, not $AN.",
+     "Seal: 2 leftovers removed (the planted stand-in and one real file). LIB_OTHER is 0. The source tree, toolchain and Mathlib match their baselines at the seal, and the compiled files, toolchain and Mathlib match the seal at the end. The guest script's SHA is the one sent and the tools commit is 9c27c33.",
+     "README section: setup 137 s; restart tests 0/307 and 0/311 with 638 pruned; 1,662 built plus 1 unfinished; 'every one recorded as run with an import-closure directory'; the second replay always requested for full-rehearsal (pilot_local.sh line 134); 21 minutes (FINISH at +1245 s); archive 'made', 2 objects; 'main pass 5.3 a second' (635 results between the first and last result, 119 s) with the 26-worker explanation. All match the records.",
+     "No sentence in the new section claims anything about the proof from the C3 results; the page header says a rehearsal verifies nothing."
+    ],
+    "findings": [
+     {
+      "title": "The real half-written file came from a restart test, not the time box",
+      "severity": "wrong",
+      "file": "records/cloud/full-rehearsals/README.md",
+      "where": "new section, table row 'Seal'",
+      "what_is_wrong": "The README says the real leftover was made by 'a compiler cut off by the time box'. The records show it was a compiler killed when the prune restart test stopped the build. The time box instead left the other oddity, the compiled file with no hash (GelfandPsB).",
+      "evidence": "compiler_leftovers.txt lists SymplecticTransposeEntryZeroOne.olean.tmp.55059. In modules.tsv.gz that module was compiled twice. The first compile ran 1795282897.89 to 903.90; pilot.log puts the prune restart test at +326 s, which is 1795282905 (T0 1795282579). The second compile ran 940.20 to 948.70 and finished: its leanchecker pass carries stamp 64cc1430fc6869a3. The time box ended at 1795283253 (phases.tsv build:end).",
+      "smallest_fix": "Replace 'a real one that a compiler cut off by the time box had left' with 'a real one, left by a compiler that the second restart test killed (the module was then compiled again and passed)'."
+     },
+     {
+      "title": "Retry passes, and any short pass, run far fewer workers than they are given",
+      "severity": "defect in code",
+      "file": "scripts/09_kernel_replay.sh",
+      "where": "run_batches (split -l \"$BATCH\" ...), BATCH=25 by default; full_guest.sh retry loop, lines 848-854",
+      "what_is_wrong": "The plan is cut into batches of 25 and each batch is one serial worker. When a pass has fewer than JOBS*25 modules, it gets ceil(N/25) workers, not JOBS. The rehearsal's main pass shows this: 635 modules, 26 workers, concurrency 25 to 26 and then a tail. On the full tree the main pass is unaffected, but the retry passes are not. They run at CHECK_JOBS/4 = 8 jobs on exactly the modules whose checkers were killed, which are likely the heaviest. Forty such modules would run as 2 serial streams of 20 and 25, while 6 of the 8 slots sit idle and the time left before FINAL_RESERVE runs out. The in-script rerun rounds after a rejection are serialised the same way.",
+      "evidence": "phases.tsv check:N=32 lasted 1795283478 to 1795283607 (129 s) against expected_seconds 90. From c3_results.tsv.gz, concurrency per 10 s in the main pass was 20.8, 26, 26, 26, 25, ... 25, then 9.3, 1.2, 0.5. In the 32-job trial it was 32.0. 636/25 rounds up to 26 batches.",
+      "smallest_fix": "In run_batches, use a batch size of max(1, min(BATCH, ceil(N/JOBS))), e.g. b=$(( (N + JOBS - 1) / JOBS )); [ \"$b\" -lt \"$BATCH\" ] || b=$BATCH, and pass b to split."
+     },
+     {
+      "title": "The README's trial rates differ from the driver's own and are not reconciled",
+      "severity": "misleading",
+      "file": "records/cloud/full-rehearsals/README.md",
+      "where": "new section, table row 'Trials of the replay' and paragraph 'What the timings say'",
+      "what_is_wrong": "The README gives 5.2 and 6.9 modules a second, but facts.json, which a reader is told to look at, records trial_rate_modules_per_second '7.13', and the driver's go/no-go decision used it. The README's figures come from analysis/replay_cost.py, which spans the first to the last result of the phase and so includes the start-up ramp (no result in the first 5 s, about 19 busy jobs in the second 10 s). The driver counts only after its 30 s warm-up. The '13 percent above the line' and the 9.6 h projection inherit the ramp. With the first 20 s left out, the trial gives 7.09 a second and 4.52 job-s per module, a ratio of about 1.10 to the line, not 1.13. replay_cost.py also labels the trial windows 'all_jobs_busy': true, which is false for their first 15 to 20 s.",
+      "evidence": "facts.json c3_kernel_replay.trial_rate_modules_per_second '7.13'; pilot.log line 37 '428 modules in the counted window'. replay_cost.json windows check_trial:N=32: modules_checked 592, span 86, modules_per_second 6.88, all_jobs_busy true. From c3_results.tsv.gz, concurrency per 10 s in the 32-job trial: 1.6, 19.1, 32.0, ...",
+      "smallest_fix": "Add one sentence: 'The driver's own figure, 7.13 a second (facts.json), counts only after its 30-second warm-up; the figures here run from the first result and include the start-up ramp, so they and the 13 percent are slightly pessimistic.' Optionally start the windows in replay_cost.py after the warm-up."
+     },
+     {
+      "title": "The trial extrapolation leaves out per-pass overheads, which the deep-walk decision needs",
+      "severity": "omission",
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "lines 812-828 (C3_NEED, and t = left - FINAL_RESERVE - C3_NEED - C3_NEED/8)",
+      "what_is_wrong": "C3_NEED is steady-state throughput times the modules left. It does not include planning, the start-up ramp, the end tail, the rerun-round plans or the summaries inside 09, or root's c3_summary. In the rehearsal the pass took 43 percent longer than the estimate, against the 12.5 percent margin the deep walk leaves when it is placed before the replay. On the full tree these fixed costs shrink in proportion, but the trial still sees only a 210 s window that starts with every job at once. If the cost of deep modules (minutes each) is heavy-tailed, the completion rate from a synchronised start can run above steady state. Nothing in these records, whose longest check was 44 s, can show that either way. An overrun eats into the leanchecker pass, which is then cut at left - FINAL_RESERVE after the deep walk has used up to 2 h.",
+      "evidence": "phases.tsv: check:N=32 took 129 s against expected_seconds 90 in facts.json; deep_walk_ran 'before_replay'. Longest single check in a trial: 21 s; in the main pass: 38 s.",
+      "smallest_fix": "In the README section or docs/cloud-notes.md, say that the estimate leaves out each pass's fixed costs and tail (43 percent here), and that the deep walk's 1/8 margin is what absorbs any error. Or widen the margin, e.g. C3_NEED/4."
+     },
+     {
+      "title": "The zone is not in any record of the run",
+      "severity": "unsupported",
+      "file": "records/cloud/full-rehearsals/README.md",
+      "where": "new section, first paragraph ('in a different zone ... us-east1-b ... four zones tried first had no machine')",
+      "what_is_wrong": "No file in the run directory records the zone or the failed attempts in other zones. env.txt, pilot.log and status.json do not mention it.",
+      "evidence": "A grep for 'us-east1' and 'zone' in full-rehearsal-20261121-113516/ returns nothing.",
+      "smallest_fix": "Cite where it is recorded (the launcher output, or a ledger line), or drop the sentence."
+     },
+     {
+      "title": "The deep-walk row does not say it was a probe of one lemma",
+      "severity": "misleading",
+      "file": "records/cloud/full-rehearsals/README.md",
+      "where": "new section, table row 'The axiom check with the deep walk'",
+      "what_is_wrong": "'Pass: 54,444 constants visited, the same three axioms' does not say probe mode or name the theorem. Read alone it looks like an axiom result for the whole proof. The record is the probe on Formalism.VW.rh_of_right, with one project module touched.",
+      "evidence": "c2_deep.json / facts.json c2_axioms.deep: mode 'probe', theorem_axioms {'Formalism.VW.rh_of_right': [...]}, project_modules_touched 1.",
+      "smallest_fix": "Write 'In probe mode, on the reduction lemma Formalism.VW.rh_of_right: pass; 54,444 constants visited (3 of this project), the same three axioms.'"
+     },
+     {
+      "title": "Unfinished-file and link-removal claims go slightly past the records",
+      "severity": "minor",
+      "file": "records/cloud/full-rehearsals/README.md",
+      "where": "new section, table row 'The hard links ...' ('Made and removed for every check') and paragraph 'Making and removing the links took under a tenth of a second per check'",
+      "what_is_wrong": "The records show the links were made: 'how' is import-closure-directory, and there is no status 96. Nothing records their removal, and the time spent on links is never measured on its own. The 'under a tenth' is everything outside leanchecker (bash start-up, graph loading, links, ramp idle), and in the steady state it is within the rounding of the seconds field.",
+      "evidence": "c3_results.tsv.gz: the seconds field is timed inside kernel_check_one.sh after closure-worker has made the directory. From the trial after 20 s: job-s 4.52 per module against 4.55 inside leanchecker.",
+      "smallest_fix": "Write 'Made for every check (no checker reported a missing file); everything outside leanchecker, the links included, cost under a tenth of a second per check.'"
+     },
+     {
+      "title": "The second replay's exit status 3 is not explained in the README",
+      "severity": "omission",
+      "file": "records/cloud/full-rehearsals/README.md",
+      "where": "new section, paragraph on facts.json",
+      "what_is_wrong": "The paragraph explains exit status 3 for leanchecker but not second_replay.exit_status 3 with every_compiled_module_passed false, although rhv-replay passed 1,662 of 1,662. The cause is the same (--require-complete fails because the tree was not fully built and one file has no hash), and a reader may take it for a fault of the second program.",
+      "evidence": "facts.json second_replay.exit_status 3, result.every_compiled_module_passed false; c3_summary passed_by_rhv_replay 1662, compiled_modules 1663.",
+      "smallest_fix": "Add: 'The second replay also ends with status 3, and its every_compiled_module_passed is false, for the same two reasons.'"
+     },
+     {
+      "title": "facts.json stores the trial rate as a string",
+      "severity": "minor",
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "write_facts, 'trial_rate_modules_per_second': E('F_C3_RATE') or None",
+      "what_is_wrong": "The neighbouring fields expected_seconds and main_pass_seconds_allowed are numbers, but the rate is written as the string \"7.13\". A reader or script comparing it numerically gets a type mismatch.",
+      "evidence": "facts.json: \"trial_rate_modules_per_second\": \"7.13\".",
+      "smallest_fix": "Write float(E('F_C3_RATE')) if E('F_C3_RATE') else None."
+     }
+    ]
+   },
+   "recheck": {
+    "verdicts": [
+     {
+      "title": "The real half-written file came from a restart test, not the time box",
+      "upheld": "yes",
+      "why": "Reproduced. modules.tsv.gz: the first compile of SymplecticTransposeEntryZeroOne ran from 1795282897.89 to 1795282903.90, which is +319 to +325 s after T0 1795282579. pilot.log logs 'restart test prune' at +326 s. restart_test() (full_guest.sh lines 509-521) calls stop_build before that say(), so the compile was killed by the prune test's stop. The second compile ran from 1795282940.20 to 948.70 and passed. The build was ended by the time box at +672 s ('status 124'). Its only casualty is GelfandPsB, whose compile ended at 1795283240 (+661) and left a file with no hash. compiler_leftovers.txt lists only .tmp.55059 and the stand-in.",
+      "better_fix": "The reviewer's wording is right. Also, the driver comment at full_guest.sh line 672 already says restart tests kill compilers, so the README could say 'a real one, left by the compiler that the second restart test stopped (that module was compiled again and passed)'."
+     },
+     {
+      "title": "Retry passes, and any short pass, run far fewer workers than they are given",
+      "upheld": "in part",
+      "why": "The code fact is reproduced. run_batches (09_kernel_replay.sh lines 246-251) splits the plan into batches of 25 (BATCH=25 at line 91) and runs one xargs slot per batch, so a pass of N modules uses ceil(N/25) workers. In the main pass, leanchecker time per 10 s was 20.8, then 26.0 x3, 25.0 ..., then 9.3, 1.2, 0.5, against 32.0 in the 32-job trial. The full-run impact is narrower than stated. The main pass is given t = left - FINAL_RESERVE (line 838), and the retry loop needs left > FINAL_RESERVE + 600 (line 848). So a main pass that was cut off by time is never retried, and retries happen only when the main pass finished early with killed modules. The rejection rerun rounds (lines 283-287) are usually a handful of modules. The defect is real but only bites in that case.",
+      "better_fix": "As proposed: in run_batches, b=$(( (N + JOBS - 1) / JOBS )); [ \"$b\" -le \"$BATCH\" ] || b=$BATCH; split -l \"$b\". N is the line count of the todo file."
+     },
+     {
+      "title": "The README's trial rates differ from the driver's own and are not reconciled",
+      "upheld": "in part",
+      "why": "Reproduced: facts.json has '7.13' (428 modules in the 60 s after a 30 s warm-up, lines 803-823), and replay_cost.json has 6.88 (592 modules over a first-to-last span of 86 s). A reader of both is not told why they differ. The ramp is real: leanchecker concurrency in the first 10 s of the 32-job trial was 19.1, then 32.0. The 'all_jobs_busy: true' label is not plainly false. replay_cost.py lines 280-283 and 303 define it explicitly as 'every job had work' (modules still waiting), not as all slots occupied from the first second. The larger problem with the 13 percent is a metric mismatch the reviewer did not see (see the missed items).",
+      "better_fix": "One sentence in the README naming both figures and their windows (the driver's 7.13 counts after its warm-up, while these figures run from the first result). No change to the busy label is needed."
+     },
+     {
+      "title": "The trial extrapolation leaves out per-pass overheads, which the deep-walk decision needs",
+      "upheld": "in part",
+      "why": "The facts are right: check:N=32 took 129 s (phases.tsv 1795283478 to 1795283607) against expected_seconds 90, and C3_NEED (line 819) is pure throughput times modules to go. But most of the 39 s is the 26-worker shortfall and the tail of finding 2 (concurrency 25 to 26, then about 30 s of tail), which shrinks to nothing on a pass of 175k modules. The heavy-tail and synchronised-start argument is the reviewer's own conjecture, and nothing in these records shows it either way. As a defect it is not reproduced. As something unstated in the docs, it is fair.",
+      "better_fix": "One sentence in docs/cloud-notes.md: the estimate is steady-state throughput only, and the 1/8 margin before an early deep walk is what absorbs its error. Do not widen the margin on this evidence."
+     },
+     {
+      "title": "The zone is not in any record of the run",
+      "upheld": "yes",
+      "why": "grep for 'us-east1' and 'zone' in the run directory (gz files included) finds nothing. env.txt has mode, nmax, deadline, commit and SHA but no zone. pilot_local.sh line 39 defaults to four us-central1 zones and records the zone only in the private ledger (line 56). The claim that 'four zones tried first had no machine' has no record in the repository.",
+      "better_fix": "Either drop the sentence or say it comes from the launcher's ledger, which is not in the repository. Optionally, a later change could have pilot_local.sh write ZONE into the run's records."
+     },
+     {
+      "title": "The deep-walk row does not say it was a probe of one lemma",
+      "upheld": "in part",
+      "why": "c2_deep.json has mode 'probe', primary_theorem Formalism.VW.rh_of_right, visited 54444 (54441 library + 3 project), and project_modules_touched 1. The row alone does not say probe. The row above it does say 'Axiom check in probe mode, plain', so the context is partly there, and the sentence makes no claim about the proof as a whole.",
+      "better_fix": "Add 'in probe mode, on Formalism.VW.rh_of_right' to the row. That is enough."
+     },
+     {
+      "title": "Unfinished-file and link-removal claims go slightly past the records",
+      "upheld": "yes",
+      "why": "cmd_closure_worker (rhv_tools.py line 1301) removes the directory with shutil.rmtree(farm, ignore_errors=True), which records nothing, so 'removed' is what the code intends, not something the records show. 'Made' is supported: 'how' is import-closure-directory only for kind 'closure' (kernel_check_one.sh line 73), and there is no status 96. 'Under a tenth of a second' is 4.65 job-s minus 4.56 inside leanchecker. That gap includes process start, graph loading and the ramp, and the seconds field is whole seconds from date +%s (lines 79, 120), so the difference is within quantisation.",
+      "better_fix": "As proposed: 'Made for every check (no checker reported a missing file); everything outside leanchecker, the links included, came to under a tenth of a second per check.'"
+     },
+     {
+      "title": "The second replay's exit status 3 is not explained in the README",
+      "upheld": "yes",
+      "why": "facts.json has second_replay.exit_status 3 and result.every_compiled_module_passed false, while passed_by_rhv_replay is 1662. The README paragraph explains only the leanchecker exit status. For rhv-replay, 09_kernel_replay.sh line 312 uses --require-complete, which fails for the same unbuilt tree and unfinished file.",
+      "better_fix": "One added sentence, as proposed."
+     },
+     {
+      "title": "facts.json stores the trial rate as a string",
+      "upheld": "yes",
+      "why": "full_guest.sh line 286 writes E('F_C3_RATE') without num(), while expected_seconds and main_pass_seconds_allowed use num(). facts.json has \"7.13\" as a string.",
+      "better_fix": "float(E('F_C3_RATE')) if E('F_C3_RATE') else None, or the script's existing numeric helper if it handles decimals."
+     }
+    ],
+    "missed_by_the_reviewer": [
+     {
+      "title": "The comparison with the third rehearsal uses a different measure",
+      "file": "records/cloud/full-rehearsals/README.md",
+      "where": "new section, paragraph 'What the timings say' ('A check cost 4.65 seconds of one job's time ... the third rehearsal ... measured 4.7 in the same trial')",
+      "what_is_wrong": "4.65 is job-seconds per module (jobs x span / modules). The third rehearsal's 4.7 is the mean of the per-check seconds recorded inside the check, as that run's own row says ('595 in the trial at 32 (4.7 seconds)'). Measured the same way, this run's figure is 4.56, not 4.65.",
+      "evidence": "README line 75 (third run row: 'mean 3.1 seconds each ... 4.7 seconds'); replay_cost.json leanchecker_with_import_closure_directories_measured[0].windows[1]: job_seconds_per_module 4.65, mean_seconds_inside_leanchecker_per_module 4.56.",
+      "smallest_fix": "Write 'inside leanchecker a check took 4.56 seconds in the trial at 32, against 4.7 in the third rehearsal with the whole library of 12,244 files on the path'."
+     },
+     {
+      "title": "The '13 percent above the line' divides job-seconds by a line fitted to per-check seconds",
+      "file": "analysis/replay_cost.py",
+      "where": "closure-run block, at_32: js = sum(jobs*span)/n; ratio = js / fit_here (around lines 315-325)",
+      "what_is_wrong": "The fit's points are mean seconds per check, measured inside each check. The new ratio puts job-seconds per module, which include start-up, ramp and gaps, over that line. On the same measure the ratio is 4.56/4.11 = 1.11, not 1.13. The 9.6-hour 'if the same ratio held' projection and the README's '13 percent' inherit the mismatch.",
+      "evidence": "replay_cost.json points[0].mean_seconds_per_check 4.36 (per-check means) and at_32.measured_over_projected 1.13 with job_seconds_per_module 4.65; mean_seconds_inside_leanchecker_per_module 4.56; the_fit_projects_for_these_modules 4.11.",
+      "smallest_fix": "Either compute the ratio from mean_seconds_inside_leanchecker_per_module (about 1.11, about 9.4 h), or keep job-seconds and say in the README and JSON note that the ratio counts overhead outside the check that the fitted points did not."
+     },
+     {
+      "title": "Mean import count given as 9 in the README and 10 in replay_cost.json",
+      "file": "records/cloud/replay_cost.json",
+      "where": "leanchecker_with_import_closure_directories_measured[0].whole_tree_if_the_same_ratio_held.note ('import 10 others on average')",
+      "what_is_wrong": "The README says the modules 'import 9 others ... on average'. The JSON note, made with '%.0f' from the 32-job window's 9.5, says 10. Over all 1,662 checked modules the mean is 9.3.",
+      "evidence": "Recomputed from records/source/import_graph.json.gz and c3_results.tsv.gz: 1,662 modules, mean closure 9.30, max 160; at_32.mean_closure_of_the_modules_checked 9.5.",
+      "smallest_fix": "Give one figure in both, e.g. 'about 9.5 in the trial at 32 (9.3 over all checked modules)', or format the note with one decimal."
+     }
+    ]
+   }
+  },
+  {
+   "area": "cost-script",
+   "review": {
+    "area_summary": "I checked analysis/replay_cost.py (its diff and the whole script) and its output. Running it with --driver-run 20261120-235539 --closure-run 20261121-113516 and no --out gives output identical to records/cloud/replay_cost.json apart from made_utc (18:04:39Z in the file, 18:09:51Z from my run). I compared the result after sorting keys and removing made_utc, and I also diffed the raw files. The arithmetic is right: fixed 2.6028, per_file 0.0001435, fit(9.5) = 4.107, closure_dir = 5.567 s (8.47 h), 4.65/4.107 = 1.132, 5.567 x 1.132 = 6.3 s (9.6 h).\n\nThe finding that matters is the comparison, not the code. The line's first point (4.36) is the mean time inside leanchecker per check, taken over the third rehearsal's MAIN pass. That pass had 745 modules, which at 25 per worker is 30 workers, so under the new code's own rule it would not count as \"all_jobs_busy\". The 4.65 is a different quantity: 32 x span / n, a throughput figure from the sixth rehearsal's TRIAL.\n\nComparing like with like from both runs' c3_results.tsv.gz and phases.tsv:\n- Trial at 32 at a time: run 3 (whole library, 12,244 files) gives 4.57 job-s and 4.66 mean seconds inside leanchecker. Run 6 (closure directories, about 10,462 files) gives 4.65 and 4.56.\n- Main pass, mean seconds inside leanchecker: run 3 gives 4.36. Run 6 gives 4.09, where the fit gives 4.107 (ratio 1.00).\n\nSo the third rehearsal's own trial sits 5 to 7 percent above the line at its own search-path size. Measured against like windows, the sixth run exceeds the projection by 0 to 8 percent (8.4 to 9.1 h), not 13 percent (9.6 h). The fit predicts the shorter search path saves only 0.25 s (6 percent) at this size, which is about the noise between windows. So the rehearsal neither confirms nor refutes the per-file term that drives 8.5 h against 46 h.\n\nSmaller issues:\n- The closure count leaves out the module's own file, which closure-worker does link (off by one, negligible).\n- Rows marked \"...-holding-modules-beneath\" are left out, which is harmless here.\n- The docstring's \"about ten\" seconds is wrong.\n- The JSON note says \"import 10 others\" where the documents say 9.\n\nNone of this is evidence about the proof, and no sentence in my area reads that way.",
+    "checked_and_sound": [
+     "The script reproduces records/cloud/replay_cost.json exactly; only made_utc differs (18:04:39Z committed against 18:09:51Z from my run).",
+     "The arithmetic of the new block is correct. fixed = 2.60275 and per_file = 1.4352e-4, from points 4.36 @ 12,244 files and 8.54 - 0.000271*680 @ 40,085. fit_here(9.5) = 4.1073 and ratio = 1.132. closure_dir = 5.5672 s gives hours 8.47 (8.5); x 1.132 = 6.30 s gives 9.6 h.",
+     "Windows are cut correctly for this run. Each starts at a check_trial:N= or check:N= label and ends at the next phase with a different label. For run 6: trial16 289-379, trial32 379-470, main 478-607 (ending at check_second). All 1,662 leanchecker rows fall in those three windows (435+592+635). No rhv-replay row falls in any of them; all 1,662 rhv-replay rows are in check_second, 607-809. No leanchecker row comes after 607.",
+     "Result lines counted: only rows with status 0, tool leanchecker and how = import-closure-directory. In run 6 every one of the 1,662 leanchecker rows has that how and status 0, so nothing is lost here.",
+     "all_jobs_busy for the trials is sound in this run. After the trials, 636 modules were still waiting (full-rehearsals README, pilot.log line cited there). The last result in each trial falls 0 s before the trial's end mark.",
+     "The main-pass rule (>= 100*jobs) correctly marks run 6's 635-module pass as not busy. ceil(635/25) = 26 workers matches BATCH=25 in scripts/09_kernel_replay.sh line 91.",
+     "The closure count is the same set as closure-worker's, apart from the module's own file. replay_cost.py walks name -> direct imports in records/source/import_graph.json.gz (a dict of 175,187 names; non-project names such as 'Mathlib' are dropped by `y in g`). rhv_tools.py cmd_closure_worker walks index -> imports over its own graph and adds the start module to `seen`. Every one of the 1,662 checked modules is in the records graph.",
+     "files_on_the_search_path = 10,452 + 9.5 = 10,462 is right to within one file (see the off-by-one finding).",
+     "kernel_check_one.sh times only leanchecker (t0 at line 79, t1 at line 120). Link-making in closure-worker happens before t0, so mean_seconds_inside_leanchecker excludes link time, as its name says.",
+     "The note in whole_tree_if_the_same_ratio_held correctly says the run tells nothing about the links or the replay of deep modules.",
+     "records/cloud/README.md's new wording for replay_cost.json ('for the second, the file also holds what the sixth rehearsal measured on shallow modules') is accurate.",
+     "No sentence in the script, the JSON or the README line treats the rehearsal as evidence about the proof."
+    ],
+    "findings": [
+     {
+      "title": "The '13 percent above the line' compares a trial throughput figure with a line anchored on a main-pass mean; like with like the excess is 0-8 percent",
+      "severity": "misleading",
+      "file": "docs/cloud-notes.md",
+      "where": "section 9 (line 303: 'If that excess of 13 percent held ... 9.6 hours, not 8.5') and table row at line 17 ('a check cost 13 percent more than the projection gives'); same claim in CLAIMS.md M8 (line 59), docs/performance-notes.md line 257, records/cloud/full-rehearsals/README.md line 162",
+      "what_is_wrong": "The line's first point, 4.36, is replay_cost.py's p1 'mean_seconds_per_check'. That is the mean of the per-check 'seconds' field (time inside leanchecker) over the third rehearsal's MAIN pass (window check:N=32, 745 rows). The 4.65 is at_32.job_seconds_per_module = 32*span/n from the sixth rehearsal's TRIAL window. The two differ in kind of measure and in kind of window. Main passes consistently cost less per check than trials in both runs, so the 13 percent mostly measures trial versus main pass, not closure directories versus the line. Compared like with like, the sixth run sits 0 to 8 percent above the projection. The difference the fit predicts between the two search paths (0.25 s, about 6 percent) is about the size of the noise between windows. So this rehearsal neither confirms nor contradicts the per-file term on which the 8.5 h rests.",
+      "evidence": "From c3_results.tsv.gz and phases.tsv of both runs (my per-window computation).\n\nRun 214914 (whole library, 12,244 files):\n- check_trial:N=32: n=595, span 85 -> 4.57 job-s, mean inside 4.66\n- check:N=32: n=745 -> job-s 4.25, mean 4.36 (= point 1)\n\nRun 113516 (closure directories, ~10,462 files):\n- check_trial:N=32: n=592, span 86 -> 4.65 job-s, mean 4.56\n- check:N=32: n=635 -> mean 4.09\n\nThe fit gives 4.107 for mean closure 9.5-9.7.\n\nRatios against the fit:\n- run 6 main mean / fit = 0.996 (8.4 h)\n- trial job-s against run 3's trial scaled by the fit's predicted 0.942 = 1.08 (9.1 h)\n- trial means on the same basis = 1.04 (8.8 h)\n- run 6 trial against run 3 trial: 1.02 (job-s) or 0.98 (mean), where the fit predicts 0.94",
+      "smallest_fix": "Replace the sentence with a like-for-like statement. For example: 'In the same trial at 32 at a time, the third rehearsal (whole library, 12,244 files) measured 4.57 s of one job's time per check and this one (about 10,460 files) 4.65; the fit predicts a saving of 0.25 s, which is within the difference between windows. In the main passes, measured as the line's first point was, this run took 4.09 s where the line gives 4.11. The run neither confirms nor contradicts the line; for the tree, 8.5 h (about 9 h if the trial-to-trial excess of up to 8 percent held).' Drop '13 percent' and '9.6' from the other four places, or label them as trial against main-pass."
+     },
+     {
+      "title": "replay_cost.py's ratio divides a throughput figure by a fit built from a per-check mean",
+      "severity": "defect in code",
+      "file": "analysis/replay_cost.py",
+      "where": "lines 316-327 (at_32 / measured_over_projected / whole_tree_if_the_same_ratio_held); compare lines 128-131 (p1)",
+      "what_is_wrong": "fit_here is fixed + per_file*... . Its intercept and slope come from p1['mean_seconds_per_check'], the mean of the per-check seconds field over a main pass. js is jobs*span/n over trial windows. The two are equal only if every job is busy throughout and nothing outside the tool costs time. The script itself treats the main-pass window that supplied p1 as unfit for throughput: by the new rule, 745 < 100*32 for check:N=32, so that window would be all_jobs_busy=false. The computed 'measured_over_projected' 1.13 and 'whole_tree_if_the_same_ratio_held' 9.6 h therefore mix bases.",
+      "evidence": "Line 128: rows of window check:N=32 of run 214914, mean of r[2] -> 4.36. Line 318: js = sum(jobs*span)/n over trial windows -> 4.65. Line 303 busy rule: len(rows) >= 100*jobs for check:N=. Run 214914 main pass: 745 rows, ceil(745/25) = 30 workers.",
+      "smallest_fix": "Compute the same quantity on both sides. Either (a) use the mean of the per-check seconds of the closure run's main pass (4.09) against fit_here, or (b) also emit the ratio of the closure run's trial to the third rehearsal's trial at 32, both in job-s and in mean seconds inside the tool, set beside the fit's predicted ratio. Label the existing ratio as trial against main-pass-anchored line."
+     },
+     {
+      "title": "The full-rehearsals README says both 'costs nothing extra' and '13 percent by which this run exceeded the line'",
+      "severity": "misleading",
+      "file": "records/cloud/full-rehearsals/README.md",
+      "where": "lines 160 and 162 (new sixth-run section, 'What the timings say' / 'What they do not say')",
+      "what_is_wrong": "Line 160 correctly compares the third rehearsal's same trial ('measured 4.7') and concludes the method 'costs nothing extra for shallow modules'. Line 162 then carries the 13 percent excess to the whole tree. The two cannot both be the reading. The like-for-like comparison in line 160 is the right one, and it shows the excess over the line is shared by the whole-library run's trial too. Separately, 'Making and removing the links took under a tenth of a second per check' cannot be read from these numbers. The gap between job-s and mean-inside-tool is +0.09 s in run 6 but -0.09 s in run 3, which used no links, so the subtraction is within timing noise (whole-second stamps).",
+      "evidence": "Run 214914 trial32: 4.57 job-s, 4.66 mean inside. Run 113516 trial32: 4.65 job-s, 4.56 mean inside. kernel_check_one.sh lines 79/120 time only leanchecker; links are made in rhv_tools.py cmd_closure_worker before the call.",
+      "smallest_fix": "In line 162 replace '9.6 if the 13 percent by which this run exceeded the line held throughout' with 'the trial here cost about what the same trial cost with the whole library on the path, and the line's first point was taken from a main pass, which in both runs ran 6 to 10 percent cheaper per check than the trial'. In line 160 change the links sentence to 'the links added no cost that these whole-second timings can show'."
+     },
+     {
+      "title": "Docstring run time for --closure-run is wrong",
+      "severity": "minor",
+      "file": "analysis/replay_cost.py",
+      "where": "docstring line 21: 'about ten with --closure-run, which reads the import graph'",
+      "what_is_wrong": "On this machine the script with --closure-run finishes in under half a second.",
+      "evidence": "`/usr/bin/time -p python3 analysis/replay_cost.py --closure-run records/cloud/full-rehearsals/full-rehearsal-20261121-113516` -> real 0.42",
+      "smallest_fix": "Say 'about a second; a little more with --closure-run, which reads the import graph'."
+     },
+     {
+      "title": "Docstring still says the script reads 'two cloud runs' and calls both measures 'job seconds'",
+      "severity": "minor",
+      "file": "analysis/replay_cost.py",
+      "where": "docstring lines 4-9",
+      "what_is_wrong": "The docstring defines job seconds as 'wall-clock seconds of one check while 32 run at once' and says 'the rehearsal recorded that directly'. That matches p1, a mean of per-check seconds. The --driver-run and --closure-run sections report 'job_seconds_per_module' as jobs*span/n, a different measure under the same name. That shared name is what let the two be divided by each other (finding 2). The opening also says the script reads two cloud runs; with --driver-run and --closure-run it reads up to four or more.",
+      "evidence": "Lines 7-8 against lines 234 and 308 (job_seconds_per_module = jobs*span/len(rows)).",
+      "smallest_fix": "Add one sentence: 'The --driver-run and --closure-run sections also report throughput, jobs x (seconds between first and last result) / modules, which equals the per-check mean only when every job is busy throughout.'"
+     },
+     {
+      "title": "The closure count leaves out the module's own compiled file, which closure-worker links",
+      "severity": "minor",
+      "file": "analysis/replay_cost.py",
+      "where": "closure_sizes, lines 84-97, and files_on_the_search_path at line 323",
+      "what_is_wrong": "closure-worker (rhv_tools.py lines 1250-1257) puts the start module in `seen` and links every member of it, so a farm holds the closure plus the module itself. closure_sizes counts only modules reached from the start. The search path therefore holds LIBRARY_FILES + closure + 1 files, not LIBRARY_FILES + closure. The effect is 0.00014 s per check, negligible, but the two scripts do not count the same thing. The same +1 applies to the whole-tree closure_dir formula.",
+      "evidence": "rhv_tools.py: `stack = [index[mod]]`, `seen.add(i)` for the popped start, `rels = [... for i in seen]`. replay_cost.py: `seen, stack = set(), [m]`, adding only imports y.",
+      "smallest_fix": "Write files_on_the_search_path as LIBRARY_FILES + mc + 1, or note in closure_sizes' docstring that the module's own file is the one extra file on the path."
+     },
+     {
+      "title": "Modules that hold modules beneath them would be dropped from the windows, overstating job seconds",
+      "severity": "minor",
+      "file": "analysis/replay_cost.py",
+      "where": "line 289: results_by_how(f, \"import-closure-directory\")",
+      "what_is_wrong": "kernel_check_one.sh writes how = import-closure-directory-holding-modules-beneath for kind closure-beneath (line 73). Those checks run in the same windows but are not counted. In a run that has any, n would be too small for the span and job_seconds_per_module too large. None occur in run 113516, where all 1,662 leanchecker rows have how = import-closure-directory, so the published numbers are unaffected.",
+      "evidence": "kernel_check_one.sh line 73; rhv_tools.py line 1014; run 113516 c3_results: 1,662 leanchecker rows, all import-closure-directory.",
+      "smallest_fix": "Count rows whose how starts with 'import-closure-directory' for the throughput windows, or say in the comment that they are excluded."
+     },
+     {
+      "title": "The JSON note says the modules 'import 10 others' where the documents say 9",
+      "severity": "minor",
+      "file": "records/cloud/replay_cost.json",
+      "where": "leanchecker_with_import_closure_directories_measured[0].whole_tree_if_the_same_ratio_held.note (format '%.0f' of mc = 9.5)",
+      "what_is_wrong": "The two numbers describe different sets. The note's 10 is the 32-at-a-time trial's mean (9.5, rounded up). The documents' 9 is over all 1,662 modules ((435*8.3 + 592*9.5 + 635*9.7)/1662 = 9.2). A reader comparing them sees two different figures for 'the modules checked in this run'.",
+      "evidence": "replay_cost.json windows mean_closure 8.3 / 9.5 / 9.7; docs/performance-notes.md line 257 'Those modules import 9 others on average'; full-rehearsals/README.md line 160 'import 9 others ... on average'.",
+      "smallest_fix": "Print '%.1f' and say 'the modules timed at 32 at a time', or compute the mean over all modules passed for the note."
+     }
+    ]
+   },
+   "recheck": {
+    "verdicts": [
+     {
+      "title": "The '13 percent above the line' compares a trial throughput figure with a line anchored on a main-pass mean; like with like the excess is 0-8 percent",
+      "upheld": "in part",
+      "why": "I reproduced the mismatch. p1 = 4.36 is the mean of the per-check seconds field over run 214914's main pass (replay_cost.py lines 126-131). 4.65 is 32*span/n over run 113516's trial at 32. My per-window numbers match the reviewer's. Run 214914: trial32 n=595, span 85, job-s 4.571, mean 4.659; main n=745, job-s 4.252, mean 4.364. Run 113516: trial32 n=592, span 86, job-s 4.649, mean 4.561; main n=635, mean 4.090. Two parts of the reviewer's reading are wrong, though. (1) Run 214914's main pass was fully busy. Its c3_results.tsv.gz has 5 columns (the older code, no tool or how column). BATCH=25 came in with commit 876cb96, so 'ceil(745/25) = 30 workers' does not apply to it. Reconstructing start = epoch - seconds gives 31.6 checks in flight on average and 32 at most. (2) Run 113516's main pass is not like with like: it averaged 21.1 in flight, 26 at most. Its 4.09 is lowered by less contention (the same run gives 3.15 at 16 at a time), so the '0 percent / 8.4 h' end of the range is biased low. The only like-for-like comparison is trial against trial, both at about 31 in flight. That gives 1.017 (job-s) or 0.979 (mean inside the tool), where the fit predicts 0.942, so 4 to 8 percent above the fit's prediction. Most of the 13 percent is run 214914's own trial-to-main gap: 4.66/4.36 = 1.07 at the same concurrency.",
+      "better_fix": "In docs/cloud-notes.md (line 17 and section 9 at line 303), CLAIMS.md M8, docs/performance-notes.md line 257 and full-rehearsals/README.md line 162, replace the 13 percent and 9.6 h with a trial-against-trial statement. For example: 'In the trial at 32 at a time this run took 4.65 s of one job's time per check, against 4.57 in the same trial of the third rehearsal with the whole library on the path; the line predicts 6 percent less, so this run came 4 to 8 percent above it (about 8.8 to 9.1 h for the tree if that held).' Do not use the sixth run's main pass: it averaged 21 checks in flight, not 32."
+     },
+     {
+      "title": "replay_cost.py's ratio divides a throughput figure by a fit built from a per-check mean",
+      "upheld": "in part",
+      "why": "The mixed bases are real. fit_here is built from p1['mean_seconds_per_check'], a per-check mean (lines 128-131, 146-149), while js is jobs*span/n (line 318). The evidence offered is wrong, though. Run 214914's main pass had 32 checks in flight (31.6 on average). The 25-to-a-worker batching did not exist in that run: its results file has 5 columns, and BATCH=25 came in with commit 876cb96. It would be labelled not busy only because the 100*jobs threshold was written for batched runs. Fix (a) is also wrong: run 113516's main pass ran at 21 in flight on average, 26 at most, so its 4.09 is not comparable with the fit.",
+      "better_fix": "Use the same measure on both sides. Compare the trial's mean seconds inside the tool (4.56) with fit_here, which gives 1.11. Better, also emit the ratio of the closure run's trial at 32 to run 214914's trial at 32, both as job-s (1.02) and as mean inside the tool (0.98), with the fit's predicted 0.94 beside them. Label the existing ratio 'trial throughput / line anchored on a main-pass mean'."
+     },
+     {
+      "title": "The full-rehearsals README says both 'costs nothing extra' and '13 percent by which this run exceeded the line'",
+      "upheld": "in part",
+      "why": "The two readings in lines 160 and 162 do contradict each other, and the links sentence cannot be read from these numbers. Job-s minus mean inside the tool is +0.088 in run 113516 and -0.088 in run 214914, which had no links, so the difference is within whole-second noise. But the reviewer calls line 160's comparison correct, and it is not: it sets 4.65 (job-s) against 4.7, which is run 214914's trial MEAN inside the tool (4.659; README line 75 gives it as the 'mean ... seconds each'). Like for like, run 214914's trial job-s is 4.57. The suggested replacement for line 162 is also off: it says main passes run 6 to 10 percent cheaper than trials 'in both runs', but run 113516's main pass is cheaper because it ran fewer checks at once.",
+      "better_fix": "In line 160, write 'the third rehearsal ... measured 4.57 in the same trial (4.66 and 4.56 seconds inside leanchecker respectively)' and 'the links added no cost that these whole-second timings can show'. In line 162, use the trial-against-trial range given under the first finding."
+     },
+     {
+      "title": "Docstring run time for --closure-run is wrong",
+      "upheld": "yes",
+      "why": "`/usr/bin/time -p` of the full command with --closure-run gave real 0.36 s, not about ten seconds.",
+      "better_fix": "'How long it takes: about a second, with or without --closure-run.'"
+     },
+     {
+      "title": "Docstring still says the script reads 'two cloud runs' and calls both measures 'job seconds'",
+      "upheld": "in part",
+      "why": "The naming problem is real. Lines 7-8 define job seconds as the wall seconds of one check (the per-check mean behind p1), while lines 234 and 308 report jobs*span/n under the name job_seconds_per_module. The 'two cloud runs' complaint does not stand: those words describe the fit's two points, and lines 13-16 already describe --driver-run and --closure-run as extra runs.",
+      "better_fix": "Add the one sentence about throughput only; leave 'two cloud runs' as it is."
+     },
+     {
+      "title": "The closure count leaves out the module's own compiled file, which closure-worker links",
+      "upheld": "yes",
+      "why": "rhv_tools.py lines 1250-1259 put the start module in `seen` and link every member. replay_cost.py lines 90-96 count only the modules reached from the start. The effect is +1 file, about 0.00014 s per check, which is negligible.",
+      "better_fix": "Note it in closure_sizes' docstring, or use LIBRARY_FILES + mc + 1 in fit_here and files_on_the_search_path."
+     },
+     {
+      "title": "Modules that hold modules beneath them would be dropped from the windows, overstating job seconds",
+      "upheld": "yes",
+      "why": "kernel_check_one.sh line 73 writes how=import-closure-directory-holding-modules-beneath, and results_by_how matches exactly. In run 113516 all 1,662 leanchecker rows are import-closure-directory, so the published output is not affected. The problem is latent.",
+      "better_fix": "Match on how.startswith('import-closure-directory') when counting rows for the windows, or say in the comment that those rows are excluded."
+     },
+     {
+      "title": "The JSON note says the modules 'import 10 others' where the documents say 9",
+      "upheld": "yes",
+      "why": "The note formats mc = 9.5 (the trial at 32) with '%.0f', which prints '10'. The mean over all 1,662 modules is 9.30, which is the 9 the documents give.",
+      "better_fix": "Use '%.1f' and say 'the modules timed at 32 at a time'."
+     }
+    ],
+    "missed_by_the_reviewer": [
+     {
+      "title": "The sixth run's main pass is listed as jobs 32 but ran about 21 checks at a time",
+      "file": "records/cloud/replay_cost.json",
+      "where": "leanchecker_with_import_closure_directories_measured[0].windows[2] (check:N=32: mean_seconds_inside_leanchecker_per_module 4.09); produced by analysis/replay_cost.py lines 301-310",
+      "what_is_wrong": "The window is labelled jobs 32, and its 4.09 s mean inside leanchecker looks comparable with p1 (4.36 at 32). Only all_jobs_busy=false hints otherwise. The reviewer itself treated 4.09 against 4.11 as a like-for-like match. In fact the window averaged 21.1 checks in flight and never more than 26, so the per-check mean is lowered by less contention: the same run measured 3.15 s at 16 at a time.",
+      "evidence": "I reconstructed each check's start as epoch - seconds from c3_results.tsv.gz. Run 113516, window 1795283478-1795283607: 635 rows, 21.1 in flight on average, 26 at most. Run 214914 main pass: 31.6 on average, 32 at most. Both trials at 32: 31.0 and 31.1.",
+      "smallest_fix": "Have the script report the mean number in flight for each window (the sum of seconds over the first start to the last end), or add a note: 'a main pass of 635 modules ran at most 26 at a time; its per-check mean is not comparable with checks at 32'."
+     },
+     {
+      "title": "The sixth-run section compares job-seconds with a mean inside the tool",
+      "file": "records/cloud/full-rehearsals/README.md",
+      "where": "line 160: 'A check cost 4.65 seconds of one job's time ... the third rehearsal ... measured 4.7 in the same trial'",
+      "what_is_wrong": "4.65 is throughput (32*span/n). 4.7 is run 214914's trial mean of the per-check seconds field, as line 75 defines it. The like-for-like figures are 4.65 against 4.57 job-s, or 4.56 against 4.66 inside the tool. The conclusion that the cost is about the same survives, but the numbers quoted mix two measures.",
+      "evidence": "Run 214914 trial32: n=595, span 85, job-s 4.571, mean 4.659. Run 113516 trial32: n=592, span 86, job-s 4.649, mean 4.561. README line 75: '595 in the trial at 32 (4.7 seconds)'.",
+      "smallest_fix": "Replace 'measured 4.7 in the same trial' with 'measured 4.57 in the same trial (4.66 and 4.56 seconds inside leanchecker respectively)'."
+     },
+     {
+      "title": "The fit's first point depends on which window of the third rehearsal is used, and the documents do not say so",
+      "file": "analysis/replay_cost.py",
+      "where": "lines 123-133 (p1 from window check:N=32 only), feeding docs/performance-notes.md section 10 and docs/cloud-notes.md section 9 (8.5 h, 46 h)",
+      "what_is_wrong": "The third rehearsal's trial and main pass both ran at about 32 at a time (31.1 and 31.6 in flight), yet they give 4.66 and 4.36 s per check. Choosing the main pass sets the line's intercept and slope. Anchored on the trial instead, the line gives fixed 3.03 and per_file 0.000133: 8.9 h for the closure method (not 8.47) and 43.4 h for the stock tool (not 45.7). The sixth run's trial would then sit 5 percent above the line (9.35 h). So the 13 percent excess is mostly this choice of anchor, and a reader should be told the projection moves by about 5 percent with it.",
+      "evidence": "Recomputed with replay_cost.py's formulas (per_import 0.000271, pilot point 8.54 at 40,085 files with closure 680, tree closure 3,086). y1 = 4.364 gives closure_dir 8.47 h, stock 45.7 h, ratio 1.131. y1 = 4.659 gives 8.90 h, 43.4 h, ratio 1.051.",
+      "smallest_fix": "Add to p1's note: 'the trial at 32 just before it, also with 32 in flight, gave 4.66; anchored there the line gives 8.9 h for the closure method and 43 h for the stock tool'. Then mention that range once in section 10 of docs/performance-notes.md."
+     }
+    ]
+   }
+  },
+  {
+   "area": "cap-section",
+   "review": {
+    "area_summary": "Checked docs/cloud-notes.md section 8.6 (lines 312-331) and the new row of the section 1 table (line 18), the cap sentences added to README.md, CLAIMS.md and cloud/gcp/README.md, the diff to cloud/gcp/pilot_local.sh, and records/cloud/cap_options_review.json (all four analyses and checks, the last agent's added options E to H, its ranking, the disagreements it resolved and its cautions). I recomputed every cap and every expected-spend figure for 9.86 USD spent and checked the launcher arithmetic in bc for all four modes.\n\nThe headline is sound. Under a cap of 50 the design does not start (it needs 9.86 + 84.07 = 93.93, \"about 94\"), what is left buys 20.07 h against a low estimate of 22.7 h, and the text says plainly, more than once, that nothing has been chosen. The launcher change is arithmetically correct and matches what teardown can record.\n\nThe faults are in how the options are presented:\n- Two of the six table rows (the Spot single attempt and the cheaper family) come from the last agent's own additions, which no agent checked. The table does not say so.\n- The record was written while the sixth rehearsal was still running, but \"then\" in the text implies it came after.\n- The Spot single attempt row understates its deadline risk and leaves out the rehearsal it needs from its cost.\n- No Spot row says that the ledger rate has to be lowered, and to what.\n- Quota, capacity and price caveats are missing, as are the Mac row's INCONCLUSIVE outcome and the vnode limit.\n- The claim that the ledger is \"more than the bill\" is not supported.\n- cloud/gcp/README.md still says 84 USD and 42 hours.\n\nOutside my area, noticed in passing: docs/cloud-notes.md section 9 still says \"rehearsed five times\" (line 335) and \"Done five times, for 2.64 USD in all\" (line 346). With the sixth run this is six times and 3.47 USD. Not one sentence in my area treats a rehearsal as evidence about the proof.",
+    "checked_and_sound": [
+     "Section 1 table row (cloud-notes line 18): 9.86 spent and 'a cap of about 94' are right. The new test gives 9.86 + 84.07 = 93.93 and the old one 93.86. 'No choice has been made' matches the record ('none decided anything: the choice is the owner's').",
+     "8.6, line 316: (50 - 9.86) / 2.00 = 20.07 h, so 'about 20 hours' is right, against a low case of 22.7 (replay_cost.json, as cited in the record's option A numbers[8]).",
+     "8.6 row A: 'About 51 (45 to 67)' matches the analysis (51.20, 45.40 to 67.00) and the check (about 51.5, 45.6 to 67.6). It is not described more favourably than the record allows.",
+     "8.6 row B (resumable Spot): 30 to 33 expected matches the check's corrected expected figure (about 30 to 33). 'Fits a cap of 50 only near the expected case' matches the check and the ranking.",
+     "8.6 row C: 45.98 (RATE 0.86) to 47.66 (RATE 0.90) at 9.86 spent, consistent with 'About 46 to 48'. 'About 22, before any penalty' matches the check (Spot 21.9 list). The unmeasured memory penalty and the single attempt are both stated.",
+     "8.6 row G: 14 to 17 matches the record. The record's G has no penalty or preemption figure beyond what is stated.",
+     "8.6 row D: the replay range 'about 4 days to about 6 weeks' matches the analysis's optimistic 4 to 5.5 days and the check's 27 to 40 days. The empty-results-file condition and the loss of the second-platform goal (S3) are both stated.",
+     "8.6 line 329: the first-ranked suggestion (E) is reported fairly as a sequence, with its reasoning. It is clear that nothing was chosen.",
+     "8.6 line 331: the dependence on `watch` matches the A check's correction 2 and the last agent's caution 4.",
+     "README.md, CLAIMS.md and cloud/gcp/README.md: the cap sentences are accurate and say nothing about the proof. CLAIMS says 'none of it tried'; README says 'nothing has been chosen'.",
+     "pilot_local.sh diff. In bc with RATE 2.00, new against old: full 84.07 against 84.00; full-rehearsal 2.57 against 2.50; pilot 12.07 against 12.00; rehearsal 1.74 against 1.66. What close_run can record at MAXRUN+120 s is 84.07, 2.57, 12.07 and 1.73. Taking the truncated value plus 0.01 always gives at least the ledger's %.2f rounding, so the check is never below what teardown can record (line 255 cap MAXRUN+120; watch execs teardown; a failed create closes the row at zero). The header (line 27, 'about 84 USD') still holds.",
+     "The ledger total 9.86 = 9.03 + 0.83, and the 0.83 matches the sixth rehearsal's row in records/cloud/full-rehearsals/README.md (1,487 s).",
+     "cap_options_review.json 'what' header: the spend (9.03, rehearsal running), the 84 USD worst case as the code then stood, the nine agents and their roles, and 'none ran anything in the cloud, none decided' all agree with the content."
+    ],
+    "findings": [
+     {
+      "title": "Rows for the Spot single attempt and the cheaper family come from unchecked figures",
+      "severity": "misleading",
+      "file": "docs/cloud-notes.md",
+      "where": "section 8.6, line 318 and table rows at lines 323 and 326",
+      "what_is_wrong": "The text says four analyses were each checked independently. The second row (n4d-highmem-32 Spot, single attempt) and the fifth (a cheaper family) are the last agent's own options F and G, which no agent checked. The last agent says some of G's inputs are guesses or general knowledge. The table gives these rows the same standing as the checked ones.",
+      "evidence": "cap_options_review.json: options[] holds only A, B, C and D, each with its 'check'. F and G are in what_was_missing_and_a_ranking.missing_options and have no check. Its cautions[-1] says the C3D speed factor of 1.07 to 1.33 'is a guess' and that the c3d-highmem-30 shape and its Hyperdisk support 'are from general knowledge, not the records, and must be confirmed'.",
+      "smallest_fix": "Mark both rows, for example: 'proposed by the ranking agent; its figures were not checked by another agent'. For the fifth row add: 'the speed factor is a guess, and the machine shape and its disk support are not in the records'."
+     },
+     {
+      "title": "The Spot single attempt's limit is shown as reaching the high case, but the guest stops an hour earlier",
+      "severity": "misleading",
+      "file": "docs/cloud-notes.md",
+      "where": "section 8.6, line 323, the last cell",
+      "what_is_wrong": "'The shorter limit sits at the high estimate of 33.5 hours' compares the high case with MAXRUN. The guest's deadline is one hour inside MAXRUN, and the replay-fit test keeps back a further 1,500 s. The row also requires a Spot rehearsal. Once that is paid at 9.86 spent, MAXRUN is about 33.6 h at RATE 1.15 (34.5 h at 1.12), so the guest stops at about 32.6 to 33.5 h, at or below the high case. The row is therefore more favourable than the record.",
+      "evidence": "Record F summary: 'The guest stops 1 h earlier (DEADLINE_MIN = MAXRUN - 60 min...) ... the replay-fit test keeps back a further 1,500 s'. F risks[1]: the guest deadline 'sits at or just under the 33.5 h high case', and if it is passed the run ends in the C3 short-cap path with C3 unanswered. The B check made the same point. My recomputation: ((50 - 9.86 - 1.15*4620/3600 - 0.01)/1.15)*3600 - 120 s = 33.58 h, so the guest stops at 32.58 h.",
+      "smallest_fix": "Replace the sentence with: 'The guest stops an hour before the limit, at about 32.5 to 34 hours, at or below the high estimate of 33.5. In the high case the replay would be cut short and C3 left unanswered.'"
+     },
+     {
+      "title": "No Spot row says the ledger rate must be lowered",
+      "severity": "omission",
+      "file": "docs/cloud-notes.md",
+      "where": "section 8.6, rows at lines 323 to 326 ('What it takes'), and line 331",
+      "what_is_wrong": "Every Spot row's 'cap it needs' holds only if GCP_RATE_USD_PER_HOUR is lowered from 2.00. The record says the rate must stay above the true all-in figure, or the ledger under-records. None of the rows says this. Line 331 says only that the ledger counts 2.00 against about 1.87. Row B's lower bound of 56 also uses the 1.10 rate that the last agent rejected: at 1.12 or more it is 56.9 to 58.2 before rehearsals.",
+      "evidence": "Record F changes_needed[2]: 'GCP_RATE_USD_PER_HOUR 1.15 (at least 1.12)'. disagreements[4]: 'The true rate is 1.105, so RATE 1.10 under-records'. disagreements[9]: C's 0.86 under-records (true rate about 0.864). cautions[1]: 'set RATE above the all-in figure (N4D Spot 1.105, not 1.0966)'. Recomputed: 9.86 + 1.12*42 = 56.90; 9.86 + 1.15*42 = 58.16.",
+      "smallest_fix": "Add to each Spot row's 'What it takes': 'a lower ledger rate in config.env, set above the true Spot rate (at least 1.12 for n4d-highmem-32, 0.87 for n4d-standard-32)'. Change row B's cap to 'About 57 to 60 at 42 hours, with its rehearsals'."
+     },
+     {
+      "title": "Quota, capacity, region and Spot price caveats are missing",
+      "severity": "omission",
+      "file": "docs/cloud-notes.md",
+      "where": "section 8.6, line 331 ('Two things in the record apply to any cloud run')",
+      "what_is_wrong": "The record names further conditions on every cloud option that the section leaves out. Requesting preemptible quota would stop Spot using standard quota, and the step cannot be undone. Spot prices can change daily. The rates on file are for us-central1, while the pilot found N4D capacity only in us-east1-b. Capacity in the configured zones is unknown. And every cloud option that fits under 50 is in practice a single attempt: a preemption, a host restart, a build failure or a deadline cut leaves no money to try again.",
+      "evidence": "Record cautions[1]: Spot prices change daily, the rates are us-central1, capacity was found only in us-east1-b. cautions[5]: every option that fits is a single attempt. cautions[8]: 'Do not request preemptible quota while choosing Spot ... the step is one-way'. A unknowns[4]: whether N4D capacity is available in the configured zones.",
+      "smallest_fix": "Add a third item: 'Every way that fits under 50 is in practice a single attempt. Spot prices are those of us-central1, read on 2026-11-20, and can change daily; N4D capacity was found only in us-east1-b; preemptible quota must not be requested, because Spot then stops using the standard quota and that cannot be undone.'"
+     },
+     {
+      "title": "'More than the bill' is not supported by the record",
+      "severity": "unsupported",
+      "file": "docs/cloud-notes.md",
+      "where": "section 8.6, line 331",
+      "what_is_wrong": "The sentence says that 9.86 recorded 'is somewhat more than the bill'. The record says only that the ledger overstates the list price of machine time, and that tax, egress, bucket storage and the external IP are outside the ledger. The bill could therefore be higher or lower. The record also asks the owner to say whether the cap means the ledger or the bill, and the section does not mention that open question.",
+      "evidence": "Record cautions[2]: 'the 9.03 overstates list spend by about 0.6. Tax, egress, bucket storage and the external IP sit outside the model. The owner should say whether \"total\" means ledger or bill.' A risks[8]: 'the bill is authoritative'.",
+      "smallest_fix": "Replace with: 'so the 9.86 recorded is somewhat more than the list price of the machine time; tax, egress and bucket storage are outside it, and the bill is authoritative. Whether the cap of 50 is meant on the ledger or on the bill has not been said.'"
+     },
+     {
+      "title": "The Mac row leaves out INCONCLUSIVE, the long build case and the vnode limit",
+      "severity": "omission",
+      "file": "docs/cloud-notes.md",
+      "where": "section 8.6, line 327",
+      "what_is_wrong": "The row gives the build 'about 2 to 3 days more', which is the central 60 to 75 h. It drops the record's high case of 150 h or more. It names 'the top of the import graph on a machine with 24 GB' as a risk but not the consequence: if those modules cannot be built, the outcome is INCONCLUSIVE, and the cap leaves no cloud rebuild unless money is held back. It also leaves out the system-wide vnode limit, which only the owner can raise and which resets on every restart.",
+      "evidence": "Record D HOURS: build '40 h / about 60-75 h / 150+ h'; 'The build may also fail to complete on 24 GB, which gives INCONCLUSIVE'. The D check, points (2) and (4): there is 'no recovery within the owner's decisions and the cap', and the vnode limit (263,168) 'only the owner can raise and which resets on every restart'. E changes_needed[1].",
+      "smallest_fix": "Change the cell to 'about 2 to 3 days more for the build (6 or more if the top pages heavily)', and add: 'If the top cannot be built in 24 GB the outcome is INCONCLUSIVE (PREREGISTRATION.md line 84). The owner must raise kern.maxvnodes himself, again after any restart.'"
+     },
+     {
+      "title": "'Then' puts the review after the rehearsal, though it was written before",
+      "severity": "misleading",
+      "file": "docs/cloud-notes.md",
+      "where": "section 8.6, lines 314 to 318",
+      "what_is_wrong": "'After the sixth rehearsal the ledger records 9.86 USD. ... Nine AI agents then looked ...' reads as though the review followed the rehearsal and knew its result. It was written while the rehearsal was running. Its figures assume 9.73 spent (11.60 at most), and its first-ranked option waits partly for that rehearsal's replay timing. The table's figures were recomputed for 9.86, but the section never says so, so a reader comparing them with the JSON will find every number different. The section also does not say that the rehearsal has since given that timing, 13 percent above the projection (section 8.5), which bears on the condition in E.",
+      "evidence": "Record option A numbers[1]: 'Rehearsal now running: 0.70 expected, 2.50 at most'. numbers[2]: 9.73 / 11.53. E summary: 'Spend nothing more in the cloud until two things are known: what the running rehearsal measures ...'. cautions[0]: 'The rehearsal running now gives the first one'.",
+      "smallest_fix": "Change the opening of line 318 to 'While the sixth rehearsal was running, nine AI agents looked ...', and add: 'Their figures assume 9.73 spent (at most 11.60); those below are recomputed for 9.86. The rehearsal has since given the first timing on a rented machine (section 8.5).'"
+     },
+     {
+      "title": "The Spot single attempt row leaves out the rehearsal it requires from its cost",
+      "severity": "minor",
+      "file": "docs/cloud-notes.md",
+      "where": "section 8.6, line 323, 'Expected further spend'",
+      "what_is_wrong": "'About 28 to 29' is the list cost of the run alone. The row's own 'What it takes' includes one rehearsal. What the cap counts is the ledger at RATE 1.15: 29.4 for the run plus about 0.4 for the rehearsal, about 29.8, and about 30.7 if the 13 percent replay excess measured in the sixth rehearsal holds.",
+      "evidence": "Record F expected_additional_spend_usd: 'About 28.3 USD list (29.4 recorded at 1.15) ... Add about 0.4 to 0.6 for one Spot full-rehearsal'. Recomputed: 1.15*25.6 = 29.44; plus 1.15*1200/3600 = 0.38.",
+      "smallest_fix": "Write 'About 29 to 30 (recorded at 1.15 an hour, with the rehearsal)'."
+     },
+     {
+      "title": "Row A's risks are understated, and option H is not mentioned",
+      "severity": "minor",
+      "file": "docs/cloud-notes.md",
+      "where": "section 8.6, line 322 ('Nothing beyond section 8.4'), and the table as a whole",
+      "what_is_wrong": "Section 8.4 covers neither the fact that nothing in the run can be resumed nor that the replay hours are a projection, which the A check judged likely low by 2 to 4 h. So 'nothing beyond section 8.4' understates row A, though A cannot start anyway. Option H (build in the cloud, replay on the Mac) was analysed and ranked seventh but does not appear in the section.",
+      "evidence": "Record A risks[0]: 'Nothing is resumable'; A verdict: 'Every failed attempt costs the whole amount again'. The A check's assessment on the replay projection. Ranking rank 7: 'H (cloud build, Mac replay)'. cloud-notes lines 277 to 283 (section 8.4) mention neither point.",
+      "smallest_fix": "Change the cell to 'Section 8.4; nothing can be resumed, so any fault costs the whole run again'. After line 329 add: 'An eighth, building in the cloud and replaying on the Mac, was ranked low: at or over the cap, with the weeks of Mac replay still to come.'"
+     },
+     {
+      "title": "Launcher change: 84 and 42 hours left unchanged in cloud/gcp/README.md, and a run the old test allowed can now be refused",
+      "severity": "minor",
+      "file": "cloud/gcp/README.md",
+      "where": "line 81 ('refused unless the cap allows 84 USD more') and line 85 ('covers its worst case, 42 hours of machine time')",
+      "what_is_wrong": "After the change, `launch full` needs cap minus spent to be at least 84.07, which is 42 hours plus 120 seconds, rounded up to a cent. The old test needed 84.00. So a cap with 84.00 to 84.06 of headroom, which the old test accepted, is now refused, and likewise 2.50 to 2.56 for full-rehearsal, 12.00 to 12.06 for pilot and 1.66 to 1.73 for rehearsal. The README states the old figures. 'About 84' in pilot_local.sh line 27 and 'about 94' in cloud-notes are still correct (93.93). Note also that the change sits under cloud/ and is uncommitted, so `launch` refuses until it is committed and staged again. The sixth rehearsal ran on 9c27c33, without this check.",
+      "evidence": "pilot_local.sh line 152: WORST = 2.00*(MAXRUN+120)/3600 + 0.01 at scale 2. In bc: 84.07, 2.57, 12.07 and 1.74, against the old 84.00, 2.50, 12.00 and 1.66. The ledger maximum is the close_run cap at line 255, MAXRUN+120 (84.07, 2.57, 12.07, 1.73). Line 119 refuses a dirty scripts/ or cloud/.",
+      "smallest_fix": "Line 81: 'refused unless the cap allows 84.07 USD more'. Line 85: 'its worst case, 42 hours of machine time and the two minutes the ledger may add (84.07 USD at 2.00 an hour)'. Optionally note in section 9 that the cap test was tightened by 0.07 after the sixth rehearsal."
+     },
+     {
+      "title": "The record's own 'what' header does not say that options E to H went unchecked",
+      "severity": "minor",
+      "file": "records/cloud/cap_options_review.json",
+      "where": "key 'what'",
+      "what_is_wrong": "The header is accurate about the agents and the spend as it stood then, but it says the check and the last agent's reading 'are the ones to go by'. It does not say that the last agent's own options E to H, two of which became table rows, were not checked by anyone. It also calls option B 'a Spot machine made resumable'. B's analysis covered the driver as written as well, and found that a preemption loses everything.",
+      "evidence": "options[1].analysis.summary covers both the driver as written ('a preemption deletes the VM and the whole build tree') and a resumable design. what_was_missing_and_a_ranking.missing_options (E to H) has no check entries.",
+      "smallest_fix": "Add to 'what': 'The last agent also proposed options E to H; those were not checked by another agent.' Change B to 'B: Spot, as written and made resumable'."
+     }
+    ]
+   },
+   "recheck": {
+    "verdicts": [
+     {
+      "title": "Rows for the Spot single attempt and the cheaper family come from unchecked figures",
+      "upheld": "yes",
+      "why": "In cap_options_review.json, options[] holds only A to D, each with a 'check'. F and G sit in what_was_missing_and_a_ranking.missing_options and have no check. cautions[-1] says the C3D speed factor 'is a guess' and that the shape and its Hyperdisk support are 'from general knowledge'. docs/cloud-notes.md line 318 describes the four analyses and four checks accurately, but the table (lines 323 and 326) puts F and G beside the checked rows without saying where they came from. The reviewer slightly overstates the problem: the text does not claim that the table rows were checked. The omission still stands.",
+      "better_fix": "The reviewer's fix is right. A shorter version: in the 'Way forward' cell of rows 2 and 5, add '(proposed by the ranking agent; not checked by another agent)'. In row 5 also add 'speed factor guessed; shape and disk support not in the records'."
+     },
+     {
+      "title": "The Spot single attempt's limit is shown as reaching the high case, but the guest stops an hour earlier",
+      "upheld": "yes",
+      "why": "Reproduced with the new launcher test (RATE x (MAXRUN+120)/3600 + 0.01). At 9.86 spent, MAXRUN is 34.86 h at RATE 1.15 and 35.8 h at 1.12. After one Spot rehearsal recorded at its expected 0.38, it is 34.53 h and 35.46 h. If the rehearsal's gate maximum of 1.48 is held back, it is 33.58 h and 34.48 h. DEADLINE_MIN is MAXRUN minus 60 minutes, and full_guest.sh line 822 keeps back FINAL_RESERVE (1,500 s, line 87) when it sets C3_FITS. So the guest stops at about 32.6 to 34.8 h, and the replay-fit test works to about 32.2 to 34.4 h. That is at or below the 33.5 h high case. Record F risks[1] says 'at or just under'. The doc compares MAXRUN itself with 33.5, which is more favourable than the record.",
+      "better_fix": "Use the reviewer's sentence, with the range 'about 32.5 to 35 hours' (at 1.12 the guest can stop at 34.8 h)."
+     },
+     {
+      "title": "No Spot row says the ledger rate must be lowered",
+      "upheld": "yes",
+      "why": "At RATE 2.00, F would get MAXRUN = (50-9.86)/2 = about 20 h, so every Spot row that fits depends on lowering GCP_RATE_USD_PER_HOUR in config.env. No 'What it takes' cell says so. Row F says only 'One flag in the launcher, a shorter limit, one rehearsal', and rows C and G say only 'The Spot flag'. Record F changes_needed[2] asks for 1.15, at least 1.12. disagreements[4] and [9] say that 1.10 and 0.86 under-record. Row B's '56 to 58': 9.86 + 1.10x42 = 56.06, 1.12 gives 56.90, 1.15 gives 58.16. So the low end uses the rejected 1.10, and the row leaves out the rehearsals it lists (the B check gives 1.2 to 3.0).",
+      "better_fix": "The reviewer's fix is right. For row B, 'About 57 to 61 at 42 hours, with its rehearsals' (56.9 to 58.2, plus 1.2 to 3.0) follows the B check more closely than '57 to 60'."
+     },
+     {
+      "title": "Quota, capacity, region and Spot price caveats are missing",
+      "upheld": "in part",
+      "why": "cautions[1], [5] and [8] say what the reviewer quotes, and section 8.6 mentions none of the following: daily Spot price changes, us-central1 rates against capacity found only in us-east1-b, and the one-way preemptible-quota trap. The 'single attempt' point is partly covered already: rows F and C both say 'single attempt', and row F says a preemption loses the attempt. Row G mentions quota. Only the price, region and preemptible-quota items are truly absent.",
+      "better_fix": "Add one item to line 331: 'Spot rates are those of us-central1 read on 2026-11-20 and can change daily; N4D capacity was found only in us-east1-b; preemptible quota must not be requested, because Spot then stops using the standard quota and that cannot be undone.' The single-attempt clause is optional."
+     },
+     {
+      "title": "'More than the bill' is not supported by the record",
+      "upheld": "yes",
+      "why": "Line 331 says 'the 9.86 recorded is somewhat more than the bill'. cautions[2] says only that the ledger overstates list spend by about 0.6, that 'Tax, egress, bucket storage and the external IP sit outside the model', and that the owner should say whether 'total' means ledger or bill. Tax is unknown, so whether the bill is above or below the ledger is not established. The open question about what the cap is measured on is also not reported.",
+      "better_fix": "The reviewer's replacement is right."
+     },
+     {
+      "title": "The Mac row leaves out INCONCLUSIVE, the long build case and the vnode limit",
+      "upheld": "yes",
+      "why": "Option D's analysis gives the build as '40 h / about 60-75 h / 150+ h' and says it 'may also fail to complete on 24 GB, which gives INCONCLUSIVE'. The D check lists the vnode limit (263,168), which is system-wide, can be raised only by the owner, and reverts on restart. disagreements[11] says a top-of-graph failure ends INCONCLUSIVE because no cloud rebuild fits the cap. Row D (line 327) gives only the central 2 to 3 days and names the top of the graph without saying what happens if it fails.",
+      "better_fix": "The reviewer's fix is right. The vnode clause could be shortened to 'and a system limit on open files that the owner must raise, again after any restart'."
+     },
+     {
+      "title": "'Then' puts the review after the rehearsal, though it was written before",
+      "upheld": "in part",
+      "why": "The record's 'what' says 'with 9.03 recorded as spent and a sixth rehearsal running', and options A and B take 0.70 or 2.50 for it. Line 314 ends with 'After the sixth rehearsal the ledger records 9.86', and line 318 begins 'Nine AI agents then looked'. A reader will take that as after the rehearsal. That the table's figures are recomputed for 9.86 and do not match the JSON is also true and unstated. The reviewer's further point, that 8.6 should mention the 13 percent excess, is weaker: the section 1 row just above it (line 17) and section 8.5 already say so.",
+      "better_fix": "Change 'then' to 'While the sixth rehearsal was running,', and add 'Their figures assumed 9.73 spent; those below are recomputed for 9.86.' The sentence about the rehearsal's timing is optional."
+     },
+     {
+      "title": "The Spot single attempt row leaves out the rehearsal it requires from its cost",
+      "upheld": "yes",
+      "why": "Record F expected_additional_spend_usd says 'About 28.3 USD list (29.4 recorded at 1.15) ... Add about 0.4 to 0.6 for one Spot full-rehearsal'. Row A's column counts at the ledger's rate, but row F's 'About 28 to 29' mixes in the list price and leaves out the rehearsal that the row's own 'What it takes' requires. Recomputed: 1.15 x 25.6 = 29.44, and + 1.15 x 1200/3600 = 29.82.",
+      "better_fix": "'About 29 to 30 (at the ledger rate of 1.15, with its rehearsal)'."
+     },
+     {
+      "title": "Row A's risks are understated, and option H is not mentioned",
+      "upheld": "in part",
+      "why": "Section 8.4 (cloud-notes lines 277 to 283) does not say that nothing can be resumed. Record A risks[0] and its verdict ('Every failed attempt costs the whole amount again') do, so 'Nothing beyond section 8.4' is inaccurate. The practical effect is small, because the same row says A cannot start under 50, and the watch dependency is already at line 331. H is indeed absent from 8.6 (ranking rank 7). It is a low-ranked option, and leaving it out does not distort the picture, so this part is optional.",
+      "better_fix": "Change the cell to 'Section 8.4, and nothing can be resumed: any fault costs the whole run again. It does not fit a cap of 50.' Mentioning H is optional."
+     },
+     {
+      "title": "Launcher change: 84 and 42 hours left unchanged in cloud/gcp/README.md, and a run the old test allowed can now be refused",
+      "upheld": "in part",
+      "why": "In bc, the new WORST is 84.07, 2.57, 12.07 and 1.74, against the old 84.00, 2.50, 12.00 and 1.66. close_run, which caps at MAXRUN+120 and rounds with %.2f, can record 84.07, 2.57, 12.07 and 1.73, so the new test is never below what the ledger can record. Headroom of 84.00 to 84.06 is now refused, as the reviewer says. cloud/gcp/README.md line 81 ('allows 84 USD more') and line 85 ('42 hours of machine time') are 0.07 USD and 120 s out of date. That is a precision slip, not a misstatement, since 'about 84' is used elsewhere and is still right.",
+      "better_fix": "Line 81: 'allows about 84 USD more (84.07)'. Line 85 can stay, or add '(and the two minutes teardown may add)'. A note in section 9 is not needed."
+     },
+     {
+      "title": "The record's own 'what' header does not say that options E to H went unchecked",
+      "upheld": "in part",
+      "why": "The 'what' header names A to D and the one agent 'that looked for what was missing and ranked the options', but not that this agent added E to H and that nobody checked them. The claim that B is described only as 'made resumable' is accurate as a reading. B's analysis summary does cover the driver as written ('a preemption deletes the VM and the whole build tree'), but its heading option is the resumable design, so this second point is a nicety.",
+      "better_fix": "Add one clause to 'what': 'it also proposed options E to H, which no other agent checked.' The relabelling of B is optional."
+     }
+    ],
+    "missed_by_the_reviewer": [
+     {
+      "title": "Row G understates what it needs from the cap and leaves out its deadline risk",
+      "file": "docs/cloud-notes.md",
+      "where": "section 8.6, line 326 (cheaper family at Spot prices)",
+      "what_is_wrong": "The row says the cap it needs is '50'. The record says G is the only cloud option whose worst case at the full 42 hours fits with room for a second attempt (about 35 needed at RATE 0.60). That makes the row less favourable than the record on cost. In the other direction, the row leaves out the record's warning that G's high case may run past the guest's 41-hour stop and end without C3. It also leaves out that the disk type in pilot_local.sh may have to change, and that pilot-nmax=32 on 30 vCPUs is untested.",
+      "evidence": "Record G summary: 'the only cloud option where the launcher's worst case at the full 42 h fits under 50 with room left for a second attempt: at RATE 0.60, 0.60 x 42 = 25.20'. Its hours give a high case of 35.8 to 44.6, and G risks[3] says 'The high case may exceed the 41 h guest stop, ending without C3'. G changes_needed[2] and [3] cover the disk type and the job count. Recomputed: 9.86 + 0.60 x (151200+120)/3600 + 0.01 = 35.09. full_guest.sh line 74 sets DEADLINE_MIN to 2460 by default.",
+      "smallest_fix": "Cap cell: 'About 35 at 42 hours (RATE 0.60), leaving room for a second attempt'. Add to 'What could go wrong': 'its high case (36 to 45 hours, from a guessed speed factor) can pass the 41-hour guest stop and leave C3 unanswered'."
+     },
+     {
+      "title": "Row B does not say that a resumable Spot design which stops the machine takes spend outside the launcher's bound",
+      "file": "docs/cloud-notes.md",
+      "where": "section 8.6, line 324 (Spot, with the driver changed so that it resumes)",
+      "what_is_wrong": "The row gives a cap of '56 to 58 at 42 hours', as if the launcher's worst-case rule still bounded the run. The B check says that under the STOP survival model the rule 'no longer bounds the total': stopped disks bill without limit (about 2 USD a day), nothing restarts the machine while the Mac is offline, and a long wait for capacity uses up the run's absolute time. The row's 'What could go wrong' gives only the cap fit.",
+      "evidence": "Record B check corrected_cap_needed_usd: 'Under model (a) the launcher's rule no longer bounds the total, because disks bill without limit while the VM is stopped (about 1.99 USD/day)'. B analysis risks[1] and [2]: capacity, restart only in the disk's zone, nothing restarts it while the Mac is offline, and with STOP the run-time limit also stops instead of deleting. pilot_local.sh line 162 hard-codes --instance-termination-action=DELETE.",
+      "smallest_fix": "Add to row B's 'What could go wrong': 'If the machine is stopped rather than deleted to survive, the cap no longer bounds spend: its disks bill about 2 USD a day until teardown, and nothing restarts it while the Mac is offline.'"
+     },
+     {
+      "title": "Row C presents its memory risk as a slowdown, though the record says it can end C2 with no result",
+      "file": "docs/cloud-notes.md",
+      "where": "section 8.6, line 325 (n4d-standard-32 at Spot prices), 'What could go wrong'",
+      "what_is_wrong": "The row says only that what happens 'once the compiled files no longer fit in memory has never been measured'. The C check adds that the C2 axiom check also imports the whole proof. Each C2 run is limited to 7,200 s, so if thrashing makes it time out, criterion C2 has no result: 'a failure, not just a slowdown'. The check also says the penalty 'has no defensible bound' and could end at the 41-hour deadline without C3 or C2.",
+      "evidence": "Record C check 'missed' list, item 2 (C2_TIMEOUT=7200). corrected_expected_additional_spend_usd: 'the 128 GB penalty is unmeasured and has no defensible bound. It could be small, or it could end at the 41 h guest deadline ... without C3 or C2.' full_guest.sh line 84: C2_TIMEOUT defaults to 7200; line 769 caps each C2 run at it.",
+      "smallest_fix": "Append to the cell: 'If memory runs short, the axiom check (two hours at most per run) may time out and leave C2 unanswered, and the run may reach its deadline without C3.'"
+     }
+    ]
+   }
+  },
+  {
+   "area": "stale",
+   "review": {
+    "area_summary": "I searched every tracked text file (all .md files, the headers and comments under scripts/, cloud/ and analysis/, and config.example.env) for statements that the sixth rehearsal, the 50 USD cap and the 9.86 USD spend have made false, taking the uncommitted edits into account. I checked the figures against the sixth run's directory (facts.json, pilot.log, phases.tsv, c3_summary.txt, compiler_leftovers.txt, restart_tests.txt), against records/cloud/cap_options_review.json, and against a print-only run of analysis/replay_cost.py with both --driver-run and --closure-run. Apart from made_utc, that run's output is identical to the regenerated records/cloud/replay_cost.json. The edits fix the main places (README, CLAIMS, the cloud/gcp README, the rehearsals README, performance-notes section 10, cloud-notes sections 1, 8.5 and 8.6, and one row and the table of section 9). Four sentences still say five rehearsals, or that the current driver is unrehearsed: two in cloud-notes section 9, one in performance-notes and one in the cloud/gcp README run block. The run block also still carries the old cap figures. CLAIMS gives a stale count of real modules on which rhv-replay was compared with leanchecker. Two documents still give a pre-correction \"15 hours more\" for the verdict step. Section 8.6 and records/README describe the nine-agent review in ways the JSON does not support. The new \"13 percent\" comparison sets a trial figure against a fit taken from a main pass. PREREGISTRATION.md: \"git diff --stat HEAD -- PREREGISTRATION.md\" prints nothing (0 lines), and git status shows it unchanged, so it is untouched.",
+    "checked_and_sound": [
+     "PREREGISTRATION.md is untouched: git diff --stat HEAD -- PREREGISTRATION.md prints nothing, and git status --short shows nothing for it.",
+     "Recorded spend of 9.86 USD: the pilot ledger rows 0.00 + 0.57 + 5.82 = 6.39 (as traced in cap_options_review.json) plus the six rehearsal rows 0.20 + 0.63 + 0.68 + 0.48 + 0.65 + 0.83 = 3.47 give 9.86, which matches cloud-notes lines 18, 314 and 331.",
+     "A cap of about 94 for the full run: 9.86 + 84.07 (the new pilot_local.sh formula 2.00*(151200+120)/3600 + 0.01) = 93.93. The 20 hours left under the cap: (50 - 9.86)/2 = 20.07. The lowest estimate of 22.7 h matches replay_cost.json.",
+     "records/cloud/replay_cost.json is reproduced exactly (apart from made_utc) by analysis/replay_cost.py --driver-run ...235539 --closure-run ...113516. Its figures match the docs: 4.65 measured, 4.11 projected, ratio 1.13, 9.6 h, 10,462 files on the path, 1,663 compiled and 1,662 passed.",
+     "The sixth run's facts agree with its README section and the cloud-notes section 9 row: tools_commit 9c27c33; 1,662 passed by leanchecker, by rhv-replay and by both; all passes import-closure-directory; failed 0; damaged 0; conditions_all_hold false; exit status 3; 173,524 not compiled; 1 never finished; restart tests 0/307 and 0/311 with 638 pruned; two half-written files removed (one real, one the stand-in, per compiler_leftovers.txt); 636 to go, about 90 s needed, 2,409 s left; elapsed about 21 minutes (1,245 s from setup to finish in phases.tsv).",
+     "The largest closure is 160 and the mean is about 9 over all 1,662 modules (435*8.3 + 592*9.5 + 635*9.7)/1662 = 9.25. This matches CLAIMS line 84 and the rehearsals README lines 160 and 176.",
+     "\"42 times on a Mac\" in CLAIMS line 84 = 6 chosen + 36 random (K3; performance-notes line 255: 24 + 12).",
+     "Heading numbering: cloud-notes 8.1 to 8.6, then 9, with no gap. All references to sections 8.2, 8.4, 8.5, 8.6 and 9 across the documents point to the right content. The new 8.6 is a subsection, so it shifts nothing. Neither document has a separate table of contents. The section 1 summary table gained an 8.6 row.",
+     "cloud/gcp/README.md line 74 (six rehearsals, three faults, the third, fifth and sixth described correctly) and records/cloud/full-rehearsals/README.md (header, table, the 'covers all six' line, removal of the half-written-file bullet) are consistent with the records.",
+     "The 8.6 table figures match cap_options_review.json within rounding once spend is updated to 9.86. As designed: 51 (45 to 67). Spot single attempt: 28 to 29, limit about 33 to 35 h ((50 - 9.86)/1.15 = 34.9). Spot resumable: about 56 to 58 at 42 h, 30 to 33. 128 GB Spot: 46 to 48, about 22 (check-corrected 21.9). Cheaper family: 14 to 17.",
+     "M9 and README figures (about 26 h and 48 USD, 23 to 34 h) match replay_cost.json whole_run for the import-closure method (25.6 h, 48 USD, 22.7 to 33.5 h).",
+     "Script headers (full_guest.sh, pilot_local.sh, 09_kernel_replay.sh, replay_cost.py, prune_setup_files.sh) and config.example.env make no rehearsal-count or 'unrehearsed' claim that is now false. The replay_cost.py note at line 174 is overwritten at line 336 when --closure-run is given, and the committed JSON carries the new text."
+    ],
+    "findings": [
+     {
+      "title": "cloud-notes section 9 still says the driver was rehearsed five times",
+      "severity": "wrong",
+      "file": "docs/cloud-notes.md",
+      "where": "line 335, opening paragraph of section 9",
+      "what_is_wrong": "The bold sentence 'It has been rehearsed five times and had not been run in full when this was written.' is now false. The table at the end of the same section has a sixth row.",
+      "evidence": "docs/cloud-notes.md line 404 onward (the 'Sixth, 21 minutes' row); records/cloud/full-rehearsals/README.md table row full-rehearsal-20261121-113516; CLAIMS.md line 86 says six.",
+      "smallest_fix": "Change 'five times' to 'six times, the sixth time as it now stands,'."
+     },
+     {
+      "title": "Section 9 table: 'Done five times, for 2.64 USD in all'",
+      "severity": "wrong",
+      "file": "docs/cloud-notes.md",
+      "where": "line 346, last row of the 'Need, from the pilot' table",
+      "what_is_wrong": "Both the count and the total are stale. With the sixth rehearsal there are six, and the recorded total is 3.47 USD.",
+      "evidence": "records/cloud/full-rehearsals/README.md table: 0.20+0.63+0.68+0.48+0.65+0.83 = 3.47.",
+      "smallest_fix": "'Done six times, for 3.47 USD in all; see below'."
+     },
+     {
+      "title": "Section 9 still says the closure-directory change is unrehearsed",
+      "severity": "wrong",
+      "file": "docs/cloud-notes.md",
+      "where": "line 388, end of the paragraph on the third review: '**None of that last change has been rehearsed.**'",
+      "what_is_wrong": "The sixth rehearsal ran exactly that change: leanchecker on every module with import-closure directories, rhv-replay as the second replay, and root lifting the hard-link rule at the seal. The edited row at line 345 and the new table row contradict this sentence in the same section.",
+      "evidence": "facts.json c3_kernel_replay.passes_by_how_the_tool_was_run = {import-closure-directory: 1662}; rehearsals README line for 'The hard links, made by one user to files that belong to another'; cloud-notes line 345 'rehearsed once on a rented machine'.",
+      "smallest_fix": "Replace with 'It was rehearsed once, in the sixth rehearsal, on 1,662 shallow modules (below).'"
+     },
+     {
+      "title": "performance-notes says the current driver has not been rehearsed",
+      "severity": "wrong",
+      "file": "docs/performance-notes.md",
+      "where": "line 284, last sentence of the rhv-replay 'On the cloud machine' paragraph",
+      "what_is_wrong": "'the driver as it is now, with `leanchecker` and import-closure directories, has not been rehearsed.' is false after the sixth rehearsal. The same file's edited line 257 says it has been run once.",
+      "evidence": "docs/performance-notes.md line 257 (edited); records/cloud/full-rehearsals/full-rehearsal-20261121-113516/facts.json.",
+      "smallest_fix": "End with: 'the driver as it is now was rehearsed once, in the sixth rehearsal, where rhv-replay was the second replay and passed all 1,662 modules.'"
+     },
+     {
+      "title": "CLAIMS: rhv-replay 'compared with the stock tool on 180 real modules' is stale",
+      "severity": "wrong",
+      "file": "CLAIMS.md",
+      "where": "line 84, the first bullet on what is not known: '`rhv-replay` has been compared with the stock tool on 180 real modules (30 on the Mac, 150 in a cloud rehearsal)'",
+      "what_is_wrong": "In the sixth rehearsal both tools replayed the same 1,662 modules for the same compiled file, and the edited K3 on line 41 says so. The count is now 1,842, and the two cells of CLAIMS contradict each other.",
+      "evidence": "CLAIMS.md line 41 ('in the later rehearsal just named, all 1,662, each of which the stock tool had passed'); c3_summary.txt 'by leanchecker: 1662 by rhv-replay: 1662 by both: 1662'; rehearsals README row 'Second replay ... each for the same compiled file'.",
+      "smallest_fix": "'on 1,842 real modules (30 on the Mac, 150 in the fifth cloud rehearsal and 1,662 in the sixth)'."
+     },
+     {
+      "title": "cloud/gcp README run block: stale rehearsal cost and cap figures after the pilot_local.sh edit",
+      "severity": "wrong",
+      "file": "cloud/gcp/README.md",
+      "where": "lines 79 and 81 (the commented commands in the full-run block)",
+      "what_is_wrong": "Line 79 says 'about 20 minutes (0.68 USD recorded), at most 2.50 USD'. With the edited cap test the launcher's worst case for a full rehearsal is 2.57, and the latest rehearsal recorded 0.83 over 1,487 s of machine time. Line 81 says 'refused unless the cap allows 84 USD more'. The test is now 84.07.",
+      "evidence": "cloud/gcp/pilot_local.sh line 152: WORST = RATE*(MAXRUN+120)/3600 + 0.01. With MAXRUN 4500, bc gives 2.57. With MAXRUN 151200 it gives 84.07. Rehearsals README row 113516: 1,487 s, 0.83 USD.",
+      "smallest_fix": "Line 79: 'about 20 to 25 minutes (0.65 to 0.83 USD recorded), at most 2.57 USD'. Line 81: 'allows 84.07 USD more'. Optionally write '84.07' in cloud-notes line 316 too."
+     },
+     {
+      "title": "'15 hours more' for the verdict contradicts the corrected replay estimate",
+      "severity": "wrong",
+      "file": "README.md",
+      "where": "line 44 (Level 4 row); also docs/replication-guide.md line 15",
+      "what_is_wrong": "Both tables say the pre-registered verdict takes 'an estimated 15 hours more on that cloud machine'. That is the withdrawn 14-hour replay plus allowances. The same README (line 70), CLAIMS M9 and the cloud/gcp README (line 87) now put the replay at 8.5 h projected (9.6 if the measured excess held), and about 10 h beyond the build in all (25.6 - 15.6).",
+      "evidence": "README.md line 70; records/cloud/replay_cost.json whole_run 'leanchecker, import closure on the search path' expected: build 15.6, replay 8.5, other 1.5; docs/replication-guide.md line 111 itself says 8.5.",
+      "smallest_fix": "Change both cells to 'an estimated 10 hours more on that cloud machine (projected)'."
+     },
+     {
+      "title": "'Days more on a laptop' contradicts 8.6's Mac replay estimate of up to about 6 weeks",
+      "severity": "misleading",
+      "file": "README.md",
+      "where": "line 44; also docs/replication-guide.md line 15",
+      "what_is_wrong": "The new section 8.6 says that on the Mac the replay takes 'from about 4 days to about 6 weeks'. The level tables still say 'Days more on a laptop'.",
+      "evidence": "docs/cloud-notes.md line 327; cap_options_review.json options[3].check.corrections: 'About 27-40 days at 2 jobs'.",
+      "smallest_fix": "'Days to weeks more on a laptop (docs/cloud-notes.md, section 8.6)'."
+     },
+     {
+      "title": "8.6 says the agents worked 'then', after the sixth rehearsal; the review predates its cost and its measurement",
+      "severity": "misleading",
+      "file": "docs/cloud-notes.md",
+      "where": "lines 314 to 318: 'After the sixth rehearsal the ledger records 9.86 USD. ... Nine AI agents then looked at what else could be done'",
+      "what_is_wrong": "The JSON says the agents worked with 9.03 recorded and 'a sixth rehearsal running', assuming it would cost 0.70 (2.50 or 2.57 at most). Its cautions say no rented-machine measurement of import-closure leanchecker exists. So the table's figures do not include the 0.83 actually recorded or the measured 13 percent excess over the fit. For example, the Spot single attempt's limit 'sits at the high estimate of 33.5 hours', and that estimate still uses 8.5 to 9.6 h for the replay.",
+      "evidence": "records/cloud/cap_options_review.json .what ('with 9.03 recorded as spent and a sixth rehearsal running'); options[0].analysis.numbers[1] ('0.70 expected, 2.50 at most'); what_was_missing_and_a_ranking.cautions[0] ('No cloud option has any measurement ... The rehearsal running now gives the first one').",
+      "smallest_fix": "Replace 'then' with 'while the sixth rehearsal was running, before its cost or timings were known,'. Add one sentence: their figures assume 9.03 + 0.70 USD and the unadjusted 8.5-hour projection."
+     },
+     {
+      "title": "records/README calls the cap review 'each independently checked'; two of the table's six ways were not",
+      "severity": "misleading",
+      "file": "records/README.md",
+      "where": "line 68, row for cloud/cap_options_review.json; also docs/cloud-notes.md lines 318 to 327 (the 8.6 table)",
+      "what_is_wrong": "Only options A to D had a checking agent. The Spot single attempt (F), the cheaper family (G) and the ranked 'seventh' sequence (E) come from the ninth agent's missing-options list and have no independent check. The 8.6 table gives F and G on the same footing as the checked rows. Also, of the checked ways, the as-designed run (A) and the Mac-only run (D) appear in the table but the resumable Spot way (B) and the 128 GB machine (C) are given values partly from the checks; nothing in the table says which rows were checked.",
+      "evidence": "cap_options_review.json: options[] has keys A-as-designed, B-spot, C-128GB, D-mac-only, each with .check. F and G appear only under what_was_missing_and_a_ranking.missing_options, with no check object.",
+      "smallest_fix": "records/README: 'AI analyses of four ways, each independently checked, plus further ways from a ninth agent that were not checked'. In 8.6, add a column or footnote marking the Spot single-attempt and cheaper-family rows as unchecked."
+     },
+     {
+      "title": "The 13 percent excess compares a trial window with a fit taken from a main pass",
+      "severity": "misleading",
+      "file": "docs/cloud-notes.md",
+      "where": "line 17 (section 1 summary row) and line 303; also CLAIMS.md line 59 (M8), docs/performance-notes.md line 257, records/cloud/full-rehearsals/README.md lines 160 to 162",
+      "what_is_wrong": "The 4.65 s is from the N=32 trial window. The fit's 4.11 is anchored on the third rehearsal's main pass (4.36 s). The third rehearsal's own trial at 32 measured 4.7 s, and the rehearsals README says so on line 160, concluding the method 'costs nothing extra for shallow modules'. Elsewhere the same measurement is presented as a 13 percent excess of the method and turned into 9.6 hours for the tree. A reader with only the repository sees two opposite readings of one number, and the 9.6 h may come partly from the mismatched windows.",
+      "evidence": "replay_cost.json points[0] (run 214914, mean 4.36, the main pass of 745 checks) versus leanchecker_with_import_closure_directories_measured[0].at_32 (from the check_trial:N=32 window, 4.65); records/cloud/full-rehearsals/README.md line 75 (third run: 4.7 s in the trial at 32, 745 in the main pass) and line 160.",
+      "smallest_fix": "Where the 13 percent and 9.6 h are given, add 'measured in a trial window; the same trial in the third rehearsal, with the whole library on the path, gave 4.7 s, so part of the excess is the window, not the method'. Alternatively, compare main pass with main pass."
+     },
+     {
+      "title": "Two rates for the same trial: 6.9 a second in the documents, 7.13 in the driver's record",
+      "severity": "minor",
+      "file": "records/cloud/full-rehearsals/README.md",
+      "where": "line 150, row 'Trials of the replay' (also docs/cloud-notes.md line 405, 'at 6.9 a second in the trial at 32 at a time')",
+      "what_is_wrong": "The row cites c3_results.tsv.gz and phases.tsv and gives 6.9 a second (replay_cost.py's span between first and last result). The driver's own facts.json and pilot.log give 7.13, and that is the rate the 'fits' decision in the next row used. Neither document says the two are computed differently.",
+      "evidence": "facts.json c3_kernel_replay.trial_rate_modules_per_second = \"7.13\"; pilot.log '+891s replay: 7.13 modules a second at 32 at a time; 636 modules to go need about 90 s'; replay_cost.json windows check_trial:N=32 modules_per_second 6.88.",
+      "smallest_fix": "Add: '(the driver's own count, over its counted window, was 7.13 a second, which is what its decision used; 6.9 is measured between the first and last result, as in replay_cost.json)'."
+     },
+     {
+      "title": "CLAIMS K3: 'the later rehearsal just named' is ambiguous",
+      "severity": "minor",
+      "file": "CLAIMS.md",
+      "where": "line 41, K3, end of the rhv-replay sentence",
+      "what_is_wrong": "The rehearsal named just before this phrase is full-rehearsal-20261120-235539, the earlier one. The 1,662 belong to 20261121-113516, named two clauses earlier. A reader can attach the 1,662 rhv-replay passes to the wrong run.",
+      "evidence": "CLAIMS.md line 41 text order: '...(`records/cloud/full-rehearsals/full-rehearsal-20261121-113516/`)... (`records/cloud/full-rehearsals/full-rehearsal-20261120-235539/`); in the later rehearsal just named, all 1,662'.",
+      "smallest_fix": "'in the sixth rehearsal (`full-rehearsal-20261121-113516`), all 1,662, ...'."
+     },
+     {
+      "title": "CLAIMS K3 counts rehearsal replays as evidence about the proof",
+      "severity": "misleading",
+      "file": "CLAIMS.md",
+      "where": "line 41, K3 ('Sampled kernel replay passes ... Done')",
+      "what_is_wrong": "The edit adds the sixth rehearsal's 1,662 leanchecker passes and 1,662 rhv-replay passes to a 'Done' claim of kernel-replay passes. The rehearsals README says 'A rehearsal tests the driver. It verifies nothing about the proof.' The task's rule is that a rehearsal is not evidence about the proof. K3 does say the modules are 'not a sample', but it lists the passes as part of a 'Done' result without saying they are a test of the driver.",
+      "evidence": "records/cloud/full-rehearsals/README.md line 3; CLAIMS.md line 41 status column 'Done, samples only'.",
+      "smallest_fix": "After each rehearsal figure in K3, add '(a test of the driver, not a verification result)', or move the rehearsal counts to M8 or the driver bullet."
+     },
+     {
+      "title": "8.6 Mac row understates the build time",
+      "severity": "minor",
+      "file": "docs/cloud-notes.md",
+      "where": "line 327, 'No full cloud run: finish on the Mac' row: 'about 2 to 3 days more for the build'",
+      "what_is_wrong": "The analysis gives the build as 40 h, about 60 to 75 h, or 150 h and more. The row gives only the central range, while it gives the replay as a full range, from 4 days to 6 weeks.",
+      "evidence": "cap_options_review.json options[3].analysis.hours_or_days_expected: 'build 40 h / about 60-75 h / 150+ h'.",
+      "smallest_fix": "'about 2 to 3 days more for the build (up to 6 days or more)'."
+     },
+     {
+      "title": "Sixth-run zone sentence is ambiguous and not in the records",
+      "severity": "minor",
+      "file": "records/cloud/full-rehearsals/README.md",
+      "where": "line 139: 'The machine was in a different zone from the last three (`us-east1-b`)'",
+      "what_is_wrong": "The parenthesis can be read as the zone of the last three runs rather than of this one. No file in any rehearsal directory records a zone, so a reader with only the repository cannot check it.",
+      "evidence": "grep for 'us-[a-z]*[0-9]-[a-z]' over records/cloud/full-rehearsals/ finds only this README line; env.txt and facts.json carry no zone.",
+      "smallest_fix": "'This machine was in `us-east1-b`, a different zone from the last three ...', and note where the zone is recorded, or that it comes from the launcher's output."
+     },
+     {
+      "title": "The prefix pass is still listed as a driver step that rehearsals do not reach",
+      "severity": "minor",
+      "file": "CLAIMS.md",
+      "where": "line 86 (edited bullet: 'the prefix pass on real prefix modules'); also records/cloud/full-rehearsals/README.md line 174 bullet and docs/cloud-notes.md lines 342 and 407",
+      "what_is_wrong": "With import-closure directories the driver has no separate prefix pass. 09_kernel_replay.sh runs one only with --whole-library or when hard links cannot be made, and performance-notes line 246 says 'the separate pass for the 114 such modules is not needed'. The new rehearsals bullet at line 176 now covers the real gap: prefix modules that import modules beneath themselves. A reader of CLAIMS line 86 and cloud-notes line 342 ('now ends with a prefix pass') will think the full run still runs one.",
+      "evidence": "scripts/09_kernel_replay.sh lines 24-27 and 290-292; docs/performance-notes.md line 246; cloud/gcp/full_guest.sh replay() passes no --whole-library.",
+      "smallest_fix": "In CLAIMS line 86 and the rehearsals list, write 'the fallback prefix pass (used only if hard links cannot be made)'. In cloud-notes line 342, say the prefix pass is now the fallback of --whole-library."
+     },
+     {
+      "title": "Average closure given as 9 in the docs and 10 in replay_cost.json",
+      "severity": "minor",
+      "file": "records/cloud/replay_cost.json",
+      "where": "leanchecker_with_import_closure_directories_measured[0].whole_tree_if_the_same_ratio_held.note ('import 10 others on average')",
+      "what_is_wrong": "The documents say 9, which is the mean over all 1,662 modules (9.25). The note formats the N=32 window's mean of 9.5 with %.0f, which gives 10. Two values for one quantity.",
+      "evidence": "replay_cost.json at_32.mean_closure_of_the_modules_checked 9.5; analysis/replay_cost.py line 329 '%.0f'; rehearsals README lines 160 and 176; cloud-notes line 303 ('import 9 others on average').",
+      "smallest_fix": "Print the mean with one decimal ('9.5 others on average, in the trial at 32'), or have the docs say 'about 9 to 10'."
+     }
+    ]
+   },
+   "recheck": {
+    "verdicts": [
+     {
+      "title": "cloud-notes section 9 still says the driver was rehearsed five times",
+      "upheld": "yes",
+      "why": "docs/cloud-notes.md line 335 reads 'It has been rehearsed five times and had not been run in full when this was written.' The table in the same section (line 405) has a 'Sixth, 21 minutes' row, and CLAIMS.md line 86 says six.",
+      "better_fix": "The reviewer's fix is right: 'six times, the sixth time as it now stands,'."
+     },
+     {
+      "title": "Section 9 table: 'Done five times, for 2.64 USD in all'",
+      "upheld": "yes",
+      "why": "Line 346 still says this. The rehearsals README table gives 0.20+0.63+0.68+0.48+0.65 = 2.64 for the first five, plus 0.83 for 113516, so 3.47 for six.",
+      "better_fix": "'Done six times, for 3.47 USD in all; see below'."
+     },
+     {
+      "title": "Section 9 still says the closure-directory change is unrehearsed",
+      "upheld": "yes",
+      "why": "Line 388 ends '**None of that last change has been rehearsed.**' The change it names is leanchecker as the replay, rhv-replay as the second replay, and root lifting the hard-link rule at the seal. The sixth rehearsal ran exactly that: c3_summary.txt gives 'by leanchecker: 1662 by rhv-replay: 1662', and the rehearsals README line 153 covers the hard links across users. The edited line 345 of the same section says 'rehearsed once on a rented machine'.",
+      "better_fix": "'It was rehearsed once, in the sixth rehearsal, on 1,662 shallow modules (below).'"
+     },
+     {
+      "title": "performance-notes says the current driver has not been rehearsed",
+      "upheld": "yes",
+      "why": "Line 284 ends 'the driver as it is now, with `leanchecker` and import-closure directories, has not been rehearsed.' The edited line 257 of the same file says the method has been run once on the cloud machine, in the sixth rehearsal.",
+      "better_fix": "Replace the last clause with 'the driver as it is now was rehearsed once, in the sixth rehearsal (above).'"
+     },
+     {
+      "title": "CLAIMS: rhv-replay 'compared with the stock tool on 180 real modules' is stale",
+      "upheld": "in part",
+      "why": "Line 84 is stale and contradicts K3 on line 41, which now credits both tools with the same 1,662 modules in the sixth rehearsal (c3_summary.txt: 'by both: 1662'). The proposed total of '1,842 real modules' is not sound, though. The fifth and sixth rehearsals both built the bottom of the import graph (1,794 and 1,662 of the first modules), so the two sets very probably overlap. Adding them double-counts modules.",
+      "better_fix": "Give the comparisons by run without a total: 'compared with the stock tool on 30 real modules on the Mac, 150 in the fifth cloud rehearsal and 1,662 in the sixth (largely the same bottom-of-the-graph modules)'."
+     },
+     {
+      "title": "cloud/gcp README run block: stale rehearsal cost and cap figures after the pilot_local.sh edit",
+      "upheld": "yes",
+      "why": "The edited pilot_local.sh line 152 computes WORST = scale=2; RATE*(MAXRUN+120)/3600 + 0.01. With MAXRUN=4500 (line 132) that is 9240/3600 = 2.56 (bc truncates) + 0.01 = 2.57. With 151200 (line 124) it is 84.06 + 0.01 = 84.07. README line 79 still says 'at most 2.50 USD' and '0.68 USD recorded', and the latest rehearsal recorded 0.83 over 1,487 s. Line 81 says 84.",
+      "better_fix": "Line 79: 'about 20 to 25 minutes (0.65 to 0.83 USD recorded), at most 2.57 USD'. Line 81: '84.07 USD more'."
+     },
+     {
+      "title": "'15 hours more' for the verdict contradicts the corrected replay estimate",
+      "upheld": "yes",
+      "why": "README.md line 44 and docs/replication-guide.md line 15 both say 'an estimated 15 hours more on that cloud machine', after level 3's 16-hour build. replay_cost.json whole_run (import closure, expected) gives replay 8.5 and other 1.5 on top of a 15.6-hour build. README line 70 and replication-guide line 111 themselves say 8.5. The '15 hours' was already stale before today, but the contradiction stands after the edits.",
+      "better_fix": "'an estimated 10 hours more on that cloud machine (a projection; docs/cloud-notes.md section 8.5)'."
+     },
+     {
+      "title": "'Days more on a laptop' contradicts 8.6's Mac replay estimate of up to about 6 weeks",
+      "upheld": "in part",
+      "why": "It is not false at the low end: 8.6 line 327 gives 'from about 4 days'. But its upper bound of about 6 weeks, and the JSON's ranking ('about 23 to 40 days at the measured rate'), make 'Days' misleading.",
+      "better_fix": "'Days to weeks more on a laptop', in both tables."
+     },
+     {
+      "title": "8.6 says the agents worked 'then', after the sixth rehearsal; the review predates its cost and its measurement",
+      "upheld": "yes",
+      "why": "cap_options_review.json .what says the cap was set 'with 9.03 recorded as spent and a sixth rehearsal running'. options[0].analysis.numbers[1] says '0.70 expected, 2.50 at most'. cautions[0] says no rented-machine measurement exists yet. Line 314's 'After the sixth rehearsal the ledger records 9.86' followed by 'Nine AI agents then looked' puts the review in the wrong order.",
+      "better_fix": "Replace 'then' with 'while the sixth rehearsal was running, before its cost or timings were known,'. Add that their figures assume 9.03 + 0.70 USD and the unadjusted 8.5-hour replay projection."
+     },
+     {
+      "title": "records/README calls the cap review 'each independently checked'; two of the table's six ways were not",
+      "upheld": "in part",
+      "why": "In the JSON only options A to D (keys A-as-designed, B-spot, C-128GB, D-mac-only) have a .check object. E, F, G and H appear only under what_was_missing_and_a_ranking.missing_options. So records/README line 68 ('AI analyses, each independently checked') is wrong. The 8.6 prose on line 318 describes the structure correctly, and the reviewer's further remark about rows B and C is unclear and not a defect.",
+      "better_fix": "records/README: 'four AI analyses, each independently checked, and further ways from a ninth agent that were not checked'. Optionally mark the Spot single-attempt and cheaper-family rows of the 8.6 table 'not independently checked'."
+     },
+     {
+      "title": "The 13 percent excess compares a trial window with a fit taken from a main pass",
+      "upheld": "yes",
+      "why": "The fit is anchored on replay_cost.json points[0]: run 214914, 745 main-pass checks, 4.36 s. The 4.65 is at_32 from window check_trial:N=32 and is job-seconds (32 x 86 s / 592), not per-check time. The third rehearsal's own trial at 32 gave 4.7 against its main pass's 4.4 (rehearsals README line 75), so trial windows run high. In the sixth run's main pass (check:N=32), mean_seconds_inside_leanchecker_per_module is 4.09, against the fit's 4.11 (README line 164 says 4.1). The rehearsals README also contradicts itself: line 160 says the method 'costs nothing extra for shallow modules', and line 162 cites a 13 percent excess.",
+      "better_fix": "Wherever the 13 percent and 9.6 h appear, add: 'measured in a trial window, which ran about 7 percent high in the third rehearsal too; inside leanchecker the main pass took 4.1 s against the fit's 4.11'. Or keep 9.6 h only as an upper sensitivity."
+     },
+     {
+      "title": "Two rates for the same trial: 6.9 a second in the documents, 7.13 in the driver's record",
+      "upheld": "yes",
+      "why": "facts.json has trial_rate_modules_per_second '7.13', and pilot.log line 38 '+891s replay: 7.13 modules a second'. That is 428 modules (phases.tsv 'check_trial:end 428 32') over the driver's counted window of about 60 s. replay_cost.json gives 6.88 = 592/86 between first and last result. Neither document says which is which.",
+      "better_fix": "In rehearsals README line 149, add: '(the driver counted 7.13 a second over its own window, which is what its decision used)'."
+     },
+     {
+      "title": "CLAIMS K3: 'the later rehearsal just named' is ambiguous",
+      "upheld": "yes",
+      "why": "In line 41 the rehearsal named last is 20261120-235539, the earlier one. The 1,662 belong to 20261121-113516, named before it. 'Later' and 'just named' point to different runs.",
+      "better_fix": "'in the sixth rehearsal (`full-rehearsal-20261121-113516`), all 1,662, ...'."
+     },
+     {
+      "title": "CLAIMS K3 counts rehearsal replays as evidence about the proof",
+      "upheld": "in part",
+      "why": "K3's status is 'Done' for sampled replay passes, and the edit adds rehearsal results to it. That sits badly with the rehearsals README line 3 ('A rehearsal tests the driver. It verifies nothing about the proof.'). The problem predates today: the 1,792 rehearsal files were already in K3. K3 does say these are 'the first modules built and not a sample'. The rehearsal passes are real leanchecker runs, so this is a wording conflict, not a false figure.",
+      "better_fix": "After the two rehearsal figures in K3, add '(produced while testing the driver; not a verification result)'."
+     },
+     {
+      "title": "8.6 Mac row understates the build time",
+      "upheld": "in part",
+      "why": "options[3].analysis.hours_or_days_expected gives 'build 40 h / about 60-75 h / 150+ h'. '2 to 3 days' is the central case only, while the same cell gives the replay's full range. This is a small inconsistency of presentation.",
+      "better_fix": "'about 2 to 3 days more for the build (2 to 6 or more)'."
+     },
+     {
+      "title": "Sixth-run zone sentence is ambiguous and not in the records",
+      "upheld": "yes",
+      "why": "A grep for us-east1-/us-central1- in the run directory and in the rehearsals README finds the zone only in README line 139. ledger.tsv in the repository records the zone only for the pilot, and nothing records it for any rehearsal. The parenthesis can also be read as the zone of the last three runs.",
+      "better_fix": "'This machine was in `us-east1-b`, a different zone from the last three (from the launcher's output; not in the run's files).'"
+     },
+     {
+      "title": "The prefix pass is still listed as a driver step that rehearsals do not reach",
+      "upheld": "yes",
+      "why": "scripts/09_kernel_replay.sh lines 24-27 say the prefix pass belongs to --whole-library or a failure to make links. Line 291 runs it only when WHOLE=1. full_guest.sh has no --whole-library. Even so, cloud-notes line 342 ('now ends with a prefix pass'), line 407, CLAIMS line 86 and rehearsals README line 175 still present it as a normal step.",
+      "better_fix": "Call it 'the fallback prefix pass (run only if hard links cannot be made)' in those four places, and in line 342 say it is now the --whole-library fallback."
+     },
+     {
+      "title": "Average closure given as 9 in the docs and 10 in replay_cost.json",
+      "upheld": "yes",
+      "why": "replay_cost.py line 329 formats mc with '%.0f'. mc is 9.5 for the N=32 window, and python3 prints '%.0f' % 9.5 as '10'. The documents say 9, the mean over all 1,662 modules (9.25).",
+      "better_fix": "Use '%.1f' and say 'in the trial at 32'."
+     }
+    ],
+    "missed_by_the_reviewer": [
+     {
+      "title": "Section 1 summary puts the 9.86 at the moment the cap was set",
+      "file": "docs/cloud-notes.md",
+      "where": "line 18, row 'The cap, and what fits under it'",
+      "what_is_wrong": "'On 2026-11-21 the cap was set at 50 USD in total, with 9.86 recorded as spent.' When the cap was set, the ledger held 9.03 and the sixth rehearsal was still to be recorded. 9.86 is the figure after it.",
+      "evidence": "records/cloud/cap_options_review.json .what: 'The owner set the cap at 50 that day, with 9.03 recorded as spent and a sixth rehearsal running'; rehearsals README table row 113516: 0.83 USD.",
+      "smallest_fix": "'On 2026-11-21 the cap was set at 50 USD in total; 9.86 is now recorded as spent.'"
+     },
+     {
+      "title": "CLAIMS cites K3 for a closure maximum that K3 does not give",
+      "file": "CLAIMS.md",
+      "where": "line 84: '...on the 1,662 modules of a cloud rehearsal, none of which imports more than 160 others (K3)'",
+      "what_is_wrong": "K3 (line 41) gives no closure size. The 160 is only in records/cloud/full-rehearsals/README.md lines 160 and 176 and in replay_cost.json (largest_closure 160). A reader who follows the reference finds nothing.",
+      "evidence": "CLAIMS.md line 41 contains no '160'; replay_cost.json leanchecker_with_import_closure_directories_measured[0].windows[1].largest_closure = 160.",
+      "smallest_fix": "Replace '(K3)' with '(K3; records/cloud/full-rehearsals/README.md)'."
+     },
+     {
+      "title": "'Settings shortened to fit a quarter of an hour' no longer matches the rehearsals",
+      "file": "records/cloud/full-rehearsals/README.md",
+      "where": "line 170, opening of 'What the rehearsals do not show'",
+      "what_is_wrong": "The full rehearsals that ran every phase took 16, 17 and 21 minutes. The sixth took 1,245 s from setup to finish in phases.tsv and 1,487 s of machine time. The launcher allows 75 minutes.",
+      "evidence": "phases.tsv of 113516: setup 1795282579, last idle 1795283824; README table row 113516: 1,487 seconds; cloud/gcp/README.md line 33: '75 minutes for the full rehearsal'.",
+      "smallest_fix": "'on settings shortened to fit about twenty minutes'."
+     }
+    ]
+   }
+  }
+ ]
+}

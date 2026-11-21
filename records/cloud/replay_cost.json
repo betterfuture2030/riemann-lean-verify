@@ -1,6 +1,6 @@
 {
  "what": "cost of the kernel replay per module, in wall-clock seconds of one check while 32 run at once on n4d-highmem-32, from two recorded runs; a two-point fit",
- "made_utc": "2026-11-21T15:19:00Z",
+ "made_utc": "2026-11-21T18:21:32Z",
  "points": [
   {
    "run": "full-rehearsal-20261120-214914",
@@ -42,7 +42,7 @@
    "hours_at_32": 8.5,
    "of_which_listing": 1.9,
    "of_which_making_and_removing_links_assumed": 0.19,
-   "note": "a projection from the fit; this way of running leanchecker has not been timed on the cloud machine"
+   "note": "a projection from the fit. This way of running leanchecker has been timed on the cloud machine only on a small tree of shallow modules (leanchecker_with_import_closure_directories_measured, below)"
   },
   "without_the_listing": {
    "seconds_per_check": 3.4,
@@ -53,6 +53,18 @@
  "earlier_estimate_it_replaces": {
   "hours": 14.0,
   "why_it_was_wrong": "it took the cost per check measured with 29,633 modules compiled as the cost at any size"
+ },
+ "if_the_first_point_were_that_runs_trial_at_32": {
+  "mean_seconds_per_check": 4.66,
+  "checks_counted": 595,
+  "mean_checks_in_flight": 31.1,
+  "fixed": 3.03,
+  "per_compiled_file_on_the_search_path": 0.000133,
+  "whole_tree_hours_at_32": {
+   "leanchecker_one_process_per_module": 43.4,
+   "leanchecker_with_only_the_import_closure_on_the_search_path": 8.9
+  },
+  "note": "the same run and the same job count as the first point, a few minutes earlier; the two means differ by more than the whole of the saving the line predicts for a shorter search path at this size of tree"
  },
  "whole_run": {
   "configuration": "n4d-highmem-32 on demand, 440 GB disk, setup files pruned",
@@ -190,6 +202,85 @@
      "a_line_through_the_two_measurements": 45.7,
      "a_power_law_through_the_two_measurements": 56.2
     }
+   }
+  }
+ ],
+ "leanchecker_with_import_closure_directories_measured": [
+  {
+   "run": "full-rehearsal-20261121-113516",
+   "compiled_modules": 1663,
+   "modules_passed_this_way": 1662,
+   "mean_closure_of_all_of_them": 9.3,
+   "largest_closure": 160,
+   "windows": [
+    {
+     "window": "check_trial:N=16",
+     "jobs": 16,
+     "modules_checked": 435,
+     "seconds_between_first_and_last_result": 84,
+     "modules_per_second": 5.18,
+     "job_seconds_per_module": 3.09,
+     "mean_seconds_per_check": 3.15,
+     "mean_checks_in_flight": 15.8,
+     "mean_closure": 8.3,
+     "largest_closure": 87
+    },
+    {
+     "window": "check_trial:N=32",
+     "jobs": 32,
+     "modules_checked": 592,
+     "seconds_between_first_and_last_result": 86,
+     "modules_per_second": 6.88,
+     "job_seconds_per_module": 4.65,
+     "mean_seconds_per_check": 4.56,
+     "mean_checks_in_flight": 31.0,
+     "mean_closure": 9.5,
+     "largest_closure": 160
+    },
+    {
+     "window": "check:N=32",
+     "jobs": 32,
+     "modules_checked": 635,
+     "seconds_between_first_and_last_result": 119,
+     "modules_per_second": 5.34,
+     "job_seconds_per_module": 6.0,
+     "mean_seconds_per_check": 4.09,
+     "mean_checks_in_flight": 21.1,
+     "mean_closure": 9.7,
+     "largest_closure": 85
+    }
+   ],
+   "trial_at_32_against_the_same_trial_with_the_whole_library_on_the_path": {
+    "this_run": {
+     "files_on_the_search_path": 10462,
+     "mean_closure": 9.5,
+     "modules_checked": 592,
+     "job_seconds_per_module": 4.65,
+     "mean_seconds_per_check": 4.56,
+     "mean_checks_in_flight": 31.0
+    },
+    "the_other_run": {
+     "run": "full-rehearsal-20261120-214914",
+     "files_on_the_search_path": 12244,
+     "modules_checked": 595,
+     "job_seconds_per_module": 4.57,
+     "mean_seconds_per_check": 4.66,
+     "mean_checks_in_flight": 31.1
+    },
+    "this_run_over_the_other": {
+     "the_fit_predicts": 0.942,
+     "measured_as_throughput": 1.018,
+     "measured_as_seconds_per_check": 0.979
+    },
+    "above_what_the_fit_predicts_percent": [
+     3.9,
+     8.0
+    ],
+    "whole_tree_replay_hours_at_32_if_that_held": [
+     8.8,
+     9.1
+    ],
+    "note": "the fit predicts a saving of 0.25 seconds per check from the shorter search path; the two measures put this run 3.9 and 8.0 percent above that, which is no more than a trial and a main pass of one run differ by. The modules timed here import 9.5 others on average, against 3086 for the tree: the run says what a check costs with a short search path on the cloud machine, and nothing about making the links of a deep module or replaying one"
    }
   }
  ]

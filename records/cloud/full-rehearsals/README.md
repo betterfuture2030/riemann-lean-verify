@@ -2,7 +2,7 @@
 
 Short runs of [`../../../cloud/gcp/full_guest.sh`](../../../cloud/gcp/full_guest.sh) in its rehearsal mode: a build boxed at seven minutes, then every later phase on what was built. A rehearsal tests the driver. It verifies nothing about the proof.
 
-**The driver has changed since the last rehearsal here.** On 2026-11-21 its kernel-replay phase was rewritten: `leanchecker` now checks every module, each process with only its module's import closure on the search path, and `rhv-replay` is an optional second replay ([`../../../docs/performance-notes.md`](../../../docs/performance-notes.md), section 10). The five runs below are of the driver as it was at the time; the settings and `facts.json` fields they mention (`GCP_REPLAY_METHOD`, `method_for_the_whole_tree`, `replay_program`, the stock sample) are those of that driver. The present driver has not been rehearsed.
+**The driver changed between the fifth and the sixth run.** On 2026-11-21 its kernel-replay phase was rewritten: `leanchecker` now checks every module, each process with only its module's import closure on the search path, and `rhv-replay` is an optional second replay ([`../../../docs/performance-notes.md`](../../../docs/performance-notes.md), section 10). The first five runs below are of the driver as it was at the time; the settings and `facts.json` fields they mention (`GCP_REPLAY_METHOD`, `method_for_the_whole_tree`, `replay_program`, the stock sample) are those of that driver. The sixth is of the driver as it now stands.
 
 | Run | Outcome | Machine time | Recorded cost |
 |---|---|---|---|
@@ -11,6 +11,7 @@ Short runs of [`../../../cloud/gcp/full_guest.sh`](../../../cloud/gcp/full_guest
 | `full-rehearsal-20261120-214914` | Ran every phase; every step it reached did what it should | 1,216 seconds | 0.68 USD |
 | `full-rehearsal-20261120-233826` | First rehearsal of the driver with the second replay method. Stopped itself at the seal, for a fault that a full run could have met too | 872 seconds | 0.48 USD |
 | `full-rehearsal-20261120-235539` | Ran every phase with the second replay method; every step it reached did what it should | 1,175 seconds | 0.65 USD |
+| `full-rehearsal-20261121-113516` | First rehearsal with `leanchecker` on every module and import-closure search paths. Ran every phase; every step it reached did what it should | 1,487 seconds | 0.83 USD |
 
 ## `full-rehearsal-20261120-211809`
 
@@ -81,7 +82,7 @@ The replay's exit status of 3 and `complete: false` are correct for a rehearsal:
 
 Two things in this run were changed afterwards. The four files the build tool never finished were replayed and counted with the rest (their lines in `c3_results.tsv.gz` carry `nohash` where the others carry a hash); the summary now treats a compiled file with no hash beside it as unfinished, never counts a result for it, and reports it. And the replay's rate here, about seven modules a second, says little about the whole tree: with the stock tool the cost of a check grows with the number of compiled modules ([`../../../docs/performance-notes.md`](../../../docs/performance-notes.md), section 10), and this run had 1,792 of them.
 
-**What a rehearsal does not show.** See the list at the end of this page, which covers all five.
+**What a rehearsal does not show.** See the list at the end of this page, which covers all six.
 
 Files: as for the second run, plus `c2_plain.json` and `c2_deep.json` (the axiom check's summaries), `c2_deep.modules.tsv` (which modules the deep walk touched), `c3_summary.json` and `c3_results.tsv.gz` (one line per replayed module: exit status, seconds, the stamp of the compiled file, time).
 
@@ -133,17 +134,55 @@ The fifth rehearsal repeated the fourth with the seal changed as described above
 
 Files: as for the third run, plus `compiler_leftovers.txt`. The result lines in `c3_results.tsv.gz` now end with the method that produced them.
 
+## `full-rehearsal-20261121-113516`
+
+The sixth rehearsal was the first of the driver as it now runs the kernel replay: the stock tool on every module, each `leanchecker` process with a search path that holds, of this project, only hard links to the compiled files of its module and of what that module imports. It used the scripts of commit `9c27c33`. It ran every phase in 21 minutes and each step did what it was written to do. This machine was in `us-east1-b`: the four zones tried first had no machine of this type free that day. (That comes from the launcher's output; the run's own files do not name a zone.)
+
+| Step | Result | Where |
+|---|---|---|
+| Setup | 137 seconds | `setup.tsv` |
+| Restart test, plain | 0 finished modules recompiled; 307 new ones built | `restart_tests.txt` |
+| Restart test after deleting the setup files of 638 finished modules | 0 finished modules recompiled; 311 new ones built | the same, `pilot.log` |
+| Build, boxed at seven minutes | 1,662 modules finished by the build tool, no failed job, and 1 more compiled file that it never finished | `phases.tsv`, `pilot.log`, `facts.json` |
+| Seal | Source tree, toolchain and Mathlib unchanged since before the first compile; two half-written files removed and counted, the planted stand-in and a real one, left by a compiler that the second restart test had stopped (that module was compiled again afterwards and passed the replay); no other unexpected file; both checker users able to work | `facts.json`, `seal`; `compiler_leftovers.txt` |
+| Axiom check in probe mode, plain | Pass, the same result as in the third rehearsal | `c2_plain.json` |
+| Trials of the replay, by `leanchecker` with import-closure search paths | Between the first and the last result of each trial: at 16 at a time, 5.2 modules a second; at 32 at a time, 6.9 a second over 592 modules, which is 4.65 seconds of one job's time per module. The seconds recorded for each check average 4.56. The driver's own count, over a shorter window that leaves out the start, was 7.13 a second | `c3_results.tsv.gz`, `phases.tsv`; `records/cloud/replay_cost.json` |
+| The decision the trials feed | At the driver's rate of 7.13 a second: 636 modules to go, about 90 seconds needed, 2,409 seconds left. The replay fits, so the deep walk ran before the main pass. The main pass then took 129 seconds: the estimate is throughput times modules, and leaves out a pass's planning, start and tail, which are a large share of a short pass | `pilot.log`, `facts.json`, `phases.tsv` |
+| The axiom check with the deep walk | In probe mode, on `Formalism.VW.rh_of_right`: pass; 54,444 constants visited, the same three axioms | `c2_deep.json` |
+| Kernel replay by `leanchecker` | 1,662 of 1,662 finished modules passed, every one recorded as run with an import-closure directory. The compiled file the build tool never finished was not replayed and is reported as such | `c3_summary.txt`, `c3_results.tsv.gz` |
+| The hard links, made by one user to files that belong to another | Made for every check: every result is recorded as run with an import-closure directory, and no checker reported a file it could not open | `c3_results.tsv.gz` (no status 96) |
+| Second replay, by `rhv-replay` (a rehearsal always asks for it) | 1,662 of 1,662 passed, each for the same compiled file as the `leanchecker` result for that module | the same |
+| End check | Compiled files, toolchain and Mathlib unchanged since the seal; no process of the build user seen | `facts.json`, `end` |
+| Archive of compiled files | Made and uploaded | `facts.json` |
+
+`facts.json` shows what a reader of a full run would look for. Under `c3_kernel_replay`, `tool` is `leanchecker` and `passes_by_how_the_tool_was_run` is `import-closure-directory` for all 1,662; in the summary, `passed_by_leanchecker`, `passed_by_rhv_replay` and `passed_by_both` are 1,662, and `failed` and `damaged_result_lines` are 0. `conditions_all_hold` is false and the replay's exit status is 3, as they must be for a rehearsal: 173,524 source modules were never compiled and one compiled file was never finished, so two of the criterion's four conditions do not hold. The other two do: no rejection or crash recorded by any tool, and no damaged line. The second replay also ends with status 3, and its `every_compiled_module_passed` is false, for the same two reasons.
+
+What the timings say. The modules a seven-minute build reaches import 9 others of this project on average (9.5 for the 592 timed in the trial at 32 at a time), and 160 at most. Each check's search path therefore held about 10,460 compiled files, nearly all of them the libraries'. The fair comparison is with the same trial of the third rehearsal, which had the whole library on the path:
+
+| Trial at 32 at a time | Compiled files on the search path | Seconds of one job's time per module | Mean of the seconds recorded per check |
+|---|---|---|---|
+| Third rehearsal, the whole library | 12,244 | 4.57 | 4.66 |
+| Sixth rehearsal, import-closure directories | about 10,460 | 4.65 | 4.56 |
+
+The line fitted in [`../../../docs/performance-notes.md`](../../../docs/performance-notes.md), section 10, predicts that the shorter path saves a quarter of a second per check, about 6 percent. By one measure this run was 2 percent cheaper than the third and by the other 2 percent dearer, which puts it 4 to 8 percent above the prediction. That is no more than a trial and a main pass of one run differ by (4.66 and 4.36 seconds in the third). So the run shows that the method works on the rented machine, across the two users, at about the cost the stock tool had with the whole library on its path at this size of tree. The tree is too small to confirm or contradict the saving the line predicts, which grows with the tree and is here within the noise. The links were not timed; their cost is too small to see at the one-second resolution of the record.
+
+What they do not say. Nothing here imports thousands of other modules, where the links and the replay itself cost more. For the whole tree the replay remains a projection: 8.5 hours from the fitted line, and 8.8 to 9.1 if those 4 to 8 percent held throughout. The line itself gives 8.9 if its first point is taken from the third rehearsal's trial in place of its main pass. All of these figures are in [`../replay_cost.json`](../replay_cost.json).
+
+The main pass finished 5.3 modules a second where the trial had managed 6.9. That is a property of a short pass, not of the tool: modules were handed out 25 to a worker, and the 635 that were left made 26 workers where 32 were allowed, so 21 checks were in flight on average. With fewer in flight each check cost less, 4.1 seconds, which is why the main pass is not compared with anything above. The replay script has since been changed to hand fewer modules to a worker when a pass is short.
+
+Files: as for the fifth run.
+
 ## What the rehearsals do not show
 
-Each built about one module in a hundred, all from the bottom of the import graph, on settings shortened to fit a quarter of an hour: a seven-minute build, trials of 90 seconds, a stock sample of 150 modules. A full run uses the same script with longer limits. Not exercised by any rehearsal:
+Each built about one module in a hundred, all from the bottom of the import graph, on settings shortened to fit about twenty minutes: a seven-minute build, trials of 90 seconds, and in the fifth a stock sample of 150 modules. A full run uses the same script with longer limits. Not exercised by any rehearsal:
 
 - a build that fails, and the second build pass that follows it;
 - the check that every source module is compiled, which a time-boxed build cannot pass;
 - the axiom check on the final theorem, which must load all 175,187 modules;
-- the stock tool's prefix pass on real prefix modules: none of the 114 was among those built (it has been run on a seven-module project and, by hand, on two real ones);
-- the kernel replay as the driver now runs it: `leanchecker` on every module with import-closure search paths, the hard links those need across two users, and the optional second replay after it. The third rehearsal used the stock tool for everything it had built, with the whole library on the search path; the fifth used it for a sample only;
+- the stock tool's prefix pass on real prefix modules, which the driver now uses only as a fallback, when hard links cannot be made: none of the 114 was among those built (it has been run on a seven-module project and, by hand, on two real ones);
+- the import-closure replay on anything but shallow modules. The sixth rehearsal ran it on 1,662 modules that import 9 others on average and 160 at most. Not exercised: a module that imports thousands of others (the cost of making its links, and of replaying it); a module that imports modules beneath itself, as 70 of the 114 prefix modules do, where the tool replays those in the same process and the record says so; and the statuses that go with that (a module not judged because one beneath it was rejected, a crash that cannot be pinned on one module);
+- the one change made to the replay script after the sixth rehearsal, fewer modules to a worker when a pass is short, which has been tested on a small project only;
 - the retry passes of the replay, and a replay that the trials find cannot cover the tree, which is then cut to an hour;
-- a real half-written file left by a killed compiler at the seal: the fourth rehearsal met one and stopped; the fifth removed a stand-in;
 - a run that reaches its deadline, and the watchdog;
 - an archive of compiled files larger than one part.
 

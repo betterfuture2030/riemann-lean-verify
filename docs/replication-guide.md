@@ -12,7 +12,7 @@ Nothing here needs an AI system. The scripts are short shell and Python and are 
 | 1 | The source is the recorded artifact; it contains none of the usual shortcuts; it states the real theorem against the real Mathlib | 5 to 15 minutes | About 2 GB | No |
 | 2 | The toolchain and Mathlib cache work; the final reduction step is kernel-checked on standard axioms; a sample of modules passes kernel replay | About an hour | About 10 GB | Yes |
 | 3 | The whole tree compiles, or does not | Days on a laptop; an estimated 16 hours on a 32-vCPU cloud machine | 200 GB to 1.5 TB | Yes |
-| 4 | The pre-registered verdict: axioms and statement of the compiled theorem, and a full kernel replay | Days more on a laptop; an estimated 15 hours more on that cloud machine | Same | Yes |
+| 4 | The pre-registered verdict: axioms and statement of the compiled theorem, and a full kernel replay | Days to weeks more on a laptop; an estimated 10 hours more on that cloud machine (a projection; [`cloud-notes.md`](cloud-notes.md), section 8.5) | Same | Yes |
 
 ## Level 0: read
 

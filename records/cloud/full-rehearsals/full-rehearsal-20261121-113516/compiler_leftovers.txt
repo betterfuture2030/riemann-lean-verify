@@ -1,0 +1,2 @@
+/mnt/work/extract/lean/.lake/build/lib/lean/Formalism/YangianSpanCharacter/YangianRTTProofs/SymplecticTransposeEntryZeroOne.olean.tmp.55059
+/mnt/work/extract/lean/.lake/build/lib/lean/RehearsalStandIn.olean.tmp.1

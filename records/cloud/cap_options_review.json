@@ -1,0 +1,1328 @@
+{
+ "what": "What could be done about the full run under a spending cap of 50 US dollars in total, 2026-11-21. The owner set the cap at 50 that day, with 9.03 recorded as spent and a sixth rehearsal running. The launcher refuses a full run unless the cap covers recorded spend plus the run's worst case (2.00 USD per hour for the 42-hour maximum run time, 84 USD), so the run as designed could not start. Nine AI agents, all read-only: four each analysed one way forward (A as designed, B a Spot machine made resumable, C the 128 GB machine, D the Mac alone), four each checked one analysis independently and adversarially, and one looked for what was missing and ranked the options; that last agent also proposed further ways (its E to H), which no other agent checked. None of them ran anything in the cloud, and none decided anything: the choice is the owner's. Figures are as the agents gave them; where an analysis and its check differ, the check and the last agent's reading of the files are the ones to go by. Whole-tree hours are projections throughout.",
+ "the_question_put_to_each_agent": "See 'option' in each analysis; the rules were: read only, no cloud commands, no build commands, blind to anyone else's results on this proof, every number traced to a file.",
+ "options": [
+  {
+   "key": "A-as-designed",
+   "analysis": {
+    "option": "A: the full run as designed and rehearsed, on demand, on n4d-highmem-32 (one 440 GB Hyperdisk Balanced data disk at 6,000 IOPS and 300 MiB/s, plus a 50 GB Hyperdisk Balanced boot disk; leanchecker replay with import-closure directories; no second replay; GCP_KEEP_OLEANS=0)",
+    "summary": "Option A does not fit a 50 USD total cap, in any case and on either price basis. The low case alone is 22.7 billed hours, which is 45.40 USD at the ledger's 2.00 rate (42.40 at the true list rate of 1.868 per hour). Add the 9.73 already spent or expected, and the final recorded spend is 55.13 in the low case, 60.93 expected and 76.73 high. Under a 50 cap with 9.73 spent, the most machine time affordable at 2.00 per hour is 20.1 hours (19.2 if the running rehearsal costs its 2.50 maximum). That is less than the low estimate, so no change to MAXRUN or to the rate constant can make a run that is able to finish fit under 50. For \"launch full\" to start exactly as written, the cap must be at least 9.73 + 84.00 = 93.73, or 95.53 if the rehearsal costs 2.50. The teardown can record up to 120 seconds past MAXRUN, so the recorded worst case is 84.07, not 84.00. Nothing is resumable: if the VM is deleted before the run finishes, the whole build is lost. A second attempt costs the whole amount again.",
+    "numbers": [
+     {
+      "name": "Recorded spend so far",
+      "value": "9.03 USD (rehearsals 0.57 and 0.00, pilot 5.82, five full rehearsals 0.20+0.63+0.68+0.48+0.65=2.64)",
+      "basis": "measured",
+      "source": "records/cloud/pilot/ledger.tsv (6.39) + records/cloud/full-rehearsals/README.md table (2.64); ledger rate 2.00/h x elapsed"
+     },
+     {
+      "name": "Rehearsal now running",
+      "value": "0.70 expected, 2.50 at most",
+      "basis": "projected",
+      "source": "task statement; last three rehearsals 0.48-0.68 (full-rehearsals/README.md)"
+     },
+     {
+      "name": "Spend before a full run",
+      "value": "9.73 USD expected, 11.53 at most",
+      "basis": "derived",
+      "source": "9.03 + 0.70 / 9.03 + 2.50"
+     },
+     {
+      "name": "n4d-highmem-32 machine list price",
+      "value": "1.77888 USD/h (32 x 0.02911 + 256 x 0.00331)",
+      "basis": "list price",
+      "source": "records/cloud/gcp_family_rates.json N4D|Core|OnDemand, N4D|Ram|OnDemand; docs/cloud-notes.md s.3 note"
+     },
+     {
+      "name": "Data disk list price (440 GB, 6,000 IOPS, 300 MiB/s)",
+      "value": "56.60 USD/month = 0.07753 USD/h (440x0.08 + 3,000x0.005 + 160x0.04)",
+      "basis": "list price",
+      "source": "create command pilot_local.sh line 125; rates in analysis/pilot_estimate.py disk_usd_per_hour (lines 244-246)"
+     },
+     {
+      "name": "Boot disk list price (50 GB Hyperdisk Balanced, defaults 3,300 IOPS and 215 MiB/s)",
+      "value": "8.50 USD/month = 0.01164 USD/h (4.00 capacity + 1.50 IOPS + 3.00 throughput)",
+      "basis": "list price",
+      "source": "pilot_local.sh line 162 (--boot-disk-size=50GB, no provisioning given); default formula 6x+3000 IOPS, 1.5x+140 MiB/s from Google's Hyperdisk Balanced docs page; the estimator assumed baseline only (4.00/month)"
+     },
+     {
+      "name": "True list rate, machine plus both disks as created",
+      "value": "1.86806 USD/h (the estimator's 1.8619 leaves out about 0.0062/h of boot-disk performance)",
+      "basis": "derived",
+      "source": "sum of the three lines above; replay_cost.json whole_run.usd_per_billed_hour 1.863"
+     },
+     {
+      "name": "Ledger and cap rate",
+      "value": "2.00 USD/h",
+      "basis": "list price",
+      "source": "pilot_local.sh line 41 RATE default; ledger.tsv usd_per_hour"
+     },
+     {
+      "name": "Billed hours, import-closure replay: low / expected / high",
+      "value": "22.7 / 25.6 / 33.5 (build 13.7/15.6/17.9 + replay 8.5/8.5/9.6 + other 0.5/1.5/6.0)",
+      "basis": "projected",
+      "source": "records/cloud/replay_cost.json whole_run.by_method_for_the_whole_tree['leanchecker, import closure on the search path']; docs/cloud-notes.md s.8.5 table"
+     },
+     {
+      "name": "Full-run cost at true list rate: low / expected / high",
+      "value": "42.40 / 47.82 / 62.58 USD",
+      "basis": "derived",
+      "source": "hours above x 1.86806; disks auto-delete with the VM, so the estimator's six hours of disk after the run (about +0.5) does not apply"
+     },
+     {
+      "name": "Full-run cost at ledger rate: low / expected / high",
+      "value": "45.40 / 51.20 / 67.00 USD (plus about 0.03-0.10 for the time from create to teardown)",
+      "basis": "derived",
+      "source": "hours above x 2.00"
+     },
+     {
+      "name": "Final recorded spend with rehearsal at 0.70: low / expected / high",
+      "value": "55.13 / 60.93 / 76.73 USD (add 1.80 to each if the rehearsal costs 2.50)",
+      "basis": "derived",
+      "source": "9.73 + ledger-rate costs"
+     },
+     {
+      "name": "Worst case the launcher checks",
+      "value": "84.00 USD = 2.00 x 151200 s / 3600",
+      "basis": "derived",
+      "source": "pilot_local.sh lines 124, 151-152"
+     },
+     {
+      "name": "Worst case the ledger can actually record",
+      "value": "84.07 USD = 2.00 x (151200+120) s / 3600",
+      "basis": "derived",
+      "source": "pilot_local.sh line 254: close_run caps seconds at MAXRUN+120, counted from NOW, which is taken before create"
+     },
+     {
+      "name": "Smallest cap for which 'launch full' starts",
+      "value": "93.73 USD (rehearsal at 0.70); 95.53 (rehearsal at 2.50); the test is spent + 84.00 > cap, so equality passes",
+      "basis": "derived",
+      "source": "pilot_local.sh line 152"
+     },
+     {
+      "name": "Recorded worst-case total if launched",
+      "value": "93.80 USD (rehearsal at 0.70) / 95.60 (at 2.50)",
+      "basis": "derived",
+      "source": "9.73 or 11.53 + 84.07"
+     },
+     {
+      "name": "True list worst case of one full run",
+      "value": "78.46 USD = 42 h x 1.86806",
+      "basis": "derived",
+      "source": "MAXRUN 151200 s; DELETE action with disks auto-delete=yes"
+     },
+     {
+      "name": "Most machine time a 50 USD cap can buy",
+      "value": "20.1 h at 2.00/h (19.2 h if the rehearsal costs 2.50); 21.5 h (20.6 h) at 1.87/h",
+      "basis": "derived",
+      "source": "(50 - 9.73)/2.00 etc.; compare the low case of 22.7 h"
+     },
+     {
+      "name": "Replay hours per extra second per check",
+      "value": "1.52 h per second (175,187 / 32 / 3600)",
+      "basis": "derived",
+      "source": "replay_cost.py hours(); TREE_MODULES, JOBS"
+     },
+     {
+      "name": "Hard-link cost assumed in the projection",
+      "value": "60 microseconds per link made and removed, 0.19 s per check at mean closure 3,086",
+      "basis": "projected",
+      "source": "analysis/replay_cost.py LINK_SECONDS line 125; replay_cost.json of_which_making_and_removing_links_assumed"
+     },
+     {
+      "name": "Hard-link cost measured on the Mac (making only, build running)",
+      "value": "about 0.4 s fixed + 0.5 ms per link (4.17 s for 7,753 links; 0.43 s for 1)",
+      "basis": "measured",
+      "source": "records/mac-build/closure-directory-checks.json by_hand.rows seconds_to_make_the_links"
+     },
+     {
+      "name": "Closure-directory leanchecker per check",
+      "value": "5.6 s projected; measured anchor: 4.36 s with 12,244 files on the search path (the closure-directory case has about 13,538 on average)",
+      "basis": "projected",
+      "source": "replay_cost.json whole_tree.leanchecker_with_only_the_import_closure_on_the_search_path; points[0]"
+     },
+     {
+      "name": "Guest deadline and Google deletion",
+      "value": "2460 min (41 h) guest deadline; 42 h deletion; final reserve 1500 s, watchdog wait 600 s, plus 1800 s more if a report has begun",
+      "basis": "list price",
+      "source": "pilot_local.sh line 124; full_guest.sh lines 87-94"
+     },
+     {
+      "name": "Hyperdisk Balanced use against the 500 GB regional quota",
+      "value": "490 GB (440 data + 50 boot)",
+      "basis": "derived",
+      "source": "pilot_local.sh lines 125, 162; docs/cloud-notes.md s.2"
+     }
+    ],
+    "cap_needed_usd": "93.73 for \"launch full\" to start as written, if the running rehearsal records 0.70; 95.53 if it records its 2.50 maximum. The cap I would defend is 96, which covers the 84.07 the ledger can actually record (MAXRUN plus 120 s) on top of 11.53, a total of 95.60.",
+    "expected_additional_spend_usd": "51.20 at the ledger rate (47.82 at the true list rate) for the full run, range 45.40 to 67.00 (list 42.40 to 62.58), plus 0.70 for the running rehearsal. The expected final recorded spend is about 60.9 USD (range 55.1 to 76.7, rising to about 83 if link-making costs as much per link as on the Mac).",
+    "hours_or_days_expected": "25.6 machine-hours expected (22.7 low, 33.5 high; about 36 if the link cost matches the Mac). That is one to one and a half days of elapsed time. The VM is limited to 42 hours by MAXRUN.",
+    "fits_50_cap": "no",
+    "changes_needed": [
+     "Nothing in code is needed to run option A. The owner would have to raise GCP_SPEND_CAP_USD in config.env to at least 93.73 (95.53 to cover a 2.50 rehearsal); 96 covers the recorded worst case of 95.60. No cap of 50 or below can work.",
+     "Optional, config only: set GCP_RATE_USD_PER_HOUR to 1.87, the true list rate of 1.868 rounded up. The worst case would fall from 84.00 to 78.54 (78.60 recorded with the 120 s), and the cap needed to 88.27 to 90.13. The ledger would then track the bill more closely, but it would keep no margin for tax, egress or bucket storage. None of this changes expected spend.",
+     "Optional, code: lower MAXRUN and DEADLINE_MIN (pilot_local.sh line 124; the comments in its header; cloud/gcp/README.md and docs/cloud-notes.md s.9 say 42 h). Keep the gap of at least 60 minutes between them, which the watchdog (600 s) and report wait (1,800 s) need. For example, 37 h / 2220 min gives a worst case of 74.00 and a cap of about 84. The code change needs a commit and a fresh 'stage', because launch refuses a dirty scripts/ or cloud/ and staged tools from another commit (lines 116-119). It cannot reach a MAXRUN of 20.1 h, which is what 50 would require.",
+     "If the owner wants the 50 cap kept, option A has to be refused rather than changed: a run cut to 20 h would end in the C3 short-cap path, with no criterion answered, and spend about 40 USD for nothing."
+    ],
+    "risks": [
+     "Nothing is resumable. The build lives only on the VM's disks, and both auto-delete with the VM (pilot_local.sh line 125; --instance-termination-action=DELETE). Compiled files are uploaded only when full-keep-oleans=1, and even then only after every check has run (full_guest.sh lines 897-917): never before the deadline, and the full mode sets it to 0. The guest never runs twice on one VM (lines 343), and no script fetches earlier results to resume. A failed or cut-off run therefore costs the whole amount again, and the Mac's build may not seed it. Two attempts at expected cost come to about 102 USD at the ledger rate.",
+     "What does survive a deletion is in the bucket: status.json, heartbeat and the small logs every minute (sync_small, line 139); modules.tsv, system.tsv and the C3 results.tsv every ten minutes (sync_big, lines 140-144, 348); the build logs and c1_modules after the build; the seal manifests; the C2 outputs as each run ends; facts.json at each checkpoint. That is an account of how far the run got, not anything a new VM can build on.",
+     "Near its own deadline (41 h) the guest's watchdog signals the main script and kills the build tool, xargs, timeout, tar and zstd, unless a report is under way. After 600 s, or up to 1,800 s more if a report has begun, it uploads logs, the last checkpoint's facts and a DEADLINE status, then idles until deletion (full_guest.sh lines 352-371). At most a few minutes of C3 results are lost. Google deleting the VM early is not expected: the VM is STANDARD, not Spot. If it did happen, the loss would be up to ten minutes of replay results plus the final report.",
+     "If the replay trials find that leanchecker cannot cover the tree in the time left, the main pass is cut to C3_SHORT_CAP (3600 s) and the run ends without answering C3 (lines 822, 835-840). A smaller MAXRUN makes this more likely, and so does the unmeasured link cost.",
+     "Never rehearsed, by any run: the full-mode limits (2460/151200), the deadline and watchdog path, a full-size seal, C2 on the final theorem, the C3 retry passes, and (until the rehearsal now running) leanchecker with import-closure directories and hard links across users after fs.protected_hardlinks=0 (full-rehearsals/README.md, closing list; docs/cloud-notes.md s.9).",
+     "The hard-link cost is assumed at 60 microseconds per link. On the Mac, making the links alone cost about 0.5 ms per link plus about 0.4 s per check. If anything like that holds on the cloud machine, the replay grows by about 2-3 h (1.52 h per added second per check), which is about 5-6 USD more and pushes the high case to about 36 h.",
+     "The import-closure replay time is a projection from a two-point fit. Its listing term sits near the measured point (4.36 s with 12,244 files), but its closure term for the deepest modules is extrapolated: 27 modules import more than 50,000 others, and no module above 17,860 imports was ever compiled or checked in the cloud (docs/cloud-notes.md s.8.4).",
+     "A build failure or a stop at the restart tests ends the run early and cheaply, but gives no verification and needs a whole new run.",
+     "The ledger is an estimate. Tax, egress for downloading results, bucket storage and, at the 2.00 rate, nothing else fall outside it; the bill is authoritative. Because NOW is taken before create and teardown can lag, the recorded worst case is 84.07, so a cap set to exactly spent + 84.00 can be overshot by 0.07."
+    ],
+    "unknowns": [
+     "The cost of making and removing the hard links on Linux XFS on Hyperdisk with 32 workers. The running rehearsal may give the first number on a shallow tree.",
+     "The leanchecker cost per check for modules with very large import closures, on the cloud machine.",
+     "Time and memory of C2, plain and deep, on the full tree (allowance 0.5 h expected, 2 h high).",
+     "The final cost of the rehearsal running now.",
+     "Whether N4D capacity is available in the configured zones when launching (the pilot found none in us-central1).",
+     "Tax and small charges (egress, bucket storage) on the real bill.",
+     "Whether the 50 GB boot disk is billed at the Hyperdisk Balanced default provisioning I read from Google's documentation (3,300 IOPS and 215 MiB/s, about 0.006 USD/h above baseline). I read the rates themselves from the repository's estimator, not from today's price page."
+    ],
+    "verdict": "Option A cannot run under a 50 USD total cap. Even its low case comes to 55.13 recorded (52.13 at the true list rate), and expected is 60.93. To fit 50, a run would have to finish in at most 20.1 billed hours, and the low estimate is 22.7. Shrinking MAXRUN or the rate constant only lowers the bound the launcher checks; it cannot make a run that finishes affordable at 50, and below about 34 h it mostly adds the chance of paying for a run that ends at its deadline with nothing usable. For \"launch full\" to start unchanged, the cap must be at least 93.73 (95.53 if the rehearsal costs its 2.50 maximum). I would defend 96, since the ledger can record 84.07 for the run. Expected final recorded spend is about 61 USD (55 to 77, about 83 if the link cost is Mac-like). Every failed attempt costs the whole amount again, because nothing carries over to a new VM."
+   },
+   "check": {
+    "upheld": "in part",
+    "corrections": [
+     {
+      "claim": "The rehearsal now running adds at most 2.50, so the cap for 'launch full' is 95.53 and the recorded worst case is 95.60 in that case",
+      "finding": "The 2.50 is what the launcher checks for a full-rehearsal: 2.00 x 4500 s / 3600 (pilot_local.sh lines 132, 151). But teardown closes the ledger row with seconds capped at MAXRUN+120, counted from NOW, which is taken before the create call (lines 156, 254). So the rehearsal can record up to 2.00 x 4620 / 3600 = 2.57. The agent applied that 120-second slack to the full run and not to the rehearsal.",
+      "corrected_value": "Spend before a full run: at most 9.03 + 2.57 = 11.60. Smallest cap for 'launch full' in that case: 11.60 + 84.00 = 95.60, not 95.53. Recorded worst-case total: 11.60 + 84.07 = 95.67, not 95.60. With the rehearsal at 0.70 the figures stay 93.73 and 93.80.",
+      "source": "cloud/gcp/pilot_local.sh lines 132, 151-152, 156, 254 (close_run cap argument MAXRUN+120)"
+     },
+     {
+      "claim": "The expected final recorded spend is about 60.9 (55.1 to 76.7) and the run takes 25.6 machine-hours",
+      "finding": "These figures hold only if the local 'watch' is running when the guest finishes. The guest never shuts itself down. After finish() it calls idle_until_deleted and stays RUNNING (full_guest.sh lines 151-154, 315-330). The only early deletion is 'watch' on the owner's Mac calling teardown (pilot_local.sh lines 212, 230). For a full run, interrupting watch only stops watching (line 190). The same holds if the Mac sleeps, loses its session or is restarted during the roughly 26 hours while it also runs its own multi-day build. In any of those cases the VM bills until Google deletes it at 42 h. The analysis does not count this.",
+      "corrected_value": "If watch is not running when the guest finishes at about 25.6 h, the VM runs 42 h: 84.07 recorded (78.46 at the list rate of 1.868/h), not 51.20. Final recorded spend would then be 93.80 (or 95.67 with a 2.57 rehearsal). The expected figure of 51.20 needs watch to stay up for the whole run.",
+      "source": "cloud/gcp/full_guest.sh lines 151-154, 315-330; cloud/gcp/pilot_local.sh lines 186, 190, 212, 230, 254"
+     },
+     {
+      "claim": "Optional: set GCP_RATE_USD_PER_HOUR to 1.87, 'the true list rate of 1.868 rounded up'; worst case 78.54 and cap 88.27 to 90.13",
+      "finding": "1.868 counts only the machine and the two disks. The create command gives no --no-address, so the VM gets an external IPv4 address, and docs/cloud-notes.md s.6 item 11 lists 'external address' among the small costs the model leaves out. I could not load Google's price page for that address, so its rate is not traced here. With any nonzero address charge, 1.87 sits at or below the true hourly cost. The ledger would then under-record, with no margin for tax or egress either. Also, 90.13 used the 2.50 rehearsal figure; with 2.57 it is 90.20.",
+      "corrected_value": "1.87 is not a safe ceiling: use at least 1.88 if the rate is lowered. Worst case 2.00 -> 1.88: 1.88 x 42 = 78.96 checked, 79.02 recorded. Cap 9.73 + 78.96 = 88.69, or 11.60 + 78.96 = 90.56 with a 2.57 rehearsal. Expected spend does not change.",
+      "source": "cloud/gcp/pilot_local.sh lines 160-167 (no --no-address); docs/cloud-notes.md s.6 table item 11"
+     },
+     {
+      "claim": "Recorded spend so far is 9.03 USD",
+      "finding": "This traces only to the repository copies: records/cloud/pilot/ledger.tsv holds 3 rows (0.00 + 0.57 + 5.82 = 6.39), and the full-rehearsals README table gives 0.20 + 0.63 + 0.68 + 0.48 + 0.65 = 2.64. The launcher reads a different file, $RH_AN/pilot_ledger.tsv (pilot_local.sh line 51), which I did not read. The value 9.03 also comes from the task. It is consistent, but not checked against the file the launcher uses.",
+      "corrected_value": "9.03, consistent with the repository records; not checked against the live ledger",
+      "source": "records/cloud/pilot/ledger.tsv; records/cloud/full-rehearsals/README.md table; pilot_local.sh line 51"
+     },
+     {
+      "claim": "Billed hours 22.7 / 25.6 / 33.5 and the list costs 42.40 / 47.82 / 62.58",
+      "finding": "The arithmetic is right. I checked it: 32 x 0.02911 + 256 x 0.00331 = 1.77888; data disk (35.2 + 15 + 6.4)/730 = 0.07753; boot disk 8.50/730 = 0.01164; total 1.86806. Google's Hyperdisk Balanced page gives the default IOPS as 6x+3000 and the default throughput as min(2400, 1.5x+140), which confirms 3,300 IOPS and 215 MiB/s for a 50 GB boot disk. But the low case's replay is the same 8.5 h as the expected case. It is only a projection: 'this way of running leanchecker has not been timed on the cloud machine' (replay_cost.json). The low case also has no slack. Three items fall outside every allowance: the three 300 s replay trials at 16, 24 and 32 jobs (the default CHECK_TRIAL '16 24 32', because full mode does not override it), which lose about 225 job-equivalent seconds; re-planning for each replay call; and about 47 s to read the import graph. Together they are about 0.1 h, which is small. The time from create to teardown also adds a little: boot, a watch poll of up to 45 s, and teardown copying the results before it deletes the VM (pilot_local.sh line 235).",
+      "corrected_value": "Keep 22.7 / 25.6 / 33.5. Add about 0.1-0.3 h of overhead, or 0.2-0.6 USD at 2.00, to each. The low case is not a floor on the replay.",
+      "source": "records/cloud/replay_cost.json whole_run; analysis/replay_cost.py lines 125-127, 164-170; analysis/pilot_estimate.py lines 238-252; full_guest.sh lines 85-86, 797-824; docs.cloud.google.com Hyperdisk Balanced page"
+     },
+     {
+      "claim": "Mac link cost: about 0.4 s fixed + 0.5 ms per link; replay +2-3 h if it holds on the cloud machine",
+      "finding": "Upheld: (4.17 - 0.43)/7752 = 0.48 ms per link, which is 1.49 s per check at closure 3,086 against the 0.19 s assumed, so +1.3 s x 1.52 h = +2.0 h. The analysis missed a second sign in the same Mac record. The closure-directory check took 11.0 s at closure 1 and 18.1 s at closure 7,753, against 21-31 s with the whole library. That is roughly 50-60 percent of the whole-library cost. On the cloud machine the fit predicts about 35 percent at that tree size. The Mac was busy with its build, so this is weak evidence, but it suggests the fixed and library-listing terms may be larger than the fit's 2.6 + 1.5 s. A check of about 7 s instead of 5.6 s would add about 2 h more. The 6,000 IOPS of the data disk might also throttle link creation and removal for 32 jobs (about 17,000 of each per second at 5.6 s per check). This is not measured anywhere.",
+      "corrected_value": "Replay plausibly 8.5 to about 12.5 h. The high case would then be up to about 38 h, or about 76 USD for the run at 2.00 (about 86 recorded in total), still inside the 42 h limit.",
+      "source": "records/mac-build/closure-directory-checks.json by_hand.rows; records/cloud/replay_cost.json fit_seconds_per_check"
+     }
+    ],
+    "missed": [
+     "The guest never shuts down. After any final state it idles until Google deletes it at MAXRUN (full_guest.sh lines 151-154, 329). Only the local 'watch' deletes it early. Watch is a foreground process on the Mac that must stay up for about 26 hours, and interrupting it in full mode only stops watching (pilot_local.sh line 190). Losing it turns an expected 51.20 into 84.07 recorded. This is the largest cost risk in option A, and the analysis does not mention it.",
+     "The recorded worst case of the running full-rehearsal is 2.57, not 2.50 (MAXRUN 4500 + 120 s at 2.00/h), so the 'at most' figures should be 11.60 / 95.60 / 95.67.",
+     "Three settings come from config.env, which I was not allowed to open: GCP_SECOND_REPLAY, GCP_KEEP_OLEANS and GCP_RATE_USD_PER_HOUR (pilot_local.sh lines 41, 46, 126). If GCP_SECOND_REPLAY=rhv-replay is set there, the run adds about 6 h, which is about 12 USD, and it goes against the owner's decision of no second replay. If GCP_KEEP_OLEANS=1 is set, the run ends with a tar and zstd of about 127 GB of compiled files, uploaded to gs://.../keep/. That costs extra machine time and also bucket storage that teardown never deletes (pilot_local.sh lines 256-258). A RATE other than 2.00 changes every cap figure. All three must be confirmed before launch.",
+     "The ephemeral external IPv4 address on the VM (no --no-address in the create command) is a cost left out of the 1.868/h list rate. docs/cloud-notes.md s.6 item 11 names it; I could not read its price from Google's page.",
+     "The low case has the same replay hours as expected (8.5), and it leaves out the 15 minutes of replay trials and the re-planning on each call. It is optimistic, not a floor.",
+     "The Mac record shows closure-directory checks at roughly 50-60 percent of whole-library cost, against about 35 percent from the fit. That is a second reason, beside the link cost, why the 5.6 s per check may be low. The 6,000-IOPS disk limit on link and unlink metadata is untested.",
+     "A VM restart (host error) ends the run: the guest sees its STARTED marker, reports FAIL and does nothing more (full_guest.sh line 343). Watch then tears it down. Nothing is resumable, and this is the same total loss as a deletion.",
+     "Teardown copies the results from the bucket before it deletes the VM (pilot_local.sh lines 235-239). That adds VM minutes on a full run, plus a little egress."
+    ],
+    "rule_conflicts": [
+     "None in the analysis itself. Its options keep leanchecker with import-closure directories, add no second replay, use no Mac build, make no quota request and do not edit PREREGISTRATION.md.",
+     "Raising GCP_SPEND_CAP_USD is the owner's decision. It goes against the 50 USD cap they have just set, so it can be offered only as a choice that reverses that cap.",
+     "The GCP_SECOND_REPLAY value in config.env is not visible to me. If it is set to rhv-replay, launching option A as configured would go against the owner's 'no second replay' decision. It must be confirmed empty.",
+     "Lowering MAXRUN or DEADLINE_MIN changes cloud/gcp/pilot_local.sh, which needs a commit and a fresh 'stage' (lines 116-119). The full-mode limits were never rehearsed in any case, so the change touches no rehearsed path, but it does change the code tied to the run's commit."
+    ],
+    "corrected_cap_needed_usd": "93.73 for 'launch full' to start as written, if the running rehearsal records 0.70 (9.73 + 84.00). 95.60 if it records the 2.57 that the ledger can actually record for it (11.60 + 84.00), not 95.53. The recorded worst case of the whole programme is 93.80 or 95.67, so a cap of 96 is still the smallest round figure that covers every case. No cap of 50 or below allows option A, under any MAXRUN or rate constant that leaves room for a run to finish: 50 - 9.73 = 40.27 buys 20.1 h at 2.00/h, against a low case of 22.7 h.",
+    "corrected_expected_additional_spend_usd": "Full run at the ledger rate, if watch tears down promptly: expected 51.20 + about 0.2-0.6 overhead, about 51.5 (range 45.6 to 67.6). At the list rate for machine and disks: 47.82 (42.40 to 62.58), plus a small charge for the external IP and tax. Add 0.70 for the running rehearsal. Expected final recorded spend: about 61.2 (about 55.3 to 77.3). If the link cost and per-check overhead are Mac-like: up to about 86. If watch is not running when the guest finishes: 84.07 for the run, 93.80 to 95.67 recorded in total.",
+    "corrected_fits_50_cap": "no",
+    "assessment": "The analysis is right on the main point. Option A does not fit a 50 USD total cap in any case: the low case alone records about 55. Its arithmetic checks out against the files. The rates in gcp_family_rates.json give 1.77888/h for the machine. The data disk and the 50 GB Hyperdisk Balanced boot disk add 0.07753/h and 0.01164/h, and Google's documented defaults of 3,300 IOPS and 215 MiB/s confirm the boot-disk figure. The hours 22.7 / 25.6 / 33.5 come from replay_cost.json. The launcher test is spent + 2.00 x 151200/3600 > cap, and teardown can record up to MAXRUN+120 s.\n\nIts statements about resumability also hold. The disks auto-delete with the VM. The compiled files are uploaded only after every check, and only if keep-oleans is set. The guest refuses to run twice. What reaches the bucket (small logs every minute, results every ten minutes, facts at checkpoints) is an account of the run, not something a new VM can build on.\n\nThree corrections matter:\n1. The running full-rehearsal can record 2.57, not 2.50, so the 'at most' figures become 11.60 / 95.60 / 95.67.\n2. Every expected figure assumes the local 'watch' process stays up for about 26 hours. The guest never shuts itself down, so without watch the VM runs to 42 h and records 84.07.\n3. The suggested 1.87/h rate constant is not a safe ceiling once the external IPv4 address is counted. If the rate is lowered, use at least 1.88.\n\nAlso: the replay cost is a projection that has never been timed on the cloud machine, and the Mac data on link cost and closure-directory overhead points to it being low by about 2-4 h. Three settings in config.env (second replay, keep-oleans, rate) could not be checked, and one of them could go against the owner's no-second-replay decision. Measured: the spend records, the per-check costs at 1,792 and 29,633 compiled modules, the Mac link timings, and the prices. Projected: every whole-tree hour figure. Unknown: link and unlink throughput on Hyperdisk at 32 jobs, leanchecker cost for the deepest modules, C2 on the full tree, the live ledger's exact total, and the config.env overrides."
+   }
+  },
+  {
+   "key": "B-spot",
+   "analysis": {
+    "option": "B: the same full run (n4d-highmem-32, 440 GB Hyperdisk Balanced, leanchecker with import-closure directories) on a Spot machine",
+    "summary": "Spot cuts the machine part of the price from 1.779 to 1.014 USD/h. Disks are not discounted. With the 440 GB data disk and 50 GB boot disk, the all-in rate is 1.097 USD/h against 1.862 on demand. On the replay_cost.json hours (22.7 / 25.6 / 33.5), a run with no preemption costs 24.89 / 28.07 / 36.74 USD.\n\nThe driver as written cannot survive a preemption. The create command uses --instance-termination-action=DELETE and the data disk is auto-delete=yes, so a preemption deletes the VM and the whole build tree. Nothing but logs, status and the gzipped results.tsv has reached the bucket (keep-oleans=0 for full). The watch loop then sees the VM GONE (or TERMINATED/STOPPED) and runs teardown, which deletes every disk. A preemption at hour t costs about 1.10 x t USD and the run starts again from zero.\n\nSwitching to STOP does not rescue the current guest. On reboot, full_guest.sh line 343 sees /var/pilot/STARTED and refuses to run (\"the run does not start twice\"). s_disk would also mkfs.xfs -f the data disk. The seal deletes $AN, and with it the replay results, by design (line 664). iptables, sysctl and the mount do not persist across a reboot. DEADLINE and elapsed_s are measured from each boot. With STOP, the run-time limit also stops rather than deletes, so disks keep billing until teardown.\n\nResuming the build (lake reuses finished modules) and the replay (results.tsv kept, plan only what is owed) is possible in principle. It needs a re-entry design and at least 3 new Spot rehearsals that include forced interruptions.\n\nUnder the launcher's worst-case rule at 42 h, a Spot run needs a cap of about 57.7 USD (9.03 + 2.50 + 1.10 x 42), not 50. Under a 50 USD total cap, the room after the rehearsal now running is 38.47 USD in the worst case. That is enough at the expected run cost (about 28 USD plus about 0.5 to 1.1 USD per resumed restart, plus about 1.5 USD of Spot rehearsals). It is not enough at the high case with restarts. It also fits the launcher only if MAXRUN is cut to about 34 to 35 h, which leaves about 1 to 1.5 h of slack above the 33.5 h high case.\n\nGoogle publishes no preemption rate for Spot VMs, for this family or any other. It says only that preemption is \"generally low\" and varies by day and zone.",
+    "numbers": [
+     {
+      "name": "N4D Spot vCPU rate",
+      "value": "0.01658 USD per vCPU-hour",
+      "basis": "list price",
+      "source": "records/cloud/gcp_family_rates.json key N4D|Core|Preemptible (us-central1, read 2026-11-20)"
+     },
+     {
+      "name": "N4D Spot memory rate",
+      "value": "0.001887 USD per GiB-hour",
+      "basis": "list price",
+      "source": "records/cloud/gcp_family_rates.json key N4D|Ram|Preemptible"
+     },
+     {
+      "name": "N4D on-demand rates",
+      "value": "0.02911 per vCPU-h, 0.00331 per GiB-h",
+      "basis": "list price",
+      "source": "gcp_family_rates.json N4D|Core|OnDemand, N4D|Ram|OnDemand; docs/cloud-notes.md section 3 note"
+     },
+     {
+      "name": "n4d-highmem-32 Spot, machine only",
+      "value": "1.0136 USD/h (32 x 0.01658 + 256 x 0.001887)",
+      "basis": "derived",
+      "source": "computed from gcp_family_rates.json; matches 1.0136 in docs/cloud-notes.md section 8.2 command line and 1.01 in section 3 table"
+     },
+     {
+      "name": "n4d-highmem-32 on demand, machine only",
+      "value": "1.7789 USD/h",
+      "basis": "derived",
+      "source": "docs/cloud-notes.md section 3 (1.78)"
+     },
+     {
+      "name": "Disks (440 GB Hyperdisk Balanced at 6,000 IOPS / 300 MiB/s plus 50 GB boot), not discounted on Spot",
+      "value": "0.0830 USD/h (about 1.99 USD per day, also while a VM is stopped)",
+      "basis": "derived",
+      "source": "Hyperdisk Balanced rates 0.000109589 /GiB-h, 0.000006849 /IOPS-h above 3,000, 0.000054795 /MiB/s-h above 140, records/cloud/gcp_pricing.json storage entry 'Hyperdisk Balanced'; disk sizes from cloud/gcp/pilot_local.sh lines 125 and 162"
+     },
+     {
+      "name": "All-in Spot rate",
+      "value": "1.0966 USD/h (on demand 1.8619; replay_cost.json uses 1.863)",
+      "basis": "derived",
+      "source": "sum of the two lines above; records/cloud/replay_cost.json whole_run.usd_per_billed_hour"
+     },
+     {
+      "name": "Current Spot price check against Google's page",
+      "value": "not obtained: cloud.google.com/spot-vms/pricing exceeded the fetch size limit on 2026-11-21; Google's Spot doc says Spot prices can change up to once every day",
+      "basis": "unknown",
+      "source": "WebFetch of docs.cloud.google.com/compute/docs/instances/spot (2026-11-21); records/cloud/README.md line 13"
+     },
+     {
+      "name": "Billed hours of a full run, low / expected / high",
+      "value": "22.7 / 25.6 / 33.5 h",
+      "basis": "projected",
+      "source": "records/cloud/replay_cost.json whole_run.by_method_for_the_whole_tree['leanchecker, import closure on the search path']; docs/cloud-notes.md section 8.5 table rows 4-6"
+     },
+     {
+      "name": "Spot run with no preemption, low / expected / high",
+      "value": "24.89 / 28.07 / 36.74 USD",
+      "basis": "derived",
+      "source": "1.0966 x 22.7 / 25.6 / 33.5"
+     },
+     {
+      "name": "Recorded spend",
+      "value": "9.03 USD (ledger 0.00 + 0.57 + 5.82 = 6.39, plus five full rehearsals 0.20 + 0.63 + 0.68 + 0.48 + 0.65 = 2.64)",
+      "basis": "measured",
+      "source": "records/cloud/pilot/ledger.tsv; records/cloud/full-rehearsals/README.md table"
+     },
+     {
+      "name": "Rehearsal now running, worst case",
+      "value": "at most 2.50 USD (last three rehearsals 0.48 to 0.68)",
+      "basis": "projected",
+      "source": "task statement; full-rehearsals/README.md"
+     },
+     {
+      "name": "Room under a 50 USD total cap after that rehearsal",
+      "value": "38.47 USD worst case (40.29 if it costs 0.68)",
+      "basis": "derived",
+      "source": "50 - 9.03 - 2.50"
+     },
+     {
+      "name": "Launcher worst case at 42 h, ledger rate 2.00",
+      "value": "84.00 USD; cap needed 95.53",
+      "basis": "derived",
+      "source": "cloud/gcp/pilot_local.sh lines 41, 124, 151-152 (WORST = RATE x MAXRUN, MAXRUN=151200)"
+     },
+     {
+      "name": "Launcher worst case at 42 h under Spot, GCP_RATE_USD_PER_HOUR=1.10",
+      "value": "46.20 USD; cap needed 57.73 (59.2 including about 1.5 USD of Spot rehearsals)",
+      "basis": "derived",
+      "source": "pilot_local.sh line 151 with RATE 1.10 (1.0966 rounded up by only 0.3 percent)"
+     },
+     {
+      "name": "Same with a safer Spot ledger rate of 1.25",
+      "value": "52.50 USD worst case; cap needed 64.03",
+      "basis": "derived",
+      "source": "pilot_local.sh line 151"
+     },
+     {
+      "name": "Longest MAXRUN that fits 38.47 USD",
+      "value": "34.97 h at RATE 1.10; 30.78 h at 1.25; 25.65 h at 1.50",
+      "basis": "derived",
+      "source": "38.47 / RATE"
+     },
+     {
+      "name": "Cost of a preemption with the driver as written",
+      "value": "all machine time so far, about 1.10 USD per hour elapsed, and the run starts from zero (for example about 22 USD lost at hour 20)",
+      "basis": "derived",
+      "source": "pilot_local.sh line 125 (auto-delete=yes), 161 (--instance-termination-action=DELETE), 213-214 and 230 (watch then teardown), 239-242 (teardown deletes all disks); full_guest.sh line 126 (full-keep-oleans default 0)"
+     },
+     {
+      "name": "Cost of a preemption with a resumable driver",
+      "value": "about 0.3 to 1 h of machine time each (remount and re-checks, in-flight compiles of up to 409 s lost, a C2 run or seal redone), plus 0.083 USD/h of disk while waiting for capacity",
+      "basis": "projected",
+      "source": "restart of lake 4 to 9 s with 30,000 built and longest compile 409 s (docs/cloud-notes.md section 8.1); the re-hashing time after a seal is unmeasured at full scale"
+     },
+     {
+      "name": "Expected total with 1 to 2 resumed restarts",
+      "value": "about 28.6 to 30.3 USD for the run, plus about 1.1 to 2.5 USD for 3 to 5 Spot rehearsals (about 0.36 each at 1.10 USD/h for a 20-minute rehearsal)",
+      "basis": "projected",
+      "source": "derived from the lines above; rehearsal length 1,175 to 1,216 s from full-rehearsals/README.md"
+     },
+     {
+      "name": "High case with 2 restarts",
+      "value": "about 38 to 40 USD, which exceeds the 38.47 USD room once rehearsals are added",
+      "basis": "projected",
+      "source": "1.0966 x (33.5 + 2 x 1 to 1.5)"
+     },
+     {
+      "name": "Google's published Spot preemption rate",
+      "value": "none published; 'The probability that Compute Engine preempts Spot VMs is generally low' and it varies by day and zone; no per-family figure",
+      "basis": "unknown",
+      "source": "docs.cloud.google.com/compute/docs/instances/spot and /preemptible (read 2026-11-21); the preemptible page also gives no percentage"
+     },
+     {
+      "name": "Preemption notice",
+      "value": "Spot page: notice duration configurable, default 0 s, 120 s recommended; legacy preemptible page: ACPI G2 soft off, best effort up to 30 s",
+      "basis": "list price",
+      "source": "docs.cloud.google.com/compute/docs/instances/spot; /instances/preemptible (2026-11-21)"
+     },
+     {
+      "name": "Run-time limit on restart",
+      "value": "max-run-duration resets to the full duration on each restart; termination-time is absolute; only one of the two may be set; default termination action for Spot is STOP",
+      "basis": "list price",
+      "source": "docs.cloud.google.com/compute/docs/instances/limit-vm-runtime (2026-11-21); docs/cloud-notes.md section 7"
+     },
+     {
+      "name": "Quota used by Spot",
+      "value": "standard quota (CPUs all regions 32; N4D family; Hyperdisk Balanced 500 GB default, 2,200 GB approved in one region) as long as no preemptible quota has ever been requested; requesting preemptible quota is one-way",
+      "basis": "list price",
+      "source": "docs.cloud.google.com/compute/docs/instances/spot (2026-11-21); records/cloud/gcp_pricing.json quota finding 4; docs/cloud-notes.md section 2"
+     },
+     {
+      "name": "Guest deadline and VM limit as configured",
+      "value": "guest stops at 2,460 min after boot; VM deleted at 151,200 s (42 h)",
+      "basis": "measured",
+      "source": "cloud/gcp/pilot_local.sh line 124; full_guest.sh line 97 (DEADLINE = T0 + DEADLINE_MIN x 60, T0 = this boot)"
+     }
+    ],
+    "cap_needed_usd": "About 57.7 USD in total (9.03 recorded + 2.50 current rehearsal + 1.10 x 42 h), or about 59.2 counting about 1.5 USD of Spot rehearsals. At a ledger rate of 1.25 it is about 64. Keeping the 2.00 ledger rate would need 95.53. To fit a 50 USD total cap under the launcher's rule, MAXRUN must drop to about 34 to 35 h at a rate of 1.10, which leaves only about 1 to 1.5 h above the 33.5 h high case.",
+    "expected_additional_spend_usd": "About 29 to 33 USD expected: the run 28.07 with no preemption, plus about 0.5 to 1.1 per resumed restart, plus about 1.1 to 2.5 for 3 to 5 Spot rehearsals. Low about 26. High about 40 to 42 (33.5 h plus two restarts plus rehearsals). With the driver as written, any preemption late in the run roughly doubles the run's cost.",
+    "hours_or_days_expected": "About 26 h of machine time (22.7 to 33.5 h projected), plus 0.3 to 1 h per preemption and any wait for Spot capacity in the same zone, so 1 to 2 days of elapsed time. Before that: developing the resume changes (probably a day or more of work and review) and 3 to 5 Spot rehearsals of about 20 to 30 minutes each.",
+    "fits_50_cap": "only with changes",
+    "changes_needed": [
+     "pilot_local.sh create: --provisioning-model=SPOT, and set GCP_RATE_USD_PER_HOUR to a Spot rate (at least 1.10; 1.0966 is the computed all-in rate and can change daily).",
+     "Choose one of two survival models. (a) --instance-termination-action=STOP, with the data disk left as it is: the VM and both disks survive a preemption, but the run-time limit then also stops instead of deleting, so disks bill about 2 USD/day until teardown. (b) Keep DELETE, but create the data disk separately with auto-delete=no and attach it with --disk name=... instead of --create-disk: a preemption deletes only the VM and boot disk, and the controller re-creates the VM in the same zone with the existing data disk. Either way the safety rule 'Google deletes everything at the limit' (pilot_local.sh header point 2) no longer holds for the disks.",
+     "Replace --max-run-duration with an absolute --termination-time set once at first launch (the duration resets on every restart; Google's limit-vm-runtime page). Re-create or restart only while that time is in the future.",
+     "Who restarts: the local watch loop (lines 194-228) must stop treating TERMINATED/STOPPED/GONE as the end. It should check whether the VM was preempted, then restart it with 'instances start' (model a) or re-create it (model b), retrying while there is no capacity, and tear down only on a final guest state or at the absolute deadline. A restart is only possible in the disk's zone. If the Mac is asleep or offline, nothing restarts the VM, and the disks keep billing. A Google-side restarter (for example a managed instance group with a stateful disk) would be a larger change and needs its own review.",
+     "Guest re-entry, line 343: replace 'never run twice' with a resume path keyed on markers on the data disk (model b) or boot disk (model a). Skip mkfs (line 382) when the filesystem holds a run with the same runtag, tarball SHA and guest SHA. Re-mount. Re-apply sysctl (max_map_count, file-max, nr_open, protected_hardlinks=0) and every iptables rule (pilot metadata block and lockdown, chk2/chk3 no_network) BEFORE any unprivileged process can run, and verify them as setup does. Check that no pilot/chk2/chk3 process exists. Re-verify toolchain, pkgs and source manifests against the stored baselines (setup steps are not redone; the stored baseline_*.txt are the reference).",
+     "Build resume: if interrupted in the build phase, restart lake (it reuses finished modules; lake restart measured at 4 to 9 s). Carry TESTS_DONE and the restart-test results across boots. Decide whether an unplanned restart's recompile count is recorded like the planned tests. Leave the .olean.tmp leftovers to the seal, as now. Add a check that compiled files written just before a hard power-off are not truncated, for example compare each .olean with its Lake .hash, or fsync/sync regularly.",
+     "Seal resume: if interrupted before SEALED was written, redo the whole seal. After SEALED, do NOT redo the rm -rf of $LOGS/$AN (line 664), which would erase the replay results. Instead re-hash the compiled files against lib_sha256.txt and the /opt/lean-tc copy against baseline_tc.txt, fail on any difference, re-check ownership and permissions, then continue. This keeps the anti-planting property only if nothing but root and the checkers touched the disk between boots, which must be argued and reviewed.",
+     "C2: re-run whichever axiom-check run was cut off (its outputs are taken only if newer than the c2_start marker). Persist C2_DEEP_WHEN and the results already obtained.",
+     "C3: persist the trial rate (C3_RATE, CHECK_JOBS, C3_FITS) and skip the trials on resume. Clear the stale run.lock that 09_kernel_replay.sh leaves after a kill ('a second run ... stops with an error'). Resume with the planner, which already keeps every result and plans only what is owed. Recompute C3_FITS from the absolute deadline.",
+     "Deadlines and accounting: pass an absolute deadline epoch in metadata in place of pilot-deadline-min. Keep run-start T0 from metadata. Record boot count, each boot's start and end, and the seconds lost per preemption in facts.json, phases.tsv and status.json. elapsed_s is currently per boot.",
+     "Signals: on the preemption shutdown, the TERM trap runs finish FAIL 'unexpected signal' (line 336), which uploads a final FAIL status, and watch would then tear down. Check the metadata 'preempted' flag and upload a PREEMPTED (non-final) status instead. Optionally set a 120 s preemption notice.",
+     "Ledger and cap: model a keeps one ledger row across restarts; its elapsed time includes stopped periods (conservative). Model b would need one row spanning re-creations, or the open-run check (line 107) blocks relaunch. Either way the cap check must use the Spot rate, the absolute termination time and a disk-only allowance after the VM is gone. Teardown must still positively verify that no disk is left.",
+     "Rehearsals before trusting it: at least 3 on Spot, about 0.35 to 0.5 USD each. (1) A clean run with the new flags and re-entry code. (2) An interruption forced during the build, resumed, showing no recompiled finished module and a clean seal. (3) An interruption forced during the C3 replay, resumed, showing results kept, no module counted twice and a correct summary. Preferably 2 more: interruptions during the seal and during C2 or the report, and the 'no capacity on restart' path. A user-forced stop is only a proxy for a real preemption: whether Google lets a user trigger a true Spot preemption was not checked."
+    ],
+    "risks": [
+     "No published preemption rate. Over about 26 h on one Spot VM, the number of preemptions cannot be estimated from Google's own guidance. Several preemptions would erase the saving and, under a 50 USD cap, stop the run.",
+     "Capacity: on 2026-11-20 none of the four us-central1 zones had n4d-highmem-32 (docs/cloud-notes.md section 8). After a preemption, the VM can only be restarted in the data disk's zone. A long wait costs about 2 USD/day of disk, and nothing restarts it while the Mac is offline.",
+     "With STOP, the run-time limit also stops instead of deleting, and a stopped VM is apparently not acted on at its termination time (Google's page says a restart fails if the time has passed). Disks then bill until a person runs teardown, which breaks the current design's guarantee.",
+     "Spot prices can change up to once a day. A ledger rate of 1.10 has only 0.3 percent headroom over the computed 1.0966.",
+     "The pilot ran in us-east1-b; all rates in the records are us-central1.",
+     "A hard power-off after a 0 to 30 s notice may leave partly written or zero-length compiled files on XFS. Whether Lake would then treat such a module as finished is unknown. The kernel replay would probably record a failure or 'could not open', which would need diagnosis.",
+     "Resuming after the seal weakens the separation argument: it must be shown that nothing outside root and the checkers can touch the disk between boots, and that re-hashing is a sufficient re-seal. This needs fresh review on top of the five reviews already done.",
+     "The re-entry code is a substantial change to a driver whose current form (import-closure replay) has itself not yet been rehearsed. Each review-and-rehearse cycle costs time and some of the remaining 38 to 40 USD.",
+     "If the expected case slips toward the high case (33.5 h), the 34 to 35 h MAXRUN that fits the cap leaves no room for a restart. The guest would then cut the replay short (C3_FITS false, one-hour short pass), and the run would not settle criterion C3."
+    ],
+    "unknowns": [
+     "Google's Spot preemption probability for N4D in the chosen zones over about 26 h: not published.",
+     "Today's N4D Spot rates. Google's Spot price page was too large to fetch, so the records' 2026-11-20 us-central1 rates are unconfirmed for today and for us-east1.",
+     "Whether a STOPPED Spot VM is deleted, or ignored, when its termination-time passes. Read from Google's page as not acted on, but not stated directly.",
+     "Whether a true Spot preemption can be triggered for a rehearsal, as opposed to a user stop.",
+     "Time to re-hash about 127 GB of compiled files after a reboot with a cold page cache: about 7 minutes if disk-bound at 300 MiB/s (projection only).",
+     "Whether Lake detects a truncated output after a hard power-off.",
+     "Full-scale durations of the seal, the C2 deep walk and the import-closure replay on a rented machine; none has been run on the full tree.",
+     "The cost of the rehearsal now running (at most 2.50 USD)."
+    ],
+    "verdict": "Spot cannot simply be switched on. With the driver as written, a preemption loses everything: the VM is deleted, its data disk goes with it, and watch then runs teardown, which deletes every disk. Getting through a preemption needs new code: re-entry into the guest script, a restart step in watch, an absolute termination time, and a rule for the seal that does not erase replay results on resume. That needs review and at least 3 Spot rehearsals that include forced interruptions.\n\nOnce those changes exist, the expected cost is about 28 USD for the run plus about 0.5 to 1.1 USD per restart and about 1.5 USD of rehearsals. That fits the roughly 38.5 USD left under a 50 USD total cap. The high case with two restarts (about 38 to 40 USD plus rehearsals) does not fit.\n\nThe launcher's worst-case rule also does not fit at 42 h. It needs a cap of about 57.7 USD at a ledger rate of 1.10, or MAXRUN cut to about 35 h, which leaves almost no slack above the 33.5 h high case. So a full Spot run fits 50 USD only with changes, and only if the run lands near the expected case with at most one or two cheap restarts. One or two restarts fit only in the expected case, not in the high case."
+   },
+   "check": {
+    "upheld": "in part",
+    "corrections": [
+     {
+      "claim": "Longest MAXRUN that fits 38.47 USD is 34.97 h at RATE 1.10, leaving about 1 to 1.5 h of slack above the 33.5 h high case",
+      "finding": "This leaves out two things. (1) The analysis itself requires 3 to 5 Spot rehearsals, and those come out of the same 38.47 USD before the full run is launched. (2) The guest's deadline sits an hour inside MAXRUN: the guest stops at 2,460 min against 2,520 min. The guest also holds back FINAL_RESERVE, 1,500 s by default, when it decides whether the replay fits (C3_FITS, line 822). After about 1.5 USD of rehearsals the room is 36.97 USD, so MAXRUN is 33.6 h and the guest's deadline about 32.6 h. That is below the 33.5 h high case, not 1 to 1.5 h above it. Even with no rehearsals, 34.97 h gives a guest deadline of 33.97 h, which is about 0.5 h above the high case, not 1 to 1.5 h.",
+      "corrected_value": "MAXRUN = (38.47 - rehearsals) / 1.10: 33.6 h with 1.5 USD of rehearsals, 32.7 h with 2.5 USD. The guest's deadline is 1 h less than that, and the replay-fit test keeps back a further 25 min. In the high case nothing is left for a restart, and the high case itself may not fit.",
+      "source": "cloud/gcp/pilot_local.sh lines 124 and 151-152; cloud/gcp/full_guest.sh lines 87, 97 and 822; records/cloud/replay_cost.json whole_run, import-closure high case 33.5 h"
+     },
+     {
+      "claim": "Model (b), keeping DELETE with the data disk set to auto-delete=no: guest re-entry re-verifies against the stored baseline_*.txt, and setup steps are not redone",
+      "finding": "Under model (b) the boot disk is deleted at each preemption, and with it everything the guest keeps there. That includes /var/pilot ($PD): baseline_src.txt, baseline_tc.txt, baseline_pkgs.txt, STARTED, SEALED, lib_sha256.txt after the seal, the c2 results and the copied build logs. It also includes the elan toolchain under the build user's home directory (.elan), /opt/rhv (the tools), /opt/lean-tc, the pilot, chk2 and chk3 users, cron.deny and limits.d. baseline_src.txt is never uploaded at all. baseline_tc and baseline_pkgs go to the bucket only at the seal (line 735). So a re-created VM has to redo setup, including downloading the toolchain again from the network, and the records taken before the first compile would be gone unless $PD is moved to a root-only directory on the data disk. Ownership of the files on the data disk also depends on the re-created users getting the same UIDs.",
+      "corrected_value": "Model (b) needs a re-setup path, and $PD has to be moved onto the data disk in a root-only directory. Without both, the seal's comparisons cannot be made after a preemption during the build. Model (a), STOP, keeps the boot disk, and the claim holds only for model (a).",
+      "source": "cloud/gcp/full_guest.sh lines 65, 98, 377, 391-398, 408, 413, 420-422, 663 and 735; cloud/gcp/pilot_local.sh line 162 (boot disk created with the VM)"
+     },
+     {
+      "claim": "C3 resume must clear the stale run.lock that 09_kernel_replay.sh leaves after a kill ('a second run ... stops with an error')",
+      "finding": "This is not upheld. The script takes over a lock whose process is gone, or is no longer this script (lines 154-173). It stops with an error only if a live 09_kernel_replay process holds the lock.",
+      "corrected_value": "No lock clearing is needed. A guard directory, run.lock.takeover, left by a start killed at that exact moment is removed after a minute.",
+      "source": "scripts/09_kernel_replay.sh lines 154-178"
+     },
+     {
+      "claim": "On preemption the TERM trap runs finish FAIL 'unexpected signal', which uploads a final FAIL status",
+      "finding": "The trap is there (line 336), but finish() calls report() before it uploads the status. report() runs c3_summary under timeout 900, put_logs and several uploads, retried up to 3 times, and only then calls status (lines 325-327). Google's preemption shutdown is best effort and at most 30 s. The FAIL status will most likely never be uploaded. watch would then end on GONE (DELETE) or on TERMINATED/STOPPED (STOP), not on FAIL. The outcome is the same either way: teardown.",
+      "corrected_value": "The final status after a preemption is probably not uploaded. watch tears down on the VM state, not on a guest FAIL.",
+      "source": "cloud/gcp/full_guest.sh lines 306-330 and 336; docs.cloud.google.com/compute/docs/instances/spot ('best effort and up to 30 seconds', read 2026-11-21)"
+     },
+     {
+      "claim": "With the driver as written, any preemption late in the run roughly doubles the run's cost",
+      "finding": "Under a 50 USD total cap a second attempt is usually impossible, so a preemption does not double the cost: it ends the attempt. Relaunching with MAXRUN M at 1.10 USD/h needs 1.10 x M <= 38.47 - 1.10 x t, where t is the hours lost. With M = 33.5 h that means t <= 1.5 h. With M = 27 h it means t <= 8 h. At the 42 h MAXRUN no relaunch fits at all.",
+      "corrected_value": "As written, one preemption after the first hour or two ends the full run under the 50 USD cap. About 1.10 USD per hour elapsed is lost, and nothing can be relaunched.",
+      "source": "cloud/gcp/pilot_local.sh lines 107, 151-152 and 213-214"
+     },
+     {
+      "claim": "Whether a true Spot preemption can be triggered for a rehearsal was not checked (listed as unknown)",
+      "finding": "Google's Spot page now answers this. It says a preemption can be simulated by stopping or deleting the VM. It does not describe any way to trigger a real preemption.",
+      "corrected_value": "A rehearsal can only use a user stop or delete as a proxy. A real ACPI soft-off preemption notice cannot be rehearsed on demand, by Google's documentation.",
+      "source": "docs.cloud.google.com/compute/docs/instances/spot (read 2026-11-21)"
+     }
+    ],
+    "missed": [
+     "The present driver, with import-closure leanchecker and fs.protected_hardlinks=0, has never been rehearsed: records/cloud/full-rehearsals/README.md says so, and docs/cloud-notes.md section 9 says so. The 8.5 h replay is a projection (replay_cost.json, whole_tree note). Spot adds re-entry code on top of a driver that is itself unrehearsed, so every rehearsal has to test both.",
+     "The rehearsals with forced interruptions will run longer than the five past ones (872 to 1,216 s). They include a stop, a restart and a resume, so about 30 to 40 min each, or about 0.55 to 0.75 USD at 1.10 USD/h, not 0.36. Three to five of them come to about 1.2 to 3.0 USD, all from the same 38.47 USD.",
+     "Legacy preemptible VMs are always stopped after 24 hours (Google's preemptible page). A run of about 26 h must use --provisioning-model=SPOT, not --preemptible. The analysis names SPOT but does not say why it matters.",
+     "Spot VMs cannot live-migrate (Google's Spot page). A host maintenance event therefore adds to the interruption risk on top of capacity preemptions. Whether such events terminate N4D Spot VMs was not confirmed here.",
+     "If the Spot VM is restarted later, the wait is wall-clock time against an absolute termination time. Under model (a) a long wait for capacity uses up the run's own time budget, as well as costing about 2 USD/day for the disks. It can push the replay into C3_FITS=0 (a one-hour short pass), and C3 would then not be settled.",
+     "The ledger prices machine time at 2.00 USD/h against a true list rate of about 1.862, so the recorded 9.03 USD overstates list spend by about 7 percent (about 8.4 at 1.862). Nothing in the files says whether the owner's 50 USD cap counts the ledger or the bill. The difference, about 0.6 USD, matters only at the margin.",
+     "No resumable design has been written or reviewed. Five rounds of review cover the current driver (docs/cloud-notes.md section 9), and the anti-planting argument at the seal would need a fresh review for any resume after the seal. That cost in time, and in further rehearsals, is not priced."
+    ],
+    "rule_conflicts": [
+     "No conflict with the owner's decisions as stated: Spot keeps leanchecker with import-closure directories, needs no second replay, no Mac seed, no quota request (Spot uses standard quota while preemptible quota has never been requested) and no edit to PREREGISTRATION.md.",
+     "Asking for preemptible quota would be a quota request and is one-way (records/cloud/gcp_pricing.json quota finding 4). The plan must not do it, and the analysis correctly does not.",
+     "Model (a) (termination action STOP) removes the safety guarantee in the pilot_local.sh header, point 2, that Google deletes everything at the time limit. The run-time limit would then only stop the VM, and the disks would keep billing until a person runs teardown. That is a change to the agreed cost-bounding design, and it needs the owner's explicit agreement."
+    ],
+    "corrected_cap_needed_usd": "Under the launcher's rule at MAXRUN 42 h and a Spot ledger rate of 1.10: 9.03 + 2.50 + 46.20 = 57.73 USD. Adding about 1.2 to 3.0 USD of Spot rehearsals gives about 59 to 61 USD. At a rate of 1.25 it is 64.03 plus rehearsals, and at 2.00 it is 95.53. Under model (a) the launcher's rule no longer bounds the total, because disks bill without limit while the VM is stopped (about 1.99 USD/day). To stay inside 50 USD in total, MAXRUN must be about 32.7 to 33.6 h. The guest's deadline is then about 31.7 to 32.6 h, below the 33.5 h high case.",
+    "corrected_expected_additional_spend_usd": "This assumes a resumable driver has been built. The run is 24.89 / 28.07 / 36.74 USD (low / expected / high) with no preemption: 1.0966 USD/h times 22.7 / 25.6 / 33.5 h. That rate is upheld from gcp_family_rates.json and gcp_pricing.json. Add about 0.33 to 1.10 USD per resumed restart plus disk time while waiting, and about 1.2 to 3.0 USD of rehearsals. Expected total is about 30 to 33 USD. High is about 40 to 43 USD, which exceeds the 38.47 room. With the driver as written, one preemption after the first hour or two loses about 1.10 USD per hour elapsed, and no relaunch fits the cap.",
+    "corrected_fits_50_cap": "only with changes",
+    "assessment": "I upheld most of the other agent's analysis. Most of its numbers check out against the files they cite:\n- **Rates:** Spot 0.01658 per vCPU-h and 0.001887 per GiB-h for the machine (1.0136 USD/h), and 0.0830 USD/h for the disks. The all-in rate is 1.0966 Spot against 1.862 on demand.\n- **Hours and spend:** replay_cost.json gives 22.7 / 25.6 / 33.5 billed hours. Recorded spend is 9.03 (ledger 6.39 plus rehearsals 2.64). The launcher's worst case is RATE x MAXRUN (line 151).\n- **Preemption with the driver as written:** the create command sets DELETE and auto-delete=yes (lines 125 and 161), watch ends on GONE or TERMINATED (lines 213-214) and runs teardown. On a reboot the guest refuses to run again (line 343), and the seal's rm -rf of $AN (line 664) would erase the replay results.\n- **Google's documentation:** on 2026-11-21 it gives no preemption rate (\"generally low\"), Spot uses standard quota while preemptible quota has never been requested, Spot prices can change once a day, and the shutdown is best effort up to 30 s.\n\nWhat I did not uphold, or found missing:\n1. **The fit to the cap is too optimistic.** The MAXRUN that fits 50 USD ignores the Spot rehearsals the analysis itself requires, and the guest's deadline is an hour inside MAXRUN. With rehearsals included the guest's deadline comes out below the 33.5 h high case, not 1 to 1.5 h above it.\n2. **Model (b) loses the boot disk.** That disk holds /var/pilot with the records taken before the first compile, the toolchain, the tools and the users. So setup would have to be redone, and the seal's comparisons would be impossible unless $PD moves to the data disk.\n3. **The stale-lock fix is not needed.** 09_kernel_replay.sh already takes over a lock whose process is gone.\n4. **The FAIL status probably never gets uploaded on preemption.** report() runs before status() and cannot finish in 30 s.\n5. **A preemption does not double the cost, it ends the attempt.** Under a 50 USD cap a preemption with the driver as written leaves no room to relaunch.\n6. **A real preemption cannot be rehearsed.** Google says to simulate one by stopping or deleting the VM.\n\nBottom line: Spot fits 50 USD only after new, reviewed resume code and several rehearsals. Even then it fits only near the expected case, with MAXRUN around 33 h, and the high case does not fit."
+   }
+  },
+  {
+   "key": "C-128GB",
+   "analysis": {
+    "option": "C: n4d-standard-32 (32 vCPU, 128 GB) in place of n4d-highmem-32 (256 GB), on demand or Spot, same 440 GB Hyperdisk Balanced data disk (6,000 IOPS, 300 MiB/s) and 50 GB boot disk",
+    "summary": "The memory need is set by file pages shared between processes, not by private memory. Private memory is small. In the pilot, compiler processes used a median of 504 MiB (fit: 508 MiB + 13 KiB per imported module, so about 2.7 GiB for the last module), and the whole machine never used more than 21.7 GiB of private memory. Checker processes used a median of 232 MiB (my fit: 225 MB + 0.010 MB per imported module). Each process also maps and touches compiled files: 6.4 GiB of libraries plus about 0.55 to 0.57 MiB per imported project module. The checker's own fit is 6,539 MB + 0.539 MB per import, almost the same as the compiler's. Projected to the whole tree, the touched set is about 98 GiB of project files plus 6.4 GiB of libraries, about 104 GiB. That is less than the 127 GB of compiled output on disk, because .ilean and other files are not touched. A 128 GB guest should see about 125 GiB (the pilot saw 251 of 256). After the OS and 11 to 35 GiB of private memory, about 90 to 113 GiB is left for page cache. So the whole touched set fits with a margin of a few GiB to a little over 10 GiB, or falls short by a similar amount. The pilot cannot tell which: it read only 2 MB from disk in 2 h 55 min, so there is no measurement of behaviour under memory pressure.\n\nThe import-closure replay does not change this picture. The hard links are the same inodes, so they share the same page cache. Each checker maps its closure, which it would map anyway. The only addition is 32 Python closure-worker processes, each holding the import graph, which I guess at about 0.1 to 0.2 GiB each (not measured).\n\nUsing the import graph, I estimated how much a short cache would hurt the random-order replay. A random 3,000-module window, about 9 minutes of replay, touches about 71 to 76 GiB. The coldest 30 percent of modules carry only 0.8 percent of import traffic. So even a cache 10 to 30 percent short of the tree would add only about 5 to 16 MB of disk reads per check, roughly 30 to 90 MB/s at 5.7 checks per second. The 300 MiB/s disk can serve that if page faults read about 128 KiB at a time. If they read 4 KiB at a time, 6,000 IOPS gives only about 23 MiB/s. The replay therefore looks robust.\n\nThe build is most exposed at the narrow top of the graph: 27 modules import more than 50,000 others and 13 more than 100,000, and each of those touches up to about 104 GiB. These run a few at a time, so private memory is low then and the set should just fit. There are also fixed extra reads: the seal and the end check hash 127 GB that is no longer in cache, about 6.7 minutes each, and the replay's cache warm-up takes about 6 minutes. The C2 deep walk, whose memory is unknown, would have only 15 to 20 GiB of headroom instead of about 150.\n\nRunning out of memory is unlikely. Private memory is far below RAM, and file pages can be reclaimed, so pressure shows up as slowdown from repeated disk reads rather than kills. In the replay, a kill (status 137) is recorded as not yet checked and costs only time. In the build, killed compilers force a second pass at 16 jobs; if they recur, the run ends BUILD_FAILED with no C1 result.\n\nMy estimate is 0.3 to 3.5 extra hours, about 1 hour likely. The tail is +10 hours if reads are small and the cache is short at the top, which would run past the 41-hour guest stop and leave C3 incomplete. Billed hours: about 23.0, 26.6 and 37.0 (low, likely, high), plus a 6-hour allowance for keeping the disks after the run. Cost on demand at 1.438 USD/h all-in: 33.6, 38.8 and 53.7 USD. Cost on Spot at 0.855 USD/h: 20.2, 23.2 and 32.1 USD, plus the risk of being preempted, which with termination action DELETE and auto-deleted disks loses the whole run.\n\nQuota is the same as for the machine already granted: 32 vCPUs and 490 GB of Hyperdisk. Capacity for n4d-standard-32 by zone was not checked.\n\nThe launcher's worst case is RATE × 42 h. On demand with RATE set to 1.45, that is 60.90 USD, so the cap would need to be 72.43 USD; it does not fit 50. On Spot with RATE 0.86 to 0.90, the worst case is 36.12 to 37.80 USD, so the cap would need to be 47.65 to 49.33 USD. That fits 50 dollars total, but leaves no money for a second attempt or a calibration test, and it needs a code change to the provisioning model.",
+    "numbers": [
+     {
+      "name": "n4d-standard-32 on-demand machine price",
+      "value": "1.3552 USD/h (32 x 0.02911 + 128 x 0.00331)",
+      "basis": "list price",
+      "source": "records/cloud/gcp_family_rates.json keys N4D|Core|OnDemand, N4D|Ram|OnDemand; docs/cloud-notes.md 8.2 command uses 1.355"
+     },
+     {
+      "name": "n4d-standard-32 Spot machine price",
+      "value": "0.7721 USD/h (32 x 0.01658 + 128 x 0.001887)",
+      "basis": "list price",
+      "source": "records/cloud/gcp_family_rates.json keys N4D|Core|Preemptible, N4D|Ram|Preemptible; Spot can change daily (cloud-notes 3)"
+     },
+     {
+      "name": "Disks (440 GB data at 6,000 IOPS / 300 MiB/s + 50 GB boot)",
+      "value": "0.083 USD/h",
+      "basis": "list price",
+      "source": "records/cloud/pilot/pilot_estimate.json configurations[].disk_usd_per_hour; formula analysis/pilot_estimate.py line 244"
+     },
+     {
+      "name": "All-in hourly, Option C",
+      "value": "1.438 USD/h on demand; 0.855 USD/h Spot (vs 1.863 for n4d-highmem-32)",
+      "basis": "derived",
+      "source": "sum of the above; records/cloud/replay_cost.json whole_run.usd_per_billed_hour = 1.863"
+     },
+     {
+      "name": "Data disk the launcher provisions for 'launch full'",
+      "value": "hyperdisk-balanced, 440 GB, provisioned-iops=6000, provisioned-throughput=300; boot hyperdisk-balanced 50 GB; --provisioning-model=STANDARD hard-coded",
+      "basis": "measured",
+      "source": "cloud/gcp/pilot_local.sh, launch case, DATA= for MODE=full and the gcloud compute instances create line"
+     },
+     {
+      "name": "Launcher worst-case rule",
+      "value": "RATE x MAXRUN, MAXRUN = 151200 s (42 h), RATE default 2.00 = 84 USD; RATE is config GCP_RATE_USD_PER_HOUR, machine type GCP_MACHINE_TYPE",
+      "basis": "measured",
+      "source": "cloud/gcp/pilot_local.sh lines RATE=, MAXRUN=151200, WORST=$(echo scale=2; RATE*MAXRUN/3600)"
+     },
+     {
+      "name": "Recorded spend + running rehearsal",
+      "value": "9.03 + at most 2.50 = 11.53 USD (headroom under 50: 38.47)",
+      "basis": "unknown",
+      "source": "task statement; records/cloud/pilot/ledger.tsv shows 0.57 + 5.82 of it"
+     },
+     {
+      "name": "Cap the launcher needs, on demand, RATE 1.45",
+      "value": "60.90 worst case -> cap 72.43 USD (RATE 1.44: 72.01; RATE 2.00: 95.53)",
+      "basis": "derived",
+      "source": "pilot_local.sh rule with the rates above"
+     },
+     {
+      "name": "Cap the launcher needs, Spot, RATE 0.86 / 0.90",
+      "value": "36.12 / 37.80 worst case -> cap 47.65 / 49.33 USD",
+      "basis": "derived",
+      "source": "pilot_local.sh rule with Spot rates above"
+     },
+     {
+      "name": "Max run time that would fit 50 USD on demand at RATE 1.45",
+      "value": "26.5 h (26.7 h at 1.44), below the expected 26.6 billed hours",
+      "basis": "derived",
+      "source": "(50 - 11.53) / 1.45"
+     },
+     {
+      "name": "Billed hours on n4d-highmem-32 with closure replay (base for Option C)",
+      "value": "22.7 / 25.6 / 33.5 (low/expected/high); build 13.7/15.6/17.9, replay 8.5/8.5/9.6",
+      "basis": "projected",
+      "source": "docs/cloud-notes.md 8.5 table; records/cloud/replay_cost.json"
+     },
+     {
+      "name": "Extra hours from 128 GB (my estimate)",
+      "value": "+0.3 low, +1.0 likely, +3.5 high; tail about +10 (would pass the 41 h guest stop)",
+      "basis": "projected",
+      "source": "derived here from the memory and disk figures in this list; not measured"
+     },
+     {
+      "name": "Option C billed hours",
+      "value": "23.0 / 26.6 / 37.0",
+      "basis": "projected",
+      "source": "base hours + extra hours above"
+     },
+     {
+      "name": "Option C cost, on demand (incl. 6 h disk retention)",
+      "value": "33.6 / 38.8 / 53.7 USD; tail about 63",
+      "basis": "projected",
+      "source": "hours x 1.438 + 6 x 0.083"
+     },
+     {
+      "name": "Option C cost, Spot (no preemption)",
+      "value": "20.2 / 23.2 / 32.1 USD; tail about 38",
+      "basis": "projected",
+      "source": "hours x 0.855 + 6 x 0.083"
+     },
+     {
+      "name": "Same with n4d-highmem-32 on demand, for comparison",
+      "value": "43 / 48 / 63 USD",
+      "basis": "projected",
+      "source": "docs/cloud-notes.md 8.5 middle rows"
+     },
+     {
+      "name": "Private memory per compiler process",
+      "value": "median 504 MiB, p99 765, max 8,130; fit 508 MiB + 13 KiB/import -> 2.7 GiB for last module",
+      "basis": "measured",
+      "source": "docs/cloud-notes.md 8.1; records/cloud/pilot/pilot_estimate.json memory.private_mb; modules.tsv.gz (my recount: median 502, p99 759, max 8130)"
+     },
+     {
+      "name": "Private memory per checker process",
+      "value": "median 232 MiB, p99 329, max 3,012; fit 225 MB + 0.0101 MB/import -> about 2 GB for last module",
+      "basis": "measured",
+      "source": "records/cloud/pilot/pilot-20261120-162141/modules.tsv.gz, leanchecker rows, closures from records/source/import_graph.json.gz (my fit, n=2,282, max closure 17,860)"
+     },
+     {
+      "name": "Whole-machine private memory peak in pilot",
+      "value": "21.7 GiB (deepA window, 32 jobs); never below 219-224 GiB available",
+      "basis": "measured",
+      "source": "system.tsv.gz anon_mb max 21741, mem_avail_mb min 223877; pilot_estimate.json memory.whole_machine"
+     },
+     {
+      "name": "File pages touched per compiler process",
+      "value": "6,598 MiB + 0.572 MiB per imported project module -> 104 GiB for last module",
+      "basis": "measured",
+      "source": "pilot_estimate.json memory.file_backed_mb (fit to closures up to 17,860; beyond that projected)"
+     },
+     {
+      "name": "File pages touched per checker process",
+      "value": "6,539 MB + 0.539 MB per import (RSS)",
+      "basis": "measured",
+      "source": "my fit on modules.tsv.gz leanchecker rows; measured up to closure 17,860"
+     },
+     {
+      "name": "Whole-tree touched working set",
+      "value": "about 98 GiB project + 6.4 GiB libraries = about 104 GiB (vs 127 GB compiled output on disk)",
+      "basis": "projected",
+      "source": "175,187 x 0.572 MiB; disk.txt lib_bytes 21,473,941,971 / 29,633 = 0.72 MB/module; pilot_estimate.json disk.compiled_tb_full_tree 0.127"
+     },
+     {
+      "name": "Guest-visible memory on n4d-standard-32",
+      "value": "about 125.5 GiB",
+      "basis": "projected",
+      "source": "scaled from pilot env.txt (251 of 256 GiB)"
+     },
+     {
+      "name": "Page cache available, Option C",
+      "value": "about 113-116 GiB during the replay (32 checkers + 32 Python workers about 8-12 GiB); about 90-100 GiB mid-build at 32 jobs (private 25-35 GiB); about 110 GiB at the narrow top",
+      "basis": "projected",
+      "source": "derived from the private-memory figures above"
+     },
+     {
+      "name": "Union of closures, random replay windows",
+      "value": "32 modules: 16-26 GiB; 200: 29-42; 1,000: 50-55; 3,000 (about 9 min at 5.7/s): 71-76 GiB",
+      "basis": "derived",
+      "source": "my BFS on records/source/import_graph.json.gz x 0.572 MiB + 6.4 GiB"
+     },
+     {
+      "name": "Share of import traffic on coldest modules (replay order random)",
+      "value": "coldest 10%: 0.27%; 30%: 0.82%; 50%: 1.7%; 80%: 5.0% -> 5 / 16 / 32 / 95 MB extra read per check if that share is evicted",
+      "basis": "derived",
+      "source": "my sample of 4,000 random closures from import_graph.json.gz; assumes the page cache behaves close to least-frequently-used"
+     },
+     {
+      "name": "Disk reads during the whole pilot",
+      "value": "about 2 MB in 2 h 55 min (nothing read back from disk)",
+      "basis": "measured",
+      "source": "system.tsv.gz disk_read_bytes; docs/cloud-notes.md 8.1 and 8.2 last paragraph"
+     },
+     {
+      "name": "Disk service rate if cache misses",
+      "value": "300 MiB/s throughput cap; 6,000 IOPS = about 23 MiB/s at 4 KiB, about 750 MiB/s at 128 KiB (so 300 MiB/s binds if faults read ahead)",
+      "basis": "derived",
+      "source": "pilot_local.sh DATA string; fault read size for Lean's olean mmaps unknown"
+     },
+     {
+      "name": "Fixed extra reads on 128 GB",
+      "value": "hash of 127 GB at the seal and again at the end, about 6.7 min each; replay warm-up of 104 GiB about 5.9 min; about 0.3-0.4 h in all",
+      "basis": "derived",
+      "source": "docs/cloud-notes.md 9 (files hashed at seal and end); 127e9 B / 300 MiB/s"
+     },
+     {
+      "name": "Top of the import graph",
+      "value": "27 modules with more than 50,000 imports, 13 with more than 100,000; final modules about 175,180",
+      "basis": "measured",
+      "source": "docs/cloud-notes.md 8.4; records/source/closure_stats.json key_module_closures"
+     },
+     {
+      "name": "Quota",
+      "value": "global CPUs 32 (n4d-standard-32 = 32 vCPUs, same as pilot); Hyperdisk Balanced 500 GB/region vs 490 GB used; memory not a quota",
+      "basis": "measured",
+      "source": "docs/cloud-notes.md section 2; pilot created n4d-highmem-32 in us-east1-b (8)"
+     },
+     {
+      "name": "Rehearsal tree size",
+      "value": "about 1,792-1,796 modules, about 1.3 GB of compiled files",
+      "basis": "measured",
+      "source": "docs/cloud-notes.md 9 rehearsals table; performance-notes 10"
+     }
+    ],
+    "cap_needed_usd": "On demand: 72.43 USD (RATE 1.45 x 42 h = 60.90 + 9.03 + 2.50); 72.01 at RATE 1.44; 95.53 at the default RATE 2.00. Spot: 47.65 USD at RATE 0.86, 49.33 at RATE 0.90.",
+    "expected_additional_spend_usd": "On demand about 39 USD (range 34-54, tail about 63). Spot about 23 USD (range 20-32) if not preempted; a preemption loses whatever was spent up to that point (up to about 35 USD) and produces no result.",
+    "hours_or_days_expected": "About 26.6 billed hours (range 23-37), so a little over a day; tail about 43 h, which exceeds the 41 h guest stop and leaves the replay incomplete.",
+    "fits_50_cap": "only with changes",
+    "changes_needed": [
+     "Spot only. On demand cannot fit: its worst case at the needed 42 h is 60.90 USD against 38.47 of headroom, and a max run short enough to fit (about 26.5 h) is shorter than the expected 26.6 billed hours.",
+     "cloud/gcp/pilot_local.sh: --provisioning-model=STANDARD is hard-coded; Spot needs --provisioning-model=SPOT on the full mode. This is a committed change under cloud/, because launch full refuses uncommitted or untracked files, followed by a new stage.",
+     "config.env (owner edits): GCP_MACHINE_TYPE=n4d-standard-32; GCP_RATE_USD_PER_HOUR=0.86-0.90 (machine 0.7721 + disks 0.083); GCP_SPEND_CAP_USD=50, which allows 36.12-37.80 of worst case on top of 11.53.",
+     "Accept that the run is a single attempt. With --instance-termination-action=DELETE and auto-delete disks, a preemption deletes the build. After a preemption at hour N, about 38.47 - 0.86N USD is left, which is too little for a second worst-case Spot launch.",
+     "Optional, cheap: raise provisioned throughput or IOPS on the data disk to soften cache misses (300 to 600 MiB/s is about +0.016 USD/h; 6,000 to 12,000 IOPS about +0.041 USD/h at the 0.04 per MB/s-month and 0.005 per IOPS-month rates in analysis/pilot_estimate.py). The per-zone provisioned IOPS and throughput quotas are not recorded, and this also changes the launcher's DATA string.",
+     "Zone list: n4d-standard-32 capacity by zone is unknown. The pilot found no n4d-highmem-32 capacity in four us-central1 zones."
+    ],
+    "risks": [
+     "The decisive margin is small and unmeasured. The whole-tree touched set (about 104 GiB, a straight-line projection from closures of at most 17,860) is set against about 110-116 GiB of cache during the replay and the narrow top of the build. If deep modules touch nearer the full 0.72 MB per module, the set is about 124 GiB and does not fit.",
+     "Thrash rather than kills. File pages can be reclaimed, so a shortfall shows up as slowdown. The replay looks robust: cold modules carry little import traffic. The build's top modules and the C2 deep walk (memory unknown, now with only about 15-20 GiB of headroom instead of about 150) are the exposed parts. If page faults read only 4 KiB, the disk serves about 23 MiB/s instead of 300 and slowdowns grow about 13-fold.",
+     "Time-limit failure. If the slowdown reaches the tail (about +10 h), the run passes the 41 h guest stop. The driver then gives the replay one hour and ends without C3, with about 36-38 USD spent on Spot and nothing left under the cap for a rerun.",
+     "Out-of-memory kills are unlikely: private memory peaks around 21.7 GiB measured and perhaps 25-35 GiB projected, against about 125 GiB. In the replay, status 137 means not yet checked and costs time. In the build, a 137 forces the second pass at 16 jobs (time), and a recurring one ends the run BUILD_FAILED with no C1.",
+     "Spot preemption (DELETE) destroys the run with no resume. GCE publishes no preemption rate for this type, so the probability over about 27 h is unknown. Spot prices can change daily, while the ledger uses a fixed RATE.",
+     "Capacity: n4d-standard-32 may not be available in the configured zones.",
+     "The optional second replay (rhv-replay) is riskier on 128 GB: on the Mac its per-process memory varied from under 1 to about 5.6 GB (performance-notes 10). It should stay off, which it does by default."
+    ],
+    "unknowns": [
+     "How Linux behaves with compiled files that do not fit in memory: the pilot read nothing from disk (cloud-notes 8.2), so there is no measurement of misses, slowdown or eviction pattern.",
+     "Pages touched per module for closures above 17,860 (27 modules above 50,000): linear projection only.",
+     "Size of the disk reads that page faults on Lean's olean mappings trigger (readahead; whether Lean calls madvise).",
+     "Memory and time of the C2 deep walk on the full tree (cloud-notes 8.4).",
+     "Memory of the 32 Python closure-worker processes that each load the import graph (my guess 0.1-0.2 GiB each).",
+     "Exact memory the guest sees on n4d-standard-32 (about 125.5 GiB assumed).",
+     "Spot preemption probability for n4d-standard-32 over about 27 h, and Spot price on the day.",
+     "n4d-standard-32 capacity by zone; per-zone provisioned IOPS and throughput quota.",
+     "Whether systemd-oomd or a similar pressure killer is active on the Ubuntu 24.04 image (it would turn thrashing into kills with status 137).",
+     "Whether the 2.50 USD rehearsal bound or its usual 0.48-0.68 applies; this moves the headroom between 38.47 and about 40.3."
+    ],
+    "verdict": "Option C on demand does not fit a 50 USD total cap. The launcher would need a cap of 72.43 USD, and no sound shorter time limit fits. Option C on Spot fits on paper (cap 47.65-49.33 USD) and is the cheapest full run in the records, about 23 USD expected. It needs a committed change to the provisioning model, it is a single attempt that a preemption destroys, and it leaves no money for any calibration run first.\n\nThe memory analysis supports trying it. Private memory is small. The import-closure replay adds nothing to the page cache, since hard links share pages. The random replay barely suffers even if 10 to 30 percent of the tree is evicted. The expected penalty is about 1 hour, with a range of 0.3 to 3.5. The weak spots are the straight-line projection of the 104 GiB touched set, the top of the build and the C2 deep walk, none of which any test so far has reached.\n\nNo cheap test settles whether the whole tree fits, because only a near-full build creates that pressure, and uploading the Mac build is ruled out. A test can bound how much slower a cache miss makes things. The cheapest such test would run the pilot's deep build target under artificially reduced memory, with huge pages reserved or the run capped by memory cgroups, so that cache is short by a set fraction of the working set. That would take about 1 to 3 hours on n4d-standard-32, about 1.5 to 4.3 USD actual or 2 to 6 USD at the ledger's 2.00 rate, and needs a new guest mode. After about 2 USD of it, the Spot full run would still fit, barely: 11.53 + 2 + 36.12 = 49.65 USD. Anything more would not."
+   },
+   "check": {
+    "upheld": "in part",
+    "corrections": [
+     {
+      "claim": "Running rehearsal adds at most 2.50 USD, so headroom under 50 is 38.47",
+      "finding": "teardown closes the ledger row with a cap of MAXRUN + 120 s (pilot_local.sh, teardown: close_run ... $(( ${MAXRUN:-0} + 120 ))). For full-rehearsal (MAXRUN=4500, RATE 2.00) the most the ledger can record is 2.00 x 4620/3600 = 2.567, not 2.50",
+      "corrected_value": "at most 2.57 USD; recorded spend after it at most 11.60; headroom 38.40 (about 40.3 if the rehearsal costs its usual 0.48-0.68)",
+      "source": "cloud/gcp/pilot_local.sh, teardown and close_run; launch, full-rehearsal MAXRUN=4500"
+     },
+     {
+      "claim": "Cap the launcher needs: Spot 47.65 (RATE 0.86) / 49.33 (RATE 0.90); on demand 72.43 (RATE 1.45), 72.01 (RATE 1.44)",
+      "finding": "The arithmetic RATE x 42 h is right (bc scale=2: 36.12, 37.80, 60.90, 60.48), but it was added to 11.53 instead of 11.60. Also the full run's own ledger row can close at MAXRUN+120 s, about 0.03 more than the worst case the launcher checks",
+      "corrected_value": "Spot 47.72 (RATE 0.86) / 49.40 (RATE 0.90); on demand 72.50 (RATE 1.45) / 72.08 (RATE 1.44) / 95.60 (RATE 2.00). Worst ledger total after a Spot run about 47.75 / 49.43",
+      "source": "cloud/gcp/pilot_local.sh: WORST=$(echo scale=2; RATE*MAXRUN/3600), MAXRUN=151200, close_run cap"
+     },
+     {
+      "claim": "After about 2 USD of a calibration test, the Spot full run would still fit (11.53 + 2 + 36.12 = 49.65)",
+      "finding": "Uses the wrong rehearsal bound, and holds only at RATE 0.86. At RATE 0.90 the test leaves almost no room",
+      "corrected_value": "The test's recorded cost can be at most 50 - 11.60 - 36.12 = 2.28 USD at RATE 0.86, and only 0.60 USD at RATE 0.90. Separately, the test's own launch must pass RATE x MAXRUN within the headroom",
+      "source": "pilot_local.sh launch check; figures above"
+     },
+     {
+      "claim": "Extra hours from 128 GB: +0.3 low, +1.0 likely, +3.5 high; tail about +10; Option C billed hours 23.0 / 26.6 / 37.0",
+      "finding": "Not traceable to any measurement or file. The pilot read about 2 MB from disk (cloud-notes 8.2, last paragraph), so nothing bounds the penalty. The only defensible parts are the fixed reads (sha256 of about 127 GB at the seal and again at the end, about 6.7 min each at 300 MiB/s if not cached; the replay's warm-up). The 'likely +1 h' and the high and tail figures are guesses. Under heavy thrash the run fails rather than running 10 h long. Example: if each check had to read its closure from disk, that is about 1.7-1.9 GB per check, roughly 300 TB in all, which cannot be done",
+      "corrected_value": "Base hours (n4d-highmem-32, closure replay) 22.7 / 25.6 / 33.5. Add at least about 0.2-0.4 h of fixed rereads. The 128 GB penalty above that is unknown, from small up to a DEADLINE end without C3",
+      "source": "docs/cloud-notes.md 8.5 table; records/cloud/replay_cost.json; cloud-notes 8.2 last paragraph"
+     },
+     {
+      "claim": "Option C cost on demand 33.6 / 38.8 / 53.7 USD; Spot 20.2 / 23.2 / 32.1 USD",
+      "finding": "The arithmetic on the agent's own hours is right (hours x 1.438 or 0.855, plus 6 x 0.083). The hours themselves are not upheld (see above). The 6 h disk allowance is not charged under this launcher, because the data and boot disks are auto-delete and the VM is deleted (DELETE), so it is a small conservative extra",
+      "corrected_value": "Before any 128 GB penalty: on demand 32.6 / 36.8 / 48.2; Spot 19.4 / 21.9 / 28.6 (base hours x 1.438 or 0.855). Penalty unknown, with no defensible upper bound short of run failure",
+      "source": "records/cloud/gcp_family_rates.json N4D keys; analysis/pilot_estimate.py disk_usd_per_hour; cloud-notes 8.5"
+     },
+     {
+      "claim": "Union of closures for 32 random modules is 16-26 GiB; for 3,000 it is 71-76 GiB; the coldest 10/30 percent carry 0.27/0.82 percent of import traffic",
+      "finding": "Re-derived from records/source/import_graph.json.gz (a name -> imports dict; 175,187 modules, 753,569 edges) at 0.572 MiB per module + 6.4 GiB, seed 7. 3,000-module union: 122,936 modules, 75.1 GiB (upheld). First 32: 38,182 modules, 27.7 GiB (slightly above the stated range). Traffic share of the coldest 10/30/50/80 percent: 0.0 / 0.0 / 0.43 / 3.4 percent in my sample, so the agent's figures are, if anything, conservative. Mean closure 2,949",
+      "corrected_value": "32: about 28 GiB; 3,000: about 75 GiB; the cold tail is negligible",
+      "source": "my BFS on records/source/import_graph.json.gz; pilot_estimate.json memory.file_backed_mb"
+     },
+     {
+      "claim": "32 Python closure workers hold the import graph at about 0.1-0.2 GiB each",
+      "finding": "Not measured. Loading the records' graph (a dict of names) in Python peaked at about 0.49 GB RSS on this Mac. The worker reads a different, integer-indexed graph file ({modules, imports}), likely smaller, but its peak during json.load is unknown. Each worker also reloads the graph for every batch of 25 modules (09_kernel_replay.sh BATCH=25), about 7,000 loads in all, CPU that no estimate counts",
+      "corrected_value": "0.1-0.5 GiB each, so 3-16 GiB in all; page cache during the replay correspondingly about 105-116 GiB",
+      "source": "scripts/verify/rhv_tools.py cmd_closure_worker; scripts/09_kernel_replay.sh BATCH=25 and run_batches; my load test"
+     },
+     {
+      "claim": "Quota is the same as for the machine already granted",
+      "finding": "Upheld, and confirmed by Google's Spot page: Spot VMs consume standard quota unless preemptible quota has been granted. The pilot ran 32 N4D vCPUs in us-east1. Google's docs also say max-run-duration (time limits) works with Spot VMs, and that DELETE is allowed as the termination action (STOP is the default). With DELETE, auto-delete disks are removed on preemption",
+      "corrected_value": "Same quota: 32 vCPUs, 490 of 500 GB Hyperdisk Balanced",
+      "source": "docs.cloud.google.com/compute/docs/instances/spot; docs.cloud.google.com/compute/docs/instances/limit-vm-runtime; cloud-notes 2"
+     },
+     {
+      "claim": "n4d-standard-32 Spot machine 0.7721 USD/h; on demand 1.3552; disks 0.083 USD/h",
+      "finding": "Arithmetic re-derived: 32x0.01658+128x0.001887 = 0.7721; 32x0.02911+128x0.00331 = 1.3552; disk (440x0.08+3000x0.005+160x0.04+50x0.08)/730 = 0.0830. These are us-central1 rates. The pilot only found capacity in us-east1-b, and Spot prices are set per region and 'can change up to once every day' (Google). The disk rates come from the pilot_estimate.py comment; I could not load Google's disk price page to confirm them",
+      "corrected_value": "0.7721 / 1.3552 / 0.083 for us-central1 only. Price in the zone actually used is unknown; RATE 0.90 leaves 0.045 USD/h (5 percent) for Spot price movement, RATE 0.86 leaves 0.005",
+      "source": "records/cloud/gcp_family_rates.json; analysis/pilot_estimate.py line ~244; Google Spot VM page"
+     }
+    ],
+    "missed": [
+     "The pilot's page cache reached 186 GiB (pilot_estimate.json memory.whole_machine.most_cached_gb), though it built only 17 percent of the tree. Its 'nothing read from disk' result depended on far more cache than a 128 GB guest has. Most of that cache was written files (setup files are 5.53 MB per module, 164 GB in the pilot, disk.txt setup_json_bytes). In a full run those writes, about 1.07 TB with setup files pruned every 600 s (full_guest.sh PRUNE_EVERY), pass through the same cache and compete with the compiled files the processes have mapped. The agent's cache budget leaves them out.",
+     "The C2 plain axiom check also imports the whole proof (the Lean frontend on a file that imports the final theorem), so it too needs about 104 GiB mapped plus its own memory. Each C2 run is limited to C2_TIMEOUT=7200 s (full_guest.sh line 84). If thrashing makes either C2 run time out, criterion C2 has no result. This is a failure, not just a slowdown, and costs up to 2 h each.",
+     "The import-closure replay makes about 175,187 x ~2,950 = ~5e8 hard links and the matching directories on the data disk (rhv_tools.py cmd_closure_worker; os.makedirs and os.link per file, rmtree after each module). That means dentry and inode slab memory and ext4 metadata writes that compete for the same cache and the same 6,000 IOPS / 300 MiB/s. It has not been rehearsed on a rented machine (cloud-notes 9, 'None of that last change has been rehearsed'), so its cost on either machine is unknown.",
+     "Each closure worker reloads the import graph for every batch of 25 modules (09_kernel_replay.sh BATCH=25, xargs -n 1 per batch), about 7,000 loads. That raises peak memory per worker and adds CPU that no estimate includes.",
+     "Ledger versus bill. The cap is enforced only on the ledger (RATE x seconds), not on Google's bill. Past rows are recorded at 2.00/h against about 1.86 actual, which overstates the 9.03 by about 0.6. A Spot run recorded at a fixed RATE understates the bill if the Spot price in the zone used is higher than the us-central1 rate on file. With a 50 USD total cap and 0.6-2.3 USD of margin, that difference matters.",
+     "Capacity cannot be checked from the records. gcp_machine_types.csv lists only machine types with at least 96 vCPUs (records/cloud/README.md), so it says nothing about where n4d-standard-32 is offered or has capacity.",
+     "Under Spot, Google's default preemption notice is 0 s (120 s can be requested), and with DELETE nothing survives. The guest's final status and facts.json from the last checkpoint may not upload. The run then ends with only what was already in the bucket.",
+     "The agent's figures for the top of the graph (27 modules above 50,000 imports, 13 above 100,000) come from cloud-notes 8.4 (reviewers' exact count), not from closure_stats.json. Its 1,500-module sample has a maximum of 49,768, and its key_module_closures lists five modules above 50,000. The figures are fine; the citation was partly wrong.",
+     "8.2's n4d-standard-32 rows (41/45/57 on demand, 25/27/34 Spot) are built on the superseded 14 h replay. The agent rebased onto 8.5 correctly, but anyone reading 8.2 alone would get the wrong numbers."
+    ],
+    "rule_conflicts": [
+     "None with the owner's decisions. Option C keeps leanchecker on every module with import-closure search paths, adds no second replay (GCP_SECOND_REPLAY stays empty), uploads nothing from the Mac, needs no quota request (Spot uses standard quota per Google), and leaves PREREGISTRATION.md alone.",
+     "It does need a committed code change under cloud/ (--provisioning-model=SPOT in place of the hard-coded STANDARD), a fresh 'stage' (launch full refuses uncommitted files or a stale rhv_tools.id), and owner edits to config.env (GCP_MACHINE_TYPE, GCP_RATE_USD_PER_HOUR, GCP_SPEND_CAP_USD). Those are the owner's to make. I did not open config.env, so I do not know the configured zone list.",
+     "The proposed calibration test needs a new guest mode, which is also a code change and costs money. Under a 50 USD total it can take at most 2.28 USD recorded (RATE 0.86) or 0.60 (RATE 0.90) if the Spot full run is still to launch."
+    ],
+    "corrected_cap_needed_usd": "Spot: 47.72 at RATE 0.86 (9.03 + 2.57 + 36.12), 49.40 at RATE 0.90 (9.03 + 2.57 + 37.80). On demand: 72.50 at RATE 1.45, 72.08 at RATE 1.44, 95.60 at the default 2.00. If the running rehearsal records its usual 0.48-0.68, each figure is about 1.9-2.1 lower. The full run's own row can close up to RATE x 120 s (about 0.03) above the checked worst case.",
+    "corrected_expected_additional_spend_usd": "Before any 128 GB penalty, from base hours 22.7 / 25.6 / 33.5: Spot about 19.4 / 21.9 / 28.6 USD; on demand 32.6 / 36.8 / 48.2 USD (us-central1 list rates). Add at least about 0.2-0.4 h for rereads of files that no longer fit in cache. Beyond that the 128 GB penalty is unmeasured and has no defensible bound. It could be small, or it could end at the 41 h guest deadline, about 36 USD recorded on Spot, without C3 or C2. A Spot preemption loses everything spent up to that point.",
+    "corrected_fits_50_cap": "only with changes",
+    "assessment": "Mostly upheld in structure. Option C on demand cannot fit a 50 USD total under the launcher's rule, and on Spot it fits only on paper. But the margin is thinner than stated, and the time penalty figures are not supported by any record.\n\nWhat I re-derived and uphold:\n- Prices: 1.3552 on demand, 0.7721 Spot and 0.083 disks per hour (us-central1).\n- The launcher's rule: WORST = RATE x 151,200 s; provisioning is hard-coded STANDARD; DELETE; auto-delete disks; 440 GB / 6,000 IOPS / 300 MiB/s data disk.\n- Private memory per process is small; hard links share the page cache.\n- Whole-tree touched set: 104 GiB at 0.572 MiB per module, or 124 GiB at the full 0.72 MB.\n- A 3,000-module replay window touches about 75 GiB, and the cold tail carries almost no import traffic.\n- Quota: Google confirms Spot uses standard quota, and that max-run-duration and DELETE work with Spot.\n\nWhat I correct:\n- The running rehearsal can record up to 2.57, not 2.50, because close_run caps at MAXRUN+120 s. Every cap figure moves by 0.07: Spot needs 47.72 (RATE 0.86) or 49.40 (RATE 0.90).\n- The room left for a calibration test before the Spot run is at most 2.28 USD (RATE 0.86) or 0.60 (RATE 0.90), not 'about 2'.\n- The +0.3 / +1.0 / +3.5 / +10 h penalty and the 23.0 / 26.6 / 37.0 h figures cannot be traced to any measurement; I do not uphold them. The pilot read nothing from disk and had up to 186 GiB of page cache.\n- The agent's cache budget leaves out written files (about 1.07 TB of setup files pass through the cache), dentry and inode memory from about 5e8 hard links, and worker memory that may be up to 0.5 GiB each.\n- Its tail case understates the failure modes. Both C2 runs import the whole proof under a 2 h timeout each, and real thrash ends the run at the deadline rather than adding a bounded 10 h.\n\nOther points the decision depends on:\n- Spot pricing is per region and can change daily. The rates on file are us-central1, while capacity was found in us-east1.\n- The cap is enforced on the ledger, not on the bill.\n- Capacity for n4d-standard-32 cannot be checked from the records.\n\nNet: Spot Option C is feasible under 50 USD only as a single unrehearsed attempt, with 0.6 to 2.3 USD of ledger margin. A preemption or a thrash-induced deadline yields no C3 and leaves no money for a rerun."
+   }
+  },
+  {
+   "key": "D-mac-only",
+   "analysis": {
+    "option": "D: no cloud full run; finish the build, the C2 checks and the C3 replay on the owner's Mac (10-core Apple silicon, 24 GB, 8 jobs, external SSD)",
+    "summary": "Option D is allowed by the pre-registration and costs nothing more in the cloud. Spend stays at the recorded 9.03 USD plus at most 2.50 for the rehearsal now running.\n\n(1) Preregistration. PREREGISTRATION.md line 66 says: \"What may vary. The machine, the operating system, the number of parallel jobs, the per-process thread count, and where files are stored.\" C1 (line 48), C2 (lines 50-56) and C3 (line 60, \"Every compiled module of the project is re-checked by `leanchecker` from the pinned toolchain, and every module passes.\") all name tools and conditions, not machines, so all three can be met on the Mac alone. What is given up is S3, line 107: \"Reproduce C1 to C3 on a second platform (a different operating system and processor architecture).\" The cloud run would have been Linux on x86-64, so a Mac-only result is one platform. S1 (line 105) and S4 (line 108) are not affected; S2 (line 106) was already ruled out by the owner. Two rules bind harder on a 24 GB machine:\n- Line 70: \"A module whose compiler process is killed by the operating system for lack of memory ... has not been tested; it is re-run. A module is recorded as failing only when it fails with a Lean error, reproducibly, on a re-run with enough memory.\"\n- Line 84: \"The build cannot be completed with the resources available | INCONCLUSIVE\".\nIf the last modules cannot be built in 24 GB, a Mac-only path ends INCONCLUSIVE, or needs another machine. Seeding a cloud machine from the Mac build is ruled out, so that would mean a full cloud rebuild.\n\nA correction to the premise: the Mac has not been building \"for days\". The first START line in records/mac-build/build-status.txt is 2026-11-20 10:18 CST, and the 8-job run began at 14:18. At the last snapshot (09:31 CST, 15:31Z, 2026-11-21) it had been running about 23 hours: 59,988 of 175,187 modules compiled, zero failures.\n\n(2) Build. Remaining at that snapshot: 115,199 modules.\n- Measured rates: 3,071 per hour for the first 5.72 hours of the 8-job run; 2,669 per hour over the next 13.49 hours; 2,908 per hour in the last 15 minutes. The rate fell about 13 percent as depth grew.\n- Derived: the remaining modules import 4,229 other project modules on average (tree mean 3,086, compiled so far 892).\n- Projection, CPU-bound: 40 hours at the last 15-minute rate, 43 hours at 2,669 per hour. A linear fit of time per module against import closure gives about 1,890 per hour and 61 hours. The segment closure means behind that fit (300 and 1,250) are my assumption; the snapshots do not record them.\n- The cloud pilot cannot settle the top of the graph. It never compiled above 17,860 imports and never read from disk (cloud-notes 8.1, 8.4). About 3.3 percent of the tree (about 5,800 modules) is above 17,860; 27 modules are above 50,000 and 13 above 100,000. The last modules each touch about 104 GiB and map about 130 GB of compiled files, against 24 GB of memory.\n- On the evidence side, the Mac has already compiled a module importing 34,926 others while holding 2,908 per hour. Against that, a memory squeeze once cut the rate to 914 per hour (tuning.tsv, cap 7).\n- My build range: 40 hours (floor) / about 60-75 hours (central) / 150 hours or more (high: jobs cut to 1-2 for the deepest few thousand modules, and paging). There is a non-zero chance the last 5 modules (closures 151,285 to 175,186) cannot finish on 24 GB at all.\n\n(3) Kernel replay (C3). It has to run after the build: the scripts/09_kernel_replay.sh header (lines 47-50) says results that count should come from a run made after the build has finished. So the 36 closure-directory checks already done do not count, and the replay cannot overlap the build.\n- Measured, with the build running at 8 jobs and the replay at 2: 17.5 and 23.8 seconds mean per leanchecker process (longest 95 and 91), and 11.5 to 18.2 seconds of wall time per module overall. By hand: 10-18 seconds, plus 0.5 ms per hard link made.\n- Derived: at the tree's mean closure of 3,086, about 21-27 seconds per check including links. Over the whole tree that is about 1,000-1,300 process-hours, and 540.6 million hard links to make and remove (about 75 hours of link-making alone at 0.5 ms each).\n- Projection: 21-28 days at 2 jobs at the measured busy-machine speed. About 14-18 days with three effective parallel checks. About 4-5.5 days only if an idle Mac runs checks twice as fast with five effective parallel jobs, and neither of those assumptions has been measured.\n- Memory: private memory is probably enough (the Linux fit projects 2.7 GiB for the last module). But the deepest checks map about 100 GiB on 24 GB, so they will page from the SSD. kern.maxvnodes is 263,168 against about 240,000 mapped files projected for the last modules (430,000 by the pilot's regression). Raising it is a sudo sysctl, a system setting the owner must change himself.\n\n(4) Disk is not a constraint. Free space was 3,177 GB at the last snapshot. The build writes about 1.4 TB in all (1.26 TB of it regenerable setup JSON). About 950 GB more is projected, leaving about 2.2 TB free with nothing pruned. Pruning the setup files would cut the build to about 150 GB.\n\n(5) Risks are below.\n\nTotal calendar from the 15:31Z snapshot on 2026-11-21: about 6 days at best (around 2026-11-27); about 15-18 days central (around 2026-12-07); about 5 weeks or more at worst (late December), and possibly INCONCLUSIVE if the top modules cannot be built in 24 GB.\n\nCost: 0 USD in the cloud, so the total stays at no more than 11.53 USD. Electricity is a few dollars at most; that is my estimate, not measured.",
+    "numbers": [
+     {
+      "name": "Modules compiled on Mac at last snapshot",
+      "value": "59,988 of 175,187 (34.24%), 0 failed jobs, 2026-11-21 09:31 CST = 15:31Z",
+      "basis": "measured",
+      "source": "records/mac-build/progress-20261121-0931.txt, == Modules"
+     },
+     {
+      "name": "Modules remaining",
+      "value": "115,199",
+      "basis": "derived",
+      "source": "175,187 - 59,988"
+     },
+     {
+      "name": "Mac build start",
+      "value": "First START 2026-11-20 10:18:35 CST; current 8-job run since 14:18:26 CST",
+      "basis": "measured",
+      "source": "records/mac-build/build-status.txt"
+     },
+     {
+      "name": "Rate, first 5.72 h of the 8-job run",
+      "value": "3,071 modules/h (17,558 modules)",
+      "basis": "measured",
+      "source": "records/mac-build/progress-20261120-2001.txt, == Rate"
+     },
+     {
+      "name": "Rate, next 13.49 h",
+      "value": "2,669 modules/h (36,007 modules)",
+      "basis": "derived",
+      "source": "difference of the two progress snapshots (53,557-17,558 in 19.21-5.72 h)"
+     },
+     {
+      "name": "Rate, last 15 min at last snapshot",
+      "value": "2,908 modules/h",
+      "basis": "measured",
+      "source": "progress-20261121-0931.txt, == Rate"
+     },
+     {
+      "name": "Mean / largest import closure of compiled modules",
+      "value": "892 / 34,926",
+      "basis": "measured",
+      "source": "progress-20261121-0931.txt, last section"
+     },
+     {
+      "name": "Tree mean import closure",
+      "value": "3,086 (8,000-module sample)",
+      "basis": "measured",
+      "source": "records/cloud/pilot/pilot_estimate.json tree.mean_closure"
+     },
+     {
+      "name": "Mean closure of remaining modules",
+      "value": "about 4,229",
+      "basis": "derived",
+      "source": "(175,187x3,086 - 59,996x892)/115,191"
+     },
+     {
+      "name": "Closure quantiles",
+      "value": "median 606, p90 8,388, p95 10,094, p99 21,794; Main 175,186; 4 others 151,285-175,184",
+      "basis": "measured",
+      "source": "records/source/closure_stats.json; docs/performance-notes.md section 5"
+     },
+     {
+      "name": "Modules above pilot's largest closure (17,860)",
+      "value": "3.3% (about 5,800); 27 above 50,000, 13 above 100,000",
+      "basis": "measured",
+      "source": "docs/cloud-notes.md 8.4; pilot_estimate.json share_with_closure_beyond_compiled 0.033"
+     },
+     {
+      "name": "Build remaining, floor",
+      "value": "40 h at 2,908/h (43 h at 2,669/h)",
+      "basis": "derived",
+      "source": "115,199 / rate"
+     },
+     {
+      "name": "Build remaining, central",
+      "value": "about 61 h (1,890/h) from a linear time-vs-closure fit; segment closure means 300 and 1,250 assumed; range 60-75 h",
+      "basis": "projected",
+      "source": "my arithmetic on progress snapshots"
+     },
+     {
+      "name": "Build remaining, high",
+      "value": "150 h or more, if the deepest few thousand modules need 1-2 jobs and page from disk; or not completable",
+      "basis": "projected",
+      "source": "performance-notes section 7; tuning.tsv cap 7 = 914/h under memory pressure"
+     },
+     {
+      "name": "Memory touched by last modules",
+      "value": "6.4 GiB + 0.57 MiB per imported module = about 104 GiB; about 130 GB mapped",
+      "basis": "projected",
+      "source": "docs/cloud-notes.md 8.1; performance-notes section 5 table"
+     },
+     {
+      "name": "Private memory projected for last module",
+      "value": "2.7 GiB (508 MiB + 13 KiB per import)",
+      "basis": "projected",
+      "source": "docs/cloud-notes.md 8.1"
+     },
+     {
+      "name": "Mapped files for last module vs macOS limit",
+      "value": "about 240,000 (436,000 by pilot regression) vs kern.maxvnodes 263,168",
+      "basis": "projected",
+      "source": "mapped-files-sample.txt; performance-notes section 7; cloud-notes 8.3 item 8"
+     },
+     {
+      "name": "Swap at last snapshot",
+      "value": "2,850.56 MB used of 4,096 MB; 62% memory free",
+      "basis": "measured",
+      "source": "progress-20261121-0931.txt"
+     },
+     {
+      "name": "leanchecker per check, closure dirs, via script, build running, 2 jobs",
+      "value": "mean 17.5 s (longest 95), 24 of 24 passed; again mean 23.8 s (longest 91), 12 of 12",
+      "basis": "measured",
+      "source": "records/mac-build/closure-directory-checks.json through_the_script, through_the_script_again_after_the_review"
+     },
+     {
+      "name": "Wall time per module of those runs",
+      "value": "11.5 s (322 s - 47 s graph read, /24) and about 18.2 s (266 s - 47 s, /12)",
+      "basis": "derived",
+      "source": "closure-directory-checks.json wall_seconds_in_all"
+     },
+     {
+      "name": "By-hand closure-only checks",
+      "value": "9.5-18.1 s for closures 1-7,753; whole library 20.5-31.5 s",
+      "basis": "measured",
+      "source": "closure-directory-checks.json by_hand"
+     },
+     {
+      "name": "Hard-link cost",
+      "value": "about 0.5 ms per link (4.17 s for 7,753)",
+      "basis": "measured",
+      "source": "closure-directory-checks.json by_hand seconds_to_make_the_links"
+     },
+     {
+      "name": "Total hard links for full replay",
+      "value": "540.6 million (about 75 h at 0.5 ms, before removal)",
+      "basis": "derived",
+      "source": "175,187 x 3,086"
+     },
+     {
+      "name": "Replay per check at tree mean closure",
+      "value": "about 21-27 s (busy Mac)",
+      "basis": "projected",
+      "source": "measured 17.5-23.8 s + about 1.5 ms per extra closure module (my fit to by_hand rows)"
+     },
+     {
+      "name": "Replay process-hours",
+      "value": "about 1,000-1,300",
+      "basis": "projected",
+      "source": "175,187 x 21-27 s"
+     },
+     {
+      "name": "Replay calendar",
+      "value": "21-28 days at 2 jobs as measured; 14-18 days at 3 effective; 4-5.5 days if idle Mac gives 2x speed and 5 effective parallel jobs",
+      "basis": "projected",
+      "source": "derived from above; scaling beyond 2 jobs unmeasured"
+     },
+     {
+      "name": "rhv-replay on Mac (not usable for C3 by owner's decision)",
+      "value": "6.8-7.2 s per module",
+      "basis": "measured",
+      "source": "records/mac-build/README.md replay-method-comparison.tsv"
+     },
+     {
+      "name": "Free disk on build volume",
+      "value": "3,424 GB at 23,981 modules; 3,177 GB at 59,988",
+      "basis": "measured",
+      "source": "progress-20261120-2001.txt; progress-20261121-0931.txt"
+     },
+     {
+      "name": "Disk used per module so far",
+      "value": "6.86 MB (247 GB / 36,007 modules)",
+      "basis": "derived",
+      "source": "difference of free-disk figures"
+     },
+     {
+      "name": "Disk still to write",
+      "value": "about 950 GB (8.25 MB per remaining module), leaving about 2.2 TB free with nothing pruned",
+      "basis": "projected",
+      "source": "performance-notes section 4: 0.72-0.76 MB olean + 6.43 MB + 250 B per import setup JSON"
+     },
+     {
+      "name": "Whole build on disk",
+      "value": "about 1.4 TB (setup JSON about 1.26 TB, regenerable); about 150 GB if pruned",
+      "basis": "projected",
+      "source": "docs/performance-notes.md sections 1 and 4"
+     },
+     {
+      "name": "Setup files at 23,991 modules",
+      "value": "156.1 GB",
+      "basis": "measured",
+      "source": "progress-20261120-2001.txt"
+     },
+     {
+      "name": "Longest import chain",
+      "value": "203 modules (137 at depth 161-220)",
+      "basis": "measured",
+      "source": "records/source/closure_stats.json; performance-notes section 5"
+     },
+     {
+      "name": "Cloud spend",
+      "value": "9.03 USD recorded + at most 2.50 rehearsal = at most 11.53 USD; option D adds 0",
+      "basis": "derived",
+      "source": "task context"
+     }
+    ],
+    "cap_needed_usd": "0 (no cloud spend; total stays at or below 11.53 of the 50 USD cap)",
+    "expected_additional_spend_usd": "0 USD cloud. Mac electricity a few USD at most (my estimate, not measured).",
+    "hours_or_days_expected": "From the 15:31Z 2026-11-21 snapshot: build 40 h / about 60-75 h / 150+ h. C2 checks: unknown, hours, paging likely. Replay: about 4-5.5 days (optimistic, unmeasured scaling) / about 10-18 days (central) / about 21-28 days (as measured at 2 jobs). Total: about 6 days (around 2026-11-27) / about 15-18 days (around 2026-12-07) / about 5 weeks or more (late December). The build may also fail to complete on 24 GB, which gives INCONCLUSIVE.",
+    "fits_50_cap": "yes",
+    "changes_needed": [
+     "None to PREREGISTRATION.md, C3 or the artifact: line 66 allows any machine, OS and job count, and each setting used must be recorded",
+     "Owner action, not mine: raise kern.maxvnodes (sudo sysctl kern.maxvnodes=600000) before the last modules and before the C2 import of Main and the deepest replays; it reverts on reboot",
+     "Lower the build's job count for the last few thousand modules (performance-notes section 7 suggests 1-2); untested",
+     "Start scripts/09_kernel_replay.sh --c3 only after lake build exits 0, with nothing rebuilt in between; the closure-directory checks already done do not count",
+     "Choose a replay job count once the build ends (2 measured; 4-8 unmeasured on an idle Mac); a short timed trial at the start would narrow the 4-28-day range",
+     "Optional: prune setup files of finished modules (scripts/prune_setup_files.sh --delete); never tried with --delete on a Mac; not needed for space",
+     "Keep the Mac free of other memory-heavy applications for the whole period"
+    ],
+    "risks": [
+     "Top of the graph on 24 GB: the last modules touch about 104 GiB and map about 130 GB; nothing above 34,926 imports has been compiled on the Mac, nor above 17,860 with timings anywhere. If those modules cannot finish, PREREGISTRATION line 70 calls for a re-run 'with enough memory', and line 84 gives INCONCLUSIVE. Finishing elsewhere would need a cloud rebuild, since uploading the Mac build is ruled out",
+     "kern.maxvnodes 263,168 vs about 240,000 (or about 436,000) mapped files for the last modules; whether macOS copes has not been observed",
+     "Swap is on the internal boot disk and already at 2.85 of 4.1 GB; heavier paging near the top could fill it",
+     "Memory pressure from anything else on the Mac: the rate fell to 914/h at 7 jobs when other applications held memory (tuning.tsv)",
+     "A week or more uninterrupted: macOS updates or restarts (a restart also resets kern.maxvnodes), sleep (caffeinate is in use), power cuts, the external SSD disconnecting or sleeping, thermal throttling; build and replay are resumable but lose time",
+     "The replay must not overlap any rebuild; an interruption that triggers recompilation would undo earlier replay results",
+     "Filesystem metadata load: about 540 million hard links made and removed on the external APFS volume; whether that scales with jobs is untested; wear and metadata growth are unknown",
+     "Spotlight or Time Machine indexing 1.4 TB of new files on the external drive could slow the build unless excluded (not checked)",
+     "C2 deep traversal from Main has never been run on the full tree; its time and memory on 24 GB are unknown",
+     "A genuine module failure turns the remaining time into diagnosis",
+     "Only one platform: S3 is not met, and the result rests on macOS/arm64 hardware alone (PREREGISTRATION section 6, last bullet)"
+    ],
+    "unknowns": [
+     "Current module count after 15:31Z 2026-11-21 (no later snapshot; I did not run 06_progress.sh)",
+     "Per-module compile times on the Mac (the build keeps none), so how the rate depends on depth is inferred from two snapshot averages",
+     "Mean import closure of the modules compiled in each snapshot segment (assumed 300 and 1,250 for the fit)",
+     "Compile and replay behaviour above 34,926 imports on 24 GB, especially the 13 modules above 100,000",
+     "How replay throughput scales from 2 to 4-8 jobs on an idle Mac",
+     "Cost of removing hard links (not timed)",
+     "External SSD read speed under random page faults",
+     "Time and memory of C2 (08_check_axioms.sh --deep) on Main",
+     "Total capacity of the external drive (docs give only free space)",
+     "Internal boot-disk free space for swap"
+    ],
+    "verdict": "The Mac can meet all of C1, C2 and C3 under the pre-registration as written, at no added cost: the cloud total stays at or below 11.53 USD. The price is time, plus one platform only (S3 deferred). The build is about 40-75 hours from the 15:31Z snapshot and could take 150 hours or more. The C3 leanchecker replay is the long pole: about 2-4 weeks at the measured 2-job speed, 4-5 days only if an idle Mac scales well, which has not been measured. Allow roughly 1 to 5 weeks in all, about 2.5 weeks central. The main risk is the top of the import graph (about 104-130 GB per module against 24 GB, and the vnode limit), which could leave the Mac-only verdict INCONCLUSIVE under PREREGISTRATION line 84."
+   },
+   "check": {
+    "upheld": "in part",
+    "corrections": [
+     {
+      "claim": "Replay calendar 'as measured at 2 jobs': 21-28 days",
+      "finding": "The script runs record wall time that already includes link making and removal and worker overhead. Wall per module at 2 jobs on the busy Mac was (322-47)/24 = 11.46 s and (266-47)/12 = 18.25 s. Over 175,187 modules that is 23.2 and 37.0 days before any allowance for the deeper rest of the tree. A least-squares fit to the six by_hand rows gives 0.99 ms of check time per closure module (intercept 10.2 s), plus about 0.5 ms per link made (by_hand seconds_to_make_the_links, 4.17 s for 7,753). Taking the sample from mean closure 892 to the tree mean of 3,086 adds about 3.3 s of process time per check, about 1.65 s of wall time per module at 2 jobs. The analysis's 21-28 days comes from process seconds (17.5-23.8 s) divided by 2, which leaves out the measured overhead (65-76 s per run beyond process time). The cost of removing links has never been timed.",
+      "corrected_value": "About 27-40 days at 2 jobs at the measured busy-machine rate (23-37 days with no closure adjustment). The upper end is about 12 days higher than stated.",
+      "source": "records/mac-build/closure-directory-checks.json: through_the_script.wall_seconds_in_all 322, import_graph.seconds_to_read_every_source_file 47, the note that link make/remove is excluded from 'seconds'; through_the_script_again_after_the_review.wall_seconds_in_all 266 (graph read again first); by_hand rows; my python3 arithmetic"
+     },
+     {
+      "claim": "Total calendar: about 5 weeks or more at worst (late December)",
+      "finding": "Corrected replay of up to about 40 days, plus a high build case of 150 h or more (about 6.3 days), plus C2 (unknown), comes to about 47 days or more. The analysis also gives two different central replay figures: '10-18 days' in hours_or_days and '14-18 days at 3 effective' in the summary. Neither is derived from a measurement: replay scaling beyond 2 jobs, and the speed of an idle Mac, have not been measured.",
+      "corrected_value": "Best about 6 days (around 2026-11-27, which needs unmeasured scaling). Central about 2.5-4 weeks (early to mid December). Worst about 7 weeks or more (early January 2027). INCONCLUSIVE also remains possible.",
+      "source": "Arithmetic on the corrected replay range and the analysis's own build range"
+     },
+     {
+      "claim": "Rate over the next 13.49 h: 2,669 modules/h (36,007 modules)",
+      "finding": "53,557 - 17,558 = 35,999 modules (the 36,007 is the change in total compiled count used for the disk figure). The rate rounds to the same value, 2,669/h. The '13 percent fall with depth' compares segment averages. The latest 15-minute rate (2,908) is above that segment's average, and the Linux pilot found almost no dependence of compile CPU on closure up to 17,860. So attributing the fall to depth is one reading of noisy data, not a measurement. The 61 h central figure rests on assumed segment closure means of 300 and 1,250; I reproduced it (1.90 s per module gives 60.9 h), but the inputs are assumptions.",
+      "corrected_value": "35,999 modules in 13.49 h = 2,669/h. Treat the 61 h central figure as an assumption-based projection.",
+      "source": "records/mac-build/progress-20261120-2001.txt and progress-20261121-0931.txt (== Rate); docs/cloud-notes.md 8.1 'Deeper modules are not much dearer'"
+     },
+     {
+      "claim": "Swap is already at 2.85 of 4.1 GB; heavier paging near the top could fill it",
+      "finding": "macOS swap is not a fixed 4.1 GB. Total swap grew from 3,072 MB at the 20:01 snapshot to 4,096 MB at the 09:31 snapshot. The limit is free space on the boot volume, which nobody has recorded. Also, most of the memory pressure at the top is file-backed .olean pages: about 104 GiB touched per final module. Those are dropped and re-read from the external SSD, not swapped. Swap only holds private memory, projected at about 2.7 GiB per process.",
+      "corrected_value": "The risk is re-reading pages from the external SSD (time) and boot-volume free space (unknown). A fixed 4.1 GB swap ceiling is not the risk.",
+      "source": "progress-20261120-2001.txt swap total 3072.00M; progress-20261121-0931.txt swap total 4096.00M; docs/cloud-notes.md 8.1 private memory and mapped-pages rows"
+     },
+     {
+      "claim": "If the top modules cannot finish on 24 GB the result 'needs another machine' (a full cloud rebuild)",
+      "finding": "Under the current decisions that fallback is not available. Moving the Mac's build is ruled out. A full cloud run is exactly what the launcher refuses under a 50 USD cap (9.03 recorded + 84 worst case > 50). So if the top cannot be built on the Mac, Option D ends INCONCLUSIVE under PREREGISTRATION line 84 unless the owner changes a decision. Note also that macOS seldom kills for lack of memory the way Linux does. The likelier failure is extreme slowness, not the clean 'killed, re-run' case of line 70.",
+      "corrected_value": "The failure branch of D is INCONCLUSIVE with no in-cap recovery path.",
+      "source": "Task context (launcher gate: 2.00 USD/h x 42 h = 84); PREREGISTRATION.md lines 70 and 84; docs/performance-notes.md section 7"
+     },
+     {
+      "claim": "The 36 closure-directory checks already done do not count, and the replay cannot overlap the build",
+      "finding": "Lines 47-50 of the script header say a result that is to count 'should' come from a run after the build has finished. It is advice; on the Mac nothing enforces it. The header also says (lines 42-44) that the run is resumable and skips any module a tool has already passed unless its compiled file has changed. --c3 (lines 106-121, 309-322) shows no check of when a result was made. A later --c3 run on the existing results file would therefore reuse the 36 closure-directory passes and the 30 whole-library leanchecker passes made during the build. The analysis's conclusion holds only if --c3 is started from an empty results file, and the analysis does not say so. Overlapping the replay with the build would shorten the calendar, but it breaks the script's stated rule. That is for the owner to decide, not a free option.",
+      "corrected_value": "Add as a required step: move the existing results.tsv aside before the --c3 run, and record that this was done.",
+      "source": "scripts/09_kernel_replay.sh header lines 42-50 and grep of the --c3 handling; records/mac-build/README.md (replay-method-comparison.tsv, 30 leanchecker lines)"
+     },
+     {
+      "claim": "Cost: 0 USD in the cloud",
+      "finding": "No compute is added. The ledger's 9.03 USD does not include bucket storage: cloud/gcp/README.md says teardown 'does not delete the bucket', and cloud-notes 8.4 calls bucket storage 'Small'. These are cents per month and do not affect the cap, but they are not zero until the bucket is deleted. Mac electricity was not measured; at about 50 W for 2-7 weeks it would be a few to about 10 USD (my estimate).",
+      "corrected_value": "0 USD of cloud compute. A small, unquantified bucket-storage charge continues until the bucket is deleted. Cloud total at most 11.53 USD on the ledger.",
+      "source": "cloud/gcp/README.md lines 35 and 38; docs/cloud-notes.md 8.4"
+     }
+    ],
+    "missed": [
+     "Replay overhead: the measured script runs spent 65-76 s per run beyond leanchecker process time (link make/remove, batching, stragglers of 91-95 s). That overhead is why 2-job wall time per module is 11.5-18.3 s and not 8.75-11.9 s. Link removal has never been timed.",
+     "Results-file hygiene for C3: the existing results file holds leanchecker passes made while the build was running, and --c3 would reuse them unless the run starts from an empty file (script header lines 42-50).",
+     "The vnode limit is system-wide and counts every file in use on the Mac, not only the compiler's: about 236,000 mapped files for the last module (mapped-files-sample.txt) or 433,712 by the pilot regression (pilot_estimate.json open_files.projected_for_last_module), against 263,168. Leanchecker on Main and the C2 import of Main hit the same limit. Raising it is a system setting the owner must change himself, and it reverts on restart, so it must be set again after any reboot during the weeks of running.",
+     "The memory squeeze does not start only at the 'last few thousand' modules: mapped-and-touched data is 6.4 GiB + 0.57 MiB per import (cloud-notes 8.1), so a single process passes about 24 GB at about 30,000 imports, and eight concurrent processes at the 95th-99th percentile (10,094-21,794) have a combined working set far over 24 GB. Lowering the job count may be needed for roughly the top 1-3 percent (about 1,750-5,800 modules), and the same applies to the replay of those modules.",
+     "The serial tail: 137 modules at depth 161-220 and a longest chain of 203 (performance-notes section 5) run largely one after another. Those are the modules that touch tens of GiB to about 104 GiB each and must be paged from the external SSD. The Linux allowance for the narrow top (0.4 h, cloud-notes 8.3 item 3) does not carry over. There is no measurement of the Mac's time for these modules.",
+     "The C2 deep traversal from Main is random access over an environment of about 104 GiB on a 24 GB machine. That is the case most likely to thrash, and it could take far longer than the cloud's 0.5-2 h allowance (cloud-notes 8.4).",
+     "S3 is lost under any single-machine option, not only D. A cloud-only run would also be one platform. Only Mac plus cloud would meet S3.",
+     "Pilot private memory (2.7 GiB) is a compiler figure. For the replay tool on the Mac, rhv-replay's memory was measured at under 1 to about 5.6 GB per process (performance-notes section 10). leanchecker's private memory on deep modules has not been measured."
+    ],
+    "rule_conflicts": [
+     "None in Option D itself: it uses leanchecker on every module with import-closure directories as registered (performance-notes section 10; script lines 11-27), uses no second replay program, does not upload the Mac build, makes no quota request and does not edit PREREGISTRATION.md; line 66 allows any machine, OS and job count, and the varying LEAN_NUM_THREADS caps are recorded in build-status.txt.",
+     "The analysis's fallback for a top-of-graph failure (finish elsewhere / full cloud rebuild) is blocked: moving the Mac build is ruled out and a full cloud run fails the launcher's 50 USD gate, so that branch is INCONCLUSIVE, not recoverable.",
+     "Raising kern.maxvnodes (sudo sysctl) is a system-setting change the owner must make himself; it is not something an agent may do.",
+     "Overlapping the C3 replay with the build, or reusing the results already recorded while the build was running, would contradict the replay script's own rule that a result that counts comes from a run made after the build has finished (header lines 47-50). That is a project rule, not one of the owner's listed decisions, but it should not be relaxed without his say."
+    ],
+    "corrected_cap_needed_usd": "0 (no cloud compute; cloud total stays at or below 9.03 + 2.50 = 11.53 USD on the ledger, plus a small unquantified bucket-storage charge until the bucket is deleted)",
+    "corrected_expected_additional_spend_usd": "0 USD of cloud compute. Bucket storage is cents per month (unmeasured). Mac electricity is not measured; my estimate is a few to about 10 USD over 2-7 weeks.",
+    "corrected_fits_50_cap": "yes",
+    "assessment": "The core of the analysis holds, checked against the files. I verified the PREREGISTRATION.md quotations: line 66 lets the machine, OS and job count vary; C1 (line 48), C2 (lines 50-56) and C3 (line 60) name no machine; line 70 covers memory kills and line 84 gives INCONCLUSIVE; S3 is line 107. So C1-C3 can be met on the Mac alone, at no cloud cost, and Option D fits the 50 USD cap. The snapshot figures also check out: 59,988 of 175,187 compiled at 2026-11-21 15:31Z; the 8-job run started 2026-11-20 14:18; first START 10:18; zero failures. So do the rates (3,071/h, 2,669/h, last 15 minutes 2,908/h), the remaining-module mean closure of 4,229 (my recomputation from tree mean 3,086 and compiled mean 892), the disk arithmetic (247 GB over 36,007 modules, about 950 GB more, about 2.2 TB left free), the 540.6 million hard links, the 104 GiB touched and 2.7 GiB private memory projections (cloud-notes 8.1), and the 27 modules above 50,000 imports and 13 above 100,000 (cloud-notes 8.4).\n\nWhere it is wrong or short:\n(1) The replay at the measured 2-job rate takes about 27-40 days, not 21-28. The script runs' wall time per module (11.5 and 18.3 s) already includes overhead that process seconds leave out. So the worst-case total is about 7 weeks or more (early January 2027), not 5. The central figure is unmeasured either way: replay scaling past 2 jobs on an idle Mac has never been timed. A short timed trial after the build is the only way to narrow a range of about 4-40 days.\n(2) If the top of the graph cannot be built on 24 GB, there is no recovery within the owner's decisions and the cap. The branch ends INCONCLUSIVE. On macOS that is more likely to show up as very slow paging from the external SSD than as a clean memory kill.\n(3) The --c3 run must start from an empty results file. Otherwise passes recorded while the build was running are silently reused, against the script's own rule.\n(4) Swap on macOS grows on its own (3,072 MB at the first snapshot, 4,096 MB at the second). The real memory risk is file-backed .olean pages re-read from the SSD, together with the system-wide vnode limit (263,168 against about 236,000-434,000 mapped files at the top), which only the owner can raise and which resets on every restart.\n(5) The 61 h central build figure rests on assumed segment closures, so it is a projection, not a measurement. Build floor about 40 h; central about 60-75 h plus an unmeasured serial, paging-bound tail of 137 deep modules; high 150 h or more.\n\nMeasured: snapshot counts, rates, disk, and the replay timings of 36 checks on a busy Mac. Projected: everything above 34,926 imports, replay scaling, the C2 time on Main. Unknown: whether macOS copes near the vnode limit, the boot-volume space available for swap, the cost of removing links, and the SSD's throughput under page faults."
+   }
+  }
+ ],
+ "what_was_missing_and_a_ranking": {
+  "missing_options": [
+   {
+    "option": "E: Mac-only now (option D), with the cloud budget held back and the cloud decision taken later",
+    "summary": "Let the Mac finish its build. Spend nothing more in the cloud until two things are known: what the running rehearsal measures (the first rented-machine timing of leanchecker with import-closure directories and hard links, which no record has yet; docs/cloud-notes.md s.8.5, records/cloud/full-rehearsals/README.md header), and whether the Mac gets through the top of the import graph (nothing above 34,926 imports compiled so far; records/mac-build/progress-20261121-0931.txt). This adds no option beyond A to D. It sequences D before any cloud choice, so about 38.4 to 40.3 USD stays unspent until the facts are in. If the Mac completes C1 to C3, the reserve can later buy a second-platform run (S3, PREREGISTRATION.md line 107) by option F or G, with measured inputs. If the Mac stalls at the top, the same reserve is the only way left to reach a verdict, so it is worth not spending it now on a run whose replay cost is unmeasured.",
+    "cap_needed_usd": "0 now. Room kept for later: 50 - 9.73 = 40.27 if the rehearsal records about 0.70; 50 - 11.60 = 38.40 if it records its ledger maximum of 2.57 (2.00 x (4500+120) s / 3600; pilot_local.sh launch full-rehearsal MAXRUN=4500 and teardown close_run cap MAXRUN+120).",
+    "expected_additional_spend_usd": "0 in the cloud until a later decision. Bucket storage continues at cents per month (cloud/gcp/README.md: teardown does not delete the bucket).",
+    "fits_50_cap": "yes",
+    "changes_needed": [
+     "None to code or to PREREGISTRATION.md.",
+     "The owner raises kern.maxvnodes himself before the deepest modules, and again after any reboot (the D check).",
+     "Move the existing results.tsv aside before the final '09_kernel_replay.sh --c3' run. The script reuses earlier passes (scripts/09_kernel_replay.sh header lines 42-50), and some were made while the build was running.",
+     "Record a decision point: after the running rehearsal's results are copied, and when the Mac build either finishes or slows sharply in the top modules."
+    ],
+    "risks": [
+     "Calendar: the build needs about 40 to 75 h or more. The replay at the measured 2-job wall rate takes about 23 to 40 days: (322-47)/24 = 11.46 s per module, records/mac-build/closure-directory-checks.json through_the_script, giving 23.2 days before any closure adjustment.",
+     "If the Mac cannot build the top modules, the outcome is INCONCLUSIVE (PREREGISTRATION.md line 84) unless the reserve is then spent on a cloud run.",
+     "Only one platform, so S3 is not met unless a cloud run follows.",
+     "Spot prices and capacity may be different, or worse, at the later date."
+    ],
+    "sources": [
+     "records/mac-build/progress-20261121-0931.txt",
+     "records/mac-build/closure-directory-checks.json",
+     "scripts/09_kernel_replay.sh lines 42-50",
+     "cloud/gcp/pilot_local.sh launch and teardown",
+     "PREREGISTRATION.md lines 66, 70, 84, 107"
+    ]
+   },
+   {
+    "option": "F: the full run on n4d-highmem-32 Spot as a single attempt, with no resume code and MAXRUN cut to fit the cap",
+    "summary": "This is the measured machine and the rehearsed driver, with two changes only: --provisioning-model=SPOT in place of the hard-coded STANDARD, and a shorter MAXRUN/DEADLINE_MIN. Nothing is added for surviving a preemption, so a preemption loses the attempt, exactly as both checks describe for the driver as written. It differs from B in needing none of B's re-entry code, re-seal argument or forced-interruption rehearsals. It differs from C in keeping 256 GB, where the pilot measured the whole working set in memory (records/cloud/pilot/pilot_estimate.json memory.whole_machine; cloud-notes s.8.2).\n\nThe true all-in Spot rate is 1.1053 USD/h, not B's 1.0966:\n- machine 32 x 0.01658 + 256 x 0.001887 = 1.0136 (gcp_family_rates.json N4D|*|Preemptible);\n- data disk 0.0775;\n- boot disk at its default performance 0.0116, where B used baseline only;\n- external IPv4 on Spot 0.0025 (gcp_pricing.json storage.billing_rules).\nA ledger RATE of 1.10 therefore under-records. Use at least 1.12; 1.15 leaves about 4 percent for daily Spot price moves.\n\nBilled hours are the same as A: 22.7 / 25.6 / 33.5 (replay_cost.json whole_run, import-closure row), plus about 0.1 to 0.3 h of overhead (A check). Cost at list: 25.09 / 28.30 / 37.03 USD. Recorded at RATE 1.15: 26.1 / 29.4 / 38.5.\n\nThe launcher test is spent + RATE x MAXRUN <= 50. At RATE 1.15 that allows a MAXRUN of 35.0 h with spend at 9.73, or 33.4 h with spend at 11.60. The guest stops 1 h earlier (DEADLINE_MIN = MAXRUN - 60 min, pilot_local.sh line 124), and the replay-fit test keeps back a further 1,500 s (full_guest.sh FINAL_RESERVE). So the high case (33.5 h) fits only if the rehearsal records near its usual cost, and even then by about 0.5 h. Expected-case final recorded spend is about 9.73 + 29.4 = 39.1 USD.",
+    "cap_needed_usd": "50 suffices only with RATE x MAXRUN <= 50 - spent. At RATE 1.15: MAXRUN <= 35.0 h if the rehearsal records 0.70, <= 33.4 h if it records 2.57. At RATE 1.12: 35.9 h / 34.3 h. Keeping the 42 h MAXRUN would need a cap of 9.73 + 1.15 x 42 = 58.03, or 59.90 with a 2.57 rehearsal.",
+    "expected_additional_spend_usd": "About 28.3 USD list (29.4 recorded at 1.15) with no preemption; range 25.1 to 37.0 list. Add about 0.4 to 0.6 for one Spot full-rehearsal (about 1,200 s at 1.15/h = 0.38; recorded up to 1.15 x 4620/3600 = 1.48 against the gate). A preemption at hour t loses about 1.11 x t USD and yields no result. A relaunch then fits only if 9.73 + 1.15t + 1.15 x MAXRUN' <= 50; with MAXRUN' = 30 h, t must be under about 5 h.",
+    "fits_50_cap": "only with changes",
+    "changes_needed": [
+     "cloud/gcp/pilot_local.sh: --provisioning-model=SPOT for the full and full-rehearsal modes (today STANDARD is hard-coded in the create command). Keep --instance-termination-action=DELETE and auto-delete disks, which Google allows for Spot with max-run-duration (C check, Google limit-vm-runtime page).",
+     "pilot_local.sh line 124: MAXRUN about 33 to 35 h and DEADLINE_MIN = MAXRUN - 60 min. Update the 42 h statements in the header, cloud/gcp/README.md and docs/cloud-notes.md s.9.",
+     "config.env (owner): GCP_RATE_USD_PER_HOUR 1.15 (at least 1.12), GCP_SPEND_CAP_USD 50, GCP_SECOND_REPLAY empty, GCP_KEEP_OLEANS 0.",
+     "Commit, then a fresh 'stage' (launch refuses a dirty scripts/ or cloud/, and staged tools from another commit; pilot_local.sh launch block).",
+     "One Spot full-rehearsal before the full run. It is the only check that the flag combination is accepted, and it also exercises the import-closure replay a second time.",
+     "Never request preemptible quota. Spot uses standard quota only while none has been granted, and the step is one-way (gcp_pricing.json quota finding 4)."
+    ],
+    "risks": [
+     "Preemption probability over about 26 h is not published (B analysis, Google Spot page). One preemption ends the attempt, and probably the cloud budget.",
+     "Margin: the guest deadline (MAXRUN - 1 h) sits at or just under the 33.5 h high case. If the replay trials project past it, the run ends in the C3 short-cap path with C3 unanswered (full_guest.sh, C3_FITS and C3_SHORT_CAP).",
+     "The replay cost on a rented machine is unmeasured. The Mac data suggest +2 to +4 h (A check). That would push the high case past a 33 to 35 h MAXRUN.",
+     "Spot price moves daily, and the records hold us-central1 rates while the pilot found capacity only in us-east1-b (cloud-notes s.8).",
+     "The guest never powers off. Without 'watch' the VM runs to MAXRUN, which is bounded by the gate but costs the full RATE x MAXRUN (full_guest.sh header and idle_until_deleted; pilot_local.sh watch trap for full modes).",
+     "Never rehearsed: Spot, the shortened full-mode limits, the deadline and watchdog path at full size, a full-size seal, and C2 on the final theorem."
+    ],
+    "sources": [
+     "records/cloud/gcp_family_rates.json N4D|Core|Preemptible 0.01658, N4D|Ram|Preemptible 0.001887",
+     "records/cloud/gcp_pricing.json storage.billing_rules (external IPv4 0.005/h standard, 0.0025/h Spot; Spot prices change daily)",
+     "records/cloud/replay_cost.json whole_run",
+     "cloud/gcp/pilot_local.sh launch (RATE, MAXRUN, WORST, create command), teardown (close_run cap MAXRUN+120)",
+     "cloud/gcp/full_guest.sh lines 60-63, 151-154, 315-343"
+    ]
+   },
+   {
+    "option": "G: the same single-attempt Spot run on a cheaper family inside the 32-vCPU global quota, for example c3d-highmem-30 (30 vCPU, 240 GB)",
+    "summary": "From the SKU rates on file, c3d-highmem-30 on Spot comes to 30 x 0.00675 + 240 x 0.000908 = 0.420 USD/h for the machine, and about 0.512 all-in with the same disks and IP. On demand it is 1.837, no cheaper than N4D. It keeps enough memory (240 GB) for the measured working set, and it is the only cloud option where the launcher's worst case at the full 42 h fits under 50 with room left for a second attempt: at RATE 0.60, 0.60 x 42 = 25.20, and 11.60 + 25.20 = 36.80.\n\nIts speed is not measured. Hours scale by at least 32/30 for fewer vCPUs, and by an unknown per-thread factor for an older CPU generation. At factors of 1.07 to 1.33 the hours come to 24.3-30.2 / 27.4-34.0 / 35.8-44.6 (low / expected / high). The top of that range exceeds the 41 h guest stop.\n\nCost: about 14 to 17 USD expected (27.4 to 34.0 h x 0.512); high about 18 to 23.\n\nWhether the C3D family has CPU quota in the region is unknown. cloud-notes s.2 found per-family quota of 0 for one newer family, and a request is ruled out. The shape itself is not in the records: gcp_machine_types.csv lists only types with 96 vCPUs or more (records/cloud/README.md). Other in-quota candidates on file are weaker: n2d-highmem-32 Spot at 32 x 0.0139 + 256 x 0.001862 = 0.92/h, and t2d-standard-32 Spot at 0.81/h but only 128 GB, with option C's memory risk.",
+    "cap_needed_usd": "50 suffices at MAXRUN 42 h with RATE up to (50 - 11.60) / 42 = 0.91. RATE 0.60 leaves room for a second attempt if the first records no more than about 13.2 USD.",
+    "expected_additional_spend_usd": "About 14 to 17 USD with no preemption (projected; the speed factor is unmeasured), plus about 0.2 to 0.3 for a Spot rehearsal. A preemption loses what was spent so far, but under the cap one relaunch usually still fits.",
+    "fits_50_cap": "only with changes",
+    "changes_needed": [
+     "Owner reads, without requesting anything, the C3D (or N2D) family CPU quota in the target region and confirms the shape exists in the zones. If the quota is 0 the option is dead, because quota requests are ruled out.",
+     "The same SPOT flag change, commit and re-stage as F. GCP_MACHINE_TYPE=c3d-highmem-30 and GCP_ZONES in config.env.",
+     "Confirm that C3D accepts Hyperdisk Balanced for both the boot and the data disk and counts against the same 500 GB Hyperdisk quota (490 GB used). Otherwise the DATA string and boot-disk type in pilot_local.sh change, for example to pd-balanced under the 'Persistent disk SSD' quota.",
+     "pilot-nmax=32 is passed in metadata. On 30 vCPUs the guest's effective_jobs should cap it, but that is not verified. Check it in the rehearsal.",
+     "At least one Spot full-rehearsal on the new family. The rehearsal times give a first, small-tree speed ratio against the five N4D rehearsals (872 to 1,216 s)."
+    ],
+    "risks": [
+     "Nothing about this family was measured: compile rate, replay rate or memory behaviour. A 2-hour pilot-like calibration would cost about 1 USD but needs the pilot mode re-pointed at the new type.",
+     "Family quota may be zero, and capacity may be absent.",
+     "The C3D Spot discount on file is about 77 percent and can change daily. A low Spot price may also mean more preemption, which is not published.",
+     "The high case may exceed the 41 h guest stop, ending without C3.",
+     "Same preemption total-loss behaviour as F."
+    ],
+    "sources": [
+     "records/cloud/gcp_family_rates.json C3D|Core|Preemptible 0.00675, C3D|Ram|Preemptible 0.000908, C3D|*|OnDemand, N2D|*, T2D|*",
+     "docs/cloud-notes.md s.2 (family quota), s.3",
+     "records/cloud/README.md (machine-types extract covers 96 vCPUs or more only)"
+    ]
+   },
+   {
+    "option": "H (considered, ranked low): the build in the cloud, then the kernel replay on the Mac of the downloaded cloud build",
+    "summary": "The reverse combination, replay in the cloud on the Mac's build, uploads the Mac's build and is set aside under the owner's decision. This direction is allowed but gains little.\n- Cost: a build-only cloud run is 13.7 / 15.6 / 17.9 h build plus about 0.5 to 6 h other, about 26.5 / 31.9 / 44.6 USD at 1.868/h. Downloading about 127 GB of compiled files costs about 15.24 USD of Premium-tier egress (0.12/GiB, gcp_pricing.json billing_rules). Total on demand: 11.60 + about 42 to 47 is about 54 to 59, so it does not fit. On Spot (F's rate) about 11.6 + 19 + 15 = 46, which fits barely.\n- Time: the replay would still take the Mac's 23 to 40 days, the long pole of D.\n- Integrity: the anti-planting seal (hashes at seal and end on one machine; cloud-notes s.9) would have to be rebuilt across a download.\n- Compatibility: whether x86-64 Linux compiled files load under the arm64 macOS toolchain is unknown.\nIts only use is as a fallback if the Mac cannot build the top modules, and E covers that case better.",
+    "cap_needed_usd": "On demand about 54 to 59 in total (does not fit). On Spot about 46 to 50 (fits only barely); driver changes are needed for a build-only mode and an upload of the compiled files.",
+    "expected_additional_spend_usd": "About 34 to 47 USD (projected), of which about 15 is egress.",
+    "fits_50_cap": "only with changes",
+    "changes_needed": [
+     "A new build-only guest mode with keep-oleans set before C2/C3 (today the archive is made only after every check; full_guest.sh lines 897-917).",
+     "A download step, and a cross-machine re-seal argument.",
+     "Check that cloud-built compiled files are accepted on the Mac toolchain."
+    ],
+    "risks": [
+     "Weeks of Mac replay remain.",
+     "Integrity chain across machines.",
+     "Egress and bucket storage are not counted by the ledger."
+    ],
+    "sources": [
+     "records/cloud/replay_cost.json",
+     "records/cloud/gcp_pricing.json storage.billing_rules (egress 0.12/GiB)",
+     "cloud/gcp/full_guest.sh lines 897-917",
+     "docs/cloud-notes.md s.9"
+    ]
+   }
+  ],
+  "ranking": [
+   {
+    "rank": 1,
+    "option": "E (D now, cloud budget held back, decision later)",
+    "why": "It costs nothing now. It meets C1 to C3 with leanchecker and the repository's scripts if the Mac completes. It loses nothing by waiting, and it keeps about 38 to 40 USD for a later cloud run informed by the rehearsal's first real replay timing and by how the Mac handles the top modules. Waiting is cheaper than a wasted run, by the owner's own statement."
+   },
+   {
+    "rank": 2,
+    "option": "D (Mac only, as analysed)",
+    "why": "The same zero-cost path as E, but without the explicit reserve and decision point. Weeks of replay (about 23 to 40 days at the measured rate), S3 not met, and INCONCLUSIVE if the top cannot be built."
+   },
+   {
+    "rank": 3,
+    "option": "F (n4d-highmem-32 Spot, single attempt, MAXRUN about 33 to 35 h)",
+    "why": "It is the only cloud option on the measured machine that fits 50 USD with small code changes and no resume logic. Expected about 28 USD list. But a preemption is a total loss with almost no room to relaunch, and the high case sits at the deadline."
+   },
+   {
+    "rank": 4,
+    "option": "G (cheaper in-quota family on Spot, e.g. c3d-highmem-30)",
+    "why": "Cheapest, and the only cloud option leaving room for a second attempt at the full 42 h. But it is gated on family quota that may be zero, and its speed and memory behaviour are wholly unmeasured."
+   },
+   {
+    "rank": 5,
+    "option": "C (n4d-standard-32 Spot)",
+    "why": "Fits on paper with 0.6 to 2.3 USD of margin. But the 128 GB memory penalty is unbounded by any record, it is a single attempt, and C2 and the top of the build are exposed."
+   },
+   {
+    "rank": 6,
+    "option": "B (n4d-highmem-32 Spot with new resume code)",
+    "why": "Fits only near the expected case, after substantial new code, a re-review of the seal argument, and several rehearsals, all paid from the same 38 to 40 USD. The guest deadline falls below the high case once rehearsals are paid."
+   },
+   {
+    "rank": 7,
+    "option": "H (cloud build, Mac replay)",
+    "why": "Over or at the cap, keeps the weeks of Mac replay, and breaks the single-machine seal."
+   },
+   {
+    "rank": 8,
+    "option": "A (as designed, on demand)",
+    "why": "Cannot run under 50 at all. Even the low case records about 55 USD, and the launcher needs a cap of 93.73 to 95.60."
+   }
+  ],
+  "disagreements_between_analysis_and_check": [
+   "A, the rehearsal maximum: the check is right. teardown calls close_run with a cap of MAXRUN+120 s (cloud/gcp/pilot_local.sh, teardown, last close_run line), and full-rehearsal has MAXRUN=4500. So the ledger can record 2.00 x 4620/3600 = 2.57, not 2.50. The 'at most' figures become 11.60 spent, 95.60 cap and 95.67 recorded worst case. The same 0.07 applies to every option's headroom: 38.40, not 38.47.",
+   "A, the watch dependency: the check is right. full_guest.sh's header (lines 60-62) and idle_until_deleted show the guest never powers off. Only 'watch' calls teardown, and in full modes an interrupt of watch only stops watching (pilot_local.sh watch trap). If watch is not running when the guest finishes, the VM bills to MAXRUN: 84.07 recorded for A.",
+   "A, the 1.87 rate: the check is right that 1.87 is not a safe ceiling. The in-use external IPv4 is 0.005 USD/h on a standard VM (records/cloud/gcp_pricing.json storage.billing_rules), so the true rate is 1.873. Use 1.88 or more. The difference over 42 h is about 0.2 USD.",
+   "A, the low case: the check is right that it is not a floor. Its replay (8.5 h) equals the expected case and is a projection never timed on a rented machine (replay_cost.json; cloud-notes s.8.5).",
+   "B, the MAXRUN slack: the check is right. DEADLINE_MIN is an hour inside MAXRUN (pilot_local.sh line 124 pattern), and rehearsals come out of the same room. B's all-in rate is also low: 1.0966 leaves out the boot disk's default performance (about 0.006/h) and the Spot IP (0.0025/h). The true rate is 1.105, so RATE 1.10 under-records. Neither the analysis nor the check caught this.",
+   "B, the stale run.lock: the check is right and the analysis wrong. scripts/09_kernel_replay.sh lines 154-178 take over a lock whose process is gone or is not this script. It stops only if a live 09_kernel_replay process holds the lock.",
+   "B, model (b) losing the boot disk: the check is right. PD=/var/pilot is on the boot disk (full_guest.sh line 65), and the toolchain, users and baselines live there. A re-created VM would have to redo setup, and the pre-compile records would be gone.",
+   "B, 'doubles the cost': the check is right that under a 50 USD cap a preemption ends the cloud attempt rather than doubling its cost.",
+   "C, the 128 GB time penalty: the check is right. The +0.3/+1.0/+3.5/+10 h figures trace to no record; the pilot read about 2 MB from disk (cloud-notes s.8.2, last paragraph) with up to 186 GiB cached. The base hours are 22.7/25.6/33.5, plus fixed rereads; the penalty above that is unknown.",
+   "C, the caps: the check is right (spent 11.60, not 11.53). Spot caps are 47.72 at RATE 0.86 and 49.40 at 0.90. The C rate also leaves out the boot-disk performance and the IP (about 0.009/h), so 0.86 under-records: the true rate is about 0.864.",
+   "D, the replay calendar: the check is right. I recomputed from records/mac-build/closure-directory-checks.json: (322-47)/24 = 11.46 s and (266-47)/12 = 18.25 s of wall time per module at 2 jobs. Over 175,187 modules that is 23.2 and 37.0 days, before the closure adjustment. The analysis's 21 to 28 days came from process seconds and leaves out the measured link and batch overhead.",
+   "D, the C3 results file: the check is right. The script header (lines 42-50) says passes are reused unless the compiled file changed, and that a result that counts 'should' come from a run after the build. The final --c3 must start from an empty results file.",
+   "D, the fallback: the check is right. A full cloud rebuild is not available under the cap, so a top-of-graph failure on the Mac ends INCONCLUSIVE, unless the reserve in option E is kept for that case."
+  ],
+  "cautions": [
+   "No cloud option has any measurement of leanchecker with import-closure directories on a rented machine. The rehearsal running now gives the first one, on a tree of about 1,800 modules. Read its replay timing and link cost before choosing any cloud run.",
+   "Every Spot figure uses us-central1 SKU rates read on 2026-11-20. Spot prices change daily, and the pilot found N4D capacity only in us-east1-b. Re-read the price on the day, and set RATE above the all-in figure (N4D Spot 1.105, not 1.0966).",
+   "The launcher enforces the cap on its ledger (RATE x seconds), not on Google's bill. Past rows used 2.00/h against about 1.87 actual, so the 9.03 overstates list spend by about 0.6. Tax, egress, bucket storage and the external IP sit outside the model. The owner should say whether 'total' means ledger or bill.",
+   "The guest never shuts itself down. Every expected cost assumes 'watch' keeps running on the Mac for about a day. If it stops, the VM bills to MAXRUN (bounded by the gate, but the whole worst case is spent).",
+   "Three config.env settings were not readable: GCP_SECOND_REPLAY, GCP_KEEP_OLEANS and GCP_RATE_USD_PER_HOUR. The owner must confirm the first is empty (his no-second-replay decision) and the second is 0 before any launch. The code default for GCP_SPEND_CAP_USD is 40 (pilot_local.sh), so the 50 must actually be set there.",
+   "Every cloud option that fits 50 is a single attempt in practice. A preemption, a host restart (the guest refuses to run twice, full_guest.sh line 343), a build failure or a deadline cut leaves too little for a second full attempt, except possibly option G.",
+   "Any change to MAXRUN or the provisioning model is a commit under cloud/ plus a re-stage, and needs at least one rehearsal. The full-mode limits and the deadline and watchdog path have never been rehearsed at any size.",
+   "Flex-start, the queued non-preemptible model mentioned in cloud-notes s.6 item 10, is not an option. Google's provisioning-models page lists only GPU and TPU series and H4D for it, and H4D family quota is 0 with a request already refused. Sustained-use discounts do not apply to N4D, T2D, C3D or C4D, and begin only after a quarter of a month. Committed-use discounts need a commitment. No price term without commitment lowers option A.",
+   "Do not request preemptible quota while choosing Spot. Spot then uses standard quota, and the step is one-way (gcp_pricing.json quota finding 4).",
+   "The Mac-only path loses S3 (second platform). A Mac-plus-cloud combination is the only way to meet it, which is an argument for holding the cloud budget rather than spending it now.",
+   "Numbers I derived here that are not in any file: N4D Spot all-in 1.1053/h; c3d-highmem-30 Spot 0.420/h machine; the C3D speed factor of 1.07 to 1.33, which is a guess; 127 GB egress at 15.24 USD. The c3d-highmem-30 shape and its Hyperdisk support are from general knowledge, not the records, and must be confirmed."
+  ]
+ }
+}

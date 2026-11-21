@@ -11,15 +11,22 @@ What it does: reads the recorded results of two cloud runs in which `leanchecker
   the toolchain: SearchPath.findAllWithExt, then searchModuleNameOfFileName for each file), so `per_file` is the
   cost of that listing. From the fit it projects the replay of the whole tree by the stock tool, and by a
   program that does not list the search path (scripts/verify/replay). If runs that used that program are given
-  (--driver-run), their measured rate is reported beside the projection.
+  (--driver-run), their measured rate is reported beside the projection. If runs in which `leanchecker` was given
+  only each module's import closure on its search path are given (--closure-run), what they measured is set beside
+  what the fit projects for the same modules.
 
   With two runs the fit is two points and a line: it shows the size of the effect, not a precise figure.
 
 What it changes on disk: writes the JSON named by --out, if given. Nothing else.
-How long it takes: a second.
+How long it takes: about a second, with or without --closure-run.
 
-Usage: python3 analysis/replay_cost.py [--out FILE] [--driver-run DIR]...
-       (run from the repository root; reads records/cloud)
+  Two measures appear below and are not the same thing. "Seconds per check" is the mean of the seconds recorded
+  for each check (the fit's points are of this kind). "Job seconds per module" is throughput: jobs x (seconds
+  between a window's first and last result) / modules. They agree only when every job is busy throughout and
+  nothing outside the check costs time, so a ratio is only ever taken between two figures of the same kind.
+
+Usage: python3 analysis/replay_cost.py [--out FILE] [--driver-run DIR]... [--closure-run DIR]...
+       (run from the repository root; reads records/cloud, and records/source/import_graph.json.gz for --closure-run)
 """
 import argparse
 import gzip
@@ -68,6 +75,61 @@ def window(ph, name):
     return None
 
 
+def results_by_how(path, how):
+    """Passing leanchecker lines whose eighth field (how the tool was run) begins with `how`: (module, seconds, epoch)."""
+    rows = []
+    with gzip.open(path, "rt", encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            f = line.rstrip("\n").split("\t")
+            if len(f) >= 8 and f[5] == "leanchecker" and f[7].startswith(how) and f[1] == "0":
+                rows.append((f[0], float(f[2]), int(f[4])))
+    return rows
+
+
+def closure_sizes(graph_path, modules):
+    """Number of project modules each of `modules` imports, directly or not. (The directory a check is given
+    holds one compiled file more than this: the module's own.)"""
+    with gzip.open(graph_path, "rt", encoding="utf-8") as fh:
+        g = json.load(fh)
+    out = {}
+    for m in modules:
+        seen, stack = set(), [m]
+        while stack:
+            for y in g.get(stack.pop(), ()):
+                if y in g and y not in seen:
+                    seen.add(y)
+                    stack.append(y)
+        out[m] = len(seen)
+    return out
+
+
+def window_stats(rows, ph, labels):
+    """One entry per phase whose label begins with one of `labels` and in which at least 20 checks finished.
+    rows: (module, seconds, epoch of the result)."""
+    out = []
+    for k, (t, label, _rest) in enumerate(ph):
+        if not label.startswith(labels):
+            continue
+        end = next((t2 for t2, l2, _r in ph[k + 1:] if t2 >= t and l2 != label), None)
+        if end is None:
+            continue
+        w = [r for r in rows if t < r[2] <= end]
+        if len(w) < 20:
+            continue
+        jobs = int(label.split("=")[1])
+        last = max(r[2] for r in w)
+        span = last - min(r[2] for r in w) or 1
+        first_start = min(r[2] - r[1] for r in w)
+        out.append({"window": label, "jobs": jobs, "modules_checked": len(w),
+                    "seconds_between_first_and_last_result": span,
+                    "modules_per_second": round(len(w) / span, 2),
+                    "job_seconds_per_module": round(jobs * span / len(w), 2),
+                    "mean_seconds_per_check": round(statistics.mean(r[1] for r in w), 2),
+                    "mean_checks_in_flight": round(sum(r[1] for r in w) / float((last - first_start) or 1), 1),
+                    "_rows": w})
+    return out
+
+
 def oleans(path):
     with open(path, encoding="utf-8") as fh:
         for line in fh:
@@ -81,6 +143,9 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", default="")
     ap.add_argument("--driver-run", action="append", default=[], help="directory of a recorded run that used rhv-replay")
+    ap.add_argument("--closure-run", action="append", default=[],
+                    help="directory of a recorded run in which leanchecker had only each module's import closure on its search path")
+    ap.add_argument("--graph", default="records/source/import_graph.json.gz", help="the import graph, for --closure-run")
     a = ap.parse_args()
     root = "records/cloud"
     est = json.load(open(os.path.join(root, "pilot/pilot_estimate.json")))
@@ -145,6 +210,24 @@ def main():
         "earlier_estimate_it_replaces": {"hours": est["hours"]["expected"]["check_hours"],
                                          "why_it_was_wrong": "it took the cost per check measured with 29,633 modules compiled as the cost at any size"},
     }
+    # The first point is the mean over the third rehearsal's main pass. The trial at 32 just before it, in the
+    # same run and also with 32 checks in flight, gave a different mean. The line moves with that choice.
+    r3rows = [(r[0], r[2], r[3]) for r in results(os.path.join(r3, "c3_results.tsv.gz")) if r[1] == 0]
+    r3trial = [w for w in window_stats(r3rows, ph, ("check_trial:N=",)) if w["jobs"] == JOBS]
+    if r3trial:
+        y1t = r3trial[0]["mean_seconds_per_check"] - per_import * p1["mean_closure"]
+        pf_t = (y2 - y1t) / (p2["files_on_search_path"] - p1["files_on_search_path"])
+        fx_t = y1t - pf_t * p1["files_on_search_path"]
+        out["if_the_first_point_were_that_runs_trial_at_32"] = {
+            "mean_seconds_per_check": r3trial[0]["mean_seconds_per_check"], "checks_counted": r3trial[0]["modules_checked"],
+            "mean_checks_in_flight": r3trial[0]["mean_checks_in_flight"],
+            "fixed": round(fx_t, 2), "per_compiled_file_on_the_search_path": round(pf_t, 6),
+            "whole_tree_hours_at_32": {
+                "leanchecker_one_process_per_module": hours(fx_t + pf_t * files_tree + closure),
+                "leanchecker_with_only_the_import_closure_on_the_search_path":
+                    hours(fx_t + pf_t * (LIBRARY_FILES + mean_closure_tree) + closure + LINK_SECONDS * mean_closure_tree)},
+            "note": "the same run and the same job count as the first point, a few minutes earlier; the two means differ by more "
+                    "than the whole of the saving the line predicts for a shorter search path at this size of tree"}
     # The whole run, with the build and the allowances of pilot_estimate.json and the replay as fitted here.
     # Priced as there: billed hours at the machine's and the disk's hourly rates, plus the disk for six hours more.
     cfg = est["configurations"][0]
@@ -244,6 +327,64 @@ def main():
             out["whole_run"]["rhv_replay_cost_per_module_before_the_closure_term"] = {
                 "seconds": measured[-1], "source": "measured at 32 at a time in " + [e["run"] for e in drv if "at_32_job_seconds_per_module" in e][-1]}
             out["whole_run"]["by_method_for_the_whole_tree"] = whole_run(measured[-1])
+    # Runs in which leanchecker had only the module's import closure on its search path. What they measured is
+    # compared like with like: the trial at 32 at a time here with the trial at 32 at a time of the run that gave
+    # the fit its first point, once as throughput and once as seconds per check. (A main pass is not used: modules
+    # are handed out 25 to a worker, and a pass of 635 modules makes 26 workers where 32 were allowed, so its
+    # checks ran with fewer in flight and cost less each.)
+    clo = []
+    for d in a.closure_run:
+        f = os.path.join(d, "c3_results.tsv.gz")
+        if not os.path.exists(f):
+            continue
+        allrows = results_by_how(f, "import-closure-directory")
+        sizes = closure_sizes(a.graph, [r[0] for r in allrows])
+        windows = window_stats(allrows, phases(os.path.join(d, "phases.tsv")), ("check_trial:N=", "check:N="))
+        if not windows:
+            continue
+        for w in windows:
+            w["mean_closure"] = round(statistics.mean(sizes[r[0]] for r in w["_rows"]), 1)
+            w["largest_closure"] = max(sizes[r[0]] for r in w["_rows"])
+        entry = {"run": os.path.basename(d.rstrip("/")), "compiled_modules": oleans(os.path.join(d, "disk.txt")),
+                 "modules_passed_this_way": len(allrows),
+                 "mean_closure_of_all_of_them": round(statistics.mean(sizes.values()), 1), "largest_closure": max(sizes.values()),
+                 "windows": windows}
+        trial = [w for w in windows if w["jobs"] == JOBS and w["window"].startswith("check_trial")]
+        if trial and r3trial:
+            tw, rw = trial[0], r3trial[0]
+            files_here = LIBRARY_FILES + tw["mean_closure"] + 1
+            fit_here = fixed + per_file * files_here + per_import * tw["mean_closure"] + LINK_SECONDS * tw["mean_closure"]
+            fit_ref = fixed + per_file * p1["files_on_search_path"]
+            predicted = fit_here / fit_ref
+            by_throughput = tw["job_seconds_per_module"] / rw["job_seconds_per_module"]
+            by_check = tw["mean_seconds_per_check"] / rw["mean_seconds_per_check"]
+            excess = sorted([by_check / predicted - 1, by_throughput / predicted - 1])
+            entry["trial_at_32_against_the_same_trial_with_the_whole_library_on_the_path"] = {
+                "this_run": {"files_on_the_search_path": int(round(files_here)), "mean_closure": tw["mean_closure"],
+                             "modules_checked": tw["modules_checked"], "job_seconds_per_module": tw["job_seconds_per_module"],
+                             "mean_seconds_per_check": tw["mean_seconds_per_check"], "mean_checks_in_flight": tw["mean_checks_in_flight"]},
+                "the_other_run": {"run": p1["run"], "files_on_the_search_path": p1["files_on_search_path"],
+                                  "modules_checked": rw["modules_checked"], "job_seconds_per_module": rw["job_seconds_per_module"],
+                                  "mean_seconds_per_check": rw["mean_seconds_per_check"], "mean_checks_in_flight": rw["mean_checks_in_flight"]},
+                "this_run_over_the_other": {"the_fit_predicts": round(predicted, 3), "measured_as_throughput": round(by_throughput, 3),
+                                            "measured_as_seconds_per_check": round(by_check, 3)},
+                "above_what_the_fit_predicts_percent": [round(100 * excess[0], 1), round(100 * excess[1], 1)],
+                "whole_tree_replay_hours_at_32_if_that_held": [hours(closure_dir * (1 + excess[0])), hours(closure_dir * (1 + excess[1]))],
+                "note": "the fit predicts a saving of %.2f seconds per check from the shorter search path; the two measures put this run "
+                        "%.1f and %.1f percent above that, which is no more than a trial and a main pass of one run differ by. The modules "
+                        "timed here import %.1f others on average, against %d for the tree: the run says what a check costs with a "
+                        "short search path on the cloud machine, and nothing about making the links of a deep module or replaying one"
+                        % (fit_ref - fit_here, 100 * excess[0], 100 * excess[1], tw["mean_closure"], round(mean_closure_tree))}
+        for w in windows:
+            del w["_rows"]
+        clo.append(entry)
+    for w in r3trial:
+        w.pop("_rows", None)
+    if clo:
+        out["leanchecker_with_import_closure_directories_measured"] = clo
+        out["whole_tree"]["leanchecker_with_only_the_import_closure_on_the_search_path"]["note"] = (
+            "a projection from the fit. This way of running leanchecker has been timed on the cloud machine only on a "
+            "small tree of shallow modules (leanchecker_with_import_closure_directories_measured, below)")
     text = json.dumps(out, indent=1)
     print(text)
     if a.out:
