@@ -11,8 +11,8 @@ Nothing here needs an AI system. The scripts are short shell and Python and are 
 | 0 | What is claimed and on what evidence | Minutes | None | No |
 | 1 | The source is the recorded artifact; it contains none of the usual shortcuts; it states the real theorem against the real Mathlib | 5 to 15 minutes | About 2 GB | No |
 | 2 | The toolchain and Mathlib cache work; the final reduction step is kernel-checked on standard axioms; a sample of modules passes kernel replay | About an hour | About 10 GB | Yes |
-| 3 | The whole tree compiles, or does not | Days on a laptop; about a day on a 32-vCPU cloud machine | 150 GB to 1.5 TB | Yes |
-| 4 | The pre-registered verdict: axioms and statement of the compiled theorem, and a full kernel replay | Hours to days after level 3 | Same | Yes |
+| 3 | The whole tree compiles, or does not | Days on a laptop; an estimated 16 hours on a 32-vCPU cloud machine | 200 GB to 1.5 TB | Yes |
+| 4 | The pre-registered verdict: axioms and statement of the compiled theorem, and a full kernel replay | Days more on a laptop; an estimated 15 hours more on that cloud machine | Same | Yes |
 
 ## Level 0: read
 
@@ -99,11 +99,16 @@ scripts/06_progress.sh            # whenever you like
 scripts/05_build.sh stop          # safe at any time; finished modules are kept
 ```
 
-What to expect is in [`performance-notes.md`](performance-notes.md). The short version: memory, not CPU, is the first limit, at roughly 2 GB per parallel job plus 8 GB; too many jobs makes the build slower; and the rate you see in the first hours overstates the rate later, because later modules import much more.
+What to expect is in [`performance-notes.md`](performance-notes.md). The short version: on a small machine memory, not CPU, is the first limit, at roughly 2 GB per parallel job plus 8 GB; too many jobs makes the build slower; and the last few thousand modules import so much that a machine with little memory will slow down on them.
+
+Two things to do before starting:
+
+- On Linux, raise the limit on memory mappings: `sudo sysctl -w vm.max_map_count=1048576`. At the usual default, modules that import more than about 12,000 project modules are expected to fail. `scripts/00_check_prereqs.sh` reports the current value.
+- Check the disk. Lake writes about 1.5 TB for the whole tree, nine tenths of it regenerable setup files. If you have less, `scripts/prune_setup_files.sh --delete` removes the setup files of finished modules and can be run while the build is going; read its header first.
 
 A module that fails is not necessarily a failure of the proof. If the compiler process was killed for lack of memory, re-run with fewer jobs. The rule this project uses is in section 4 of the pre-registration: a module counts as failing only when it fails with a Lean error, reproducibly, with enough memory.
 
-On Google Cloud, [`cloud/gcp/`](../cloud/gcp/) has a calibration pilot that measures the cost on a rented machine before you commit to a full run.
+On Google Cloud, [`cloud/gcp/`](../cloud/gcp/) has a calibration pilot that measures the cost on a rented machine before you commit to a full run. Its results from 2026-11-20, and the estimate of about 31 hours and 58 USD for a full build and kernel replay, are in [`cloud-notes.md`](cloud-notes.md), section 8.
 
 ## Level 4: the verdict
 

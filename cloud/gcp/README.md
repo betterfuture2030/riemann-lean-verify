@@ -59,3 +59,11 @@ The proof source is untrusted code. On the VM it is compiled by an unprivileged 
 | `disk.txt` | Bytes written, split into compiled output and regenerable setup files |
 
 The build targets and probe modules used for the recorded pilot are in [`records/source/pilot_targets.json`](../../records/source/pilot_targets.json).
+
+## From measurements to an estimate
+
+```bash
+python3 analysis/pilot_estimate.py PILOT_RESULTS_DIR records/source/import_graph.json.gz
+```
+
+prints the estimated hours for a full build and a full kernel replay on the same machine type, and prices them. `PILOT_RESULTS_DIR` is the directory `watch` downloaded the results to. The recorded pilot's results are in [`records/cloud/pilot/`](../../records/cloud/pilot/), and [`docs/cloud-notes.md`](../../docs/cloud-notes.md), section 8, explains the method and what three reviews changed in it. Section 9 lists what a full run needs that these scripts do not do.

@@ -17,9 +17,9 @@ As of 2026-11-20: **not verified; compile in progress.**
 | Source scanned for `sorry`, added axioms, `native_decide`, `unsafe`, IO and similar | Done: none found |
 | Pinned Mathlib confirmed to be the unmodified official tag | Done |
 | Final reduction step compiled; its axioms and statement checked | Done: standard axioms, Mathlib's statement |
-| **C1. Whole tree compiles with zero errors** | **In progress: a few percent done, zero failures so far** |
+| **C1. Whole tree compiles with zero errors** | **In progress: about 22,000 of 175,187 modules on a Mac, zero failures so far. A separate cloud pilot compiled 29,633, also with zero failures** |
 | **C2. Statement and axioms of the compiled headline theorem** | Not yet possible |
-| **C3. Independent kernel replay of every module** | Not yet possible; samples of 24 and 565 modules passed |
+| **C3. Independent kernel replay of every module** | Not yet possible; samples of 24, 565 and 2,233 modules passed |
 
 "Zero failures so far" is progress, not a verdict. This repository makes no claim that the proof is correct or incorrect.
 
@@ -38,8 +38,8 @@ Start with [`CLAIMS.md`](CLAIMS.md): every claim, the kind of evidence behind it
 | 0 | What is claimed and on what evidence | Minutes of reading |
 | 1 | The source is the recorded artifact, contains none of the usual shortcuts, and states the real theorem against the real Mathlib | 5 to 15 minutes, 2 GB, no Lean needed |
 | 2 | The final reduction step is kernel-checked on standard axioms; a sample of modules passes kernel replay | About an hour, 10 GB |
-| 3 | The whole tree compiles, or does not | Days on a laptop; about a day on a 32-vCPU cloud machine |
-| 4 | The pre-registered verdict | Hours to days after level 3 |
+| 3 | The whole tree compiles, or does not | Days on a laptop; an estimated 16 hours on a 32-vCPU cloud machine |
+| 4 | The pre-registered verdict | Days more on a laptop; an estimated 15 hours more on that cloud machine |
 
 ```bash
 git clone https://github.com/betterfuture2030/riemann-lean-verify
@@ -63,7 +63,9 @@ Each script says at the top what it does, what it changes on disk and how long i
 
 ## On Google Cloud
 
-[`cloud/gcp/`](cloud/gcp/) has a calibration pilot: one self-deleting virtual machine that compiles a time-boxed sample and measures cost per module, so the cost of a full run can be estimated before committing to it. It enforces a spending cap and never runs the full build. See [`cloud/gcp/README.md`](cloud/gcp/README.md) and [`docs/cloud-notes.md`](docs/cloud-notes.md).
+[`cloud/gcp/`](cloud/gcp/) has a calibration pilot: one self-deleting virtual machine that compiles a time-boxed sample and measures cost per module, so the cost of a full run can be estimated before committing to it. It enforces a spending cap and never runs the full build. See [`cloud/gcp/README.md`](cloud/gcp/README.md).
+
+The pilot was run on 2026-11-20 for 5.82 USD. It compiled 29,633 modules and kernel-checked 2,233, with no failures. From its measurements, a full build and full kernel replay on the same 32-vCPU machine are estimated at about 31 hours and 58 USD (range 53 to 74 USD). The data, the estimate, three independent reviews of it and the list of what a full run still needs are in [`records/cloud/pilot/`](records/cloud/pilot/) and [`docs/cloud-notes.md`](docs/cloud-notes.md), sections 8 and 9. No full cloud run has been made.
 
 ## What has been found so far
 
@@ -92,10 +94,10 @@ It is not the proof and does not redistribute it. It is not affiliated with the 
 | `PREREGISTRATION.md` | The criteria, fixed in advance |
 | `CLAIMS.md` | Every claim, its evidence tier and how to reproduce it |
 | `scripts/` | Numbered, re-runnable steps; `lib.sh` holds the shared configuration |
-| `analysis/` | Import-graph and timing analysis |
+| `analysis/` | Import-graph and timing analysis, and the cost estimate from the pilot |
 | `cloud/gcp/` | The Google Cloud calibration pilot |
 | `docs/` | Replication guide, verification criteria explained, source audit, outline of the argument, performance and cloud notes |
-| `records/` | Hashes, expected values, measurements, audit output and price snapshots from the runs so far |
+| `records/` | Hashes, expected values, measurements, audit output, price snapshots and the cloud pilot's data from the runs so far |
 
 ## Roadmap
 

@@ -1,0 +1,446 @@
+{
+ "machine": {
+  "vcpus": 32
+ },
+ "observed": {
+  "compiler_processes_finished": 29606,
+  "compiler_processes_killed_at_window_ends": 176,
+  "distinct_modules_compiled": 29388,
+  "of_which_at_full_jobs": 25487,
+  "largest_closure_compiled": 17860,
+  "checker_modules": 2225,
+  "mean_closure_compiled": 680,
+  "peak_private_memory_mb": {
+   "median": 504,
+   "p99": 765,
+   "max": 8130
+  },
+  "threads_per_compiler": {
+   "median": 15,
+   "max": 38
+  }
+ },
+ "compile_model": {
+  "mean_cpu_seconds": 8.54,
+  "plain_regression": {
+   "base": 8.512,
+   "per_1000_imports": 0.046,
+   "standard_error": 0.049
+  },
+  "largest_closures_only": {
+   "n": 153,
+   "per_1000_imports": 0.41,
+   "standard_error": 0.182
+  },
+  "import_probe": {
+   "n": 51,
+   "base": 2.37,
+   "per_1000_imports": 0.136,
+   "standard_error": 0.003
+  },
+  "contention_at_full_jobs": 1.664,
+  "slope_used_per_1000_imports": 0.226,
+  "by_closure": [
+   {
+    "closure": "0-0",
+    "n": 1360,
+    "median": 5.08,
+    "mean": 6.91
+   },
+   {
+    "closure": "1-100",
+    "n": 9739,
+    "median": 6.03,
+    "mean": 8.41
+   },
+   {
+    "closure": "101-1000",
+    "n": 9962,
+    "median": 5.86,
+    "mean": 8.73
+   },
+   {
+    "closure": "1001-3000",
+    "n": 3055,
+    "median": 5.92,
+    "mean": 9.28
+   },
+   {
+    "closure": "3001-8000",
+    "n": 1218,
+    "median": 5.64,
+    "mean": 8.07
+   },
+   {
+    "closure": "8001-max",
+    "n": 153,
+    "median": 6.88,
+    "mean": 8.3
+   }
+  ]
+ },
+ "tree": {
+  "modules": 175187,
+  "mean_closure": 3086,
+  "sample": 8000,
+  "share_with_closure_beyond_compiled": 0.033
+ },
+ "windows": {
+  "check": {
+   "jobs": 32,
+   "seconds": 602,
+   "finished": 2225,
+   "per_second": 3.7,
+   "useful_cpu_per_thread_second": 0.971,
+   "mean_cpu_s": 8.29,
+   "seconds_to_first": 9.0,
+   "busy": 0.995,
+   "sys_share": 0.609,
+   "write_mb_s": 0.2,
+   "read_mb_s": 0.0,
+   "min_avail_gb": 236,
+   "max_open_files": 1384423
+  },
+  "cold": {
+   "jobs": 32,
+   "seconds": 603,
+   "finished": 1958,
+   "per_second": 3.25,
+   "useful_cpu_per_thread_second": 0.946,
+   "mean_cpu_s": 9.07,
+   "seconds_to_first": 1.7,
+   "busy": 0.995,
+   "sys_share": 0.103,
+   "write_mb_s": 20.8,
+   "read_mb_s": 0.001,
+   "min_avail_gb": 221,
+   "max_open_files": 1660794,
+   "build_tool_cpu_s_per_module": 0.348,
+   "build_tool_cores": 1.13
+  },
+  "deepA": {
+   "jobs": 32,
+   "seconds": 2304,
+   "finished": 7405,
+   "per_second": 3.21,
+   "useful_cpu_per_thread_second": 0.823,
+   "mean_cpu_s": 8.11,
+   "seconds_to_first": 4.2,
+   "busy": 0.869,
+   "sys_share": 0.1,
+   "write_mb_s": 20.5,
+   "read_mb_s": 0.0,
+   "min_avail_gb": 219,
+   "max_open_files": 1669538,
+   "build_tool_cpu_s_per_module": 0.349,
+   "build_tool_cores": 1.12
+  },
+  "deepB": {
+   "jobs": 32,
+   "seconds": 4163,
+   "finished": 13812,
+   "per_second": 3.32,
+   "useful_cpu_per_thread_second": 0.911,
+   "mean_cpu_s": 8.74,
+   "seconds_to_first": 3.8,
+   "busy": 0.964,
+   "sys_share": 0.108,
+   "write_mb_s": 21.3,
+   "read_mb_s": 0.0,
+   "min_avail_gb": 222,
+   "max_open_files": 1715585,
+   "build_tool_cpu_s_per_module": 0.384,
+   "build_tool_cores": 1.27
+  },
+  "sweep1": {
+   "jobs": 16,
+   "seconds": 363,
+   "finished": 1213,
+   "per_second": 3.34,
+   "useful_cpu_per_thread_second": 0.578,
+   "mean_cpu_s": 5.38,
+   "seconds_to_first": 6.3,
+   "busy": 0.619,
+   "sys_share": 0.083,
+   "write_mb_s": 20.0,
+   "read_mb_s": 0.0,
+   "min_avail_gb": 236,
+   "max_open_files": 845692,
+   "build_tool_cpu_s_per_module": 0.245,
+   "build_tool_cores": 0.82
+  },
+  "sweep2": {
+   "jobs": 32,
+   "seconds": 362,
+   "finished": 1263,
+   "per_second": 3.49,
+   "useful_cpu_per_thread_second": 0.941,
+   "mean_cpu_s": 8.31,
+   "seconds_to_first": 8.2,
+   "busy": 0.994,
+   "sys_share": 0.112,
+   "write_mb_s": 21.9,
+   "read_mb_s": 0.0,
+   "min_avail_gb": 224,
+   "max_open_files": 1710697,
+   "build_tool_cpu_s_per_module": 0.367,
+   "build_tool_cores": 1.28
+  },
+  "sweep3": {
+   "jobs": 16,
+   "seconds": 362,
+   "finished": 1139,
+   "per_second": 3.15,
+   "useful_cpu_per_thread_second": 0.56,
+   "mean_cpu_s": 5.58,
+   "seconds_to_first": 6.5,
+   "busy": 0.599,
+   "sys_share": 0.08,
+   "write_mb_s": 19.1,
+   "read_mb_s": 0.0,
+   "min_avail_gb": 236,
+   "max_open_files": 861602,
+   "build_tool_cpu_s_per_module": 0.256,
+   "build_tool_cores": 0.81
+  },
+  "sweep4": {
+   "jobs": 32,
+   "seconds": 363,
+   "finished": 1251,
+   "per_second": 3.45,
+   "useful_cpu_per_thread_second": 0.941,
+   "mean_cpu_s": 8.38,
+   "seconds_to_first": 9.4,
+   "busy": 0.995,
+   "sys_share": 0.109,
+   "write_mb_s": 21.5,
+   "read_mb_s": 0.0,
+   "min_avail_gb": 225,
+   "max_open_files": 1668509,
+   "build_tool_cpu_s_per_module": 0.367,
+   "build_tool_cores": 1.27
+  },
+  "sweep5": {
+   "jobs": 24,
+   "seconds": 362,
+   "finished": 1088,
+   "per_second": 3.01,
+   "useful_cpu_per_thread_second": 0.843,
+   "mean_cpu_s": 8.56,
+   "seconds_to_first": 6.5,
+   "busy": 0.888,
+   "sys_share": 0.091,
+   "write_mb_s": 18.3,
+   "read_mb_s": 0.0,
+   "min_avail_gb": 228,
+   "max_open_files": 1305720,
+   "build_tool_cpu_s_per_module": 0.338,
+   "build_tool_cores": 1.02
+  },
+  "sweep6": {
+   "jobs": 8,
+   "seconds": 362,
+   "finished": 477,
+   "per_second": 1.32,
+   "useful_cpu_per_thread_second": 0.269,
+   "mean_cpu_s": 5.57,
+   "seconds_to_first": 8.6,
+   "busy": 0.283,
+   "sys_share": 0.03,
+   "write_mb_s": 8.6,
+   "read_mb_s": 0.0,
+   "min_avail_gb": 240,
+   "max_open_files": 467899,
+   "build_tool_cpu_s_per_module": 0.235,
+   "build_tool_cores": 0.31
+  }
+ },
+ "checker": {
+  "base": 8.1,
+  "per_1000_imports": 0.263,
+  "standard_error": 0.022,
+  "by_closure": [
+   {
+    "closure": "0-0",
+    "n": 101,
+    "median": 7.95,
+    "mean": 8.01
+   },
+   {
+    "closure": "1-100",
+    "n": 779,
+    "median": 7.97,
+    "mean": 8.13
+   },
+   {
+    "closure": "101-1000",
+    "n": 929,
+    "median": 8.04,
+    "mean": 8.22
+   },
+   {
+    "closure": "1001-3000",
+    "n": 299,
+    "median": 8.32,
+    "mean": 8.51
+   },
+   {
+    "closure": "3001-8000",
+    "n": 107,
+    "median": 8.87,
+    "mean": 9.55
+   },
+   {
+    "closure": "8001-max",
+    "n": 10,
+    "median": 9.9,
+    "mean": 9.96
+   }
+  ],
+  "kernel_share_of_cpu": 0.613,
+  "alone": {
+   "n": 17,
+   "base": 4.424,
+   "per_1000_imports": 0.127
+  }
+ },
+ "disk": {
+  "compiled_mb_per_module": 0.72,
+  "setup_file_mb_per_module": 5.53,
+  "setup_files_tb_full_tree": 1.07,
+  "compiled_tb_full_tree": 0.127,
+  "peak_gb_if_setup_files_are_deleted_as_modules_finish": 152
+ },
+ "memory": {
+  "file_backed_mb": {
+   "base": 6598,
+   "per_import": 0.572,
+   "projected_for_last_module_gb": 104
+  },
+  "private_mb": {
+   "base": 508,
+   "per_import": 0.0129,
+   "projected_for_last_module_gb": 2.7
+  },
+  "whole_machine": {
+   "peak_anonymous_gb": 21.2,
+   "least_available_gb": 219,
+   "most_cached_gb": 186
+  }
+ },
+ "open_files": {
+  "samples": 1311,
+  "per_process_base": 63693,
+  "per_imported_project_module": 2.09,
+  "projected_for_last_module": 429033,
+  "note": "system-wide count regressed on live processes and their imports; noisy"
+ },
+ "cases": {
+  "low": {
+   "slope": 4.6e-05,
+   "strat": true,
+   "eff": 0.946,
+   "eff_chk": 0.971,
+   "chk_slope": 1.0,
+   "setup": 0.3,
+   "top": 0.2,
+   "c2": 0.2,
+   "slack": 0.0
+  },
+  "expected": {
+   "slope": 0.000226,
+   "strat": false,
+   "eff": 0.911,
+   "eff_chk": 0.971,
+   "chk_slope": 1.0,
+   "setup": 0.5,
+   "top": 0.4,
+   "c2": 0.5,
+   "slack": 0.5
+  },
+  "high": {
+   "slope": 0.000451,
+   "strat": false,
+   "eff": 0.86545,
+   "eff_chk": 0.92245,
+   "chk_slope": 1.5,
+   "setup": 1.0,
+   "top": 1.0,
+   "c2": 2.0,
+   "slack": 3.0
+  }
+ },
+ "hours": {
+  "low": {
+   "compile_cpu_hours": 407,
+   "check_cpu_hours": 434,
+   "build_hours": 13.7,
+   "check_hours": 14.0,
+   "other_hours": 0.5,
+   "billed_hours": 28.1
+  },
+  "expected": {
+   "compile_cpu_hours": 442,
+   "check_cpu_hours": 434,
+   "build_hours": 15.6,
+   "check_hours": 14.0,
+   "other_hours": 1.5,
+   "billed_hours": 31.0
+  },
+  "high": {
+   "compile_cpu_hours": 469,
+   "check_cpu_hours": 453,
+   "build_hours": 17.9,
+   "check_hours": 15.4,
+   "other_hours": 6.0,
+   "billed_hours": 39.3
+  }
+ },
+ "configurations": [
+  {
+   "name": "n4d-highmem-32 on demand, 440 GB disk, setup files pruned",
+   "machine_usd_per_hour": 1.78,
+   "disk_gb": 440.0,
+   "disk_usd_per_hour": 0.083,
+   "low_usd": 53,
+   "expected_usd": 58,
+   "high_usd": 74
+  },
+  {
+   "name": "n4d-highmem-32 on demand, 2 TB disk, nothing pruned",
+   "machine_usd_per_hour": 1.78,
+   "disk_gb": 2048.0,
+   "disk_usd_per_hour": 0.259,
+   "low_usd": 59,
+   "expected_usd": 65,
+   "high_usd": 82
+  },
+  {
+   "name": "n4d-highmem-32 Spot, 440 GB disk, setup files pruned",
+   "machine_usd_per_hour": 1.0136,
+   "disk_gb": 440.0,
+   "disk_usd_per_hour": 0.083,
+   "low_usd": 31,
+   "expected_usd": 34,
+   "high_usd": 44
+  },
+  {
+   "name": "n4d-standard-32 on demand, 440 GB disk, setup files pruned",
+   "machine_usd_per_hour": 1.355,
+   "disk_gb": 440.0,
+   "disk_usd_per_hour": 0.083,
+   "low_usd": 41,
+   "expected_usd": 45,
+   "high_usd": 57
+  },
+  {
+   "name": "n4d-standard-32 Spot, 440 GB disk, setup files pruned",
+   "machine_usd_per_hour": 0.7721,
+   "disk_gb": 440.0,
+   "disk_usd_per_hour": 0.083,
+   "low_usd": 25,
+   "expected_usd": 27,
+   "high_usd": 34
+  }
+ ]
+}

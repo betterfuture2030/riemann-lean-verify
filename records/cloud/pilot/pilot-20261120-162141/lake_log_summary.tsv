@@ -1,0 +1,10 @@
+log	lines	ok_lines	warning_lines	error_lines	last_status_line	exit_code
+lake_cold	37888	1127	832	0		124
+lake_deepA	119215	3266	4397	0	Build completed successfully (16688 jobs).	0
+lake_deepB	278266	6413	9203	0	Build completed successfully (26566 jobs).	0
+lake_sweep1	78239	604	2012	0		124
+lake_sweep2	99828	731	2822	0		124
+lake_sweep3	121420	670	3563	0		124
+lake_sweep4	269315	793	9255	0		124
+lake_sweep5	296255	493	10310	0		124
+lake_sweep6	306092	238	10646	0		124

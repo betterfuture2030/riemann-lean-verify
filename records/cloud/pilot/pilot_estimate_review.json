@@ -1,0 +1,213 @@
+{
+ "note": "Three independent desk reviews of the first version of the pilot estimate (low 58, expected 64, high 79 USD; 26.7, 29.7 and 36.4 billed hours, with a 2 TB disk). Each was written by an AI agent working only from the pilot's recorded data and the first version of analysis/pilot_estimate.py, with no access to the others. They are criticism, not measurement. The script was revised afterwards; see docs/cloud-notes.md section 8 for which points were accepted, which were checked and found not to hold, and which remain open.",
+ "date": "2026-11-20",
+ "reviews": [
+  {
+   "lens": "rederive",
+   "review": {
+    "overall": "usable_with_corrections",
+    "recomputed": "I wrote my own scripts in the scratchpad (a1-a7.py; no code reused from pilot_estimate.py) and ran them with python3 -I on modules.tsv, phases.tsv, system.tsv, import_probe.tsv and import_graph.json. Results:\n\n(1) Finished compiler processes. A row counts as killed if its t_end is within 3 s of the end of its window. That gives 29,604 finished 'lean' rows across cold, deepA, deepB and sweep1-6. Lake's own counts sum to 29,623. The script's 29,386 is lower because it de-duplicates by name, which drops 222 rows logged as '?' and 137 modules that were killed at the end of cold and rebuilt in deepB. At 32 jobs I get exactly 25,485 named, de-duplicated modules, matching the script.\n\n(2) CPU model. My own least-squares fit gives CPU = 8.511 + 0.0482 s per 1,000 closure, the same as the script. But the slope's standard error is 0.049 per 1,000, so it cannot be told apart from zero. Mean CPU by closure bin: 0 -> 6.91 s; 1-100 -> 8.41; 101-1k -> 8.73; 1k-3k -> 9.28; 3k-8k -> 8.08; 8k-12k -> 7.72 (n=91); 12k-16.1k -> 9.22 (n=61). Medians run from 5.1 to 7.5 s, rising across the tail. All 152 tail modules come from deepB, and fitting them alone gives a slope of 0.47 per 1,000 (SE 0.19).\n\nThe import probes give 2.37 + 0.136 s per 1,000 for one process on its own. Running 32 at once inflates import cost 1.66 times (import_only: 3.95 s against 2.38 s), so the physical import cost at 32 jobs is about 0.23 s per 1,000. The fitted 0.048 is below that floor. In this sample, closure size is mixed up with how heavy the modules' own content is.\n\n(3) Whole-tree CPU. I computed the closure of all 175,187 modules exactly with bitsets: mean 3,116, maximum 175,186, longest import chain 203. A sample of 8,000 is more than enough (spread across 100 resamples: 0.13 CPU-h). Applying the script's model to every module gives 421.5 CPU-h, and its library weighting gives 401.3. The weighting is not robust: about 14 of the 20 CPU-h it removes come from two libraries that make up 14% of the tree but were seen only 327 and 92 times, near the bottom of the graph (residuals -1.78 and -2.97). Shrinking small-sample residuals gives 407.7. With the physical slope of 0.226 per 1,000 the total is 442.5 CPU-h, and with the tail slope of 0.47 it is 471.5.\n\n(4) CPU to wall-clock, from system.tsv jiffies. Busy share is cold 0.993, deepA 0.865, deepB 0.961, sweeps at 32 jobs 0.98-0.99, check 0.995. Inside the busy CPU, finished compilers take 0.917-0.922, lake about 0.04, other unexplained work about 0.04, and killed processes about 0.01 at 32 jobs. Kernel time is already inside the per-process CPU and inside busy, so nothing is counted twice there. The double count is elsewhere: the 0.932 busy average includes deepA's narrow-target tail (0.865), and the 0.8 h allowance for the narrow top of the graph covers the same idle time again. Steady-state effective use is about 0.886 (deepB), not 0.873.\n\n(5) deepB check. I fitted on the 32-job modules outside deepB (8.43 - 0.34 per 1,000) and predicted deepB: CPU 110,876 s against 119,625 s actual (-7.3%). Converted with the script's 32 x 0.932 x 0.937, that is 3,968 s against 4,163 s actual, an error of -4.7%. The in-sample model predicts 4,194 s (+0.7%), and deepB's actual CPU over the same divisor gives 4,281 s (+2.8%).\n\n(6) Checker. 2,225 finished, sys is 0.61 of busy, and finished checkers take 0.942 of busy by my count against the script's 0.975. 175,187 x (8.1 + 0.263 x 3.116) = 434 CPU-h, which reproduces the script. The 0.263 slope agrees with the probes (about 0.14 per 1,000 alone, roughly doubled at 32). Running 32 at once roughly doubles the checker's CPU per module (8.3 s against 3.5-4.4 s alone), mostly in the kernel.\n\n(7) Throughput at 16 jobs (3.47 and 3.31 modules/s) is the same as at 32 (3.54 and 3.59), so the machine is limited by its 16 physical cores. CPU per module measured at 32 jobs already includes the hyperthreading penalty, which keeps the model consistent as long as the full run also uses 32 jobs.",
+    "problems": [
+     {
+      "what": "The compile slope against closure (0.048 s per 1,000) is below the physical import cost. Single-process probes show 0.136 s per 1,000, about 0.23 at 32 jobs, and the tail alone fits 0.47. The fitted slope is pulled down because closure is mixed up with module content, so the model under-weights the tree's 4.6x larger mean closure (3,116 against 679 in the pilot).",
+      "effect": "Compile CPU too low by about 21-50 CPU-h (442-472 against 421 unstratified), which is +0.7 to +1.8 h of build and +1.5 to 3.5 USD.",
+      "severity": "medium",
+      "fix": "Use CPU = E + s x closure, with s taken from the import probes scaled for 32-job contention (about 0.23 per 1,000), and E set so the pilot's mean matches (8.39 s). Use s = 0.47 for the high case."
+     },
+     {
+      "what": "The library weighting lowers the total by 20 CPU-h. Most of that comes from Development.AutomorphicArithmetic (10.5% of the tree, 327 pilot modules) and GroundTheory.HeightsAndTheta (3.7% of the tree, 92 pilot modules). Those modules sit at the bottom of the graph, are unshrunk, and are applied to the whole library.",
+      "effect": "Build about 0.7 h (about 1.3 USD) too low in the expected case.",
+      "severity": "medium",
+      "fix": "Leave the expected case unstratified, or shrink each library's residual towards zero (n/(n+200)), which gives 408 CPU-h. Use the stratified figure only for the low case."
+     },
+     {
+      "what": "The wall-clock divisor uses the 0.932 busy average, which includes deepA's narrow-target tail (0.865). The fixed 0.8 h allowance for the narrow top of the graph then covers the same idle time again.",
+      "effect": "Build about 0.2-0.5 h too high, which partly offsets the two problems above.",
+      "severity": "low",
+      "fix": "Use steady-state use for the bulk of the build (deepB: 0.961 x 0.922, about 0.886) and keep the 0.8 h allowance only for the top of the graph."
+     },
+     {
+      "what": "Checker share in finished processes is taken as 0.975. Prorated jiffy accounting gives 0.942, because about 5% of check-phase busy CPU is not in any sampled checker process, and that overhead will recur in the full run.",
+      "effect": "Check about 0.5 h (about 1 USD) too low.",
+      "severity": "low",
+      "fix": "Use 0.995 x 0.942 as the checker divisor."
+     },
+     {
+      "what": "The pilot is not a random sample. Only 525 pilot modules sit at import depth above 80, against 37,533 (21%) in the tree, and 3.7% of the tree has a closure above the largest the pilot compiled (16,116). The 0.92-1.18 range comes from spread between phases and libraries, not from this extrapolation. Mean CPU by depth bin is flat in the pilot (7.8-9.2 s), which helps, but the upper graph was never measured.",
+      "effect": "Unmeasured risk of perhaps +5-10% CPU, about +1.5 h and +3 USD, at the high end.",
+      "severity": "medium",
+      "fix": "Widen the high factor to about 1.25, or run a short calibration window on a target near the top of the graph."
+     },
+     {
+      "what": "Disk and quota. Setup files probably grow with the number of imports (8,700 Mathlib modules plus the closure: 11,816 for the tree on average against about 9,380 in the pilot). The tree would then need about 1.2 TB rather than 1.07 TB, which still fits in 2 TB. But a 2 TB disk does not fit us-east1's 500 GB quota, and us-central1 had no machine of this type available.",
+      "effect": "Small cost effect (0-1 USD). It is a blocker for the run as planned.",
+      "severity": "high",
+      "fix": "Delete each module's regenerable setup file once that module is built, which keeps the disk around 200-300 GB and fits in us-east1. Otherwise get a disk-quota increase in us-east1 before starting."
+     },
+     {
+      "what": "Modules near the top of the graph import up to 175,000 project modules plus Mathlib, so a few processes may map more files than Linux's default limit of 65,530 memory mappings per process. My closure computation finds about 17 modules (0.01%) with closures above about 56,800.",
+      "effect": "Possible failures on the very last files, costing a rerun of about 1 h (about 2 USD) if not caught in advance.",
+      "severity": "low",
+      "fix": "Confirm the setup step's 'sysctl' raises vm.max_map_count, to at least 1,000,000."
+     },
+     {
+      "what": "The finished-module count of 29,386 de-duplicates by name. That drops 222 rows logged as '?' and 137 modules that were killed at the end of cold and rebuilt in deepB. The true number of finished processes is 29,604.",
+      "effect": "Negligible (under 0.1 h).",
+      "severity": "low",
+      "fix": "Report 29,604 finished processes and keep the '?' rows in the CPU totals."
+     }
+    ],
+    "recommendation": "Go ahead, but budget about 68 USD expected and 85 USD high, not 64 and 79. The method holds up: I reproduced the 25,485-module fit, the 421 and 434 CPU-h totals, and the divisors to within 1-4%. An out-of-sample prediction of the deepB window is within 5% of what happened, so the error is moderate and the original high case nearly covers my expected one. The real blocker is the disk quota, not money. Before committing, either delete each module's setup file once it is built so the run fits us-east1's 500 GB, or get a quota increase. Also confirm vm.max_map_count is raised. Separately, the checker spends about half its CPU re-importing Mathlib and the closure, and running 32 at once doubles its CPU in the kernel. Checking several modules per process, or running 16 at once, could cut about 3-7 h (5-13 USD) from the check stage. This is a suggested optimisation and is not counted in the figures above.",
+    "revised": {
+     "expected_billed_hours": 31.4,
+     "expected_usd": 68,
+     "low_usd": 61,
+     "high_usd": 85,
+     "reasoning": "Expected: compile 442 CPU-h (physical import slope of 0.226 per 1,000, no library weighting) divided by 32 x 0.886 = 15.6 h, plus 0.8 h for the top of the graph, gives a 16.4 h build. Check: 434 CPU-h divided by 32 x 0.995 x 0.942 = 14.5 h. Add 0.5 h setup for 31.4 h billed; 31.4 h x 1.87 USD = 58.7 USD, plus about 9 USD of disk, about 68 USD. Low: 408 CPU-h (shrunk library weighting) divided by 28.35 = 14.4 h, plus 0.5 h. Check 13.5 h, setup 0.5 h, about 28.9 h in all, which is 54 plus 7 USD, about 61 USD. High: 471 CPU-h (tail slope) x 1.10 for the unmeasured upper graph, divided by 28.35 = 18.3 h, plus 1.0 h. Check with a 0.4 slope and 5% more overhead, about 15.9 h. Add 0.5 h setup and about 1 h of rerun allowance for about 36.7 h, which is 69 plus 11 USD; with extra margin for a split run or a disk-quota workaround, about 85 USD. The deepB out-of-sample wall-clock error of -4.7% sits inside this range."
+    }
+   }
+  },
+  {
+   "lens": "operations",
+   "review": {
+    "overall": "usable_with_corrections",
+    "recomputed": "How I checked it: I used python3 -I and wrote only to my scratchpad. I computed the exact closure of all 175,187 modules from import_graph.json using bitsets in topological order. Mean closure is 3,116 (the script's 8,000-module sample gave 3,086). Total imports across the tree are 545.9M. 6,550 modules (3.74%) have a closure above the largest observed (16,116). Only 27 are above 50k, 13 above 100k and 6 above 166k; the largest are Main at 175,186 and MainTheoremsAll at 175,184.\n\nBUILD TIME. I re-ran the compile analysis on the 29,386 finished compiles. The script's numbers reproduce: 8.51 s + 0.048 s per 1,000 imports. I then ran a list-scheduling simulation of the whole graph: 32 slots; durations are each module's observed wall time, or a library-matched residual from the pilot plus k times its closure; import slope k from 0.077 to 0.25 s per 1,000. Result: 409 to 427 slot-hours, which is 12.8 to 13.3 h with 32 slots always full. The pilot actually kept only 28 to 29 compilers live on average (mean_live 28.0 to 29.1 at 32 jobs), so this scales to about 14.6 to 15.2 h. Throughput gives the same answer: 175,187 / 3.27 modules per s = 14.9 h, plus 2 to 7% for larger closures, so 15.2 to 15.9 h. The estimate's 15.2 h is consistent.\n\nCHECK TIME. 2,225 checks finished in 602 s, which is 3.70 per s. Scaled to the tree's closures: 13.2 h x 1.076 = 14.2 h, against the estimate's 14.0 h.\n\nDISK. At the end of the pilot 205 GB was used for 29,633 modules: 164.0 GB setup files plus 21.5 GB compiled output, about 6.26 MB per module, plus about 20 GB base. For the full tree, setup files come to N x 5.36 MB plus 210 to 620 bytes per import, which is 1.05 to 1.28 TB. Adding 0.127 TB of output and the base gives 1.2 to 1.43 TB. Written bytes per module rose from 6.24 MB in cold (closure 16) to 6.44 MB in deepB (closure 985), about 206 bytes per import, which supports the low end.\n\nNet: the expected time and cost are about right, but the plan cannot run as specified, and there is one likely failure at the very top of the graph.",
+    "problems": [
+     {
+      "what": "DISK QUOTA BLOCKER: the run needs about 1.2 to 1.43 TB of disk, but the only region where the machine type was available (us-east1) allows 500 GB, and that quota also has to cover the boot disk. The 2 TB disk in the budget only fits in us-central1, where no machine of this type was available.",
+      "effect": "In us-east1, the disk fills after about (500 - 20 GB) / 6.3 MB = 74,000 to 77,000 modules. That is around hour 6 to 6.5 of the build, about 43% done. Build-tool writes then fail and the run is lost: about 7 h and 13 USD wasted, and a full run is still needed afterwards.",
+      "severity": "high",
+      "fix": "Before launching, ask Google for a us-east1 disk-capacity quota of at least 2,100 GB (usually free and quick). Or use a machine type that is available in us-central1 and re-run a 30-minute mini-calibration there first (cold + one 32-job sweep + 5 min of checking, about 1 to 2 USD). Do not count on pruning setup files until it has been tested (see the item on pruning)."
+     },
+     {
+      "what": "Per-process limit on memory mappings and open files for the top modules. In the cold phase, 32 Mathlib-only compilers held about 1.63M file references, about 51,000 each, or about 5.9 per imported module (52,600 for a single import-only process). The 4-mappings-per-module assumption gives (8,700 + 175,186) x 4 = 735,000, which is 70% of vm.max_map_count (1,048,576). At about 6 per module it gives 1.10M, which is over both vm.max_map_count and the 1,048,576 open-file limit.",
+      "effect": "Any module with a closure above about 166,000 would fail with ENOMEM or EMFILE. That is exactly the last 6 modules (Main, MainTheoremsAll, MainTheoremsCritical, MainTheorems, MainConclusion, CorGKOf), the ones that matter most. Recovery costs about 0.5 to 1 h of a human noticing, retuning and rerunning, roughly 1 to 3 USD. The bigger cost is a 'successful' run that does not cover the main theorems. The kernel checker on those modules has the same exposure.",
+      "severity": "high",
+      "fix": "Raise vm.max_map_count to at least 4,194,304 and fs.nr_open and ulimit -n to at least 4,194,304, and confirm fs.file-max is effectively unlimited. Before launch, measure wc -l /proc/PID/maps and ls /proc/PID/fd | wc -l during one import-only process to get the real count per module."
+     },
+     {
+      "what": "Pruning setup files as the build goes (the only way to stay under 500 GB) is untested. If the build tool reads them back, it may rebuild modules, or the check phase may fail. Without the setup files the peak would be about 0.127 TB of output plus about 20 GB base plus files in flight, roughly 150 to 160 GB, which would fit in 500 GB.",
+      "effect": "If pruning works, disk drops from 2 TB to about 250 GB, saving about 7 USD of disk and removing the region blocker. If it silently triggers rebuilds or failures, it could add hours or cost the run.",
+      "severity": "medium",
+      "fix": "Test it on about 2,000 modules: build, delete their setup files, run the build again and confirm it reports 0 rebuilt, then run the checker on them. That costs about 15 minutes, about 0.5 USD."
+     },
+     {
+      "what": "The compile cost's growth with closure is underestimated. The fit gives 0.048 s per 1,000 imports. Single-process import probes give 0.136 s per 1,000 (2.37 s + 0.136 s per 1,000, across 17 modules with closures 0 to 17,860). Import CPU per process is 1.65x higher at 32 parallel (import_only: 3.95 s against 2.4 s), so about 0.22 s per 1,000. Median compile CPU by closure bin also rises from 5.1 s to 7.4 s between closure 0 and about 15,000 (about 0.15 s per 1,000). The regression is flattened by the heavy-tailed noise from elaboration.",
+      "effect": "+26 CPU-hours over the tree, of which 7 come from the 6,550 modules beyond the observed range. That is +0.9 h of build, about +2 USD. Per-module times for the largest closures are not a problem. Projected import time (one process / at 32 parallel) is about 9 / 16 s at 50k, 16 / 27 s at 100k and 26 / 45 s at 175k. Projected checker time (one process / at 32 parallel) is 11 / 21 s, 17 / 34 s and 27 / 54 s.",
+      "severity": "low",
+      "fix": "Use about 0.2 s per 1,000 in the fit, or fit on bin medians."
+     },
+     {
+      "what": "Memory for large closures is fine. Median private memory fits 475 MB + 13.3 KB per import, which projects to 1.1 GB at 50k, 1.8 GB at 100k and 2.7 GB at 175k (the worst outlier in the pilot was 8.1 GB, at closure 90). Shared file-backed memory fits 7.1 GB + 0.595 MB per import, which projects to 36 GB, 65 GB and 109 GB. That memory is shared page cache, bounded by the union of all compiled output (about 127 GB plus 7 GB of Mathlib). Worst case at the top: about 134 GB of shared pages, plus 32 x 3 GB private, plus about 15 GB for the build tool (2.3 GB at 26,000 jobs, scaled linearly), comes to about 245 GB. That is under 256 GB, but with little margin if several 8 GB outliers coincide. The pilot never read from disk (rd = 0 MB/s) and kept at least 219 GB available.",
+      "effect": "Most likely 0 h. If compiled output is evicted from the page cache by the roughly 1.2 TB of setup files being written, re-reading about 100 GB at 160 to 300 MB/s costs about 6 to 11 minutes per eviction, about 0.2 to 0.5 h at worst.",
+      "severity": "low",
+      "fix": "Watch mem_avail and disk read rate during the last hour. Only 13 modules have closures above 100k and they mostly form a chain, so few run at once."
+     },
+     {
+      "what": "The allowance for the narrow top of the graph is generous. The graph has 203 levels. Fewer than 32 modules per level from depth about 158, fewer than 200 from depth about 127. The simulated critical path is 0.63 to 0.73 h. Idle time beyond perfect packing is 0.13 to 0.20 h with first-come scheduling and 0.04 to 0.08 h with critical-path priority. The pilot's own deepA run ended with about 5 minutes of 1 to 7 live compilers.",
+      "effect": "The 0.8 h allowance (2.0 h in high) overstates by about 0.5 h, about 1 USD. It also overlaps partly with deepA's 86.5% utilisation, which is already in the blended 93.2%.",
+      "severity": "low",
+      "fix": "Use about 0.3 h for the tail plus 0.1 h for build-tool start-up, and keep a separate allowance for human reaction time."
+     },
+     {
+      "what": "The build tool's own CPU and restart cost are small but grow with closure. It used 0.348 CPU-s per module in cold (closure 16) and 0.384 in deepB (closure 985), 1.1 to 1.3 cores. Extrapolated to mean closure 3,116, that is about 0.46 s per module, about 22 CPU-hours in total, already inside the 6.3% of CPU not in finished compilers. Restart cost: the first compiler started 1.7 s after launch from scratch and 4.0 to 5.9 s when about 13,000 to 30,000 modules were already built. Scaled to the full tree, a restart costs about 30 to 60 s, plus re-printing the stored warnings of about 60,000 modules (sweep6 printed 10,410 of them, 21 MB of log).",
+      "effect": "Under 0.1 h per restart, under 0.5 USD.",
+      "severity": "low",
+      "fix": "None needed. Keep the log on disk (about 250 MB for the full run); do not stream it to a terminal."
+     },
+     {
+      "what": "The checker design re-imports Mathlib 175,187 times. At 32 parallel a check costs 8.29 CPU-s and 8.52 s wall (user 3.21 s, kernel 5.08 s), against 4.4 s for one process alone (user 1.8 s, kernel 2.6 s). The roughly 2x inflation at 32 parallel is in both user CPU (two threads per core) and kernel time. Would fewer checkers finish sooner? Probably not much: import-only throughput was 5.5 per s at 16, 6.5 at 24 and 7.4 at 32. Build throughput was nearly flat (3.47 and 3.31 per s at 16 jobs, 3.54 and 3.59 at 32), but those windows built different modules, so the comparison is confounded. Best guess for 16 checkers: between 25% slower and 10% faster.",
+      "effect": "Changing the parallelism alone: within ±1.5 h. Checking many modules per process, so that one import is shared, could cut checking from 14 h to roughly 3 to 6 h, saving about 15 to 20 USD. This is untested.",
+      "severity": "medium",
+      "fix": "Before the full run, spend 10 minutes on the existing built modules: compare checker throughput at 16, 24 and 32 parallel, and test the checker with many module names per process (for example 50 to 200 neighbouring modules, so the union of their imports stays small)."
+     },
+     {
+      "what": "The range only covers estimation noise (x 0.92 to x 1.18). It does not cover operational events: a restart after a disk, mapping or memory failure, time to notice a stalled or finished phase, copying results off. The 1.87 USD per hour already included the pilot's 440 GB disk, and a separate 2 TB disk cost is then added on top.",
+      "effect": "A double count of about 2 USD the other way. A single failure that is noticed late adds about 2 to 6 h, about 4 to 15 USD.",
+      "severity": "medium",
+      "fix": "Add an explicit allowance for events, and alerts that fire when a phase ends or the build stalls."
+     },
+     {
+      "what": "The logs show no warning signs, only volume. All 9 build-tool logs: no errors, no timeouts, no heartbeat or memory messages, no failed modules. Matches for 'error' or 'killed' were declaration names (LiftErrorLocal, KilledGen). The longest module took 409 s. About 100 of 29,386 modules took over 60 s. About 60% of modules emit lint warnings (unused tactics, deprecations), about 1.4 KB of log per module. Each window's kill at its end was expected (218 processes in total).",
+      "effect": "Negligible. About 600 modules over 60 s are expected in the full tree, absorbed by parallelism unless one lands on the critical path near the top (+5 minutes).",
+      "severity": "low",
+      "fix": "Optionally turn off the linters for this run to shrink the logs."
+     }
+    ],
+    "recommendation": "Do not launch yet. The time and cost estimate holds up: my own simulation and throughput figures give a 15.2 to 15.9 h build and a 14.2 h check, against the estimate's 15.2 h and 14.0 h. But the run as specified fails for two reasons. First, it needs about 1.2 to 1.43 TB of disk, but the region where the machine was available only allows 500 GB, so the build would die around hour 6 (about 43% done, about 13 USD lost). Second, at about 6 mappings or open files per imported module, the 6 top modules (Main and the main theorems, closures above 166,000) would exceed the 1,048,576 per-process limits.\n\nBefore launching:\n(1) Get at least 2,100 GB of disk quota in us-east1. Otherwise move to a machine type available in us-central1 and re-run a 30-minute mini-calibration there.\n(2) Raise vm.max_map_count, fs.nr_open and ulimit -n to at least 4M. Measure the real mappings and open files per module with one import-only process.\n(3) If you want to stay under 500 GB, first test that deleting setup files after each compile causes no rebuilds and does not break the checker (15 minutes).\n(4) Spend 10 minutes comparing the checker at 16, 24 and 32 parallel, and with many modules per process. The latter could save about 15 to 20 USD.\n(5) Add alerts for phase completion, stall, disk above 80% and available memory below 30 GB. Script the change from build to check so the machine never sits idle waiting for a person.\n(6) Keep one 32-vCPU VM (the quota), delete the pilot VM first, and copy the results off before deleting the disk.\n\nCost: about 67 USD expected (60 to 81 USD), or up to about 90 USD with one failure and restart.",
+    "revised": {
+     "expected_billed_hours": 31,
+     "expected_usd": 67,
+     "low_usd": 60,
+     "high_usd": 81,
+     "reasoning": "Expected: 0.5 h setup + 15.6 h build (15.3 h steady plus 0.3 h tail) + 14.2 h check + 0.7 h operational slack = 31 h. At 1.87 USD per hour that is 58 USD, plus 9 USD for a 2 TB disk over about 37 h, so 67 USD. Low: 0.4 + 14.6 + 13.2 + 0.3 = 28.5 h, so 53 + 9 = about 60 USD. High, with no failure: 1.0 + 18.0 + 16.5 + 2.0 = 37.5 h, so 70 + 11 = 81 USD. One failure and restart (for example the mapping limit at the top, or a late-noticed stall) adds about 4 to 10 USD, so about 90 USD in the worst ordinary case. Checking many modules per process, if it works, would lower the expected cost to about 45 to 50 USD. Launching in us-east1 with a 500 GB disk without working pruning wastes about 13 USD before failing."
+    }
+   }
+  },
+  {
+   "lens": "cheaper",
+   "review": {
+    "overall": "usable_with_corrections",
+    "recomputed": "I recomputed everything with python3 -I on modules.tsv, phases.tsv, system.tsv, import_probe.tsv, disk.txt and import_graph.json. The scripts are in <SCRATCH> (a1.py to a4.py).\n\nTHE CENTRAL HOURS HOLD UP. I checked them a second way, from measured throughput instead of CPU seconds.\n- Build: cold, deepA and deepB together finished 23,173 modules in 7,070 s, which is 3.28 modules/s. The 32-job sweeps ran at 3.45 to 3.49/s. 175,187 modules at 3.47/s, plus 1.4% for the larger whole-tree closure, gives about 14.2 h, or about 15.0 h with the tail. The estimate says 15.2 h.\n- Check: 2,233 modules in 602 s is 3.71/s, which gives 13.1 h. Adding the fit's closure term (+7.8%) gives about 14.1 h. The estimate says 14.0 h.\n\nIMPORT GRAPH (full tree, not a sample): mean closure 3,116 (the estimate's sample gave 3,086), median 720. The longest dependency chain is 203 levels. 54 levels have fewer than 32 modules, 383 modules in all, and the top ~30 levels are almost serial. 6,550 modules have a closure above 16,116. Only 27 are above 50k, 13 above 100k and 6 above 170k.\n\nMEMORY. I fitted file-backed memory (rss minus anon) against closure over 29,560 compiler rows: 6.6 GB + 0.569 MB per closure module. Private memory: 507 MB + 0.0126 MB per closure module.\n- The very top module (closure 175,186) would need about 106 GB of page cache plus about 2.7 GB of private memory.\n- The highest sum of private memory across processes running at once in the whole pilot was 28.7 GB (an upper bound, since the per-process peaks did not all coincide). Measured peaks: 21.7 GB anonymous, at least 224 GB always available, 191 GB cached.\n- Disk reads over the whole run were 0.002 GB. Everything was served from page cache, so the pilot tells us nothing about how the machine behaves with less memory.\n\nJOB-COUNT SWEEP (steady state, finished modules only):\n| jobs | modules/s | CPU busy | CPU s per module | wall s per module |\n|---|---|---|---|---|\n| 8 | 1.32 | 28% | 5.6 | |\n| 16 | 3.34 and 3.15 (mean 3.25) | 61% | 5.4 | 4.4 |\n| 24 | 3.01 | 88% | | |\n| 32 | 3.49 and 3.45 (mean 3.47) | 99.4% | 8.4 | 8.4 |\nSo 16 jobs reaches 93.5% of the 32-job throughput. Throughput is limited by the 16 physical cores, and CPU seconds are inflated about 1.55 times by the two threads per core.\n\nCHECKER: 1 CPU per process (median 5 threads), 8.2 CPU s and 8.5 s wall per module at 32 parallel. Run alone, one checker takes 3.5 to 4.4 s, against 2.3 to 2.5 s for a plain import of the same small modules. Importing is therefore about 55 to 70% of each check.\n\nDISK\n- Each module's setup file averages 5.53 MB, which is 1.03 to 1.07 TB for the whole tree. Compiled output is 0.72 MB per module, 0.127 TB in all.\n- Everything else on the pilot disk came to about 20 GB (205 GB used, minus 164 GB of setup files, minus 21.5 GB of compiled output).\n- If setup files are deleted once their module is built, the peak is about 150 GB.\n- The estimate counts disk twice. The 1.87 USD/h rate already includes the pilot's 440 GB disk, and the 2 TB disk is then added on top: about 2.7 USD too high.\n\nLAPTOP: Apple M5, 10 cores, 24 GB RAM, with 3.4 TiB free on the <REDACTED> drive. 175,187 / 2,950 per hour is 59 h (2.5 days), not 3.4 days. The 3.4-day figure implies an average of about 2,150 per hour.",
+    "problems": [
+     {
+      "what": "(a) The 256 GB machine is more than this run needs. Across the pilot, the processes running at once never used more than 28.7 GB of private memory. Only the roughly 25 modules with closures above 50k need a page cache close to 128 GB: about 106 GB for the top module, against roughly 90 to 115 GB free on n4d-standard-32, depending on how many run at once.",
+      "effect": "Switching to n4d-standard-32 saves 0.42 USD/h x 29.7 h = about 12.5 USD on-demand, or about 7 USD on Spot. The risk is that at the very top the working set no longer fits, and each import or check re-reads up to about 106 GB at 300 MB/s (about 6 minutes) instead of about 27 s. That costs at most about 1 to 2 h extra (2 to 3 USD), so the switch still saves money.",
+      "severity": "medium",
+      "fix": "Use n4d-standard-32. When the build reaches the top ~50 levels (closures above 50k), restart the build tool at 4 to 8 jobs (restart costs under 10 s and finished modules are kept). Those levels are nearly serial anyway, so this costs almost nothing and keeps the 106 GB in cache. Do the same for the checker on the ~30 largest modules. Watch the disk_read_bytes counter as the run nears the top."
+     },
+     {
+      "what": "(e) The estimate prices on-demand only. Spot is about 57% of the rate. The measured cost of a preemption is small: about 32 processes x 4 s of lost work, plus 2 to 5 minutes to restart the VM, plus 1 to 3 minutes to re-read the compiled files into cache. Spot VMs have no 24 h cap.",
+      "effect": "Spot saves 0.77 USD/h on highmem (about 23 USD) or 0.585 USD/h on standard (about 17 USD) over 29.7 h. Preemption overhead is about 0.5 h. The main risk is waiting hours for capacity, since this machine type was unavailable in us-central1 on the day. That costs time, not money: a stopped VM is not billed, only its disk.",
+      "severity": "high",
+      "fix": "Use Spot with the 'stop' termination action. The driver must resume the checker by skipping modules already in check_results.txt. If capacity stays out for more than about 2 h, fall back to on-demand standard-32."
+     },
+     {
+      "what": "(d) The 2 TB disk is not possible in us-east1 (500 GB quota), the only region where the machine was available. It also buys nothing: setup files are 86% of the bytes and are read once. With them pruned, the peak is about 150 GB.",
+      "effect": "Deleting each setup file once its module is built lets the run fit on the pilot's 440 GB disk in us-east1. It saves about 0.18 USD/h x 35 h = about 6 USD in disk, and fixing the double-counted disk removes another 2.7 USD. The risk: if the build tool treats a missing setup file as stale after a restart, every Spot preemption triggers recompiles.",
+      "severity": "high",
+      "fix": "Delete setup files older than a few minutes whose module has finished. Before the full run, test this on a few thousand modules: delete the files, restart the build tool, and confirm it rebuilds nothing. If it does rebuild, keep only the setup files for the frontier."
+     },
+     {
+      "what": "(c) The kernel replay is run after the build. It has no dependency order, so it can fill whatever CPU the build leaves idle. The whole tree is wide except the top 54 levels (383 modules), and the sweeps at 32 jobs ran 99.4% busy. So there is only a little idle CPU to fill: mostly the ~0.8 h narrow top and the ramps. A further gain from mixing the system-heavy checker with the compute-heavy compiler on shared cores was not measured.",
+      "effect": "Overlapping saves about 0.5 to 1 h (0.4 to 0.8 USD on Spot standard, 1 to 2 USD on-demand), possibly up to about 2 h if mixed loads share cores well. The risk is more complex driver code, and both workloads competing for page cache at the top.",
+      "severity": "low",
+      "fix": "Run checkers at low CPU priority on finished modules while the build runs at 32 jobs, then run the rest at 32 in parallel. A 20-minute test of 16 build jobs plus 16 checkers would show whether the mixing gain is real."
+     },
+     {
+      "what": "(b) Fewer build jobs. 16 jobs reaches 93.5% of the 32-job throughput, but on the same machine that is still about 7% slower. A 16-vCPU machine would have only 8 physical cores, so roughly half the throughput: the same cost and twice the time. The checker is single-threaded, so fewer than 32 checkers would be slower still (16 checkers would likely give about 65 to 75% of the throughput).",
+      "effect": "No saving. Running at 16 jobs adds about 1 h (about 1.3 USD on-demand). The only use for 16 jobs is to leave room for overlapped checkers, as in (c).",
+      "severity": "low",
+      "fix": "Keep 32 jobs for both phases, except the cut to 4 to 8 jobs at the memory-heavy top described in (a)."
+     },
+     {
+      "what": "Outside the listed options: one checker process per module re-imports Mathlib plus its closure 175,187 times. Imports are about 55 to 70% of each check.",
+      "effect": "Checking modules in batches, importing once and replaying a whole batch, could cut the check from about 14 h to about 5 to 9 h, saving 4 to 7 USD on Spot or 9 to 17 USD on-demand. The risk is that it changes how the check works, so it needs a small pilot and a decision on whether replaying a batch gives the same guarantee as one module per process.",
+      "severity": "medium",
+      "fix": "Optional. Pilot a batched checker over about 2,000 modules and compare its timing and results with the existing run before adopting it."
+     },
+     {
+      "what": "(f) The laptop. At the quoted 2,950 modules per hour the build takes 59 h (2.5 days), not 3.4 days. The laptop has 24 GB of RAM. The top 6,550 modules (closures above 16k) each touch more than 9 GB of compiled files, and the top ~25 need about 106 GB, so expect the rate to fall and the drive to be read hard near the end. That fits the 3.4-day figure.",
+      "effect": "Marginal cost is about 0 USD (about 2 to 3 USD of electricity), against about 26 USD for the recommended cloud run. The cost is 5 to 7 days of wall time (build plus a replay of similar length) instead of about 1.2 days. The laptop must stay awake and plugged in, and its top-of-graph speed was not measured.",
+      "severity": "medium",
+      "fix": "If nothing depends on the result arriving this week, the laptop is the cheapest option. Otherwise the roughly 26 USD Spot run buys back about 5 days."
+     },
+     {
+      "what": "The ranges understate the risk for the largest closures. Every fit stops at closure 17,860, but 6,550 modules lie beyond that and 13 are above 100k. The top 30 levels run one module at a time, each importing up to about 106 GB. The checker's linear term gives 54 CPU s for the top module, and memory behaviour above 128 GB of working set was never tested.",
+      "effect": "Probably adds 0 to 2 h to the build tail beyond the 0.8 h allowance, and more on the 128 GB machine if the top is not throttled.",
+      "severity": "low",
+      "fix": "Keep the high case at about 1.2 to 1.3 times expected. Before the full run, run a 10-minute probe that imports and checks the top 3 modules."
+     }
+    ],
+    "recommendation": "The estimate's hours are sound, but the configuration costs about 2.5 times what it needs to. I recommend:\n- **Machine:** n4d-standard-32 (128 GB) on Spot in us-east1, with the 'stop' termination action. If Spot capacity is gone for more than about 2 h, fall back to on-demand standard-32.\n- **Disk:** the pilot's 440 GB disk, deleting each setup file once its module is built. Peak use is about 150 GB, and this is what makes us-east1 (500 GB quota) possible. Confirm first, on a small subset, that the build tool rebuilds nothing after a restart with the files gone.\n- **Build:** 32 jobs. When the build reaches the top ~50 levels (closures above 50k), restart the build tool at 4 to 8 jobs so the roughly 106 GB the top modules touch stays in page cache.\n- **Check:** low-priority checkers on finished modules while the build runs, then the rest at 32 in parallel, skipping modules already in check_results.txt so preemptions are survivable.\n\nExpected cost:\n| case | billed hours | compute (0.775 USD/h) | disk | total |\n|---|---|---|---|---|\n| low | about 26 | 20 USD | 2.5 USD | about 23 USD |\n| expected | about 29.5 | 23 USD | 2.7 USD | about 26 USD |\n| high | about 39 (more preemptions, a slow top) | 30 USD | 3.5 USD | about 34 USD |\n| high, with half the hours forced onto on-demand | | | | about 46 USD |\n| worst case, all on-demand standard | | | | about 57 USD |\n\nThe estimate's expected figure is 64 USD.\n\nBatching the checker is optional and needs its own small pilot first; it could take another 4 to 7 USD and 5 to 9 h off. If waiting 5 to 7 days for the result is acceptable, letting the laptop finish costs nothing in cloud fees and beats every cloud option.",
+    "revised": {
+     "expected_billed_hours": 29.5,
+     "expected_usd": 26,
+     "low_usd": 23,
+     "high_usd": 40,
+     "reasoning": "The estimate's hours are confirmed by an independent throughput calculation: build about 15.0 h and check about 14.1 h, against its 15.2 h and 14.0 h. Total hours: 0.5 h setup + 15.2 h build + 14.0 h check, minus about 0.7 h from overlapping the check with the build, plus about 0.5 h of Spot preemption overhead, gives about 29.5 h. Each hour is priced at 1.36 x 0.57 = 0.775 USD (n4d-standard-32 on Spot), which is about 22.9 USD. The 440 GB hyperdisk (6,000 IOPS, 300 MB/s) costs about 0.0775 USD/h x (29.5 + 6) h = about 2.7 USD. The low case uses the estimate's low hours, about 23 USD. The high case allows about 39 h (the estimate's high hours plus preemption slack and a possibly slow memory-heavy top) and a partial fallback to on-demand, about 34 to 46 USD, so I state the high end as about 40 USD. Running all on-demand on the same configuration would cost about 57 USD at the high end."
+    }
+   }
+  }
+ ]
+}

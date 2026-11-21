@@ -63,3 +63,7 @@ Results of running `leanchecker`, the kernel replay tool shipped with the toolch
 - Wall time was 13.8 to 28.1 seconds per module. User time was about 2 seconds in 23 of the 24 runs and system time 9 to 13 seconds. A plausible reading is that loading the imported modules dominates and kernel checking of one small module is quick; that split was not measured separately.
 
 This is a timing sample taken to plan a full replay. It covers 24 of 175,187 modules, all from the first few percent to be compiled, and it is not a verification result for the proof.
+
+### `mapped-files-sample.txt`
+
+A count of the files one running compiler process had memory-mapped, by file type and by where the files came from, read once with `vmmap` on 2026-11-20 at about 19:40 local time. It is the basis for the figures of five mapped files per library module and about one per project module in [`../../docs/performance-notes.md`](../../docs/performance-notes.md), section 7. It is one process on macOS; the Linux count is estimated separately in [`../cloud/pilot/pilot_estimate.json`](../cloud/pilot/pilot_estimate.json) under `open_files`.

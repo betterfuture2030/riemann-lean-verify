@@ -1,0 +1,4 @@
+runtag	mode	machine	usd_per_hour	zone	created_epoch	ended_epoch	seconds	usd
+rehearsal-20261120-160144	rehearsal	n4d-highmem-32	2.00	pending	1795212104	1795212104	0	0.00
+rehearsal-20261120-160322	rehearsal	n4d-highmem-32	2.00	pending	1795212202	1795213223	1021	0.57
+pilot-20261120-162141	pilot	n4d-highmem-32	2.00	us-east1-b	1795213301	1795223780	10479	5.82

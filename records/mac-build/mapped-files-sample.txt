@@ -1,0 +1,20 @@
+# Files mapped by one running compiler process, read with vmmap on macOS on 2026-11-20.
+# Module being compiled: Development.AbelianVarietyTheory.Proofs.HeightProofs.RhoCompactTwiceEqOfSignBlockOrdered (828 project modules in its import closure).
+# Process had been running for 7 seconds.
+#
+# mapped files in all: 53122
+# by file type:
+#   .olean           11276
+#   .ir.sig          10471
+#   .ir              10471
+#   .olean.server    10452
+#   .olean.private   10452
+# by origin of the .olean files:
+#   this project            824
+#   Mathlib and its packages 8651
+#   Lean's own library       1801
+#
+# Reading: each of the 10,452 library modules is mapped as five files (.olean, .olean.server,
+# .olean.private, .ir, .ir.sig), 52,260 in all. Each project module adds its .olean and, for a few,
+# an .ir and .ir.sig: about 1.05 files per module. Projected for the last module, which imports
+# 175,186 project modules: about 236,000 mapped files.

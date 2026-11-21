@@ -1,6 +1,6 @@
 # Performance notes
 
-For anyone running the build on their own machine. All measurements were taken on 2026-11-20 on one machine: a 10-core Mac (4 performance and 6 efficiency cores) with 24 GB of memory, building onto an external drive, with Lean `v4.33.1`. They describe the first few percent of the build, which is the easy part. Section 5 explains why that matters.
+For anyone running the build on their own machine. Sections 1 to 8 were measured on 2026-11-20 on one machine: a 10-core Mac (4 performance and 6 efficiency cores) with 24 GB of memory, building onto an external drive, with Lean `v4.33.1`. They describe the first few percent of the build, which is the easy part. Section 5 explains why that matters. Section 9 adds what a 32-vCPU Linux machine measured later the same day, on modules up to much larger import closures; where it answers a question that an earlier section leaves open, the earlier section says so.
 
 ## 1. Summary
 
@@ -12,7 +12,7 @@ For anyone running the build on their own machine. All measurements were taken o
 | Same machine with other applications holding memory | 5 jobs: about 2,330 modules per hour; 7 jobs collapsed to about 910 | Measured |
 | Cost of a shallow module | About 11 CPU-seconds, of which about 6 (about 55 percent) is importing Mathlib | Derived from the measured rate and a measured import-only compile, on macOS |
 | Disk written per module | About 0.8 MB of compiled output plus a JSON file of 6.4 MB or more | Measured over the first 10,300 modules |
-| Disk for the whole build | About 1.4 TB as Lake writes it, of which about 90 percent is regenerable JSON; allow 1.5 TB | Projection, section 4 |
+| Disk for the whole build | About 1.4 TB as Lake writes it, of which about 90 percent is regenerable JSON; allow 1.5 TB, or about 200 GB if the JSON is removed as modules finish | Projection, section 4 |
 | Can the early rate be extrapolated? | No. It gives a floor of about 54 hours. Later modules import far more | Section 5 |
 | Biggest risk on a small machine | The last few files import all 175,186 others | Section 7; not yet observed |
 
@@ -83,7 +83,11 @@ So about 90 percent of what the build writes is the per-module JSON file.
 
 **Why the JSON is regenerable.** Before compiling a module, Lake writes a setup file that tells the compiler where to find the compiled form of every module in that module's import closure, together with the options to use. It is an input to the compiler invocation, derived entirely from the import graph, the options and the paths on disk. It contains no result of compilation. For a module that imports only Mathlib it has 8,690 entries and is 6.43 MB. Each further imported project module adds about 250 bytes; the largest so far had 16,431 entries.
 
-The kernel replay reads `.olean` files only. Deleting setup files once the build has finished therefore loses nothing that the checks need. Whether Lake treats a module as out of date when its setup file is missing, and so rebuilds it, has not been tested here; do not delete them while a build is still going unless you have checked.
+The kernel replay reads `.olean` files only. Deleting setup files once the build has finished therefore loses nothing that the checks need.
+
+**Deleting them during a build.** Lake decides what is up to date from the `.trace` and hash files beside the compiled output. A test on 2026-11-20 with the same Lake version (5.0.0) on a five-module project found that it does not look at the setup file of a module that is already built: after the setup files were deleted, a second `lake build` recompiled nothing and left every `.olean` byte-for-byte unchanged, modules importing the pruned ones compiled normally, and `leanchecker` passed on all of them. The compiler reads a module's setup file once, when it starts on that module; Lake writes the setup file first and the `.trace` file last.
+
+[`../scripts/prune_setup_files.sh`](../scripts/prune_setup_files.sh) uses that ordering: it reports, and with `--delete` removes, the setup file of every module whose `.trace` is newer than its setup file. Run without `--delete` on the real build at 23,057 setup files, it found 149.9 GB, of which 148.3 GB belonged to finished modules. It had not been run with `--delete` on the real tree when this was written, so the first time you do, check that the next `lake build` prints no "Built" line for a module that was already compiled.
 
 **Projection for the whole tree.** With a mean of about 2,950 imported project modules per module (section 5), the mean setup file is about 7.2 MB, so the JSON totals about 1.26 TB. If the remaining modules are the same size on average as the first 10,300, compiled output adds about 0.13 TB. Mathlib's own compiled files are 5.9 GB. That is about 1.4 TB in total, or about 150 GB without the setup files. Allow 1.5 TB. Both figures are projections from the first six percent of the build.
 
@@ -140,7 +144,7 @@ The percentiles are from a random sample of 1,500 modules. A few modules at the 
 | 99th percentile (21,794) | 30,480 | 22 GB |
 | `Main` (175,186) | 183,880 | about 130 GB |
 
-Since importing Mathlib alone is already about 55 percent of the cost of a shallow module, the import cost of a typical later module is likely to be larger than anything measured so far. How much larger in time is not known. It depends on how much of the mapped data a module actually touches, and nothing measured yet reaches those modules.
+Since importing Mathlib alone is already about 55 percent of the cost of a shallow module, the import cost of a typical later module is likely to be larger than anything measured so far. How much larger in time was not known when this was written. It has since been measured on Linux for closures up to 17,860 and is small: see section 9.
 
 **The fit that failed.** An attempt was made to fit wall time per module against closure size using the first 1,228 timed modules. The largest closure among them was 837. The fitted slope was slightly negative, which would project a negative build time. The sample simply contains no information about deep modules. This is recorded as a warning against doing the same thing with better-looking numbers.
 
@@ -162,14 +166,15 @@ The build can be stopped and restarted. Lake keeps finished modules. The tuning 
 This risk has not been observed, because the build has not reached these files. It follows from the numbers in section 5.
 
 - The last handful of modules each map about 130 GB of compiled files in a single process. A 24 GB machine cannot hold that in memory. Mapped files can be dropped from memory and read again from disk, so this is not automatically fatal, but every access that misses becomes a disk read.
-- The compiler's private memory for a module also grows with the size of its import closure. By how much is not measured. A desk estimate by one reviewer, scaling from Mathlib, was 20 to 35 GB for a final file. If that is right, a 24 GB machine will swap heavily or fail on them.
+- The compiler's private memory for a module also grows with the size of its import closure. A desk estimate by one reviewer, scaling from Mathlib, was 20 to 35 GB for a final file. The Linux measurement in section 9 is far lower: about 13 KB per imported module, which projects to under 3 GB. That is an extrapolation from closures a tenth the size.
 - Well before the end, the top one percent of modules map more than 20 GB each. Eight of those cannot be resident at once on 24 GB.
 
 What to do about it:
 
 - Lower the job count as the build approaches the end. One or two jobs for the last few thousand modules is a reasonable precaution on a small machine; it has not been tried here.
 - If the final files fail for lack of memory on a small machine, that is a statement about the machine. It is not a failed proof check. Record it as such and finish those files on a machine with more memory.
-- On Linux, two limits are worth raising before starting: the per-process limit on open files (the Mac run used 65,536), and the per-process limit on memory mappings, `vm.max_map_count`, whose usual default of 65,530 is below the roughly 184,000 files a final module maps. The second point comes from a desk review and has not been tested here.
+- On Linux, raise the per-process limit on memory mappings, `vm.max_map_count`, before starting. A compiler process maps five files for each module of Mathlib and of Lean's own library, 52,260 in all, before it reaches any project module, and about one more for each project module it imports ([`../records/mac-build/mapped-files-sample.txt`](../records/mac-build/mapped-files-sample.txt)). The usual default of 65,530 therefore leaves room for about 12,000 project imports, and about one module in twenty imports more than that. The Linux pilot ran with the limit at 1,048,576 and compiled closures up to 17,860; the default itself was not tested. The last module is projected to map about 240,000 files. `scripts/00_check_prereqs.sh` reports the limit.
+- On macOS the corresponding limit is the system-wide table of files in use, `kern.maxvnodes`: 263,168 on the 24 GB machine. The last modules map about 240,000 files at once, which is close to it. Whether macOS copes has not been observed. It can be raised until the next restart with `sudo sysctl kern.maxvnodes=600000`.
 
 ## 8. Other practical points
 
@@ -177,3 +182,19 @@ What to do about it:
 - No module had failed in any of the logs on 2026-11-20, so how a failure behaves at this scale has not been observed here.
 - The tree's `lakefile.toml` raises `maxHeartbeats` to 4,000,000 and the compiler's thread stack size. Individual files raise the heartbeat limit further. Some single modules will take a long time; that is expected and is not a hang.
 - If you measure anything on a different machine, especially on deeper modules or on Linux, the numbers would be a useful addition to [`../records/`](../records/).
+
+## 9. What a 32-vCPU Linux machine added
+
+Later on 2026-11-20 a calibration pilot ran for just under three hours on a rented machine with 16 cores, 32 threads and 256 GB of memory. It compiled 29,633 modules, including two build targets with import closures of about 8,000 and 17,860 project modules, and kernel-checked 2,233. Nothing failed. The details and the cost estimate built on them are in [`cloud-notes.md`](cloud-notes.md), section 8; the raw data is in [`../records/cloud/pilot/`](../records/cloud/pilot/).
+
+| Question left open above | What was measured |
+|---|---|
+| Does a module get much dearer as its import closure grows? (section 5) | No. Importing costs 2.4 seconds plus 0.14 seconds per 1,000 project modules imported, for one process alone. Mean CPU per module was 8.4 seconds for closures of 1 to 100 and 8.3 seconds above 8,000. The tree's mean closure adds about 6 percent to the pilot's mean cost |
+| How much of the mapped data does a module touch? (section 5) | About 0.57 MB per imported project module, of the 0.72 MB average file: most of it |
+| Private memory per compiler process (sections 2 and 7) | Median 0.5 GB, 99th percentile 0.8 GB, largest 8.1 GB; 0.5 GB plus 13 KB per imported project module |
+| How many jobs per core? (section 2) | Each compiler process ran about 15 threads and used a little over one core. Sixteen jobs on 16 cores gave 3.1 to 3.3 modules per second; 32 jobs gave 3.2 to 3.5 |
+| What does the kernel replay cost? (section 6) | 8.3 CPU seconds per module with 32 running at once, 4.4 seconds for one alone: about the same as compiling. Most of it is importing |
+| How long does a restart take as finished modules accumulate? (section 6) | 4 to 9 seconds to the first new module with up to 30,000 built |
+| Expected duration on that machine (section 6) | About 16 hours for the build and 14 for the kernel replay, by extrapolation; range 28 to 39 hours in all |
+
+What it does not answer: nothing above 17,860 imports was compiled, so the last few thousand modules, and above all the last handful, remain unmeasured on any machine. And that machine never had to read a compiled file back from disk, so it says nothing about section 7's question of a machine with little memory.

@@ -1,0 +1,5 @@
+round	module	kind	wall_s	user_s	sys_s	failures
+afterA	Development.AbelianVarietyTheory.Proofs.CovolumeBounds.GramMinorDetTriangularMul	import	2.334	1.706	0.628	0
+afterA	Development.AbelianVarietyTheory.Proofs.CovolumeBounds.GramMinorDetTriangularMul	import	2.337	1.713	0.625	0
+afterA	Development.AbelianVarietyTheory.Proofs.CovolumeBounds.GramMinorDetTriangularMul	import	2.362	1.716	0.646	0
+afterA	Development.AbelianVarietyTheory.Proofs.CovolumeBounds.GramMinorDetTriangularMul	checker	2.828	1.302	1.516	0

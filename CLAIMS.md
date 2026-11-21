@@ -38,7 +38,7 @@ Run all of these with `scripts/reproduce_findings.sh`. Expected values are in [`
 |---|---|---|---|
 | K1 | Mathlib's prebuilt cache for the pinned revision is accepted by the pinned toolchain, with no Mathlib module rebuilt | Done | `scripts/04_setup_toolchain.sh` |
 | K2 | `Formalism.VW.rh_of_right` (zeta has no zeros right of the critical line implies `RiemannHypothesis`) depends only on `propext`, `Classical.choice`, `Quot.sound`; its conclusion is the constant `RiemannHypothesis`, defined in `Mathlib.NumberTheory.LSeries.RiemannZeta` | Done | `scripts/08_check_axioms.sh --probe` |
-| K3 | Sampled kernel replay passes: 24 of 24 modules on a Mac, 565 of 565 on a cloud machine | Done, samples only | `scripts/09_kernel_replay.sh --sample 24` |
+| K3 | Sampled kernel replay passes: 24 of 24 modules on a Mac; 565 of 565 and 2,233 of 2,233 on a cloud machine (`records/cloud/pilot/*/check_results.txt.gz`) | Done, samples only | `scripts/09_kernel_replay.sh --sample 24` |
 | K4 | Modules compiled so far, with zero failures | In progress; see `records/` for dated counts | `scripts/05_build.sh start`, `scripts/06_progress.sh` |
 | **C1** | **The whole tree compiles with zero errors** | **Not yet known** | `scripts/05_build.sh start` to completion |
 | **C2** | **The compiled `riemannHypothesis` has type `RiemannHypothesis` and standard axioms only, by `#print axioms` and by full traversal** | **Not yet possible** | `scripts/08_check_axioms.sh --deep` |
@@ -52,11 +52,13 @@ C1 to C3 are the pre-registered criteria. Nothing else in this ledger amounts to
 |---|---|---|
 | M1 | On a 10-core, 24 GB Mac the best setting was 8 parallel jobs at about 3,230 modules per hour on shallow modules; memory was the first limit | `records/mac-build/` |
 | M2 | Importing Mathlib alone costs about 6 CPU-seconds per process on macOS and about 2.6 on Linux | `records/mac-build/`, `records/cloud/` |
-| M3 | Each compiled module leaves about 0.8 MB of compiled output plus a regenerable JSON file of 5 to 6 MB or more | `docs/performance-notes.md` |
-| M4 | A 32-vCPU cloud machine compiled shallow modules at about 3.9 per second | `records/cloud/` |
+| M3 | Each compiled module leaves about 0.7 MB of compiled output plus a regenerable setup file of 5 to 6 MB or more. Lake does not need the setup file of a module that is already built (tested on a five-module project, not on the real tree) | `docs/performance-notes.md` section 4; `scripts/prune_setup_files.sh` |
+| M4 | A cloud machine with 16 cores and 32 threads compiled 29,633 modules, with import closures up to 17,860, at 3.2 to 3.5 per second, and kernel-checked 2,233 at 3.7 per second, with zero failures in both | `records/cloud/pilot/` |
 | M5 | Cloud prices and quota behaviour as read on 2026-11-20 | `records/cloud/`, `docs/cloud-notes.md` |
+| M6 | Extrapolated from M4: a full build takes about 16 hours and a full kernel replay about 14 on that machine, about 31 billed hours in all (28 to 39), about 58 USD on demand (53 to 74). No module above 17,860 imports has been compiled anywhere, so the top of the tree is extrapolation | `python3 analysis/pilot_estimate.py records/cloud/pilot/pilot-20261120-162141 records/source/import_graph.json.gz`; `docs/cloud-notes.md` section 8 |
+| M7 | A compiler process maps five files per library module (52,260 before any project module) and about one per project module imported. Private memory grows by about 13 KB per imported project module | `records/mac-build/mapped-files-sample.txt`; `records/cloud/pilot/pilot_estimate.json` |
 
-Early throughput cannot be extrapolated to the whole tree: later modules import far more. See `docs/performance-notes.md`.
+Throughput on a small machine in the first hours cannot be extrapolated to the whole tree: later modules import far more, and memory runs out before CPU does. See `docs/performance-notes.md`. M6 is an extrapolation too. It rests on measured import costs up to closures of 17,860 and was reviewed by three independent agents, whose criticism is recorded beside it; it is an estimate of cost, not evidence about the proof.
 
 ## Tier R: reading, with pointers for spot checks
 

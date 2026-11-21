@@ -1,0 +1,41 @@
+### 2026-11-20T22:23:02Z +0s  PHASE setup
+### 2026-11-20T22:23:02Z +0s  setup: sysctl
+### 2026-11-20T22:23:02Z +0s  setup: packages
+### 2026-11-20T22:23:10Z +8s  setup: disk
+### 2026-11-20T22:23:11Z +9s  setup: user
+### 2026-11-20T22:23:11Z +9s  setup: elan
+elan 4.4.0 (3cc76985a 2026-11-18)
+### 2026-11-20T22:23:13Z +11s  setup: source
+### 2026-11-20T22:23:22Z +20s  setup: mathlib_cache
+Decompressed 8690 file(s)
+Already decompressed 8690 file(s)
+### 2026-11-20T22:24:13Z +71s  setup: smoke_build
+✔ [8706/8706] Built Statements (2.3s)
+Build completed successfully (8706 jobs).
+### 2026-11-20T22:24:18Z +76s  setup: lockdown
+### 2026-11-20T22:24:20Z +78s  PHASE import_only
+### 2026-11-20T22:24:42Z +100s  PHASE cold:N=32
+### 2026-11-20T22:34:45Z +703s  PHASE idle
+### 2026-11-20T22:34:46Z +704s  PHASE deepA:N=32
+### 2026-11-20T23:13:10Z +3008s  PHASE idle
+### 2026-11-20T23:13:12Z +3010s  PHASE probe:afterA
+### 2026-11-20T23:14:02Z +3060s  PHASE idle
+### 2026-11-20T23:14:03Z +3061s  PHASE deepB:N=32
+### 2026-11-21T00:23:26Z +7224s  PHASE idle
+### 2026-11-21T00:23:28Z +7226s  PHASE probe:afterB
+### 2026-11-21T00:26:43Z +7421s  PHASE idle
+### 2026-11-21T00:26:45Z +7423s  PHASE sweep1:N=16
+### 2026-11-21T00:32:48Z +7786s  PHASE idle
+### 2026-11-21T00:32:50Z +7788s  PHASE sweep2:N=32
+### 2026-11-21T00:38:52Z +8150s  PHASE idle
+### 2026-11-21T00:38:54Z +8152s  PHASE sweep3:N=16
+### 2026-11-21T00:44:56Z +8514s  PHASE idle
+### 2026-11-21T00:44:58Z +8516s  PHASE sweep4:N=32
+### 2026-11-21T00:51:01Z +8879s  PHASE idle
+### 2026-11-21T00:51:03Z +8881s  PHASE sweep5:N=24
+### 2026-11-21T00:57:05Z +9243s  PHASE idle
+### 2026-11-21T00:57:07Z +9245s  PHASE sweep6:N=8
+### 2026-11-21T01:03:09Z +9607s  PHASE idle
+### 2026-11-21T01:03:11Z +9609s  PHASE check:N=32
+### 2026-11-21T01:13:13Z +10211s  PHASE idle
+### 2026-11-21T01:13:13Z +10211s  FINISH DONE: all phases complete

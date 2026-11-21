@@ -1,6 +1,6 @@
 # Cloud price and capacity records
 
-The research behind the choice of machine for the Google Cloud pilot in [`../../cloud/gcp/`](../../cloud/gcp/).
+The research behind the choice of machine for the Google Cloud pilot in [`../../cloud/gcp/`](../../cloud/gcp/), and, in [`pilot/`](pilot/), what the pilot then measured.
 
 ## Date and source
 
@@ -18,7 +18,7 @@ This is a dated snapshot, not a quotation. Cloud prices, Spot prices in particul
 
 - A price marked `first_party: true` was read from the provider's own page or catalogue. Statements the agents marked "from memory" or "not re-checked" are exactly that.
 - Every time and cost estimate is a model. The only measured input is the local compile rate in [`../mac-build/tuning2.tsv`](../mac-build/tuning2.tsv). The conversion from that rate to hours on a rented machine rests on assumed factors, and the reviews in these files dispute several of them.
-- As of 2026-11-20 no estimate here had been compared with a real cloud run.
+- The files in this directory were written before anything had run in the cloud, and none of their estimates had been compared with a real run. The pilot ran later on 2026-11-20. Its measurements and the estimate derived from them are in [`pilot/`](pilot/); they supersede the time and cost models here, which are kept as a record of what was believed beforehand and how far off it was.
 
 ## Files
 
@@ -41,4 +41,4 @@ Where the reviews mention current quota values, such as a limit of 32 vCPUs acro
 ## Not included
 
 - The raw SKU catalogue (about 29 MB, 33,659 entries). It is public; download the current one from Google.
-- Quota responses, the pilot ledger and pilot state. They describe one cloud account.
+- Quota responses and the pilot's local state file. They describe one cloud account. The pilot's spend ledger, which names no account, is in [`pilot/ledger.tsv`](pilot/ledger.tsv).

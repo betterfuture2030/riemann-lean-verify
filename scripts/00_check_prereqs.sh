@@ -120,6 +120,26 @@ echo "  system:            $(uname -s) $(uname -m), bash ${BASH_VERSION}"
 echo "  CPU cores:         $cores"
 echo "  memory:            $mem GB"
 echo "  open-file limit:   $(ulimit -n) (hard limit: $(ulimit -Hn))"
+# A compiler process maps about 52,000 files before it reaches any project module (five per module of
+# Mathlib and of Lean's own library) and about one more for each project module it imports. The last
+# module imports all 175,186 others. See records/mac-build/mapped-files-sample.txt.
+if is_macos; then
+  vn=$(sysctl -n kern.maxvnodes 2>/dev/null || echo 0)
+  echo "  files-in-use limit: $vn (kern.maxvnodes)"
+  if [ "$vn" -lt 400000 ]; then
+    echo "  NOTE: the last modules map about 240,000 files at once, close to this limit. Whether macOS"
+    echo "        copes has not been observed. Before the build reaches its last few thousand modules,"
+    echo "        consider: sudo sysctl kern.maxvnodes=600000   (lasts until the next restart)"
+  fi
+else
+  mm=$(cat /proc/sys/vm/max_map_count 2>/dev/null || echo 0)
+  echo "  memory-map limit:  $mm (vm.max_map_count)"
+  if [ "$mm" -lt 1000000 ]; then
+    echo "  NOTE: this is too low for the full build. At the usual default of 65,530, any module that"
+    echo "        imports more than about 12,000 project modules is expected to fail when it maps its"
+    echo "        imports. Raise it first: sudo sysctl -w vm.max_map_count=1048576"
+  fi
+fi
 echo "  work directory:    $RH_WORKDIR"
 echo "  free disk there:   $free_gb GB"
 echo "  recommended RH_JOBS: $rec   (min(cores, (memory_GB - 8) / 2), at least 1)"
@@ -136,15 +156,21 @@ esac
 echo "== Disk space"
 echo "  download and extraction:   about 2 GB (parts and tarball 0.5 GB, 175,187 source files 1.0 GB)"
 echo "  Mathlib and its cache:     about 8 GB"
-echo "  full build:                roughly 1.5 TB. This is an extrapolation from a partial build"
-echo "                             (2026-11-20, first 10,000 modules: about 0.7 MB of compiled"
-echo "                             output and 6 MB of Lake setup data per module); no complete"
-echo "                             build had been finished when this was written."
+echo "  full build:                roughly 1.5 TB as Lake writes it, or roughly 200 GB if the"
+echo "                             regenerable setup files are removed as modules finish"
+echo "                             (scripts/prune_setup_files.sh). Both are extrapolations from"
+echo "                             partial builds (2026-11-20: about 0.7 MB of compiled output and"
+echo "                             6 MB of setup data per module); no complete build had been"
+echo "                             finished when this was written."
 if [ "$free_gb" -lt 12 ]; then
   echo "  WARNING: less than 12 GB free: not enough even for the download and Mathlib."
+elif [ "$free_gb" -lt 200 ]; then
+  echo "  WARNING: $free_gb GB free is less than a full build needs even with setup files removed."
+  echo "           Steps 01 to 04 will work; the build (05) is likely to run out of space."
 elif [ "$free_gb" -lt 1500 ]; then
-  echo "  WARNING: $free_gb GB free is less than the estimated need of a full build. Steps 01 to 04"
-  echo "           will work; the build (05) is likely to run out of space before it finishes."
+  echo "  NOTE: $free_gb GB free is less than a full build writes. Steps 01 to 04 will work. For the"
+  echo "        build (05), run scripts/prune_setup_files.sh --delete from time to time; read its"
+  echo "        header first."
 fi
 
 echo
