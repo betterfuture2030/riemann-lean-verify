@@ -22,8 +22,9 @@
 #   Three recorded statuses say nothing about the module, and the summary counts such a module as
 #   not yet checked, so that the next run tries it again: 137 (the checker was killed, typically
 #   for lack of memory), 143 (terminated, typically by a time limit) and 96 (the checker could
-#   not be started, because its output file could not be created). Any other non-zero status is a
-#   failure, including a checker that crashed by itself.
+#   not do its work: its output file could not be created, or it stopped because a compiled file
+#   could not be opened or found, which is a fault of the installation and not of the module).
+#   Any other non-zero status is a failure, including a checker that crashed by itself.
 #
 # Usage: kernel_check_one.sh <module> <stamp> [prefix]
 # Environment (set by 09_kernel_replay.sh): RH_PROJ, RH_REPLAY_DIR, RH_LEAN_PATH, RH_LEANCHECKER.
@@ -49,6 +50,10 @@ else
   LEAN_PATH="$RH_LEAN_PATH" "$RH_LEANCHECKER" "$mod" > "$out" 2>&1
   rc=$?
   [ "$rc" -eq 0 ] && rm -f "$out"
+fi
+# A checker that could not open or find a compiled file checked nothing. Its output is kept.
+if [ "$rc" -ne 0 ] && [ "$rc" -lt 128 ] && grep -qE 'failed to open file|Permission denied|No such file or directory|Could not find any oleans|object file .* does not exist' "$out" 2>/dev/null; then
+  rc=96
 fi
 t1=$(date +%s)
 printf '%s\t%s\t%s\t%s\t%s\n' "$mod" "$rc" "$((t1 - t0))" "$stamp" "$t1" >> "$RH_REPLAY_DIR/results.tsv"

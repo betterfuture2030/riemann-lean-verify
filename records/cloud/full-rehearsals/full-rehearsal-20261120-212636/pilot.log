@@ -1,0 +1,107 @@
+### 2026-11-21T03:27:42Z +1s  PHASE setup
+### 2026-11-21T03:27:42Z +1s  setup: sysctl
+### 2026-11-21T03:27:42Z +1s  setup: packages
+### 2026-11-21T03:27:49Z +8s  setup: disk
+### 2026-11-21T03:27:50Z +9s  setup: user
+### 2026-11-21T03:27:50Z +9s  setup: elan
+elan 4.4.0 (3cc76985a 2026-11-18)
+### 2026-11-21T03:27:50Z +9s  setup: source
+### 2026-11-21T03:28:04Z +23s  setup: mathlib_cache
+Decompressed 8690 file(s)
+Already decompressed 8690 file(s)
+### 2026-11-21T03:28:57Z +76s  setup: baseline
+### 2026-11-21T03:28:59Z +78s  setup: lockdown
+### 2026-11-21T03:28:59Z +78s  setup: smoke_build
+✔ [8706/8707] Built Statements (2.5s)
+✔ [8707/8707] Built Formalism.GammaFactorNonvanishing.RhOfRight (2.9s)
+Build completed successfully (8707 jobs).
+### 2026-11-21T03:29:07Z +86s  PHASE build:N=32
+Terminated
+Terminated
+### 2026-11-21T03:32:00Z +259s  restart test prune: setup files found:            672 (3.8 GB) of finished modules:          641 (3.6 GB) removed:                      641 
+plain restart: 0 finished modules compiled again, 303 new ones built; after deleting setup files: 0 compiled again, 323 new ones built
+### 2026-11-21T03:35:51Z +490s  prune: setup files found:            784 (4.5 GB) of finished modules:          0 (0.0 GB) removed:                      0 
+### 2026-11-21T03:37:51Z +610s  prune: setup files found:            1106 (6.3 GB) of finished modules:          192 (1.1 GB) removed:                      192 
+### 2026-11-21T03:37:51Z +610s  build tool exited with status 124; 1715 modules finished
+### 2026-11-21T03:37:55Z +614s  final prune: setup files found:            914 (5.2 GB) of finished modules:          882 (5.1 GB) removed:                      882 
+### 2026-11-21T03:37:55Z +614s  PHASE seal
+### 2026-11-21T03:38:10Z +629s  PHASE c2_plain
+### 2026-11-21T03:38:12Z +631s  axiom check exit status: 1
+### 2026-11-21T03:38:12Z +631s  PHASE c2_deep
+### 2026-11-21T03:38:14Z +633s  deep axiom check exit status: 1
+### 2026-11-21T03:38:14Z +633s  PHASE idle
+### 2026-11-21T03:38:15Z +634s  PHASE check_trial:N=16
+### 2026-11-21T03:39:45Z +724s  replay trial: 16 at a time finished 875 modules in the counted window
+### 2026-11-21T03:39:45Z +724s  PHASE check_trial:N=32
+### 2026-11-21T03:41:14Z +813s  replay trial: 32 at a time finished 1144 modules in the counted window
+### 2026-11-21T03:41:14Z +813s  PHASE check:N=32
+### 2026-11-21T03:42:45Z +904s  kernel replay: last exit status 1, 4682 result lines
+== Kernel re-check summary
+  source modules:                         175187
+  compiled modules:                       1715
+  checked one at a time:                  1715
+    passed (result is for the current file): 5
+    FAILED:                                 1710
+    remaining (never checked, or recompiled since): 0  (of which recompiled since: 0)
+  prefix modules (name is a prefix of another module's name; each is checked in one
+  process together with the compiled modules beneath it):  0
+    passed: 0   FAILED: 0   remaining: 0
+  source modules not compiled: 173472
+  FAILED: CompanionTheory.AutomorphicTheory.BesselWaveGrids.InterlacingGrids.Bracket
+  FAILED: CompanionTheory.AutomorphicTheory.BesselWaveGrids.InterlacingGrids.CloudPair
+  FAILED: CompanionTheory.AutomorphicTheory.BesselWaveGrids.InterlacingGrids.CloudProd
+  FAILED: CompanionTheory.AutomorphicTheory.BesselWaveGrids.InterlacingGrids.FreeFamily
+  FAILED: CompanionTheory.AutomorphicTheory.BesselWaveGrids.InterlacingGrids.GridSum
+  FAILED: CompanionTheory.AutomorphicTheory.BesselWaveGrids.InterlacingGrids.LagSum
+  FAILED: CompanionTheory.AutomorphicTheory.BesselWaveGrids.InterlacingGrids.PairOKOfInterlace
+  FAILED: CompanionTheory.AutomorphicTheory.BesselWaveGrids.InterlacingGrids.ProgYInjective
+  FAILED: CompanionTheory.AutomorphicTheory.BesselWaveGrids.InterlacingGrids.PstMul
+  FAILED: CompanionTheory.AutomorphicTheory.DiscreteGroupWaves.IntegralEqOfSqrtCauchy
+  FAILED: CompanionTheory.AutomorphicTheory.HeckeStandardModules.ExistsCen
+  FAILED: CompanionTheory.AutomorphicTheory.HeckeStandardModules.HeckeA
+  FAILED: CompanionTheory.AutomorphicTheory.HeckeStandardModules.HeckeStdStatement
+  FAILED: CompanionTheory.AutomorphicTheory.JacobiDiagonalBounds.Vander
+  FAILED: CompanionTheory.AutomorphicTheory.SchurLimitBounds.SchurOrthogonality.SchurOrthogonality
+  FAILED: CompanionTheory.AutomorphicTheory.SchurLimitBounds.SchurOrthogonality.URepBasic
+  FAILED: CompanionTheory.AutomorphicTheory.SchurLimitBounds.SchurOrthogonality.URepSchur
+  FAILED: CompanionTheory.HarishChandraModules.BesselParameterIntegrals.CoePolarExpHomeomorphComplexApply
+  FAILED: CompanionTheory.HarishChandraModules.BesselParameterIntegrals.ContDiffOnExpPartialHomeomorphSymm
+  FAILED: CompanionTheory.HarishChandraModules.BesselParameterIntegrals.ExistsUniqueComplexification
+  FAILED: CompanionTheory.HarishChandraModules.BesselParameterIntegrals.InPCommutatorOfInK
+  FAILED: CompanionTheory.HarishChandraModules.BesselParameterIntegrals.PolarUH
+  FAILED: CompanionTheory.HarishChandraModules.BesselParameterIntegrals.SecondCountableQuotients.ModExists
+  FAILED: CompanionTheory.HarishChandraModules.BesselParameterIntegrals.SmoothCyclicVectors.IntegralMemOfIsClosed
+  FAILED: CompanionTheory.HarishChandraModules.BesselParameterIntegrals.SmoothCyclicVectors.SmoothVec
+  FAILED: CompanionTheory.HarishChandraModules.BesselParameterIntegrals.UniformCoefficientBounds.CoefBoundUniform
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.AdmissibleOfFiniteRank
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.AdmissibleOfIwasawa
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.ExistsAvg
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.FinOfPI
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.FinalAll
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.Garding
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.GardingAvg
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.GardingBump
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.GoodPI
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.IwaAll
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.IwaChol
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.IwaCore
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.IwasawaDecompositionSecondModel
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.MapStdPoly
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.SmallPI
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.Transfer
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.HaarBumpFunctions.ExistsIsBump
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.HaarBumpFunctions.ExistsOpOfForm
+  FAILED: CompanionTheory.HarishChandraModules.LowKTypeMultiplicity.DiscreteSeriesCharacters.CapelliDeterminantBlockProduct
+  FAILED: CompanionTheory.HarishChandraModules.LowKTypeMultiplicity.DiscreteSeriesCharacters.CobApplyOfDeg
+  FAILED: CompanionTheory.HarishChandraModules.NonemptyRepresentations.ExpEntry
+  FAILED: CompanionTheory.HarishChandraModules.NonemptyRepresentations.HWRepD
+  FAILED: CompanionTheory.HarishChandraModules.NonemptyRepresentations.NonemptyOfAntitone
+  FAILED: CompanionTheory.SpectralGeometry.LocalGlobalProofs.StableLattices.AlgCoreSubOfAlgCore
+  ... and 1660 more
+  every source module compiled and passing: no
+### 2026-11-21T03:42:47Z +906s  PHASE end_check
+### 2026-11-21T03:42:49Z +908s  PHASE idle
+### 2026-11-21T03:42:49Z +908s  PHASE keep
+### 2026-11-21T03:42:58Z +917s  compiled files archived: 2 objects uploaded, 355M
+### 2026-11-21T03:42:58Z +917s  PHASE idle
+### 2026-11-21T03:42:58Z +917s  FINISH DONE: all phases ran; read facts.json against PREREGISTRATION.md section 5

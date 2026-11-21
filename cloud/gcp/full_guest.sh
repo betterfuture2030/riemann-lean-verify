@@ -218,7 +218,8 @@ def axioms(name):
             'deep_walk': {k: w.get(k) for k in ('requested', 'visited', 'axiom_count', 'axioms', 'missing', 'modules_listed_completely',
                                               'project_modules_touched', 'project_constants_visited', 'library_modules_touched', 'library_constants_visited')}}
 c3 = load(os.path.join(E('F_PD'), 'c3_summary.json'))
-if c3: c3 = {k: v for k, v in c3.items() if k != 'prefix_modules'}
+if c3:      # lists are cut to 50 names here; the summary itself, uploaded beside this file, has them in full
+    c3 = {k: (v[:50] + ['... %d more' % (len(v) - 50)] if isinstance(v, list) and len(v) > 50 else v) for k, v in c3.items() if k != 'prefix_modules'}
 seen = os.path.join(E('F_PD'), 'build_user_seen_after_seal')
 json.dump({
     'what': 'facts from one run of cloud/gcp/full_guest.sh; not a verdict (see PREREGISTRATION.md, section 5)',
@@ -561,8 +562,11 @@ TC_BIN=/opt/lean-tc/bin
 for f in $(lake_logs); do case "$f" in "$LOGS"/*) safe_cp "$f" "$PD/$(basename "$f")" ;; esac; done
 touch "$PD/SEALED"                          # from now on only the copies in $PD are the build's logs
 rm -rf "$LOGS" "$AN" "$WORK/download" || finish FAIL "could not clear the working directories"
-chown -R root:root "$WORK" && chmod -R go-w "$WORK" || finish FAIL "could not hand the project to root"
+# Mathlib's cache is unpacked readable by its owner only, so read permission for everyone is added here: the
+# second rehearsal's checks all failed with "Permission denied" for want of it.
+chown -R root:root "$WORK" && chmod -R a+rX,go-w "$WORK" || finish FAIL "could not hand the project to root"
 [ -z "$(find "$WORK" ! -user root -print -quit)" ] || finish FAIL "a file under the working directory is still not owned by root"
+[ -z "$(find "$WORK/extract" \( -type f ! -perm -o=r -o -type d ! -perm -o=rx \) -print -quit)" ] || finish FAIL "a file or directory of the project is not readable by the checkers"
 [ -z "$(find "$PROJ/.lake" -type f -links +1 -path '*/lib/lean/*' -print -quit)" ] || finish FAIL "a compiled file has more than one hard link"
 # Beside the compiled modules there may be only what the build tool writes for this project: .olean, .ilean,
 # their .hash files and .trace. In particular no .olean.server or .olean.private: the kernel replay would read
@@ -580,6 +584,16 @@ for u in chk2 chk3; do
   if as_chk "$u" "touch $LIB/.w 2>/dev/null || touch $TC_BIN/.w 2>/dev/null || touch $PROJ/.lake/packages/.w 2>/dev/null || touch $TOOLS/.w 2>/dev/null"; then finish FAIL "the user $u can write to files the checks rely on"; fi
 done
 if as_chk chk2 "touch $AN/.w 2>/dev/null"; then finish FAIL "the axiom check's user can write to the kernel replay's directory"; fi
+# Both checks must be able to run here at all. Statements imports only Mathlib and was compiled during setup:
+# the axiom check's user elaborates a file that imports it, and the replay's user replays it. A failure here is
+# a fault of this environment and ends the run before anything could be mistaken for a result.
+SEAL_LP=$PROJ/.lake/build/lib/lean; for d in "$PROJ"/.lake/packages/*/.lake/build/lib/lean; do SEAL_LP="$SEAL_LP:$d"; done
+printf 'import Statements\n' > "$PD/seal_test.lean"; chmod 644 "$PD/seal_test.lean"
+as_chk chk2 "LEAN_PATH='$SEAL_LP' timeout 300 lean $PD/seal_test.lean" > "$PD/seal_test_chk2.txt" 2>&1 \
+  || { gcs_put "$PD/seal_test_chk2.txt" "$RES/seal_test_chk2.txt"; finish FAIL "the axiom check's user cannot elaborate a file that imports a compiled module: $(head -c 300 "$PD/seal_test_chk2.txt" | tr '\n' ' ')"; }
+as_chk chk3 "LEAN_PATH='$SEAL_LP' timeout 300 leanchecker Statements" > "$PD/seal_test_chk3.txt" 2>&1 \
+  || { gcs_put "$PD/seal_test_chk3.txt" "$RES/seal_test_chk3.txt"; finish FAIL "the replay's user cannot replay a compiled module: $(head -c 300 "$PD/seal_test_chk3.txt" | tr '\n' ' ')"; }
+kill_users
 # A fingerprint of every file beside the compiled modules, and so of every compiled module.
 lib_manifest > "$PD/lib_sha256.txt"; deadline_check
 [ "$(grep -c '\.olean$' "$PD/lib_sha256.txt")" -eq "$NCOMP" ] && [ "$(wc -l < "$PD/lib_sha256.txt")" -eq "$(find "$LIB" -type f | wc -l)" ] \

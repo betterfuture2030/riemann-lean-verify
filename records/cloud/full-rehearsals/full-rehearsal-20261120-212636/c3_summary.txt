@@ -1,0 +1,63 @@
+== Kernel re-check summary
+  source modules:                         175187
+  compiled modules:                       1715
+  checked one at a time:                  1715
+    passed (result is for the current file): 5
+    FAILED:                                 1710
+    remaining (never checked, or recompiled since): 0  (of which recompiled since: 0)
+  prefix modules (name is a prefix of another module's name; each is checked in one
+  process together with the compiled modules beneath it):  0
+    passed: 0   FAILED: 0   remaining: 0
+  source modules not compiled: 173472
+  FAILED: CompanionTheory.AutomorphicTheory.BesselWaveGrids.InterlacingGrids.Bracket
+  FAILED: CompanionTheory.AutomorphicTheory.BesselWaveGrids.InterlacingGrids.CloudPair
+  FAILED: CompanionTheory.AutomorphicTheory.BesselWaveGrids.InterlacingGrids.CloudProd
+  FAILED: CompanionTheory.AutomorphicTheory.BesselWaveGrids.InterlacingGrids.FreeFamily
+  FAILED: CompanionTheory.AutomorphicTheory.BesselWaveGrids.InterlacingGrids.GridSum
+  FAILED: CompanionTheory.AutomorphicTheory.BesselWaveGrids.InterlacingGrids.LagSum
+  FAILED: CompanionTheory.AutomorphicTheory.BesselWaveGrids.InterlacingGrids.PairOKOfInterlace
+  FAILED: CompanionTheory.AutomorphicTheory.BesselWaveGrids.InterlacingGrids.ProgYInjective
+  FAILED: CompanionTheory.AutomorphicTheory.BesselWaveGrids.InterlacingGrids.PstMul
+  FAILED: CompanionTheory.AutomorphicTheory.DiscreteGroupWaves.IntegralEqOfSqrtCauchy
+  FAILED: CompanionTheory.AutomorphicTheory.HeckeStandardModules.ExistsCen
+  FAILED: CompanionTheory.AutomorphicTheory.HeckeStandardModules.HeckeA
+  FAILED: CompanionTheory.AutomorphicTheory.HeckeStandardModules.HeckeStdStatement
+  FAILED: CompanionTheory.AutomorphicTheory.JacobiDiagonalBounds.Vander
+  FAILED: CompanionTheory.AutomorphicTheory.SchurLimitBounds.SchurOrthogonality.SchurOrthogonality
+  FAILED: CompanionTheory.AutomorphicTheory.SchurLimitBounds.SchurOrthogonality.URepBasic
+  FAILED: CompanionTheory.AutomorphicTheory.SchurLimitBounds.SchurOrthogonality.URepSchur
+  FAILED: CompanionTheory.HarishChandraModules.BesselParameterIntegrals.CoePolarExpHomeomorphComplexApply
+  FAILED: CompanionTheory.HarishChandraModules.BesselParameterIntegrals.ContDiffOnExpPartialHomeomorphSymm
+  FAILED: CompanionTheory.HarishChandraModules.BesselParameterIntegrals.ExistsUniqueComplexification
+  FAILED: CompanionTheory.HarishChandraModules.BesselParameterIntegrals.InPCommutatorOfInK
+  FAILED: CompanionTheory.HarishChandraModules.BesselParameterIntegrals.PolarUH
+  FAILED: CompanionTheory.HarishChandraModules.BesselParameterIntegrals.SecondCountableQuotients.ModExists
+  FAILED: CompanionTheory.HarishChandraModules.BesselParameterIntegrals.SmoothCyclicVectors.IntegralMemOfIsClosed
+  FAILED: CompanionTheory.HarishChandraModules.BesselParameterIntegrals.SmoothCyclicVectors.SmoothVec
+  FAILED: CompanionTheory.HarishChandraModules.BesselParameterIntegrals.UniformCoefficientBounds.CoefBoundUniform
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.AdmissibleOfFiniteRank
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.AdmissibleOfIwasawa
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.ExistsAvg
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.FinOfPI
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.FinalAll
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.Garding
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.GardingAvg
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.GardingBump
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.GoodPI
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.IwaAll
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.IwaChol
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.IwaCore
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.IwasawaDecompositionSecondModel
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.MapStdPoly
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.SmallPI
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.AdmissibleSmoothVectors.Transfer
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.HaarBumpFunctions.ExistsIsBump
+  FAILED: CompanionTheory.HarishChandraModules.KFiniteAnalyticVectors.HaarBumpFunctions.ExistsOpOfForm
+  FAILED: CompanionTheory.HarishChandraModules.LowKTypeMultiplicity.DiscreteSeriesCharacters.CapelliDeterminantBlockProduct
+  FAILED: CompanionTheory.HarishChandraModules.LowKTypeMultiplicity.DiscreteSeriesCharacters.CobApplyOfDeg
+  FAILED: CompanionTheory.HarishChandraModules.NonemptyRepresentations.ExpEntry
+  FAILED: CompanionTheory.HarishChandraModules.NonemptyRepresentations.HWRepD
+  FAILED: CompanionTheory.HarishChandraModules.NonemptyRepresentations.NonemptyOfAntitone
+  FAILED: CompanionTheory.SpectralGeometry.LocalGlobalProofs.StableLattices.AlgCoreSubOfAlgCore
+  ... and 1660 more
+  every source module compiled and passing: no

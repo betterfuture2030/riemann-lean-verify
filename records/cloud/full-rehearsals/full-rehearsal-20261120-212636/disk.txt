@@ -1,0 +1,6 @@
+lib_bytes 1206861075
+ir_bytes 203592073
+oleans 1715
+setup_json_bytes 183706531
+setup_json_files 32
+/dev/nvme0n2   107307073536 13577072640 93730000896  13% /mnt/work

@@ -748,7 +748,8 @@ def module_names(root, ext):
     return out
 
 
-# Exit statuses that say nothing about the module: 96 = the checker could not be started (kernel_check_one.sh),
+# Exit statuses that say nothing about the module: 96 = the checker could not do its work (it could not be
+# started, or could not open or find a compiled file; kernel_check_one.sh),
 # 137 = killed (SIGKILL; typically the system's out-of-memory killer), 143 = terminated (SIGTERM; typically a time
 # limit). Any other non-zero status, including a crash such as 134 or 139, counts as a failure.
 NOT_RUN_STATUSES = (96, 137, 143)

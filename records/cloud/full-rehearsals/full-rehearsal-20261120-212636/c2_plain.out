@@ -1,0 +1,18 @@
+2026-11-21 03:38:11  work directory: /mnt/work
+2026-11-21 03:38:11  compiled modules on disk: 1715 of 175187 source files
+2026-11-21 03:38:11  running lean on /mnt/work/logs/axioms-probe-20261121-033811.lean
+2026-11-21 03:38:11  lean exit status: 1   output: /mnt/work/logs/axioms-probe-20261121-033811.log
+--- messages from lean that are not check output:
+/mnt/work/logs/axioms-probe-20261121-033811.lean:1:0: error: failed to open file '/mnt/work/extract/lean/.lake/packages/mathlib/.lake/build/lib/lean/Mathlib.olean': Permission denied
+
+== Axiom and statement check (probe mode), Lean version unknown
+  Formalism.VW.rh_of_right                   NOT FOUND
+
+RESULT: FAIL
+  - lean exited with status 1 (see the log)
+  - the check did not run to completion (no final marker in the output)
+  - the output is from mode None, expected 'probe'
+  - Formalism.VW.rh_of_right: not found in the environment
+  - Formalism.VW.rh_of_right: its conclusion is not exactly the constant RiemannHypothesis
+  - RiemannHypothesis is defined in module None, expected Mathlib.NumberTheory.LSeries.RiemannZeta
+2026-11-21 03:38:11  summary: /mnt/work/logs/axioms-probe-20261121-033811.json
