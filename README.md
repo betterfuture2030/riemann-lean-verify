@@ -27,6 +27,8 @@ As of 2026-11-20: **not verified; compile in progress.**
 
 The criteria for calling the proof verified (C1 to C3 above), and what will be reported under every other outcome, were fixed before the result was known. They are in [`PREREGISTRATION.md`](PREREGISTRATION.md), the first commit to this repository. It will not be edited; any change will be a dated amendment.
 
+That first commit was made public on 2026-11-21 at 03:05 UTC and is archived at Zenodo as release `prereg-v1`: [doi:10.5281/zenodo.24410554](https://doi.org/10.5281/zenodo.24410554). At that moment no build of the whole tree had finished and none of the three criteria had been evaluated. The details are in [`records/preregistration_marker.json`](records/preregistration_marker.json).
+
 A verified verdict would be independently reproduced, kernel-checked evidence. It would still rest on the soundness of the Lean kernel, on Mathlib's definitions meaning what is intended, and on the toolchain and prebuilt cache being what they claim. Section 6 of the pre-registration lists these.
 
 ## How to review or replicate

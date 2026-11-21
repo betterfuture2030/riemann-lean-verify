@@ -8,6 +8,12 @@ The proof source itself is not here and is not redistributed. Build logs, the ar
 
 ## Index
 
+### The pre-registration
+
+| File | Contents |
+|---|---|
+| `preregistration_marker.json` | The commit that holds the pre-registration, when it was first pushed to GitHub, the `prereg-v1` release, and the Zenodo record and DOI, as read from GitHub's and Zenodo's own records |
+
 ### `source/` - what was downloaded
 
 | File | Contents |
