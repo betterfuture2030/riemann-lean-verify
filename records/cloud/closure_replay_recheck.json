@@ -1,0 +1,296 @@
+{
+ "what": "Second look at the kernel replay with import-closure search paths, 2026-11-21, after the changes made in response to closure_replay_review.json. Three AI agents, one area each (the helper script and the single-module checker; the replay script; the cloud driver), said for every earlier finding in their area whether it was resolved, and reported anything the changes had introduced; a second agent per area then tried to refute whatever was reported as unresolved or new. Their text is given as returned, apart from the removal of private paths. Criticism of code, not a result.",
+ "counts": {
+  "earlier_findings_by_state_as_reported_per_area": {
+   "resolved": 19,
+   "resolved-in-part": 4
+  },
+  "note": "an earlier finding seen through two lenses can be counted in two areas",
+  "items_put_to_the_sceptics": 7,
+  "of_which_upheld": 6
+ },
+ "what_was_done_about_each_item_upheld": [
+  {
+   "item": "A crash inside the task of a module beneath the one asked for is recorded as a crash of the one asked for",
+   "done": "Kept as a crash of the module asked for, since the tool prints nothing that says whose it was, and flagged: the record of every check says whether the process also held modules beneath the one asked for, and the summary lists crashes in such processes as possibly belonging to one of those modules."
+  },
+  {
+   "item": "Status 98 (not judged) was reported under 'checker not run; run again with fewer jobs', and such a module was planned again for ever",
+   "done": "Not judged is now a state of its own, reported with its reason. While the module beneath it stays failed, the module is not planned again and is not counted among those still to check."
+  },
+  {
+   "item": "A compiled file newly written beside its old hash, during a recompile, passes the worker's two tests",
+   "done": "Left as it is, by decision. It needs a build replacing files while the replay runs, which the script's header excludes for results that are to count and which the cloud driver's seal makes impossible. The hardening proposed (treat a hash older than its compiled file as changed) rests on an assumption about file times that has not been tested on a sealed tree, and a wrong assumption there would leave every module unchecked."
+  },
+  {
+   "item": "A results file ending in zero bytes was not seen as cut short",
+   "done": "The test is now whether the last byte is a newline, whatever else it is, and a line with a zero byte in it is counted as damaged."
+  },
+  {
+   "item": "Taking over a stale lock was not atomic: two starts could both get it",
+   "done": "The lock is now a symbolic link holding the owner's process id, made in one step; taking over a stale one happens under a guard directory, and a run removes the lock only if it is its own. Six starts at once against a stale lock: one runs, five are refused."
+  },
+  {
+   "item": "analysis/replay_cost.py did not read the second replay's new phase label",
+   "done": "It does now."
+  }
+ ],
+ "item_refuted": "That the optional second replay 'can turn criterion_c3.all_hold from true to false' is a defect: it is the documented rule that a rejection by either tool stands in the way. The driver's comments now say so in as many words.",
+ "areas": [
+  {
+   "area": "helper",
+   "recheck": {
+    "earlier_findings": [
+     {
+      "title": "false-pass 1: closure mode recorded a PASS without the module's .olean.server/.olean.private parts (companion files were not linked)",
+      "state": "resolved",
+      "how_checked": "Ran the changed closure-worker with a stand-in check-one that lists the farm. With lib/A/B.olean.server and .private present, the farms for A, C and A.B all held A/B.olean, A/B.olean.server and A/B.olean.private beside the link. This matches replayFromImports in the pinned LeanChecker.lean, which looks for the server part beside the found .olean and for the private part only when the server part exists. A link error other than file-not-found on a part is ignored silently, but I found no concrete way to cause one: the cloud sets protected_hardlinks=0, the .olean link itself succeeded, and macOS has no such restriction."
+     },
+     {
+      "title": "false-pass 2 / bookkeeping 7: a prefix module is recorded as rejected, and then FAILED, for an error in a module beneath it that it imports",
+      "state": "resolved-in-part",
+      "how_checked": "Ran kernel_check_one.sh (copied) with a stand-in leanchecker that prints 'replaying A.B' / 'leanchecker found a problem in A.B' and exits 1. The row recorded is 'A 98 ... import-closure-directory', and 98 is in NOT_RUN_STATUSES. Then a stand-in that prints 'replaying A.B' and aborts on SIGABRT (what LEAN_ABORT_ON_PANIC=1 does on a panic in A.B's task, and what a stack overflow does). The row recorded is 'A 134 ...', a crash charged to A.",
+      "what_remains": "Statuses of 128 and above skip the whole reclassification block, so a crash (panic abort, stack overflow, or any other signal not in 129/130/137/143) inside the task of an imported module beneath A is still recorded as a crash of A. After its two reruns A is listed as FAILED. The C3 verdict is still right, because the child crashes in its own check too, but the record names the wrong module. The stock tool prints nothing that names the module whose task crashed. The conservative fix keeps the R and records the ambiguity: for example, a separate 'how' value, or a summary line, when the farm held modules beneath A ('replaying' lines in out/A.out other than A). Changing it to 98 would be wrong, because it would hide a crash of A itself."
+     },
+     {
+      "title": "false-pass 3 / bookkeeping 4: import_graph.json cached for ever, so changed or new modules could never pass",
+      "state": "resolved",
+      "how_checked": "The real cmd_import_graph on a toy src: a first build writes source_fingerprint. --if-stale on the unchanged tree returns 0 silently and does not rebuild. After touching src/C.lean it prints 'the source tree is not the one the stored graph was read from' and rebuilds. A graph without a fingerprint (old format, or damaged) is rebuilt once. The fingerprint only stats the source files, so a read-only or root-owned source tree is fine; the only write is to the graph file, which on the cloud is owned by chk3, the same user that runs 09. In the cloud, full_guest writes the graph (with a fingerprint) as chk3, and 09's --if-stale then keeps it. closure-worker printed the 'not in the import graph' warning for an unknown module Z, which then got kind 'changed' (status 96), not a pass. The per-run cost is one walk and stat of the source tree plus one JSON load, with no rebuild."
+     },
+     {
+      "title": "false-pass 4: the recorded stamp is the plan-time .hash, not that of the file actually linked",
+      "state": "resolved-in-part",
+      "how_checked": "Stand-in run: a batch line 'A.B WRONG' was handed to check-one with kind 'changed', and kernel_check_one records 96 and runs nothing for that kind. I read Lake v4.33.1's Module.buildLean: clearOutputArtifacts removes the .olean, compileLeanModule writes the new one, then clearOutputHashes runs, then computeArtifacts writes the new .hash, which is a content hash (cacheFileHash). So the new check catches a file replaced and re-hashed before the check starts (the stamp differs), a file replaced between the link and the check (samefile is false), and a missing .hash (None, hence 'changed'). It cannot loop: 'changed' gives 96, which is never owed a rerun, and the next run plans the module again under its new stamp.",
+      "what_remains": "During a recompile the new .olean sits next to the OLD .hash until clearOutputHashes runs. A closure check that links in that window passes both tests and records its result for the new file under the old stamp S. Once the new .hash is written the row is stale, so normally nothing wrong is counted. A pass is credited to the wrong file only if the module's content later returns to S; an R recorded in that window stays as an earlier-file rejection and blocks C3 for good, which is conservative. This needs a build replacing files while the replay runs, which the header excludes for counted results and the cloud seal forbids. It is acceptable as documented."
+     },
+     {
+      "title": "bookkeeping 2: a full rhv-replay run exited 0 when rhv-replay itself had checked few modules or none",
+      "state": "resolved",
+      "how_checked": "Toy lib with three modules, each with a .hash, and leanchecker passes only. 'replay-summary --method rhv-replay --require-complete' exits 3; '--method leanchecker --require-complete' and '--require-c3' exit 0. 09's summarise now passes --method. The proposed extra condition rhv_one (every pass from one recorded program) is not part of the exit status, but 09's header does not promise it and facts.json still carries it."
+     },
+     {
+      "title": "bookkeeping 3: a results line missing its final newline swallowed the next result",
+      "state": "resolved",
+      "how_checked": "Wrote a fragment 'A\\t0\\t1' with no newline, applied 09's repair line by hand (eight '\\tcut-short' fields and a newline), then appended a full rejection of C. read_results counted 1 damaged line and kept C's R, so C showed as rejected once with a rerun owed. replay-summary with no --require exits 3, where it used to exit 0. A fragment of k>=1 fields becomes k+8>=9 fields, so it can never parse as a 5-, 6- or 8-field line. A merge inside a single run (a short write followed by another worker's line) is unchanged. As before, that can form a valid line only when the cut falls inside the first field, and the resulting row then carries another module's stamp, so it is never a pass and an R in it still lands in 'earlier'."
+     },
+     {
+      "title": "bookkeeping 5: full_guest's c3_left subtracted twice modules that were both passed and rejected",
+      "state": "resolved",
+      "how_checked": "Fuzzed 150 random states with 7 modules: prefix and non-prefix, missing .hash, two stamps each, statuses 0/1/96/98/130/134, both tools. In every state leanchecker_still_to_check equalled the line count of 'replay-plan --method leanchecker --all-modules', and also equalled the main whole-library plan plus the --prefix-modules plan; rhv_replay_still_to_check equalled the rhv-replay plan's count. 0 mismatches. That covers owed reruns, no stamp, stale and 98. c3_left in full_guest now reads that field."
+     },
+     {
+      "title": "bookkeeping 6: --prefix-modules ignored --list/--sample, and --whole-library --list dropped prefix modules",
+      "state": "resolved",
+      "how_checked": "replay-plan --prefix-modules with a list naming only C plans nothing ('0 of them in the list'); with a list naming A and C it plans 'A h_A prefix', and the main plan takes C and notes that A is left to the prefix pass. 09 now passes --list to the prefix plan as an array element, runs the prefix pass for a list, and refuses --prefix-modules with --sample."
+     }
+    ],
+    "new_findings": [
+     {
+      "title": "Status 98 can hide the module's own rejection for good, and the summary then gives the wrong reason and the wrong advice",
+      "file": "scripts/verify/kernel_check_one.sh",
+      "line": 108,
+      "severity": "misleading-record",
+      "scenario": "A imports A.B, and the kernel rejects A.B (with or without also rejecting A). In the pinned LeanChecker.lean, main creates every task first and then waits on them in the order of targetModules. That list is built with List.insert (so in reverse of the directory walk), and the tool reports only the first error. Whenever A.B comes before A in that order, every closure check of A prints 'found a problem in A.B' and records 98: A's own replay is never judged, run after run, and a rejection of A itself is never recorded. A is counted under 'checker not run or ended from outside (... run again, with fewer jobs)', and leanchecker_still_to_check never reaches 0. full_guest's loop runs one more pass, whose only output is to show the count unchanged. Nothing says that A cannot be judged while A.B is rejected. The verdict is still right (A.B is FAILED, exit 1), but the record and the advice for A are wrong. Reproduced with the copied kernel_check_one.sh and a stand-in leanchecker that names A.B: the row is 'A 98 ...'.",
+      "suggested_fix": "Make 98 a class of its own in replay_state and replay_summary instead of folding it into not_run. Print 'not judged: a module beneath it that it imports was rejected in the same process (see out/<m>.out)', list those modules, and leave them out of the 'run again, with fewer jobs' advice. Optionally, leave them out of leanchecker_still_to_check once the named culprit is failed, so the cloud loop does not spend a pass on them."
+     }
+    ]
+   },
+   "verdicts": [
+    {
+     "title": "A crash (status >= 128) inside the task of an imported module beneath A is recorded as a crash of A, and A ends up FAILED",
+     "verdict": "confirmed-by-reproduction",
+     "severity": "misleading-record (conservative: no false pass, the C3 verdict is unaffected)",
+     "file": "scripts/verify/kernel_check_one.sh",
+     "line": 95,
+     "evidence": "Line 95 runs the reclassification block, including the 98 rule at lines 110-113, only when rc < 128. In the pinned LeanChecker.lean, main starts every task first with IO.asTask, then waits on them in turn. LEAN_ABORT_ON_PANIC=1 aborts the whole process when any task panics, and nothing printed names the module whose task was running. I copied kernel_check_one.sh to a mktemp dir and used a stand-in leanchecker that prints 'replaying A.B' and then runs kill -ABRT $$. It recorded 'A\\t134\\t3\\th\\t...\\tleanchecker\\tunknown\\timport-closure-directory', and out/A.out holds only 'replaying A.B'. replay_state counts 134 as R, so after two reruns A is FAILED. A.B's own check crashes too, so the C3 verdict is right, but A is named as the culprit. Mapping this to 98 would be wrong: it would hide a crash of A itself.",
+     "fix": "Keep the R and flag the ambiguity. In kernel_check_one.sh, just before line 115 (t1=...), add:\n  if [ \"$rc\" -ge 128 ] && [ \"$kind\" = closure ] && grep '^replaying ' \"$out\" 2>/dev/null | grep -vqxF \"replaying $mod\"; then\n    how=\"$how;crash-with-modules-beneath-in-the-process\"   # the crash may belong to one of them; see out/$mod.out\n  fi\nIn rhv_tools.py replay_state, carry the how into rejections: rejections.append((mod, method, rc, epoch, how)). In cmd_replay_summary, print one line:\n  amb = sorted({r[0] for r in st[\"rejections\"] if r[2] >= 128 and r[4].endswith(\"crash-with-modules-beneath-in-the-process\")})\n  if amb: print(\"  crashes in a process that also replayed modules beneath the one asked for (the crash may be theirs; see out/<m>.out): %d\" % len(amb))\nand add \"crash_may_belong_to_a_module_beneath\": amb[:200] to the JSON."
+    },
+    {
+     "title": "The recorded stamp can be the old .hash for a newly written .olean during Lake's recompile window",
+     "verdict": "confirmed-by-reading",
+     "severity": "low; documented and excluded operationally",
+     "file": "scripts/verify/rhv_tools.py",
+     "line": 0,
+     "evidence": "In Lake v4.33.1, Lake/Build/Module.lean lines 976-980 run, in order: mod.clearOutputArtifacts, compileLeanModule, mod.clearOutputHashes, mod.computeArtifacts. Between the compile and clearOutputHashes the new .olean sits next to the old .hash. In that window closure-worker's two tests both pass: the planned stamp equals the .hash, and samefile is true. The window needs a build running during the replay. The header of 09_kernel_replay.sh (lines 47-51) says counted results must come from a run made after the build, with nothing rebuilt in between. The cloud driver enforces this by hashing every compiled file before and after. A wrong pass could only be credited if the content later returned to the old stamp, and an R from the window is kept, which is conservative. The reviewer's conclusion holds: it is real but acceptable as documented.",
+     "fix": "Optional, cheap hardening in closure-worker, next to the existing stamp and samefile checks: treat the module as 'changed' when the .hash is older than the .olean, which can only happen in this window because computeArtifacts writes the .hash after the .olean:\n  so, sh = os.stat(olean_path), os.stat(olean_path + \".hash\")\n  if sh.st_mtime_ns < so.st_mtime_ns: kind = \"changed\"   # Lake has written the new .olean but not yet its .hash\nOtherwise leave it as documented."
+    },
+    {
+     "title": "Status 98 can block A for good while a module beneath it is rejected; the summary files it under 'not run ... run again, with fewer jobs'",
+     "verdict": "confirmed-by-reproduction",
+     "severity": "misleading-record / wrong advice (the verdict stays right: A.B is FAILED, exit 1)",
+     "file": "scripts/verify/kernel_check_one.sh",
+     "line": 112,
+     "evidence": "In closure mode A's search path holds A.B whenever A imports it, and the pinned leanchecker selects every module with prefix A. main waits on the tasks in targetModules order (built with List.insert) and throws at the first error. If A.B is rejected, every closure check of A therefore prints 'found a problem in A.B': either A.B comes first, or A passes and A.B comes next. Line 112 then records 98. A's own rejection surfaces only if A comes first and is itself rejected. Reproduced in a mktemp dir with copies of kernel_check_one.sh and rhv_tools.py, a toy lib (A.olean, A/B.olean, .hash files, sources) and a stand-in leanchecker that names A.B: three runs of A gave 'A 98 ...' each time, and two of A.B gave 1. The replay-summary output: 'FAILED: A.B', 'remaining ... 1', 'checker not run or ended from outside (counted as remaining, not as rejected; run again, with fewer jobs): 1', and JSON leanchecker_still_to_check=1 with not_run_sample=['A']. Nothing says A cannot be judged while A.B is rejected. In full_guest.sh the loop (lines 845-851) is bounded by the 'unchanged' guard and by pass <= 2, so it wastes at most a pass. The first extra pass also serves A.B's owed reruns, so the cost is small. The bad part is the record and the advice.",
+     "fix": "In rhv_tools.py replay_state, give 98 its own state before the general not-run branch:\n        elif rc == 98:\n            other[method][mod] = \"not_judged\"\n        elif rc in NOT_RUN_STATUSES:\n            other[method][mod] = \"not_run\"\nIn cmd_replay_plan wanted(): `mine.get(m) in (None, \"not_run\", \"stale\", \"not_judged\")`. In cmd_replay_summary:\n    not_judged = sorted(m for m in remaining if any(by[x].get(m) == \"not_judged\" for x in REPLAY_METHODS))\n    not_run = sorted(m for m in remaining if m not in set(not_judged) and any(by[x].get(m) == \"not_run\" for x in REPLAY_METHODS))\n    blocked = {m for m in not_judged if any(f.startswith(m + \".\") for f in failed)}\n    to_check = {x: len([m for m in compiled if st[\"stamps\"][m] is not None and m not in blocked and\n                        (m in owed_by[x] or by[x].get(m) in (None, \"not_run\", \"stale\", \"not_judged\"))]) for x in REPLAY_METHODS}\n    if not_judged:\n        print(\"  not judged: leanchecker stopped at a rejected module beneath it in the same process (see out/<m>.out; checked again once that module passes): %d\" % len(not_judged))\n    for m in not_judged[:50]: print(\"  not judged: \" + m)\nand add \"not_judged_because_a_module_beneath_was_rejected\": len(not_judged), \"not_judged_sample\": not_judged[:200] to the JSON. C3 is unaffected: a not_judged module is not a pass."
+    }
+   ]
+  },
+  {
+   "area": "shell",
+   "recheck": {
+    "earlier_findings": [
+     {
+      "title": "shell-portability: --c3 followed by --method rhv-replay reports C3 and exits 0 without leanchecker",
+      "state": "resolved",
+      "how_checked": "Ran a copy of scripts/ under /bin/bash 3.2.57 against a toy project (4 modules A, A.B, C, D compiled with the pinned v4.33.1 lean, RH_WORKDIR path with a space). '--c3 --method rhv-replay' exits 2 with the new message. '--method rhv-replay --c3' runs leanchecker, because --c3 resets METHOD. Line 301 now picks --require-c3 whenever C3=1, and '--c3' on the toy tree logged 'criterion C3: every condition holds' with rc 0 only after the four leanchecker passes."
+     },
+     {
+      "title": "shell-portability: --list path containing a space is word-split",
+      "state": "resolved",
+      "how_checked": "main_pass and the prefix plan now build arrays (plan, pplan), and --list is one element. '--whole-library --list \"<dir>/my list.txt\"' planned C in the main pass and A in the prefix pass, and recorded both. Every array expansion (ARGS, plan, pplan) always holds at least one element, so set -u on bash 3.2 never fails on an empty array. Exercised in closure, whole-library and prefix runs."
+     },
+     {
+      "title": "shell-portability: nothing stops a second run from deleting a running run's tmp and todo",
+      "state": "resolved-in-part",
+      "how_checked": "While a run was live, a second start exited 2 with 'another run of this script (process N) is using ...'. A lock whose pid is dead was taken over, rc 0. On macOS, BSD ps with output to a pipe printed an untruncated command line of more than 1,000 characters. The lock and tmp are removed on exit, after die (empty library), after INT and after TERM. No path reaches a die between taking the lock and setting the trap, and the die on a failed mkdir (line 163) runs before the trap, so it never removes a lock this run does not own. I could not run the concurrent-start test (blocked by a permission prompt in this session), so the remaining race below is from reading.",
+      "what_remains": "Taking over a stale lock is not atomic: rm -rf followed by mkdir. Two starts after one stale lock can both get through (see new finding)."
+     },
+     {
+      "title": "shell-portability: Ctrl-C on bash 3.2 does not stop the script",
+      "state": "resolved",
+      "how_checked": "Used a slow stand-in leanchecker (sleep, then exec of the real one) and sent killpg(SIGINT) 1.5 s into the run under /bin/bash 3.2. In both closure and --whole-library mode the script printed 'interrupted; finished results are kept', exited 130 at once, ran no rerun pass and no prefix pass, and left no process running. tmp and lock were removed. killpg(SIGTERM) gave 143 with nothing left. Under 'gtimeout --signal=TERM --kill-after=60 2' it stopped after 2 s with tmp and lock removed. The status seen by the caller is timeout's own 124, as before the change."
+     },
+     {
+      "title": "shell-portability / bookkeeping: rejection of a module beneath a prefix module recorded against the prefix module",
+      "state": "resolved",
+      "how_checked": "By reading kernel_check_one.sh lines 108-113 against LeanChecker.lean v4.33.1 line 112 ('leanchecker found a problem in {m}'). When rc is not 96 and the culprit named is not $mod, 98 is recorded, and 98 is in NOT_RUN_STATUSES. The rejection itself was not reproduced, because no toy olean the kernel rejects was at hand."
+     },
+     {
+      "title": "shell-portability: empty library directory reported as 'hard links cannot be made'",
+      "state": "resolved",
+      "how_checked": "Ran with an empty lib dir: the script printed 'ERROR: no compiled modules found under .../lib/lean (run steps 04 and 05 first)'. No hard-link NOTE appeared, and lock and tmp were removed."
+     },
+     {
+      "title": "shell-portability: --jobs accepts junk and zero",
+      "state": "resolved",
+      "how_checked": "'--jobs 1O' and '--jobs 0' exit 2 with '--jobs must be a number above zero'. '--jobs' with no value exits 2. An empty value falls back to the default, as documented."
+     },
+     {
+      "title": "bookkeeping: an rhv-replay run over everything exits 0 when rhv-replay itself checked few modules",
+      "state": "resolved",
+      "how_checked": "summarise passes --method $METHOD. On a results file without rhv-replay passes, replay-summary --method rhv-replay --require-complete returns 3 (complete_by[method])."
+     },
+     {
+      "title": "bookkeeping: --prefix-modules ignores --sample and --list; --whole-library --list drops prefix modules and exits 0",
+      "state": "resolved",
+      "how_checked": "'--prefix-modules --sample 2' and '--sample 2 --prefix-modules' exit 2. '--prefix-modules --list l2.txt' (listing only A.B) planned 0 of 1 prefix modules. '--whole-library --list' listing A and C checked C in the main pass and A in the prefix pass. '--c3 --whole-library' ran the main pass and the prefix pass with --require-c3, rc 0. '--c3 --whole-library --sample 1' exits 2."
+     },
+     {
+      "title": "bookkeeping: a result line missing its final newline absorbs the next result",
+      "state": "resolved-in-part",
+      "how_checked": "Copied 09's repair lines (177-179) into a test script. For three complete lines (8, 5 and 6 fields), I cut each at every byte from 1 to the full length, ran the repair under /bin/bash 3.2, appended a complete line for B and ran read_results. Every cut, with or without a trailing tab, gave 1 damaged line and the single row B. A header with no newline is still taken as the header (0 damaged). A header cut to 'modu' counts as 1 damaged.",
+      "what_remains": "A tail of NUL bytes is not detected (see new finding)."
+     },
+     {
+      "title": "bookkeeping: stale import_graph.json reused forever",
+      "state": "resolved",
+      "how_checked": "09 calls import-graph --if-stale on every closure run. Touching src/D.lean made the next run print 'the source tree is not the one the stored graph was read from; reading it again' and rebuild the graph."
+     }
+    ],
+    "new_findings": [
+     {
+      "title": "Cut-short repair misses a results file that ends in NUL bytes, so a zero-filled last line stops being counted as damaged once the next run appends",
+      "file": "scripts/09_kernel_replay.sh",
+      "line": 177,
+      "severity": "misleading-record",
+      "scenario": "After a crash or power loss, some filesystems leave the end of an appended file as zeros: the size was updated but the data was not. The last result line, for example 'X<TAB>1<TAB>...' (a rejection), then reads as N NUL bytes with no newline. read_results alone counts this as 1 damaged line. On the next run, $(tail -c 1 \"$RESULTS\") is empty because bash drops the NUL, so the test '-n' fails and no repair is appended. The next result line is then appended straight after the NULs. Reproduced: header + a complete line + 60 NUL bytes + a line for B, and read_results returned 2 rows, 0 damaged, the second row's module being NULs+'B'. That row's module is not compiled and its status is 0, so it is dropped without a word. The damaged count goes from 1 to 0, the zeroed rejection of X leaves no trace, X is planned again, and if it passes, --c3 can report every condition holding.",
+      "suggested_fix": "Test the byte itself, not a command substitution: `if [ -s \"$RESULTS\" ] && [ \"$(tail -c 1 \"$RESULTS\" | od -An -tx1 | tr -d ' \\n')\" != 0a ]; then ...` (or `[ \"$(tail -c 1 \"$RESULTS\" | wc -l | tr -d ' ')\" -eq 0 ]`). Both work with BSD and GNU tools on bash 3.2 and 5."
+     },
+     {
+      "title": "Taking over a stale lock is not atomic: two starts after one stale lock can both run, and the first to exit removes the other's lock",
+      "file": "scripts/09_kernel_replay.sh",
+      "line": 163,
+      "severity": "minor",
+      "scenario": "A lock is left with a dead pid (the run was KILLed, or the machine rebooted). Runs B and C start together. Both fail mkdir, both read the dead pid, and both find it gone. B runs rm -rf lock and then mkdir lock, which succeeds. C's rm -rf, which comes after B's mkdir, removes B's new lock, and C's mkdir also succeeds. Both proceed. C's 'rm -rf tmp' (line 171) deletes B's plan parts and closure directories. B's workers fail (FileNotFoundError) or record 96, so the work is lost but no pass is false. Whichever run exits first removes, through its EXIT trap, the lock the other still relies on, so a third start is not refused. The same happens when 'echo $$ > lock/pid' (line 165, unchecked) fails on a full disk: the empty pid is read as stale and taken over. Found by reading. I could not run the concurrent-start test here.",
+      "suggested_fix": "Take over by atomic rename and only then mkdir: `mv \"$LOCK\" \"$LOCK.stale.$$\" 2>/dev/null && rm -rf \"$LOCK.stale.$$\"; mkdir \"$LOCK\" || die ...`. Only one mv of the same directory can succeed, and a loser's mkdir then fails. Write the pid first to \"$LOCK.$$\" and rename it into the directory, or check the echo and die. In the EXIT trap, remove the lock only if lock/pid still holds $$."
+     }
+    ]
+   },
+   "verdicts": [
+    {
+     "title": "Cut-short repair misses a results file that ends in NUL bytes, so a zero-filled last line stops being counted as damaged once the next run appends",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 177,
+     "severity": "misleading-record",
+     "verdict": "confirmed-by-reproduction",
+     "evidence": "In a mktemp dir I built results.tsv as header + a complete 8-field line for A + 60 NUL bytes, and ran lines 177-179 copied verbatim under /bin/bash 3.2. `$(tail -c 1 ...)` came back empty because bash drops the NUL, so no repair line was appended (cmp showed the file unchanged). Before appending, rhv_tools.read_results gave 1 row and 1 damaged line. After appending a complete line for B it gave 2 rows and 0 damaged: the second row's module is 60 NULs followed by 'B', with status 0. read_results (rhv_tools.py:786) accepts it because it ends in a newline, has 8 fields and an int status. So the damaged line, and with it whatever rejection it held, vanishes from the count. The reviewer's first test, `od -An -tx1 | tr -d ' \\n'` compared with 0a, triggers the repair on the NUL tail and leaves a file ending in a newline alone. The second, `wc -l` = 0, also triggers the repair on the NUL tail. Both ran under bash 3.2 with BSD tools.",
+     "fix": "Replace line 177 with:\nif [ -s \"$RESULTS\" ] && [ \"$(tail -c 1 \"$RESULTS\" | wc -l | tr -d ' ')\" -eq 0 ]; then\n(this tests whether the last byte is a newline, so NUL and any other byte both count as cut short; it works with BSD and GNU tools on bash 3.2 and 5). To make it robust whatever the shell does, read_results could also count any line containing '\\x00' as damaged: add `and \"\\x00\" not in line` to the `ok` condition in rhv_tools.py."
+    },
+    {
+     "title": "Taking over a stale lock is not atomic: two starts after one stale lock can both run, and the first to exit removes the other's lock",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 163,
+     "severity": "minor",
+     "verdict": "confirmed-by-reproduction",
+     "evidence": "I copied lines 156-165 verbatim into a script in a temp dir named 09_kernel_replay_t.sh, so its own ps|grep check matches. I made a stale lock directory whose pid file held 999999, started two copies at the same moment and repeated this 150 times. Both copies got the lock in 6 of the 150 trials. This bears out the reviewer's interleaving: both rm -rf, then both mkdir. There is a second window: between `mkdir \"$LOCK\"` and `echo $$ > \"$LOCK/pid\"` the pid file is empty, and an empty pid is treated as stale. The EXIT trap at line 168 removes the lock unconditionally, so a loser that runs on removes the winner's lock. The reviewer's mv-based fix does not close the race: a racer that read the stale pid can run its mv after the winner's fresh mkdir and move the live lock aside. Note also that `ln -s` or `mv` onto an existing directory goes INTO it, so a symlink lock must not reuse the directory path \"lock\".",
+     "fix": "Use an atomic symlink lock that carries the pid, with a guard directory around the takeover. The lock is checked against the owner before it is removed. Tested in a temp dir: 3 simultaneous starts against a stale lock, 300 trials, exactly one start got the lock every time and no lock was left behind; a start against a live lock exits 2.\n\nLOCK=\"${REPLAY:?}/run.lock\"            # a symlink whose target is the owner's pid (never a directory)\nrm -rf \"${REPLAY:?}/lock\"               # the old directory-style lock, if one is left\nif ! ln -s \"$$\" \"$LOCK\" 2>/dev/null; then\n  mkdir \"$LOCK.takeover\" 2>/dev/null || die \"another start is taking over $LOCK; try again (remove $LOCK.takeover if no run is starting)\"\n  other=$(readlink \"$LOCK\" 2>/dev/null)\n  case \"$other\" in ''|*[!0-9]*) other=\"\" ;; esac\n  if [ -n \"$other\" ] && [ \"$other\" != \"$$\" ] && ps -p \"$other\" -o args= 2>/dev/null | grep -q '09_kernel_replay'; then\n    rmdir \"$LOCK.takeover\"; die \"another run of this script (process $other) is using $REPLAY; wait for it, or stop it first\"\n  fi\n  rm -f \"$LOCK\"; ln -s \"$$\" \"$LOCK\" 2>/dev/null || { rmdir \"$LOCK.takeover\"; die \"cannot create $LOCK\"; }\n  rmdir \"$LOCK.takeover\"\nfi\ntrap 'rm -rf \"${REPLAY:?}/tmp\"; [ \"$(readlink \"$LOCK\" 2>/dev/null)\" = \"$$\" ] && rm -f \"$LOCK\"' EXIT\n\n(This also removes the unchecked `echo $$ > \"$LOCK/pid\"`: the pid is part of the symlink, created in one step. Caveat: the unconditional rm -rf of the old \"lock\" directory is safe only once no old-style run can be live; otherwise also check that lock's pid first.)"
+    }
+   ]
+  },
+  {
+   "area": "cloud",
+   "recheck": {
+    "earlier_findings": [
+     {
+      "title": "The optional second replay runs before the deferred C2 deep walk and can take all of its time (cloud-driver)",
+      "state": "resolved",
+      "how_checked": "Read full_guest.sh lines 853-876. The deferred c2_deep block now runs straight after the leanchecker retries and c3_progress_stop, before the `if [ -n \"$DRIVER\" ]` block. The second replay is no longer capped when C3_FITS=0; it is skipped, with SECOND_WHY set to 'the replay by leanchecker could not cover the tree in the time there was'. That is stronger than the cap the fix proposed. It is also skipped when under 300 s are left. Checked under set -u: C3_MAIN_T, C3_PASSES, SECOND_RC and SECOND_WHY are set at lines 190-191. PROG_PID is only read as ${PROG_PID:-}. c3_progress_start and c3_progress_stop are defined at 829-830, before their first use at 831. finish() still kills and waits for PROG_PID, which is the live reporter whenever one runs (start and stop always alternate). The reporter is stopped while c2_deep runs. bash -n passes; shellcheck is not installed."
+     },
+     {
+      "title": "facts.json second_replay.result reports summary booleans even when the second replay never ran (cloud-driver)",
+      "state": "resolved",
+      "how_checked": "Pulled the embedded facts.json Python out to a temporary directory and ran it with made-up F_ variables and a made-up c3_summary.json, in five cases. (1) Not asked for: second_replay is null. (2) Asked for, run ended during the trials: not_run_because reads 'the run ended before it was reached', result is null, passes_after_the_trials is 0. (3) Asked for and run (F_SECOND_RC=3): not_run_because is null and result holds the summary block. (4) Skipped because C3 did not fit: the reason is given, result is null, expected_to_fit is false, passes is 1. (5) Ran, but there is no summary file: result is null and the C3 fields are null. SECOND_WHY is cleared just before the call. If s_driver fails, setup ends the run and the default reason stays, which is accurate."
+     },
+     {
+      "title": "facts.json c3_kernel_replay hard-codes 'how' and does not record the capped time or the skipped retries (cloud-driver)",
+      "state": "resolved",
+      "how_checked": "The literal is gone. passes_by_how_the_tool_was_run is now read from the summary's leanchecker_passes_by_how_it_was_run (rhv_tools.py line 1085, counted from each row's 'how' column, passes only), so a fall-back to whole-library mode would show up there. main_pass_seconds_allowed is C3_MAIN_T, set just before the main pass. passes_after_the_trials is C3_PASSES. There is no explicit 'retries skipped' flag, but expected_to_fit=false together with passes_after_the_trials=1 says it. The extracted Python ran cleanly in every branch."
+     },
+     {
+      "title": "full_guest c3_left double-subtracts modules that are both passed by leanchecker and in failed/rejected_once (bookkeeping)",
+      "state": "resolved",
+      "how_checked": "c3_left now prints int(summary['leanchecker_still_to_check']), and -1 on any error. Read rhv_tools.py lines 1005-1007. to_check counts modules with a stamp that are either owed a rerun or have a leanchecker state of None, not_run or stale. That is exactly cmd_replay_plan's wanted() over every module with a stamp. In closure mode 09 passes --all-modules (line 247). In the whole-library fall-back the prefix pass picks up, under the same rule, the prefix modules the main plan leaves out. So nothing is counted twice. A missing key or a missing summary gives -1, which allows at most one extra retry pass, after which `before` equals -1 and the loop stops. A module that stays 98 or 96 for good leaves c3_left constant: the `!= before` test and `pass -le 2` end the loop after at most two retries, each over only the modules still to check."
+     }
+    ],
+    "new_findings": [
+     {
+      "title": "The optional second replay, said not to be part of the criterion, can turn criterion_c3.all_hold from true to false",
+      "file": "cloud/gcp/full_guest.sh",
+      "line": 862,
+      "severity": "misleading-record",
+      "scenario": "leanchecker passes every module, and the summary taken after the retries has criterion_c3.all_hold=true. The second replay (full-second-replay=rhv-replay, which every rehearsal now sets) then writes its rows into the same results.tsv. If rhv-replay crashes on one module (status 139, or 134 from LEAN_ABORT_ON_PANIC), or rejects one, the c3_summary that runs after it (line 873), and again in report(), finds no_rejection_or_crash_recorded_by_any_tool=false. facts.json then reports c3_kernel_replay.conditions_all_hold=false, and the summary exits 1. Reproduced on a toy: two modules, both passed by leanchecker, gave all_hold True and rc 0. Adding one line 'A 139 ... rhv-replay' gave all_hold False and rc 1, while every_compiled_module_passed_by_leanchecker stayed True. The script header (lines 33-36) and the facts comment both say the second replay is not part of the criterion. The record of C3 therefore depends on whether an optional extra program was asked for.",
+      "suggested_fix": "Either (a) copy c3_summary.json to c3_summary_leanchecker.json just before line 856 and take facts.json's c3_kernel_replay.conditions and conditions_all_hold from that copy, reporting any rhv-replay rejection or crash under second_replay (with tools_disagree); or (b) if a crash of the second program is meant to block C3, say so in the header and in the facts comment instead of 'not part of the criterion'."
+     },
+     {
+      "title": "The new phase label check_second:N= is invisible to analysis/replay_cost.py, so a new run's rhv-replay throughput is silently dropped",
+      "file": "analysis/replay_cost.py",
+      "line": 187,
+      "severity": "minor",
+      "scenario": "In a run made with the new driver, every rhv-replay row falls in the window that starts at 'check_second:N=32' (full_guest.sh line 868). replay_cost.py --driver-run only looks at windows whose label starts with 'check_trial:N=' or 'check:N=', and keeps only rhv-replay rows. Those windows now hold no rhv-replay rows (fewer than 20), so `windows` is empty and the run is skipped without a word. The cost record is never updated from the first real measurement of the second replay.",
+      "suggested_fix": "Also accept labels that start with 'check_second:N=' in that test, or make the driver label its second replay so the analysis recognises it."
+     }
+    ]
+   },
+   "verdicts": [
+    {
+     "title": "The optional second replay, said not to be part of the criterion, can turn criterion_c3.all_hold from true to false",
+     "verdict": "refuted",
+     "severity": "none (at most a comment wording nit)",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 862,
+     "evidence": "The mechanism is real. In scripts/verify/rhv_tools.py, cmd_replay_summary, the condition no_rejection_or_crash_recorded_by_any_tool is `not any_rejection`, which covers both tools (around line 1019), so an rhv-replay crash or rejection does make all_hold false. But this is a documented, deliberate rule, so the record is not misleading. docs/verification-criteria.md line 79 says the second replay 'does not count towards the criterion; a module that either tool rejects is not counted as passed'. The C3 row of cloud/gcp/README.md (line 114) defines conditions_all_hold to include 'no rejection or crash is recorded, by any tool, in any run'. The condition's own key in facts.json says 'by_any_tool', and every_compiled_module_passed_by_leanchecker is still reported on its own. 'Not part of the criterion' in the header (line 36) and in the facts comment (line 290) means its passes do not count, which is true. A second program's rejection blocking a pass is the conservative choice. The record is the same whatever was asked for, except when the second program actually reports a problem, and then blocking is the intended outcome.",
+     "fix": "No code change needed. If wanted, change the header at full_guest.sh lines 35-36 to: '... That second replay is not part of the criterion: its passes do not count towards it, but a rejection or crash by it, like one by leanchecker, keeps conditions_all_hold false (docs/verification-criteria.md).' Change the comment at line 290 to say the same."
+    },
+    {
+     "title": "The new phase label check_second:N= is invisible to analysis/replay_cost.py, so a new run's rhv-replay throughput is silently dropped",
+     "verdict": "confirmed-by-reproduction",
+     "severity": "minor",
+     "file": "analysis/replay_cost.py",
+     "line": 187,
+     "evidence": "The --driver-run loop only accepts labels starting with 'check_trial:N=' or 'check:N=' and keeps only rhv-replay rows. full_guest.sh now runs rhv-replay only under phase_mark 'check_second:N=$NMAX' (line 868). The 'check:N=' window ends at the next different label, so it holds no rhv-replay rows. Toy test in a mktemp dir: c3_results.tsv.gz had 400 leanchecker rows in the window 'check:N=32' and 400 rhv-replay rows in the window 'check_second:N=32', with phases.tsv written in the driver's format. The unmodified script exited 0 with no 'rhv_replay_measured' key and no warning. A copy with the one-line fix below reported windows ['check_second:N=32'].",
+     "fix": "In analysis/replay_cost.py, in the --driver-run window loop, replace\n    if not (label.startswith(\"check_trial:N=\") or label.startswith(\"check:N=\")):\nwith\n    if not label.startswith((\"check_trial:N=\", \"check:N=\", \"check_second:N=\")):\nThe existing int(label.split(\"=\")[1]) still parses the job count, and the 'check_second:end' line written by phases_end closes the window."
+    }
+   ]
+  }
+ ]
+}

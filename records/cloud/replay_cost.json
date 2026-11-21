@@ -1,6 +1,6 @@
 {
  "what": "cost of the kernel replay per module, in wall-clock seconds of one check while 32 run at once on n4d-highmem-32, from two recorded runs; a two-point fit",
- "made_utc": "2026-11-21T06:17:16Z",
+ "made_utc": "2026-11-21T15:19:00Z",
  "points": [
   {
    "run": "full-rehearsal-20261120-214914",
@@ -37,6 +37,13 @@
    "of_which_listing_the_search_path": 26.6,
    "hours_at_32": 45.7
   },
+  "leanchecker_with_only_the_import_closure_on_the_search_path": {
+   "seconds_per_check": 5.6,
+   "hours_at_32": 8.5,
+   "of_which_listing": 1.9,
+   "of_which_making_and_removing_links_assumed": 0.19,
+   "note": "a projection from the fit; this way of running leanchecker has not been timed on the cloud machine"
+  },
   "without_the_listing": {
    "seconds_per_check": 3.4,
    "hours_at_32": 5.2,
@@ -50,13 +57,13 @@
  "whole_run": {
   "configuration": "n4d-highmem-32 on demand, 440 GB disk, setup files pruned",
   "usd_per_billed_hour": 1.863,
-  "with_rhv_replay_the_stock_tool_also_checks": "2000 random modules and every prefix module",
+  "the_rhv_replay_rows_include_the_stock_tool_on": "2000 random modules and every prefix module, as an earlier design had it",
   "rhv_replay_cost_per_module_before_the_closure_term": {
    "seconds": 3.09,
    "source": "measured at 32 at a time in full-rehearsal-20261120-235539"
   },
   "by_method_for_the_whole_tree": {
-   "leanchecker": {
+   "leanchecker, whole library on the search path": {
     "low": {
      "build_hours": 13.7,
      "replay_hours": 45.7,
@@ -77,6 +84,29 @@
      "other_hours": 6.0,
      "billed_hours": 72.7,
      "usd": 136
+    }
+   },
+   "leanchecker, import closure on the search path": {
+    "low": {
+     "build_hours": 13.7,
+     "replay_hours": 8.5,
+     "other_hours": 0.5,
+     "billed_hours": 22.7,
+     "usd": 43
+    },
+    "expected": {
+     "build_hours": 15.6,
+     "replay_hours": 8.5,
+     "other_hours": 1.5,
+     "billed_hours": 25.6,
+     "usd": 48
+    },
+    "high": {
+     "build_hours": 17.9,
+     "replay_hours": 9.6,
+     "other_hours": 6.0,
+     "billed_hours": 33.5,
+     "usd": 63
     }
    },
    "rhv-replay": {

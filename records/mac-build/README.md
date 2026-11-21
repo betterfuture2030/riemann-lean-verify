@@ -78,6 +78,16 @@ module <TAB> exit status <TAB> seconds <TAB> stamp of the compiled file <TAB> ti
 
 A seeded sample is drawn from the modules compiled at the time, so the same command on a build that has moved on picks different modules; the names here are the record of which were checked. This is a comparison of two ways of running one check on 30 modules, and a timing sample. It covers modules from the first fifth of the tree and is not a verification result for the proof. Background: [`../../docs/performance-notes.md`](../../docs/performance-notes.md), section 10.
 
+### `closure-directory-checks.json`
+
+`leanchecker` run on single modules of this build with a search path that holds, of the project, only hard links to the compiled files of the module and of what it imports, on 2026-11-21 with about 59,000 modules compiled and the build running.
+
+- `by_hand`: six modules with import closures of 1 to 7,753 modules, each checked that way and then again with the whole project library on the search path. Both ways passed all six; 10 to 18 seconds against 20 to 31.
+- `through_the_script`: `scripts/09_kernel_replay.sh --sample 24 --seed 31337 --jobs 2 --batch 6`, which does the same for a random sample. 24 of 24 passed, 17.5 seconds per check on average and 95 for the longest. The 24 result lines are included, with the hash of each compiled file and the SHA-256 of the `leanchecker` binary.
+- `through_the_script_again_after_the_review`: the same with `--sample 12`, after the script had been changed in response to a review ([`../cloud/closure_replay_review.json`](../cloud/closure_replay_review.json)). 12 of 12 passed, 23.8 seconds per check on average.
+
+It shows that the stock tool accepts such a search path and gives the same verdict, and what a check costs on this machine while it is busy. It is not a timing for a rented machine and not a verification result for the proof. Background: [`../../docs/performance-notes.md`](../../docs/performance-notes.md), section 10.
+
 ### `mapped-files-sample.txt`
 
 A count of the files one running compiler process had memory-mapped, by file type and by where the files came from, read once with `vmmap` on 2026-11-20 at about 19:40 local time. It is the basis for the figures of five mapped files per library module and about one per project module in [`../../docs/performance-notes.md`](../../docs/performance-notes.md), section 7. It is one process on macOS; the Linux count is estimated separately in [`../cloud/pilot/pilot_estimate.json`](../cloud/pilot/pilot_estimate.json) under `open_files`.
@@ -85,3 +95,7 @@ A count of the files one running compiler process had memory-mapped, by file typ
 ### `progress-20261120-2001.txt`
 
 A dated snapshot of the build: the output of `scripts/06_progress.sh` followed by `scripts/prune_setup_files.sh` in report mode, taken at 20:01 local time on 2026-11-20 (02:01 UTC on 2026-11-21). It records 23,981 compiled modules of 175,187 and no failed job, and 23,991 setup files occupying 156.1 GB. Nothing was removed. It supersedes the count under "State when these records were taken" above as the latest recorded figure.
+
+### `progress-20261121-0931.txt`
+
+A later snapshot, taken at 09:31 local time on 2026-11-21 (15:31 UTC): the output of `scripts/06_progress.sh`, then two lines computed from the import graph for the modules compiled at that moment. It records 59,988 compiled modules of 175,187 and no failed job. The compiled modules import 892 other project modules on average, and the deepest of them 34,926; the cloud pilot's deepest was 17,860. This build keeps no per-module times, so that says the Mac has compiled deeper modules than any rented machine has, and nothing about what they cost. It supersedes the earlier snapshot as the latest recorded figure.

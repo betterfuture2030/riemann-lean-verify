@@ -5,16 +5,18 @@
 #
 # What it does: runs scripts/verify/replay's rhv-replay on the modules named in a batch file and appends one
 #   line per module to the results file, as each module finishes:
-#     module <TAB> exit status <TAB> seconds <TAB> stamp <TAB> epoch <TAB> rhv-replay
-#   The last column names the method; lines written by kernel_check_one.sh say "leanchecker" there. The stamp
-#   identifies the compiled file that was checked (the content hash Lake stores next to it).
+#     module <TAB> status <TAB> seconds <TAB> stamp <TAB> epoch <TAB> rhv-replay <TAB> program <TAB> batch
+#   The sixth column names the tool; lines written by kernel_check_one.sh say "leanchecker" there. The stamp
+#   identifies the compiled file that was checked (the content hash Lake stores next to it). "program" is the
+#   SHA-256 of the rhv-replay binary that was run, so that results can be tied to one program.
 # What it changes on disk: appends to RH_REPLAY_DIR/results.tsv; writes the error of a module that failed to
 #   RH_REPLAY_DIR/out/<module>.replay.out; keeps a temporary directory under RH_REPLAY_DIR/tmp while it runs.
 # How long it takes: a few seconds per module (docs/performance-notes.md, section 10).
 #
 #   Statuses recorded.
 #     0    the kernel accepted every declaration of the module.
-#     1    the replay reported an error.
+#     1    the replay ended in an error: the tool REJECTED the module. Like a crash (below), this is never
+#          replaced by a later result; the summary keeps every line.
 #     96   nothing was checked. Either the program's error begins with one of three texts that its own file
 #          handling produces before any replay starts ("failed to open file '", "object file '", "unknown module
 #          prefix '"), which is a fault of the installation; or the program could not be started, stopped
@@ -23,8 +25,7 @@
 #          for one of these.
 #     128 and above: the program died while it was on this module (its REPLAY_START was the last line it
 #          printed). 129, 130, 137 and 143 are a signal from outside (hang-up, interrupt, kill, terminate), which
-#          the summary counts as not yet checked; anything else is a crash, which the summary counts as a
-#          failure and reports apart.
+#          the summary counts as not yet checked; anything else is a CRASH of the tool on the module.
 #   Whatever happens to a process, every module it had finished is already recorded, and a new process takes
 #   the rest of the batch. A process that dies between two modules is charged to neither. One that dies before
 #   it has started its first module cannot run here: the rest of the batch is recorded as 96 and left for a
@@ -33,14 +34,16 @@
 #   otherwise print a message and carry on, ends the process and is recorded as a crash.
 #
 # Usage: kernel_check_batch.sh <batch file>      (lines: module <TAB> stamp)
-# Environment (set by 09_kernel_replay.sh): RH_PROJ, RH_REPLAY_DIR, RH_LEAN_PATH, RH_REPLAY_DRIVER.
+# Environment (set by 09_kernel_replay.sh): RH_PROJ, RH_REPLAY_DIR, RH_LEAN_PATH, RH_REPLAY_DRIVER, and
+#   RH_REPLAY_DRIVER_SHA (the SHA-256 of that binary).
 set -u
 batch=${1:?usage: kernel_check_batch.sh <batch file>}
 : "${RH_PROJ:?}" "${RH_REPLAY_DIR:?}" "${RH_LEAN_PATH:?}" "${RH_REPLAY_DRIVER:?}"
 cd "$RH_PROJ" || exit 1
 res="$RH_REPLAY_DIR/results.tsv"
 tab=$(printf '\t')
-record() { printf '%s\t%s\t%s\t%s\t%s\trhv-replay\n' "$1" "$2" "$3" "$4" "$(date +%s)" >> "$res"; }   # module status seconds stamp
+prog=${RH_REPLAY_DRIVER_SHA:-unknown}
+record() { printf '%s\t%s\t%s\t%s\t%s\trhv-replay\t%s\tbatch\n' "$1" "$2" "$3" "$4" "$(date +%s)" "$prog" >> "$res"; }   # module status seconds stamp
 all_not_run() { while IFS=$tab read -r m s _; do [ -n "$m" ] && record "$m" 96 0 "$s"; done < "$1"; }
 
 work=$(mktemp -d "$RH_REPLAY_DIR/tmp/batch.XXXXXX" 2>/dev/null) || { all_not_run "$batch"; exit 0; }   # e.g. a full disk

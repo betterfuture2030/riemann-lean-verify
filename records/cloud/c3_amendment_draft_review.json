@@ -1,0 +1,700 @@
+{
+ "what": "Review of a DRAFT amendment to PREREGISTRATION.md, 2026-11-21. The draft would have changed how criterion C3 is carried out: every module replayed by rhv-replay, and leanchecker run on a fixed sample of 2,000 modules and on the 114 prefix modules. Four AI reviewers read the draft and the code that went with it, one lens each (wording precision, facts, code against text, hostile referee); for two of the lenses a second agent re-checked the findings. Their text is given as returned, apart from the removal of private paths. 51 findings in all.",
+ "outcome": "The amendment was NOT made. PREREGISTRATION.md is unchanged and still ends with 'No amendments'. Two things in the review decided that. First, findings that the scripts of the time let a rejection be erased by a later passing run or by compiling the module again, and tied results to no particular program: an amended criterion resting on those scripts would have been weaker than its text claimed. Second, the hostile referee's point that the cost which motivated the amendment came from what was on leanchecker's search path, not from leanchecker: with only a module's import closure on the search path the stock tool can cover every module in about the time the second program takes (docs/performance-notes.md, section 10). The scripts were then changed to do that and to keep every result; the sample list and the options the draft refers to (replay-sample-list, scripts/verify/c3_stock_sample.txt, the two-part --c3) were withdrawn and are not in the repository.",
+ "status_of_the_draft": "A text that was considered and set aside. It is kept here so that the findings can be read against what they are about. It has no force and nothing in the repository depends on it.",
+ "draft_as_reviewed_NOT_ADOPTED": "### Amendment 1, 2026-11-21 (UTC): how criterion C3 is carried out\n\nEverything above this heading is the document as registered, byte for byte, including the line \"No amendments\", which was true then. The registered text is commit `39c6e1d` of this repository, release `prereg-v1`, DOI `10.5281/zenodo.24410554`. This amendment was added before any replay of the whole tree had been run by any tool.\n\n**What changes.** Only how C3 is carried out. C1, C2, the rules of section 4 and the outcomes of section 5 stand as written.\n\n**Why.** C3 says that every compiled module is re-checked by `leanchecker`. After registration it was measured that `leanchecker`, before it checks anything, lists every compiled file on its search path, once per process; run once per module, that listing is repeated for every module and grows with the tree. With 32 checks at a time on a rented 32-thread machine a check took 4.4 seconds with 1,792 modules compiled and 8.5 seconds with 29,633. Carried to 175,187 modules that is 43 to 56 hours for the replay alone on that machine, and weeks on the 24 GB machine the first build runs on. The same replay without the listing took 3.1 seconds per module in a rehearsal, about 6 hours for the tree. The measurements, the estimate and its limits are in `docs/performance-notes.md`, section 10, and `records/cloud/replay_cost.json`. The reason for the change is this cost. It is not a result of any replay: none had failed.\n\n**C3 as amended.** An independent kernel replay agrees, established as follows.\n\n(a) *Every compiled module of the project is replayed by `rhv-replay`.* That is the program built with the pinned toolchain from `scripts/verify/replay/RhvReplay.lean` of this repository, a file whose SHA-256 is `52c1984827f2c461ce4c7db782076a1d47cce8875657722556ae62d26a7bc3ef`. It contains the function `replayFromImports`, which is what `leanchecker` runs on each module it checks, copied from `src/lean/LeanChecker.lean` of the pinned toolchain; before every run the copy is compared, character for character, with that file in the toolchain as installed (1,131 characters, SHA-256 `4a1a5a15aa9296ca7fa05bc6fae5413962b27b718ab9acf1b50b6c461bbe7464`). The program differs from `leanchecker` in how the modules to check are chosen: it is given exact module names and finds each compiled file directly.\n\n(b) *`leanchecker` from the pinned toolchain re-checks two sets of modules.* First, the 2,000 modules listed in `scripts/verify/c3_stock_sample.txt`, a file whose SHA-256 is `73647327c7ab3aa2e2aa5d8718dad9025d15b86d027a9f17fba235b7340f773d`, each in a process of its own. The list was fixed when this amendment was written: the 175,073 modules of the source tree whose name is not a prefix of another module's name, sorted, from which Python's `random.Random(20261120).sample` drew 2,000 (`scripts/verify/rhv_tools.py replay-sample-list` makes the list again from the source tree; the file is the definition). Second, each of the 114 modules whose name is a prefix of another module's name, in one process together with every module beneath it, which is how `leanchecker` treats such a name; the check of such a module passes only if `leanchecker` exits with status 0 and reports having replayed that module.\n\n(c) *C3 holds if and only if* every compiled module has passed (a); every module of the list and every prefix module has passed (b); and no module has been failed by either tool. A module passed by one tool and failed by the other fails C3, and the disagreement is reported. A result counts only for the compiled file it was obtained on: if a module is compiled again, its earlier results are void.\n\nThe rule of section 4 for telling a failure of the proof from a failure of the machine applies to both tools as it does to the compiler: a checker that was killed from outside, or that could not open or find a compiled file, has not tested the module and is run again; a module is recorded as failing only when a tool rejects it, or crashes on it, reproducibly. Both tools are run with `LEAN_ABORT_ON_PANIC=1`, so that an internal error of the Lean runtime ends the process and is recorded, in place of printing a message and carrying on. If the replay cannot be completed with the resources available, C3 is neither met nor failed and the outcome is INCONCLUSIVE, as for a build that cannot be completed.\n\n`scripts/09_kernel_replay.sh --c3` runs (a) and (b) and reports each condition of (c).\n\n**What this gives up.** Under C3 as registered, the program that examines every module is the binary shipped with the toolchain. Under C3 as amended, that binary examines 2,000 modules chosen at random in advance and the 114 prefix modules with the modules beneath them; every other module is examined by a program built locally from about fifty lines of this repository and the toolchain's libraries. The function that does the examining is the same source text in both, and section 6 already lists the toolchain as trusted; what is added to that list is the correctness of those fifty lines outside the copied function, which is a loop that calls it and prints the result, and of the scripts that record what it prints. Nothing is made stronger by this amendment.\n\nC3 as registered can still be carried out by anyone with the time: `scripts/09_kernel_replay.sh` with no option runs `leanchecker` on every module. Results are recorded by tool, and the summary reports separately whether `leanchecker` alone has passed every module. If that is ever done, it will be reported beside the amended criterion.\n\n**What was known when this was written** (2026-11-21, about 15:00 UTC).\n\n- No module had failed to compile on any machine. On the first machine 57,205 of 175,187 modules had compiled. On rented machines, a pilot had compiled 29,633 modules, including modules importing up to 17,860 others, and four rehearsals had each compiled between 1,642 and 1,796.\n- The headline theorem had not been compiled anywhere. Whether C1 or C2 holds was not known.\n- No replay of the whole tree had been run by either tool, and no module had failed a replay by either tool.\n- `leanchecker` had passed every module it had been run on: samples of 24 and 30 on the first machine; 565 in the pilot's rehearsal and 2,233 in the pilot; all 1,792 compiled files of one rehearsal of the full run; and 150 in another.\n- `rhv-replay` had passed every module it had been run on: 140 on the first machine and the 1,794 finished modules of one rehearsal. On 180 modules both tools had been run on the same compiled file, with the same verdict each time.\n- All of those modules are from the lower part of the import graph. `rhv-replay` had not been run on a module with a large import closure on the rented machine.\n- The program and the scripts around it had been reviewed twice by AI agents (`records/cloud/replay_method_review.json`, `records/cloud/replay_method_recheck.json`) and tested with injected faults on a small project. They had not been reviewed by a person.",
+ "reviewers": [
+  {
+   "lens": "precision",
+   "findings": [
+    {
+     "title": "A rejection is erased by any later pass: the summary keeps only the last result, and every run re-runs failed modules automatically",
+     "severity": "high",
+     "where": "Draft: 'a module is recorded as failing only when a tool rejects it, or crashes on it, reproducibly' and (c) 'no module has been failed by either tool'. Code: scripts/verify/rhv_tools.py replay_state, line 812 `latest[(f[0], method)] = f`; scripts/09_kernel_replay.sh lines 193 and 220 always plan with --retry-failed; full_guest.sh loops passes while modules remain.",
+     "problem": "The draft never says what 'reproducibly' means, how many re-runs there are, or who decides. The code decides it for you: only the last result per (module, tool) counts, and every invocation of 09_kernel_replay.sh (and so every pass of --c3 and of the cloud loop) re-runs modules whose last result was a failure. A module that one tool rejects, or that the two tools disagree on, becomes 'passed' as soon as one later attempt passes, and the summary then shows FAILED 0 and 'no module failed by either tool: yes'.",
+     "evidence": "In a scratch tree (<SCRATCH>/r4lens.3WnU), results.tsv held C rejected (status 1) by rhv-replay and by leanchecker, then passed by both on the same stamp. replay-summary --check-list --require-c3 printed 'FAILED: 0', 'no module failed by either tool: yes', and every condition yes apart from the list hash (a test artifact). With the published list all_hold would be true.",
+     "why_it_matters": "The kernel is deterministic on a given file. A rejection that does not come back means a fault in the machine or in the tooling, and it should never turn quietly into a pass. As things stand, retrying until a pass is the default behaviour, so VERIFIED can be reported for a module the kernel rejected.",
+     "proposed_text_or_fix": "Replace the sentence in the draft with: \"A module that a tool rejects, or crashes on (it ends by a signal other than those named below), is run by that tool twice more on the same compiled file. If either re-run rejects or crashes, the module has failed. If both pass, the rejection was not reproduced: it is reported with its full error in every outcome, and C3 is not met on that run until both tools have passed the module on another machine. No result is set aside by any other means, and nobody decides otherwise case by case.\" Code: in replay_state, keep every result line per (module, tool, stamp) instead of only the last. Treat a module as failed if any rejection on the current stamp was reproduced, or if it has fewer than two re-runs after a rejection. Add 'rejections_not_reproduced' as a condition that blocks all_hold. In replay-plan, re-run a rejected module only up to the two re-runs, never indefinitely."
+    },
+    {
+     "title": "Compiling a module again voids its earlier rejections as well as its passes",
+     "severity": "high",
+     "where": "Draft (c): 'A result counts only for the compiled file it was obtained on: if a module is compiled again, its earlier results are void.' Code: rhv_tools.py status(), line 829 `if r[3] != stamps[mod]: return \"stale\"`, which is checked before the exit status.",
+     "problem": "Both the text and the code throw away a rejection once the module is compiled again. The code even keeps a failure when the .hash file is missing (line 826) but drops it when the stamp has changed, so the two cases are handled inconsistently. Recompiling is therefore a second way to clear a rejection.",
+     "why_it_matters": "If a rejected module is recompiled (by a later lake build, a repair, or an interrupted build resumed) and then passes, VERIFIED can be reported without the rejection ever appearing. This is the 'module recompiled between passes' loophole.",
+     "proposed_text_or_fix": "Replace with: \"A pass counts only for the compiled file it was obtained on: if a module is compiled again, its earlier passes no longer count. An earlier rejection still counts. The module has failed C3, and the report gives the rejection and why the module was compiled again.\" Code: in status(), check for rc not in (0, NOT_RUN_STATUSES) on any earlier stamp before returning 'stale', and report such modules in a list that blocks all_hold."
+    },
+    {
+     "title": "The C3 decision does not check which replay program produced the results",
+     "severity": "high",
+     "where": "Draft (a): rhv-replay 'is the program built with the pinned toolchain from scripts/verify/replay/RhvReplay.lean ... SHA-256 52c1…'. Code: 09_kernel_replay.sh accepts any binary through RH_REPLAY_DRIVER (only logged as a NOTE). replay-summary records rhv_replay_programs_used, but the c3_as_amended_2026_11_21 conditions (rhv_tools.py lines 333-340) do not include it. full_guest.sh reports every_recorded_run_used_this_program only as a separate fact.",
+     "problem": "The source check (replay-driver-check) ties the source file to the toolchain. It does not tie the binary that produced the results to that source. `--c3` can exit 0 and all_hold can be true for rhv-replay results produced by any program that prints REPLAY_OK. The list file is protected by a hash condition; the program has no equivalent.",
+     "why_it_matters": "This is the 'program replaced by another before the run' loophole. The amendment defines (a) by a specific program, but the code that decides whether (a) holds never checks that this program was the one used.",
+     "proposed_text_or_fix": "Add to (a): \"Results of any other program do not count. Every run of rhv-replay records the SHA-256 of the program it used, and C3 holds only if every recorded run used one program, built in that run's setup from the file above after the comparison with the toolchain's source succeeded.\" Code: add to cond `\"every_rhv_replay_run_used_the_checked_program\": bool(programs) and len({p['sha256'] for p in programs}) == 1 and all(p['origin'] in ('built_here_from_the_checked_source', <the cloud's root-build origin>) for p in programs)`. In the cloud run, also require driver_check.txt to be present and to have succeeded before all_hold can be true."
+    },
+    {
+     "title": "The stock binary never re-checks the module that holds the claimed theorem",
+     "severity": "medium",
+     "where": "(b) and 'What this gives up'",
+     "problem": "`Main` (which holds riemannHypothesis) and `Statements` are not in c3_stock_sample.txt, and neither is a prefix module. Under the amendment, the toolchain's own leanchecker binary therefore never examines the module whose declaration is the claim under test. The 'What this gives up' paragraph does not say so.",
+     "evidence": "From records/source/import_graph.json.gz: 175,187 modules, 114 prefix modules, 175,073 eligible. random.Random(20261120).sample(sorted eligible, 2000), sorted, reproduces the committed list exactly. `grep -x 'Main\\|Statements'` on the list finds nothing, and neither name is a prefix module. Main imports Statements and Supplements.Kernels.MainTheoremsAll, and its closure is the whole tree.",
+     "why_it_matters": "A careful reader will object that the one module that matters most is examined only by the locally built program. Fixing this now costs one or two leanchecker processes and does not depend on any result. C2 already imports Main into one environment on the same machine, so the memory needed is already being provided.",
+     "proposed_text_or_fix": "Add to (b), before 'Second': \"Also, the modules `Main` and `Statements`, each in a process of its own.\" Code: append those two names to the stock pass (a second fixed list, or named in the --c3 and full_guest stock passes), and add a condition `named_modules_passed_by_leanchecker`. If the pinned list file must stay as it is, keep it unchanged and pin the two names separately."
+    },
+    {
+     "title": "New INCONCLUSIVE trigger contradicts 'the outcomes of section 5 stand as written', and 'the replay' is ambiguous for part (b)",
+     "severity": "medium",
+     "where": "'What changes. ... the outcomes of section 5 stand as written' versus 'If the replay cannot be completed with the resources available, C3 is neither met nor failed and the outcome is INCONCLUSIVE'",
+     "problem": "Section 5 gives INCONCLUSIVE only for 'the build cannot be completed'. The draft adds a new case while saying section 5 is unchanged. 'The replay' could mean (a) only, or (a) and (b). In the cloud run, the leanchecker passes are simply skipped when under 120 s remain, a case the draft does not address. 'The resources available' is also undefined. And under the 'reproducibly' rule, a rejection seen just before the run ends would neither be a failure nor be reported.",
+     "why_it_matters": "Two honest readers could disagree about the outcome when (a) is complete but (b) is not. A rejection could also go unreported under INCONCLUSIVE.",
+     "proposed_text_or_fix": "Change 'What changes' to: \"Only how C3 is carried out, and one addition to section 5: the outcome INCONCLUSIVE also covers a kernel replay that cannot be completed. C1, C2 and the rules of section 4 stand as written.\" Replace the INCONCLUSIVE sentence with: \"If any part of (a) or (b) is not completed in a run, for whatever reason, C3 is not met in that run and, unless a module has failed, the outcome is INCONCLUSIVE. The report says which conditions of (c) were not established. Every rejection observed by either tool is reported in every outcome, whether or not it has been reproduced.\""
+    },
+    {
+     "title": "'Compiled module' and the set of files the results must come from are undefined, including whether results from other machines (such as the Mac build) count",
+     "severity": "medium",
+     "where": "(a) 'Every compiled module of the project'; (c) 'the compiled file it was obtained on'",
+     "problem": "The draft never says that all 175,187 modules must be compiled. The code requires it (condition every_source_module_compiled_and_nothing_else, which also rejects compiled files without source and stray .olean.server/.olean.private parts), but the text does not. It also does not say whether results from different builds may be combined. Today the identity of a file is Lake's 64-bit content hash in <module>.olean.hash, which Lake writes when it writes the file. Nothing recomputes it at check time. Identical bytes from another machine would carry the same stamp, so a results.tsv copied from the Mac build would be credited to the cloud build's files.",
+     "why_it_matters": "This bears directly on the question of using the Mac work to reduce the cloud work. As drafted, a reader cannot tell whether Mac rhv-replay or leanchecker results may count towards the cloud build's C3. Whichever answer is intended must be fixed now, before results exist.",
+     "proposed_text_or_fix": "Add to (c): \"Here a compiled module is one of the 175,187 modules of section 1, compiled in the build that establishes C1. C3 requires each of them to have a compiled file, and no compiled file without a source to exist. A compiled file is identified by the hash Lake writes beside it, and in the cloud run also by the SHA-256 of the file at the end of the run.\" Then choose one of the following and state it. Either \"Only results obtained on the files of that build count\", or \"A result obtained on another build counts only if the file had the same SHA-256 as the file of the build that establishes C1, and each such result is listed with the machine it came from.\" Code: if the second is chosen, record the SHA-256 of each checked file in results.tsv, not only Lake's hash."
+    },
+    {
+     "title": "The account of how rhv-replay differs from leanchecker, and of what is given up, is incomplete",
+     "severity": "medium",
+     "where": "(a) 'The program differs from leanchecker in how the modules to check are chosen'; 'What this gives up'",
+     "problem": "rhv-replay also differs in how it runs. It replays up to 25 modules one after another in one process (kernel_check_batch.sh, --batch 25), waits for each replay before starting the next (its own header says so), and runs with LEAN_NUM_THREADS=1. leanchecker as used in (b) runs one module per process. So per-module process isolation is also given up, and state left by one replay could in principle affect the next. 'What this gives up' also leaves out two things. First, the decision that C3 holds is now made by replay-summary in rhv_tools.py, not by a tool's exit status. Second, the sample has limited power: with 2,000 of 175,073 modules, a disagreement between the tools on 0.15% of modules (about 260) escapes the sample with probability about 5%, and one confined to a few modules almost surely escapes.",
+     "why_it_matters": "'What this gives up' is the paragraph a reader relies on to judge the trade, so it has to be complete. Leaving out the process model and the detection power makes the change look smaller than it is.",
+     "proposed_text_or_fix": "In (a), replace the last sentence with: \"The program differs from leanchecker in how the modules are chosen (it is given exact module names and finds each compiled file directly), and in that it replays several modules one after another in one process, one at a time.\" Add to 'What this gives up': \"It also gives up running every module in a process of its own, and makes the program that reads the recorded results (`scripts/verify/rhv_tools.py replay-summary`) the judge of whether C3 holds. The 2,000 modules are a check that the two programs agree, not a second full replay. If they disagreed on fewer than about one module in 700, the list would probably not show it.\""
+    },
+    {
+     "title": "It is unclear how C3 as amended relates to a full leanchecker run, or to results that arrive after a verdict",
+     "severity": "medium",
+     "where": "'C3 as registered can still be carried out ... If that is ever done, it will be reported beside the amended criterion.'",
+     "problem": "The draft does not say which criterion governs the verdict when the two disagree. A full leanchecker run might pass every module while rhv-replay rejected one, or C3 as amended might hold and a later leanchecker or rhv-replay run might reject a module of the same build. 'Reported beside' could be read as letting the more favourable result stand.",
+     "why_it_matters": "Two honest readers could reach different verdicts from the same results.",
+     "proposed_text_or_fix": "Replace with: \"The verdict follows C3 as amended. A full leanchecker run does not replace it. A rejection by either tool of any module of the build that establishes C1, whenever it is obtained, including after a verdict, means C3 fails, and a VERIFIED verdict already given is withdrawn and the withdrawal reported.\""
+    },
+    {
+     "title": "Nothing prevents a second amendment to C3 after replay results are known",
+     "severity": "medium",
+     "where": "Whole amendment (section 8 allows further amendments that state what was known)",
+     "problem": "Section 8 lets amendments be made at any time as long as they say whether results were known. Nothing stops a later amendment from changing the list, the program or the pass/fail rules once rejections or INCONCLUSIVE results have been seen.",
+     "why_it_matters": "This loophole is the one a pre-registration exists to close: choosing the criterion after seeing the results.",
+     "proposed_text_or_fix": "Add: \"After any replay of the whole tree has begun, how C3 is carried out will not be amended again in any way that could change whether a module counts as passed or failed. If any other change is made, the verdict will also be reported under this amendment as it stands, and the two will be given together.\""
+    },
+    {
+     "title": "'Nothing is made stronger' is not accurate",
+     "severity": "low",
+     "where": "'What this gives up' last sentence",
+     "problem": "In some respects the amendment asks for more than C3 as registered. A rejection by rhv-replay fails C3 even if leanchecker passes the module. A crash counts as a failure, whereas section 4 for the compiler counts only Lean errors. Both tools run with LEAN_ABORT_ON_PANIC=1. The sentence presumably means that nothing offsets what is given up, but as written it is false.",
+     "why_it_matters": "A false sentence in a document that cannot be edited will draw an objection.",
+     "proposed_text_or_fix": "Replace with: \"The amendment asks for more in two respects only: a rejection by rhv-replay also fails C3, and a crash of either tool counts as a failure. Neither makes up for what is given up.\""
+    },
+    {
+     "title": "'Killed from outside' and 'could not open or find' are not defined",
+     "severity": "low",
+     "where": "'a checker that was killed from outside, or that could not open or find a compiled file, has not tested the module and is run again'",
+     "problem": "These phrases are defined only in the scripts: exit statuses 129, 130, 137 and 143, and status 96 for errors that begin with \"failed to open file '\", \"object file '\" or \"unknown module prefix '\". The text does not say that a module which keeps being killed is never passed.",
+     "why_it_matters": "Without the definition, 'killed from outside' reads as a catch-all for setting results aside.",
+     "proposed_text_or_fix": "Add: \"'Killed from outside' means ended by the signals HUP, INT, KILL or TERM. 'Could not open or find a compiled file' means the tool's error begins with one of the three texts its own file handling writes, recorded as status 96. Any other non-zero ending is a rejection or a crash. A module whose checks keep ending these ways has not passed.\""
+    },
+    {
+     "title": "The 1,131-character figure and its SHA-256 do not say exactly what text was hashed",
+     "severity": "low",
+     "where": "(a) '(1,131 characters, SHA-256 4a1a5a15…)'",
+     "problem": "The figure is for the text from `unsafe def replayFromImports` to the next definition, with trailing whitespace removed and one newline added (replay-driver-check). The function alone, without that final newline, is 1,130 characters with SHA-256 d5fd4cd4…, so a reader computing the obvious span cannot reproduce the published hash.",
+     "evidence": "replay-driver-check against ~/.elan/toolchains/leanprover--lean4---v4.33.1/src/lean/LeanChecker.lean printed '1131 characters, sha256 4a1a5a15…'. Slicing the function from RhvReplay.lean gives 1,130 characters and d5fd4cd4….",
+     "why_it_matters": "A hash in an immutable document should be checkable without reading the code.",
+     "proposed_text_or_fix": "Write: \"(the text from `unsafe def replayFromImports` up to the next definition, trailing blank lines removed and one newline added: 1,131 characters, SHA-256 4a1a5a15…)\"."
+    },
+    {
+     "title": "'What was known' does not give the seed's provenance or how much of the list had already been checked",
+     "severity": "low",
+     "where": "(b) list construction; 'What was known'",
+     "problem": "The seed 20261120 entered the repository in commit 6488d27 (2026-11-20 22:34 UTC), after registration, as the default of 09_kernel_replay.sh. The procedure of drawing from the source tree without prefix modules is new in this amendment. A reader cannot tell whether other seeds or procedures were tried, or whether any of the 2,000 listed modules had results already. The text also does not say that the prefix pass has never been run on a real prefix module on a rented machine (records/cloud/full-rehearsals/README.md, line 126).",
+     "why_it_matters": "This is what a reader needs to judge whether the list could have been chosen with results in view.",
+     "proposed_text_or_fix": "Add to 'What was known': \"The seed is the default sample seed committed in 6488d27 on 2026-11-20. No other seed or way of drawing was tried. N of the 2,000 listed modules had been checked by either tool, all passing. The stock tool's prefix pass had been run on a seven-module project and by hand on two real prefix modules, but not on a rented machine.\" Fill in N from the records."
+    },
+    {
+     "title": "The time kept for leanchecker on the 2,000 listed modules is about the projected need, with no margin",
+     "severity": "low",
+     "where": "cloud/gcp/full_guest.sh STOCK_ALLOW=2000 ('about a second a module on the whole tree')",
+     "problem": "replay_cost.json projects 30.1 s per leanchecker check on the whole tree at 32 at a time, which is about 1,880 s for 2,000 checks before any listed module with a large import closure. If the stock pass is squeezed or skipped (under 120 s left), C3 is INCONCLUSIVE and, with the default full-keep-oleans=0, the compiled files are gone.",
+     "why_it_matters": "The default cloud run could end without part (b) of C3 being established.",
+     "proposed_text_or_fix": "Reserve at least 1.5 x 2,000 x 30.1 / 32, about 2,800 s, or measure it in the trial windows. Set full-keep-oleans=1 for the full run, so that (b) can be finished later on the same files."
+    }
+   ],
+   "checked_and_found_right": [
+    "SHA-256 of scripts/verify/replay/RhvReplay.lean is 52c1984827f2c461ce4c7db782076a1d47cce8875657722556ae62d26a7bc3ef, and of scripts/verify/c3_stock_sample.txt is 73647327c7ab3aa2e2aa5d8718dad9025d15b86d027a9f17fba235b7340f773d, as the draft and rhv_tools.py state",
+    "The list has 2,000 unique sorted names, none a prefix of another. Rebuilt from records/source/import_graph.json.gz (175,187 modules, 114 prefix modules, 175,073 eligible) with random.Random(20261120).sample and sorted, it matches the committed file exactly",
+    "replay-driver-check passes against the installed v4.33.1 LeanChecker.lean: replayFromImports is identical, 1,131 characters, SHA-256 4a1a5a15…",
+    "rhv-replay's replayFromImports is the toolchain's verbatim. leanchecker for a non-prefix name checks exactly that module (target == m), so 'each in a process of its own' is accurate",
+    "Prefix pass: a pass needs exit 0 and a 'replaying <module>' line, as the draft says. The prefix workloads are small (1,701 modules beneath all 114)",
+    "Error texts classed as not-run (status 96) cannot be forged by kernel errors: Lean.Replay and kernel messages begin with '(kernel)', 'while replaying', 'Invalid …' or 'No such …'",
+    "The list hash is a condition of all_hold, so substituting a list through RH_C3_LIST is caught",
+    "A listed module that is not compiled makes every_listed_module_passed_by_leanchecker false, and does not silently drop out",
+    "A disagreement between the tools on the latest results is counted as a failure"
+   ],
+   "recheck_of_these_findings": []
+  },
+  {
+   "lens": "facts",
+   "findings": [
+    {
+     "title": "\"No module has been failed by either tool\" is not what the code checks: a later pass erases an earlier failure",
+     "severity": "high",
+     "where": "Draft (c), \"no module has been failed by either tool\", and the section 4 sentence \"a module is recorded as failing only when a tool rejects it, or crashes on it, reproducibly\"; code: rhv_tools.py replay_state (latest[(f[0], method)] = f) and 09_kernel_replay.sh (plan_args=\"--retry-failed ...\" on every run)",
+     "problem": "The draft's wording means a module fails if a tool has ever failed it. The summary keeps only the latest result for each (module, method). 09_kernel_replay.sh always plans with --retry-failed, so every later run, including a second --c3 and the cloud driver's repeat passes, replays modules that failed. If such a retry passes, the failure is gone from the summary and from c3_as_amended_2026_11_21; it survives only as an old line in results.tsv. The draft's \"reproducibly\" has no counterpart in the code either: one failure counts at once, and one later pass cancels it.",
+     "evidence": "rhv_tools.py replay_state: `latest[(f[0], method)] = f` (the last line wins); status() reads only that line. 09_kernel_replay.sh: `plan_args=\"--retry-failed --method $METHOD\"`, and the prefix pass uses `--retry-failed --prefix-modules`. cmd_replay_plan with retry_failed treats only \"passed\" as done.",
+     "why_it_matters": "The kernel is deterministic, so a module that is rejected once and accepted later points to a fault that has to be reported. As things stand, re-running until a module passes would make every condition read \"yes\" and the result VERIFIED, while the draft says a failed module fails C3.",
+     "proposed_text_or_fix": "Text for (c): \"...and no module's most recent result by either tool, for the compiled file now on disk, is a rejection or a crash. Any rejection or crash by either tool that did not recur when the module was run again is reported with the run in which it occurred, and C3 is not met until it is explained.\" Code: in replay_state, also collect for each method the modules that have ever had a failing or crashing line with the current stamp. Add the condition \"no_module_ever_failed_on_the_current_file_by_either_tool\" to the amended block, so that a later pass cannot clear it silently."
+    },
+    {
+     "title": "The C3 conditions do not check that rhv-replay results came from the program defined in (a)",
+     "severity": "medium",
+     "where": "Draft (a), \"That is the program built with the pinned toolchain from scripts/verify/replay/RhvReplay.lean ...\"; code: rhv_tools.py cond dict; 09_kernel_replay.sh RH_REPLAY_DRIVER branch",
+     "problem": "09_kernel_replay.sh takes any binary through RH_REPLAY_DRIVER (origin \"supplied_through_RH_REPLAY_DRIVER\"). It checks only the source file, never the binary. The six conditions in c3_as_amended_2026_11_21 never look at replay_program.tsv. A run with some other binary would therefore show \"every compiled module passed by rhv-replay: yes\" and \"all of these hold: yes\". Only the cloud driver's facts.json compares hashes (every_recorded_run_used_this_program), and that is not part of --c3 or of the amended block.",
+     "evidence": "cond = {every_compiled_module_passed_by_rhv_replay, every_source_module_compiled_and_nothing_else, every_listed_module_passed_by_leanchecker, every_prefix_module_passed_by_leanchecker, no_module_failed_by_either_tool, the_list_is_the_published_one}. No condition uses `programs`. The fifth rehearsal's summary prints a program \"supplied through RH REPLAY DRIVER\".",
+     "why_it_matters": "(c) says C3 holds if and only if modules passed \"(a)\", where (a) names a specific program, yet the tool that reports (c) cannot tell whether that program was used.",
+     "proposed_text_or_fix": "Add a seventh condition: every run in replay_program.tsv used one program, with one SHA-256, that was either built here from the checked source or recorded by the run's own build of the checked source. In the draft, after (a), add: \"The SHA-256 of the program used in each run is recorded beside the results, and a result from any other program does not count.\""
+    },
+    {
+     "title": "\"If a module is compiled again, its earlier results are void\" is not what the stamp does",
+     "severity": "medium",
+     "where": "Draft (c), last sentence: \"A result counts only for the compiled file it was obtained on: if a module is compiled again, its earlier results are void.\"",
+     "problem": "Results are tied to the hash that the build tool keeps in the .hash file beside the .olean. That hash is read from the file, not recomputed. A module compiled again into the same bytes keeps the same stamp, so its earlier results still count. The script's own header says so: \"if a module's imports were compiled again and its own compiled file came out byte for byte the same, its result still counts\". So the sentence is false as written, and the stamp is not shown to identify the file unless something checks the .olean against its .hash.",
+     "evidence": "09_kernel_replay.sh header lines 35-44; rhv_tools.py status(): `if r[3] != stamps[mod]: return \"stale\"`, where stamps are read from path + \".hash\".",
+     "why_it_matters": "An immutable document should not promise behaviour the code does not have.",
+     "proposed_text_or_fix": "\"A result counts only for the compiled file it was obtained on, identified by the hash the build tool records beside that file. If that hash changes, earlier results for the module are void. A result counts only if it was obtained after the build had finished, with no compiled file rebuilt or replaced in between.\" (The cloud run's before-and-after hashing of every compiled file is what enforces the last clause.)"
+    },
+    {
+     "title": "\"What changes. Only how C3 is carried out\" is untrue: the draft also extends sections 4, 5 and 6",
+     "severity": "medium",
+     "where": "Draft, \"What changes. Only how C3 is carried out. C1, C2, the rules of section 4 and the outcomes of section 5 stand as written.\"",
+     "problem": "Further down, the draft does three more things. It applies section 4's failure-or-machine rule, which was written for the compiler, to both checkers. It adds a new INCONCLUSIVE case: \"If the replay cannot be completed ... the outcome is INCONCLUSIVE\". Section 5's INCONCLUSIVE row covers only \"The build cannot be completed\". And it adds to the trust list of section 6 (\"what is added to that list\").",
+     "evidence": "PREREGISTRATION.md section 5 row: \"The build cannot be completed with the resources available | INCONCLUSIVE\". Section 6 lists four trust assumptions and no locally built program.",
+     "why_it_matters": "Section 8 requires an amendment to state \"what changed\". A reader comparing the amendment with sections 4 to 6 will see the claim of \"only C3\" contradicted by the draft's own later paragraphs.",
+     "proposed_text_or_fix": "\"What changes. How C3 is carried out. With it, three things that follow from that: the rule of section 4 for telling a failure of the proof from a failure of the machine is applied to the two checkers; an outcome of INCONCLUSIVE is added to section 5 for a replay that cannot be completed; and one trust assumption is added to section 6 (below). C1 and C2, the other rules of section 4 and the other outcomes of section 5 stand as written.\""
+    },
+    {
+     "title": "57,205 compiled modules on the first machine has no record behind it",
+     "severity": "medium",
+     "where": "What was known: \"On the first machine 57,205 of 175,187 modules had compiled.\"",
+     "problem": "No file in the repository contains 57,205. The latest recorded counts for the Mac are 23,981 (records/mac-build/progress-20261120-2001.txt), \"about 34,000\" (records/mac-build/README.md, replay-method-comparison.tsv, 05:20 UTC on 2026-11-21) and \"about 28,000\" (records/preregistration_marker.json). The figure presumably comes from the live tree under /Volumes, which a reader cannot see.",
+     "evidence": "grep for 57,205 and 57205 across the repository finds nothing.",
+     "why_it_matters": "The amendment's account of what was known when it was written has to be checkable. An unrecorded figure in an immutable text cannot be.",
+     "proposed_text_or_fix": "In the same commit, add a dated snapshot (scripts/06_progress.sh output, like progress-20261120-2001.txt) to records/mac-build/ and cite it: \"On the first machine, a 24 GB Mac, 57,205 of 175,187 modules had compiled at <time> UTC (records/mac-build/progress-<stamp>.txt), with no failed job.\" Otherwise use the latest recorded figure with its time."
+    },
+    {
+     "title": "\"leanchecker had passed every module it had been run on\" and \"no module had failed a replay\" leave out the second rehearsal",
+     "severity": "medium",
+     "where": "What was known, the third and fourth bullets",
+     "problem": "In full-rehearsal-20261120-212636, leanchecker was run on 1,715 modules. It passed 5, and the summary of that run recorded 1,710 as FAILED. They could not read Mathlib's compiled files (Permission denied). Those 1,710 were never checked and were later reclassified by status 96, but the draft's literal statements are false for that run, and its own record says \"FAILED: 1710\".",
+     "evidence": "records/cloud/full-rehearsals/full-rehearsal-20261120-212636/c3_summary.txt: \"passed ...: 5\", \"FAILED: 1710\"; README.md: \"No module was rejected by the kernel: no checker got as far as checking.\"",
+     "why_it_matters": "A reader who opens records/ will find 1,710 recorded replay failures that the amendment does not mention.",
+     "proposed_text_or_fix": "\"No replay of the whole tree had been run by either tool, and neither tool had rejected any module. In one rehearsal (full-rehearsal-20261120-212636), 1,710 leanchecker runs were recorded as failed because they could not read Mathlib's compiled files; none of them checked anything, and the fault was in the driver.\" And: \"leanchecker had passed every module it had checked: ...\""
+    },
+    {
+     "title": "\"About fifty lines ... outside the copied function\" is wrong",
+     "severity": "low",
+     "where": "What this gives up: \"a program built locally from about fifty lines of this repository\" ... \"the correctness of those fifty lines outside the copied function\"",
+     "problem": "RhvReplay.lean has 85 lines: a 28-line opening comment (lines 1-28), the copied function on 23 lines (34-56), and 34 other lines (the imports and `open Lean` on lines 29-33, `main` on lines 58-85). About fifty lines is roughly the whole program without its comment, copied function included. What lies outside the function is about 30 lines of code. performance-notes.md section 10 speaks of \"the loop ... its 25 lines\".",
+     "evidence": "wc -l = 85; replayFromImports is lines 34-56; main is lines 58-85.",
+     "why_it_matters": "It overstates the added trust base, and the passage contradicts itself.",
+     "proposed_text_or_fix": "\"...every other module is examined by a program built locally from one file of this repository: 85 lines, of which 28 are a comment, 23 are the copied function and the remaining 34 are three imports and a loop that calls it and prints the result. What is added to that list is the correctness of those 34 lines and of the scripts that record what the program prints.\""
+    },
+    {
+     "title": "leanchecker lists the search path once per module name it is given, not once per process",
+     "severity": "low",
+     "where": "Why: \"lists every compiled file on its search path, once per process\"",
+     "problem": "In LeanChecker.lean, `SearchPath.findAllWithExt sp \"olean\"` runs inside `for target in targets`, so the listing is repeated once for each argument. \"Once per process\" holds only because the project gives it one name per process. As a statement about the tool it is imprecise. The same phrase appears in RhvReplay.lean's comment, which correctly says \"for each argument\" a line earlier.",
+     "evidence": "LeanChecker.lean lines 89-97.",
+     "why_it_matters": "The claim is about the toolchain's behaviour and can be checked against its source.",
+     "proposed_text_or_fix": "\"...lists every compiled file on its search path, once for each module name it is given, before it checks anything; run once per module, ...\""
+    },
+    {
+     "title": "The 3.1 seconds and about 6 hours are presented as one measurement; 6 hours is a projection",
+     "severity": "low",
+     "where": "Why: \"The same replay without the listing took 3.1 seconds per module in a rehearsal, about 6 hours for the tree.\"",
+     "problem": "The 3.1 is job-seconds per module at 32 at a time (3.09), measured on 1,796 shallow modules. The 6.0 hours uses 3.92 seconds: the 3.1 plus the stock tool's allowance for deeper import closures from the pilot (records/cloud/replay_cost.json, rhv_replay_measured.whole_tree). replay_cost.json and performance-notes.md both say this is still part projection.",
+     "evidence": "replay_cost.json: at_32_job_seconds_per_module 3.09; whole_tree.seconds_per_module 3.92, replay_hours_at_32 6.0.",
+     "why_it_matters": "The sentence reads as if 6 hours was measured.",
+     "proposed_text_or_fix": "\"The same replay without the listing took 3.1 seconds of one job's time per module, 32 at a time, in a rehearsal on modules that import little. With the stock tool's allowance for deeper modules added, that projects to about 6 hours for the tree.\""
+    },
+    {
+     "title": "The \"four rehearsals\" count leaves out two rented runs and clashes with \"565 in the pilot's rehearsal\"",
+     "severity": "low",
+     "where": "What was known, first bullet: \"four rehearsals had each compiled between 1,642 and 1,796\"",
+     "problem": "The range is right for four of the five full-run rehearsals: 1,715, 1,792, 1,642 and 1,796 compiled files. The other rented runs are not mentioned: the first full rehearsal (2 smoke-build modules, stopped in setup) and the pilot's own rehearsal (1,439 compiled). The fourth bullet then cites \"565 in the pilot's rehearsal\", a sixth rehearsal with fewer than 1,642 modules. Also, the 1,792 and 1,796 include 4 and 2 compiled files that the build tool never finished.",
+     "evidence": "facts.json compiled_modules for each run; records/cloud/pilot/README.md, rehearsal-20261120-160322: 1,439 compiled, 565 checked.",
+     "why_it_matters": "A careful reader checking records/ will find counts outside the stated range.",
+     "proposed_text_or_fix": "\"On rented machines, a pilot had compiled 29,633 modules, including modules that import up to 17,860 other modules of the project; the pilot's rehearsal had compiled 1,439; and four of the five rehearsals of the full run had each compiled between 1,642 and 1,796 (the fifth stopped during setup).\""
+    },
+    {
+     "title": "\"Everything above this heading ... byte for byte\" holds only for the first 8,781 bytes",
+     "severity": "low",
+     "where": "Opening sentence of the amendment",
+     "problem": "I checked: the working PREREGISTRATION.md is identical to `git show 39c6e1d:PREREGISTRATION.md` (8,781 bytes, ending \"*No amendments.*\\n\"), and the tag prereg-v1 points to 39c6e1d. If the amendment is appended after a blank line, \"everything above this heading\" is 8,782 bytes, the extra one being the separating newline. So the obvious `cmp` of everything above the heading fails by one byte, while `head -c 8781 PREREGISTRATION.md | cmp - <(git show 39c6e1d:PREREGISTRATION.md)` passes. The quoted line is actually \"*No amendments.*\".",
+     "evidence": "wc -c = 8781; the tail of the file is `*No amendments.*\\n`.",
+     "why_it_matters": "The draft invites a byte-for-byte test, so the test should be stated exactly.",
+     "proposed_text_or_fix": "\"The first 8,781 bytes of this file, up to and including the line \"*No amendments.*\", which was true then, are the document as registered, byte for byte: commit 39c6e1d ..., release prereg-v1, DOI 10.5281/zenodo.24410554. Test: head -c 8781 PREREGISTRATION.md | cmp - <(git show 39c6e1d:PREREGISTRATION.md).\""
+    },
+    {
+     "title": "The function's 1,131 characters and SHA-256 do not say which text they are taken over",
+     "severity": "low",
+     "where": "(a): \"(1,131 characters, SHA-256 4a1a5a15...)\"",
+     "problem": "The hash is of the UTF-8 text from \"unsafe def replayFromImports\" to the next definition, with trailing whitespace cut and one newline added. That is lines 34-56 of RhvReplay.lean and lines 12-34 of the toolchain's LeanChecker.lean: 1,131 characters, 1,147 bytes, because the text contains the non-ASCII \"←\". Without this, a reader cannot reproduce the hash with shasum.",
+     "evidence": "rhv_tools.py replay-driver-check: `ours_text[o0:o1].rstrip() + \"\\n\"`, sha of `.encode(\"utf-8\")`. Recomputed here: 1,131 characters, 1,147 bytes, 4a1a5a15....",
+     "why_it_matters": "Reproducibility of a hash that will be pinned for good.",
+     "proposed_text_or_fix": "\"(lines 34 to 56 of that file and lines 12 to 34 of the toolchain's file: 1,131 characters, 1,147 bytes in UTF-8, SHA-256 4a1a5a15aa9296ca7fa05bc6fae5413962b27b718ab9acf1b50b6c461bbe7464)\""
+    },
+    {
+     "title": "The reviews cited do not cover the code that implements the amendment",
+     "severity": "low",
+     "where": "What was known, last bullet: \"The program and the scripts around it had been reviewed twice by AI agents ... and tested with injected faults\"",
+     "problem": "replay_method_review.json and replay_method_recheck.json are dated 2026-11-20 and cover the two-method replay as it was then. The code that implements the amendment (--c3, --check-list and --require-c3, the c3_as_amended block, replay-sample-list, the cloud driver's switch to the published list) is uncommitted and none of the recorded reviews covers it.",
+     "evidence": "Both files' \"what\" fields are dated 2026-11-20; git status shows the amendment code as uncommitted changes.",
+     "why_it_matters": "As written, the sentence suggests the code that decides C3 has been reviewed.",
+     "proposed_text_or_fix": "Add: \"The code that carries out C3 as amended (scripts/09_kernel_replay.sh --c3 and the conditions in scripts/verify/rhv_tools.py replay-summary) was written with this amendment and had not been reviewed.\" If it is reviewed before the push, cite that record instead."
+    },
+    {
+     "title": "\"With no option\" depends on RH_REPLAY_METHOD; the leanchecker-alone result is only in summary.json",
+     "severity": "low",
+     "where": "\"scripts/09_kernel_replay.sh with no option runs leanchecker on every module. ... the summary reports separately whether leanchecker alone has passed every module.\"",
+     "problem": "The default is `METHOD=${RH_REPLAY_METHOD:-leanchecker}`, and lib.sh keeps RH_REPLAY_METHOD from the environment and config.env, so \"no option\" can mean rhv-replay. The leanchecker-alone verdict is written only to summary.json (complete_by_leanchecker_alone). The printed summary gives only the combined \"every source module compiled and passing\".",
+     "evidence": "09_kernel_replay.sh line 88; rhv_tools.py writes complete_by_leanchecker_alone to the JSON only.",
+     "why_it_matters": "These are claims about behaviour that a reader can test and find incomplete.",
+     "proposed_text_or_fix": "\"scripts/09_kernel_replay.sh --method leanchecker runs leanchecker on every module, the prefix modules included. Results are recorded by tool, and summary.json reports separately (complete_by_leanchecker_alone) whether leanchecker alone has passed every module.\" Or print that line in the text summary too."
+    },
+    {
+     "title": "A prefix check that exits 0 without reporting the module is recorded as a failure, which the draft's rule does not allow",
+     "severity": "low",
+     "where": "(b): \"passes only if leanchecker exits with status 0 and reports having replayed that module\", and the section 4 sentence \"recorded as failing only when a tool rejects it, or crashes on it\"",
+     "problem": "The pass condition is implemented as stated: kernel_check_one.sh checks rc 0 and `grep -qxF \"replaying $mod\"`. But a run that exits 0 without that line gets status 97. Status 97 is not in NOT_RUN_STATUSES, so the summary counts it as FAILED, although the tool neither rejected the module nor crashed on it.",
+     "evidence": "kernel_check_one.sh line 57; rhv_tools.py NOT_RUN_STATUSES = (96, 129, 130, 137, 143).",
+     "why_it_matters": "The draft and the code classify this anomaly differently. It cannot produce a false VERIFIED, but it could produce a NOT VERIFIED that the text does not justify.",
+     "proposed_text_or_fix": "Either add to (b): \"a check that ends with status 0 without reporting that module is recorded as a failure of the check, and C3 is not met\", or make 97 a not-run status that is reported apart and run again."
+    },
+    {
+     "title": "\"Prefix\" should be defined by name components",
+     "severity": "low",
+     "where": "(b): \"whose name is not a prefix of another module's name\"",
+     "problem": "Both the code (prefix_names splits on \".\") and leanchecker (Name.isPrefixOf) mean a prefix by components: A is a prefix of A.B but not of AB. Read as a string, \"prefix\" would select a different set from 175,073 and 114. I checked against records/source/import_graph.json.gz: by components, 114 prefix modules and 175,073 others. random.Random(20261120).sample(sorted(others), 2000), sorted, reproduces the file exactly (SHA-256 73647327...). All 2,000 are distinct, sorted and present in the tree, none is a prefix module, and none is a prefix of another name in the list or in the tree.",
+     "evidence": "Recomputed from import_graph.json.gz, as described.",
+     "why_it_matters": "The definition of the list should not depend on how a reader understands \"prefix\".",
+     "proposed_text_or_fix": "\"...whose name is not a prefix of another module's name, counting by the components between dots (A is a prefix of A.B, not of AB), sorted ... The same list can also be made from records/source/import_graph.json.gz.\""
+    }
+   ],
+   "checked_and_found_right": [
+    "SHA-256 of scripts/verify/replay/RhvReplay.lean is 52c1984827f2c461ce4c7db782076a1d47cce8875657722556ae62d26a7bc3ef; it matches the pinned DRIVER_SHA256",
+    "replay-driver-check: replayFromImports is identical in the driver and the toolchain's LeanChecker.lean, 1,131 characters, sha256 4a1a5a15aa9296ca7fa05bc6fae5413962b27b718ab9acf1b50b6c461bbe7464",
+    "SHA-256 of scripts/verify/c3_stock_sample.txt is 73647327c7ab3aa2e2aa5d8718dad9025d15b86d027a9f17fba235b7340f773d, matching C3_STOCK_SAMPLE_SHA256; 2,000 lines, newline-terminated, sorted, distinct",
+    "Regenerated from records/source/import_graph.json.gz: 175,187 modules, 114 prefix modules, 175,073 eligible; Random(20261120).sample of 2,000, sorted, reproduces the file byte for byte; no listed module is a prefix of any module in the tree or the list",
+    "4.4 s with 1,792 (4.36) and 8.5 s with 29,633 (8.54); 43 to 56 hours (43.1/45.7/56.2); 3.1 s (3.09); about 6 hours (6.0), all in records/cloud/replay_cost.json",
+    "Commit 39c6e1d is the only commit touching PREREGISTRATION.md; the tag prereg-v1 resolves to 39c6e1d3eb83...; DOI 10.5281/zenodo.24410554 in records/preregistration_marker.json; the working PREREGISTRATION.md is byte-identical to 39c6e1d's",
+    "replayFromImports is what leanchecker runs on each module without --fresh (LeanChecker.lean lines 106-113)",
+    "kernel_check_one.sh prefix mode: a pass needs rc 0 and an exact 'replaying <module>' line; both kernel_check_one.sh branches and kernel_check_batch.sh set LEAN_ABORT_ON_PANIC=1",
+    "Leanchecker on the list runs each module in its own process (kernel_check_one.sh via xargs -n 2); the prefix pass runs one process per prefix module with LEAN_NUM_THREADS=1",
+    "Counts: 24 and 30 leanchecker on the Mac; 565 (pilot rehearsal) and 2,233 (pilot); 1,792 of 1,792 in the third rehearsal; 150 in the fifth; rhv-replay 140 on the Mac and 1,794 in the fifth rehearsal; 180 = 150 + 30 on the same stamps; four rehearsals with 1,642 to 1,796 compiled; 29,633 in the pilot; the 17,860 closure (recomputed from the import graph, excluding the module itself)",
+    "--c3 runs rhv-replay over everything, then leanchecker --list on the published list, then the prefix pass, then replay-summary --check-list --require-c3"
+   ],
+   "recheck_of_these_findings": [
+    {
+     "title": "\"No module has been failed by either tool\" is not what the code checks: a later pass erases an earlier failure",
+     "verdict": "confirmed",
+     "severity": "high",
+     "reason": "Confirmed in the code. rhv_tools.py replay_state keeps only the last line for each (module, method): `latest[(f[0], method)] = f`. status() and the amended block (`no_module_failed_by_either_tool: not failed`) read only that line. 09_kernel_replay.sh always plans with `--retry-failed` (lines 193 and 220), and cmd_replay_plan with retry_failed treats only \"passed\" as done. So a module that failed comes back on the next run, and a pass then removes the failure from the summary and from c3_as_amended_2026_11_21. This happens inside one unattended cloud run, not only across runs. full_guest.sh runs the trials, then `main`, then up to two `again` passes, and every one of them is a 09 run with --retry-failed. A kernel rejection in a trial or in the main pass that does not recur would leave no trace in the verdict. It would survive only as a raw line in results.tsv and in the phases_end count of non-zero lines, which also counts status 96. The draft's own section-4 sentence ('recorded as failing only when a tool rejects it ... reproducibly') can be read as allowing this. So both the text and the code need fixing: the kernel is deterministic, and a rejection that does not recur is itself a finding, not noise.",
+     "fix": "Draft (c): replace 'and no module has been failed by either tool' with 'and no tool has rejected or crashed on any module for the compiled file now on disk, in any run, whether or not the rejection recurred when the module was run again. Every such rejection or crash is reported with the run in which it occurred.' In the section-4 paragraph, change 'a module is recorded as failing only when a tool rejects it, or crashes on it, reproducibly' to 'a module is recorded as failing when a tool rejects it or crashes on it; a module is re-run only when the checker did not test it (killed from outside, or unable to open or find a compiled file).' Code: in replay_state, also collect for each method the set of modules that have any line with a failing or crashing status (not in NOT_RUN_STATUSES) whose stamp equals the current stamp. Add the condition `no_module_ever_rejected_or_crashed_on_the_current_file_by_either_tool` to the amended block, and print those modules under FAILED even when a later line passed."
+    },
+    {
+     "title": "The C3 conditions do not check that rhv-replay results came from the program defined in (a)",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "09_kernel_replay.sh accepts any executable through RH_REPLAY_DRIVER (origin `supplied_through_RH_REPLAY_DRIVER`). It checks only the source file with replay-driver-check, never the binary against that source. cmd_replay_summary reads replay_program.tsv into `programs` but only prints it. None of the six entries in `cond` uses it, so `all_hold` can be yes with a foreign binary. Result lines also carry no program identity, so a row cannot be tied to a program except through the timing of the runs. The cloud run always uses RH_REPLAY_DRIVER (root builds the program), so the amended block cannot tell its runs from an arbitrary binary. Only facts.json's every_recorded_run_used_this_program makes the comparison. Medium rather than high: getting this wrong takes a deliberate environment setting, and the origin is printed.",
+     "fix": "Code: add a seventh condition, `every_rhv_replay_run_used_the_program_built_from_the_checked_source`. It holds when replay_program.tsv exists, all its lines carry one SHA-256, and that hash equals the hash of a build from the checked source, recorded either by 09 (origin built_here...) or by the run's own setup build, which the cloud driver passes in, for example as RH_REPLAY_DRIVER_SHA256 checked at startup. Better still, write the program's SHA-256 as a seventh column of each rhv-replay result line, and count a line only if that hash is the accepted one. Draft, end of (a): 'The SHA-256 of the program used is recorded with every result, and a result obtained with any other program does not count.'"
+    },
+    {
+     "title": "\"If a module is compiled again, its earlier results are void\" is not what the stamp does",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "status() compares r[3] with the content of the .hash file beside the .olean, read from disk and not recomputed (rhv_tools.py lines 783-789 and 829). The script's own header (09_kernel_replay.sh lines 36-44) says a module whose imports were recompiled and whose own file came out byte for byte the same keeps its result. It also says a result should come from a run made after the build finished, with nothing rebuilt in between, and that only the cloud driver enforces this by hashing before and after. The draft's sentence therefore claims more than the code does.",
+     "fix": "Replace the last sentence of (c) with: 'A result counts only for the compiled file it was obtained on, identified by the hash the build tool records beside that file; if that hash changes, earlier results for the module are void. Results count only from runs made after the build had finished, with no compiled file rebuilt or replaced between the end of the build and the end of the replay.'"
+    },
+    {
+     "title": "\"What changes. Only how C3 is carried out\" is untrue: the draft also extends sections 4, 5 and 6",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "PREREGISTRATION.md section 4's failure-or-machine rule speaks only of the compiler process. Section 5's INCONCLUSIVE row covers only 'The build cannot be completed with the resources available'. Section 6's list has four items and no locally built program. The draft applies the section-4 rule to the checkers, adds an INCONCLUSIVE case for a replay that cannot be completed, and adds a trust item ('what is added to that list'). Saying 'Only how C3 is carried out' with sections 4 and 5 'standing as written' is therefore inaccurate.",
+     "fix": "'What changes. How C3 is carried out, and three things that follow from it: the rule of section 4 for telling a failure of the proof from a failure of the machine is applied to the two checkers; an outcome of INCONCLUSIVE is added to section 5 for a replay that cannot be completed with the resources available; and one trust assumption is added to section 6 (see \"What this gives up\"). C1, C2, the other rules of section 4 and the other outcomes of section 5 stand as written.'"
+    },
+    {
+     "title": "57,205 compiled modules on the first machine has no record behind it",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "A grep of the repository (excluding .git, config.env and .private-patterns) finds no 57,205 or 57205. The recorded Mac figures are 23,981 (records/mac-build/progress-20261120-2001.txt), 'about 34,000' at 05:20 UTC on 2026-11-21 (records/mac-build/README.md line 69) and 'About 28,000' (records/preregistration_marker.json). An amendment that cannot be edited later should not state a count a reader cannot check.",
+     "fix": "In the same commit, add the snapshot the figure came from to records/mac-build/ (scripts/06_progress.sh output, like progress-20261120-2001.txt) and cite it: 'On the first machine, a 24 GB Mac, 57,205 of 175,187 modules had compiled at <hh:mm> UTC (records/mac-build/progress-<stamp>.txt), with no failed job.' If no snapshot is added, use the latest recorded figure with its time and file."
+    },
+    {
+     "title": "\"leanchecker had passed every module it had been run on\" and \"no module had failed a replay\" leave out the second rehearsal",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "records/cloud/full-rehearsals/full-rehearsal-20261120-212636/c3_summary.txt reads 'passed ...: 5' and 'FAILED: 1710'. The README (line 47) says '5 of 1,715 passed, 1,710 recorded as failed' because of 'Permission denied' on Mathlib's .olean. Nothing was checked, but the draft's literal statements ('no module had failed a replay by either tool'; leanchecker 'had passed every module it had been run on') contradict a published record.",
+     "fix": "Third bullet: 'No replay of the whole tree had been run by either tool, and neither tool had rejected any module. In one rehearsal (full-rehearsal-20261120-212636), 1,710 leanchecker runs were recorded as failed because they could not read Mathlib's compiled files (Permission denied); none of them checked anything, and the fault was in the driver.' Fourth bullet: replace 'every module it had been run on' with 'every module it had checked'."
+    },
+    {
+     "title": "\"About fifty lines ... outside the copied function\" is wrong",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "RhvReplay.lean has 85 lines: a comment on lines 1-28, the header (three import/open lines plus blanks) on lines 29-33, replayFromImports on lines 34-56, a blank line 57, and main on lines 58-85. Outside the copied function there are about 34 lines (29-33 and 57-85), of which about 31 are non-blank code. 'About fifty lines outside the copied function' is wrong. The build also depends on lakefile.toml and lean-toolchain in scripts/verify/replay, which the sentence leaves out.",
+     "fix": "'... every other module is examined by a program built locally from scripts/verify/replay of this repository (RhvReplay.lean, 85 lines: a 28-line comment, the 23-line copied function, and 34 lines of imports and a loop that calls it and prints the result; plus its lakefile.toml and lean-toolchain) and the toolchain's libraries. ... what is added to that list is the correctness of those 34 lines and of the build files, and of the scripts that record what the program prints.'"
+    },
+    {
+     "title": "leanchecker lists the search path once per module name it is given, not once per process",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "In the pinned toolchain's src/lean/LeanChecker.lean, lines 89-97, `for path in (← SearchPath.findAllWithExt sp \"olean\")` sits inside `for target in targets`. The listing is repeated for each argument. 'Once per process' holds only because the project passes one name per process. The same imprecise phrase is in the 09_kernel_replay.sh header.",
+     "fix": "'... lists every compiled file on its search path, once for each module name it is given, before it checks anything; given one name per process, as here, that listing is repeated for every module and grows with the tree.'"
+    },
+    {
+     "title": "The 3.1 seconds and about 6 hours are presented as one measurement; 6 hours is a projection",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "records/cloud/replay_cost.json rhv_replay_measured gives at_32_job_seconds_per_module 3.09, measured on 1,796 shallow modules in full-rehearsal-20261120-235539. whole_tree.seconds_per_module 3.92 and replay_hours_at_32 6.0 add the stock tool's closure allowance. performance-notes.md line 235 says 'The last row is still part projection'. The draft runs the measurement and the projection together.",
+     "fix": "'The same replay without the listing took 3.1 seconds of one job's time per module, 32 at a time, in a rehearsal on modules that import little of the project; with the stock tool's allowance for deeper modules added, that projects to about 6 hours for the tree.'"
+    },
+    {
+     "title": "The \"four rehearsals\" count leaves out two rented runs and clashes with \"565 in the pilot's rehearsal\"",
+     "verdict": "partly",
+     "severity": "low",
+     "reason": "The statement is true as written: four of the five full rehearsals compiled 1,715, 1,792, 1,642 and 1,796. It does not claim to cover every rehearsal, and the pilot's rehearsal (1,439 compiled, 565 checked; records/cloud/pilot/README.md) appears in the next bullet. So nothing is false. Still, 'four rehearsals' next to 'the pilot's rehearsal' reads as an incomplete inventory: the first full rehearsal stopped in setup after the two-module smoke build, and the pilot rehearsal's 1,439 falls outside the range given. Clarity only.",
+     "fix": "'On rented machines, a pilot had compiled 29,633 modules, including modules importing up to 17,860 others; the pilot's rehearsal had compiled 1,439; and four of the five rehearsals of the full run had each compiled between 1,642 and 1,796 (the first stopped during setup).'"
+    },
+    {
+     "title": "\"Everything above this heading ... byte for byte\" holds only for the first 8,781 bytes",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "`git show 39c6e1d:PREREGISTRATION.md | cmp - PREREGISTRATION.md` passes. prereg-v1 resolves to 39c6e1d3...; the file is 8,781 bytes ending '*No amendments.*\\n'. The draft file itself begins with a newline, so appending it leaves 8,782 bytes above the heading, and the obvious comparison of 'everything above this heading' fails on the extra byte. The quoted line is '*No amendments.*', not 'No amendments'.",
+     "fix": "'The first 8,781 bytes of this file, up to and including the line \"*No amendments.*\", which was true then, are the document as registered, byte for byte: commit 39c6e1d of this repository, release prereg-v1, DOI 10.5281/zenodo.24410554 (test: head -c 8781 PREREGISTRATION.md | cmp - <(git show 39c6e1d:PREREGISTRATION.md)).' Alternatively, drop the leading newline of the appended text, so that the heading starts at byte 8,782."
+    },
+    {
+     "title": "The function's 1,131 characters and SHA-256 do not say which text they are taken over",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "I recomputed it: lines 34-56 of RhvReplay.lean, rstripped plus one newline, give 1,131 characters, 1,147 UTF-8 bytes, SHA-256 4a1a5a15aa9296ca7fa05bc6fae5413962b27b718ab9acf1b50b6c461bbe7464. These lines match lines 12-34 of the toolchain's LeanChecker.lean. replay-driver-check takes the text from 'unsafe def replayFromImports' to the next definition, strips trailing whitespace and adds one newline. Without that description, `shasum` on any obvious selection will not reproduce the hash.",
+     "fix": "'(lines 34 to 56 of that file and lines 12 to 34 of the toolchain's file, trailing whitespace removed and one newline added: 1,131 characters, 1,147 bytes in UTF-8, SHA-256 4a1a5a15aa9296ca7fa05bc6fae5413962b27b718ab9acf1b50b6c461bbe7464)'"
+    },
+    {
+     "title": "The reviews cited do not cover the code that implements the amendment",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "Both records describe themselves as reviews of the two-method replay dated 2026-11-20. git status shows scripts/09_kernel_replay.sh, scripts/verify/rhv_tools.py, cloud/gcp/full_guest.sh, pilot_local.sh and lib.sh as modified, and c3_stock_sample.txt as untracked. That code (--c3, --check-list/--require-c3, the amended block, replay-sample-list) has no recorded review. 'The program and the scripts around it had been reviewed twice' is true only of the earlier versions.",
+     "fix": "Add to the last bullet: 'The code that carries out C3 as amended (scripts/09_kernel_replay.sh --c3, the conditions in scripts/verify/rhv_tools.py replay-summary, replay-sample-list and the cloud driver's use of the list) was written with this amendment and had not been reviewed when it was written.' If a review of it is recorded before the push, cite that file instead."
+    },
+    {
+     "title": "\"With no option\" depends on RH_REPLAY_METHOD; the leanchecker-alone result is only in summary.json",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "09_kernel_replay.sh line 88: `METHOD=${RH_REPLAY_METHOD:-leanchecker}`. lib.sh line 9 keeps RH_REPLAY_METHOD from the environment and the config file, so 'no option' can mean rhv-replay. complete_by_leanchecker_alone is written only to the JSON (rhv_tools.py line 1017). The printed summary has only the combined 'every source module compiled and passing'.",
+     "fix": "'scripts/09_kernel_replay.sh --method leanchecker runs leanchecker on every module, the prefix modules included. Results are recorded by tool, and summary.json reports separately (complete_by_leanchecker_alone) whether leanchecker alone has passed every module.' Optionally, also print that line in the text summary."
+    },
+    {
+     "title": "A prefix check that exits 0 without reporting the module is recorded as a failure, which the draft's rule does not allow",
+     "verdict": "partly",
+     "severity": "low",
+     "reason": "The code is as described: kernel_check_one.sh line 57 sets rc=97 when the exit is 0 and 'replaying $mod' is absent, and 97 is not in NOT_RUN_STATUSES (96, 129, 130, 137, 143), so it counts as FAILED. But this is stricter than the draft, not a loophole: C3 cannot be met through it, it only blocks C3. The mismatch is with the draft's wording of what 'failing' means, which matters mainly once finding 1's fix redefines failure. In practice leanchecker -v prints the line for every target it replays, so this would show a tool fault.",
+     "fix": "Add to the end of (b): 'A check of a prefix module that ends with status 0 without reporting that module is recorded as a failure of the check, and C3 is not met until it is explained.'"
+    },
+    {
+     "title": "\"Prefix\" should be defined by name components",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "prefix_names splits on '.', and leanchecker uses Name.isPrefixOf, which compares by component. Recomputed from records/source/import_graph.json.gz (175,187 names): by components there are 114 prefix modules and 175,073 others, and random.Random(20261120).sample(sorted(others), 2000), sorted, reproduces c3_stock_sample.txt exactly (SHA-256 73647327...). Read as strings, 49,534 names are prefixes of another name. The draft's counts make the intended meaning recoverable, but the definition text is ambiguous.",
+     "fix": "In (b), write '... whose name is not a prefix of another module's name, counting by the components between dots (A is a prefix of A.B, not of AB), sorted, ...', and add: 'The same list is also made from records/source/import_graph.json.gz, whose keys are the module names of the source tree.'"
+    }
+   ]
+  },
+  {
+   "lens": "code-vs-text",
+   "findings": [
+    {
+     "title": "A later pass wipes out an earlier rejection or crash. C3 then holds although a tool failed the module",
+     "severity": "high",
+     "where": "Draft (c): \"no module has been failed by either tool\", and the section-4 paragraph \"a module is recorded as failing only when a tool rejects it, or crashes on it, reproducibly\". Code: scripts/verify/rhv_tools.py replay_state (latest[(f[0], method)] = f, so the last line wins), cmd_replay_summary's \"no_module_failed_by_either_tool\": not failed; scripts/09_kernel_replay.sh plan_args=\"--retry-failed --method $METHOD\", which every pass uses.",
+     "problem": "The summary keeps only the newest line for each (module, tool). Every run of 09, so every pass of --c3 and every 'again' pass in full_guest.sh, sends failed modules round again (--retry-failed is always set). If a module is rejected (status 1) or crashes (134, 139 and so on) and later passes on the same compiled file, the failure disappears. FAILED reads 0, no disagreement is reported, every condition reads yes and --require-c3 exits 0. Nothing in the code decides whether a failure is 'reproducible'. A failure just stops counting once a pass comes after it. The draft reads the other way: 'no module has been failed by either tool' means no failure was ever recorded.",
+     "evidence": "I built a synthetic tree of the 2,000 listed modules plus Zp and Zp.Q (so the list hash matches), with results files where (i) rhv-replay status 1 for a module precedes its pass, (ii) rhv-replay status 134 precedes a pass, (iii) leanchecker status 1 for a listed module precedes its pass. All three gave 'all of these hold: yes', 'FAILED: 0' and exit status 0 with --require-c3. Files are in <SCRATCH>/c3full.QX8w (flaky_rhv, crash_rhv, flaky_lc).",
+     "why_it_matters": "A tool that rejects a module once and accepts it on the next pass is exactly what C3 exists to catch. As written, the code turns it into VERIFIED with no trace in the summary, while the amendment says no failure occurred.",
+     "proposed_text_or_fix": "Code: in replay_state, keep for each (module, method, stamp) whether any line has a failing or crashing status (a status other than 0 and not in NOT_RUN_STATUSES), not just the newest line. A module with such a line for its current stamp goes in `failed` whatever came after. Add `modules_failed_then_passed` to the summary and JSON. Keep --retry-failed only so the re-run produces evidence, not so it overwrites. Text, replacing the last sentence of the section-4 paragraph: \"Every result is kept. A module that either tool has rejected, or crashed on, in any run on its current compiled file has failed C3, even if a later run of the same tool passes it; the later result is reported beside the failure.\" If the owner wants a real reproducibility rule instead, the text must state it exactly (for example 'a failure is re-run twice; it counts unless both re-runs pass, and all three results are reported'), and the code must implement that rule, not latest-wins."
+    },
+    {
+     "title": "all_hold does not check that the rhv-replay passes came from the pinned program",
+     "severity": "high",
+     "where": "Draft (a): \"replayed by rhv-replay. That is the program built with the pinned toolchain from scripts/verify/replay/RhvReplay.lean ... SHA-256 52c19848...\". Code: cmd_replay_summary's cond dict (no condition mentions `programs` or replay_program.tsv); 09_kernel_replay.sh accepts any binary through RH_REPLAY_DRIVER (it only logs a NOTE); kernel_check_batch.sh writes 'rhv-replay' in the method column with no program identity.",
+     "problem": "Every result line with method 'rhv-replay' counts towards condition (a), whatever program produced it. replay_program.tsv records one line per run (SHA-256 and origin), but the results are not tied to it line by line, and all_hold never reads it. A results file containing rhv-replay lines from an older RhvReplay.lean (an earlier rehearsal, before DRIVER_SHA256 changed), or from a binary named in RH_REPLAY_DRIVER, satisfies (a). full_guest.sh reports 'every_recorded_run_used_this_program' separately in facts.json, but `09 --c3` and the summary's 'all of these hold: yes' do not take it into account.",
+     "evidence": "In my synthetic test there was no replay_program.tsv at all, and the summary still printed 'every compiled module passed by rhv replay: yes' and 'all of these hold: yes', exit status 0.",
+     "why_it_matters": "Clause (a) is what allows the stock binary to be replaced for 173,000 modules. The only safeguard is that the program is the reviewed source. If the program's identity is not part of the check, condition (a) can be reported as met when it was not.",
+     "proposed_text_or_fix": "Code: add a seventh column to the rhv-replay result lines with the SHA-256 of the program that produced them (kernel_check_batch.sh already has RH_REPLAY_DRIVER). Count a line under (a) only if that SHA-256 belongs to a program recorded in replay_program.tsv as built from a source that passed replay-driver-check against DRIVER_SHA256. Record that fact too: the build step writes the binary's SHA-256 together with the checked source's SHA-256. Add the condition \"every_rhv_replay_pass_is_by_the_pinned_program\" to cond, so that all_hold depends on it. Text, add to (a): \"A result of rhv-replay counts only if the results record that it was produced by a program built, by that run or by the cloud run's setup, from the file with the SHA-256 above, after the comparison.\""
+    },
+    {
+     "title": "Damaged lines of the results file are dropped, and C3 can still hold",
+     "severity": "medium",
+     "where": "rhv_tools.py replay_state: lines that are not complete are counted in `unreadable` and skipped; the cond dict has no condition on `unreadable`. The draft says nothing about damaged lines.",
+     "problem": "A line cut short (for example a failure line written while the disk was full) is ignored. The module then has no result, the next pass retries it, and a pass gives all_hold yes. The summary prints the count of ignored lines, but 'all of these hold' does not depend on it.",
+     "evidence": "Synthetic test 'damaged': two damaged status-1 lines for a module that had a passing line gave 'lines of the results file that are not a complete result (ignored): 2' and 'all of these hold: yes', exit status 0.",
+     "why_it_matters": "A damaged line may be the only record of a failure. Ignoring it silently is the same loophole as the first finding, reached through damage to the file instead of a later pass.",
+     "proposed_text_or_fix": "Either add the condition \"results_file_has_no_damaged_lines\": unreadable == 0 to cond, or add to (c): \"Lines of the results file that are not complete are reported; while any exists, C3 is not met. The modules concerned are run again, and any failure among those lines is treated as a recorded failure if it can be read.\" The first is the simpler and safer choice."
+    },
+    {
+     "title": "Status 97 on a prefix module counts as a failure, which the amendment's own rule does not allow",
+     "severity": "medium",
+     "where": "Draft (b): \"the check of such a module passes only if leanchecker exits with status 0 and reports having replayed that module\"; section-4 paragraph: \"a module is recorded as failing only when a tool rejects it, or crashes on it, reproducibly\". Code: kernel_check_one.sh sets rc=97 when the exit status is 0 but there is no 'replaying <mod>' line; 97 is not in NOT_RUN_STATUSES, so replay_state classifies it as 'failed'.",
+     "problem": "In this case leanchecker accepted everything it replayed but did not list the module. Nothing was rejected and nothing crashed. The draft says only that this is not a pass. The code records it as a failure of the module: 'no module failed by either tool: NO', FAILED lists the module, a disagreement with rhv-replay is reported, and the exit status is 1. Under section 5 that is NOT VERIFIED (C3 fails), reached through a case the amendment's rule says is not a failure.",
+     "evidence": "Synthetic test PREFIX97 in <SCRATCH>/c3lens.YCoI: conditions false were every_prefix_module_passed_by_leanchecker and no_module_failed_by_either_tool, rc=1. With 96 instead, only the prefix condition was false, rc=3.",
+     "why_it_matters": "The amendment would require NOT VERIFIED for something its own text classes as not a failure, or else leave the result to be argued after the fact.",
+     "proposed_text_or_fix": "Pick one and write it down. (1) Text: \"If leanchecker exits with status 0 without reporting that it replayed the prefix module, the module has not been tested: it is run again, and while that stays so C3 is neither met nor failed.\" Code: treat 97 as not_run, or as a separate 'not_covered' state that blocks all_hold without counting as failed. (2) Alternatively, keep the code and add to the text: \"...; if it exits with status 0 without reporting that module, this is recorded as a failure of the module.\""
+    },
+    {
+     "title": "'If a module is compiled again, its earlier results are void' is stronger than what the code can tell",
+     "severity": "medium",
+     "where": "Draft (c): \"A result counts only for the compiled file it was obtained on: if a module is compiled again, its earlier results are void.\" Draft: \"scripts/09_kernel_replay.sh --c3 runs (a) and (b) and reports each condition of (c).\" Code: the stamp is the content of Lake's '<module>.olean.hash', read when the run is planned and never recomputed; the 09 header says a byte-identical recompile keeps its results, and that an import compiled again does not void them.",
+     "problem": "(1) A module compiled again whose compiled file comes out byte for byte the same keeps its results, which contradicts 'void'. (2) A module whose imports were compiled again keeps results obtained against the old imports. (3) The hash is taken from Lake's file, not computed from the compiled file. A compiled file replaced while its .hash file stays the same keeps results obtained on the old content. full_guest.sh covers this by hashing every compiled file at the seal and at the end, but `09 --c3` does no such check, so the claim that it 'reports each condition of (c)' is not true for this clause.",
+     "why_it_matters": "The text promises a check the local tool does not carry out. A reader relying on '09 --c3 says every condition holds' would believe the results are tied to the files on disk when they are tied to Lake's record of them.",
+     "proposed_text_or_fix": "Text: \"A result counts only for the content of the compiled file now on disk, as identified by the hash the build tool records beside it; a result recorded for other content does not count. The results that count must come from runs made after the build had finished, with no compiled file rebuilt or replaced between the first check and the last; the cloud run verifies this by hashing every compiled file before the checks and again after them.\" Then change the last sentence to: \"scripts/09_kernel_replay.sh --c3 runs (a) and (b) and reports each condition of (c) except the last, which is established by the hashes taken before and after the checks.\" Alternatively, make --c3 hash every compiled file before pass 1 and after pass 3, and fail if anything changed."
+    },
+    {
+     "title": "In facts.json, the main pass's exit status sits beside state DONE, and the verdict on amended C3 is buried in the summary",
+     "severity": "medium",
+     "where": "cloud/gcp/full_guest.sh: C3_RC is the exit status of the rhv-replay main pass; facts 'c3_kernel_replay.last_exit_status' = C3_RC; c3_summary is called without --require-c3; the run ends with finish DONE \"all phases ran\". all_hold is found only at c3_kernel_replay.summary.c3_as_amended_2026_11_21.all_hold.",
+     "problem": "Suppose rhv-replay covers the tree, but the listed leanchecker pass is cut off by its time limit (status 124) or skipped ('under two minutes were left'). facts.json then shows state DONE, last_exit_status 0 (nothing failed, rhv-replay complete), and all_hold false three levels down. The say line 'kernel replay: last exit status 0' says the same. Nowhere at the top of the file does it say whether amended C3 holds.",
+     "why_it_matters": "The amendment makes the listed pass and the prefix pass part of the criterion. A run that did not finish them must not be easy to read as having met C3, and 'last_exit_status: 0' with 'DONE' invites exactly that reading.",
+     "proposed_text_or_fix": "After the final c3_summary, run replay-summary once more with --check-list ... --require-c3, keep its status as C3_AMENDED_RC, and write top-level facts 'c3_as_amended_all_hold' (true or false) and 'c3_as_amended_exit_status' (0, 1 or 3). Rename 'last_exit_status' to 'main_pass_exit_status'. Change the final say line to report the amended status. When the listed pass or prefix pass was cut short or not run, make the finish message say \"criterion C3 as amended not complete: <reason>\" instead of only \"all phases ran\"."
+    },
+    {
+     "title": "The code adds a condition that clause (c) does not state: every source module compiled and nothing else",
+     "severity": "low",
+     "where": "Draft (c) lists: every compiled module passed (a); every listed and prefix module passed (b); no failure. Code: cond also has \"every_source_module_compiled_and_nothing_else\" (no source module uncompiled, no compiled module without source, no .olean.server/.olean.private files, no compiled file without a hash).",
+     "problem": "The code requires more than the text. Under the text alone, (a) holds vacuously for modules that were never compiled, and a partial build could formally satisfy C3. The code rightly refuses that, but the amendment is the definition and should say so.",
+     "why_it_matters": "The code should do what the amendment says, no more and no less. A reader comparing the two will find a condition the criterion does not contain.",
+     "proposed_text_or_fix": "Start (c) with: \"C3 holds if and only if every module of the source tree is compiled, nothing else is compiled, and every compiled file has the hash the build tool writes beside it; every compiled module has passed (a); ...\""
+    },
+    {
+     "title": "Description of how the list was drawn: the Python version and the sort order are not stated",
+     "severity": "low",
+     "where": "Draft (b): \"sorted, from which Python's random.Random(20261120).sample drew 2,000\"; rhv_tools.py cmd_replay_sample_list.",
+     "problem": "The code matches the text exactly: the names under src, minus prefix names, sorted(), random.Random(seed).sample(eligible, 2000), sorted() again, one name per line with a trailing newline. I reproduced the published file byte for byte (SHA-256 73647327...) from the module names in records/source/import_graph.json.gz (175,187 names, 114 prefixes, 175,073 eligible) with Python 3.14.6. However, Python guarantees only random() to be reproducible across versions, not sample(), and 'sorted' could be read as a locale order.",
+     "why_it_matters": "Anyone remaking the list later with a different Python could get a different list and wrongly conclude the published one was not drawn as stated.",
+     "proposed_text_or_fix": "Replace with: \"...whose name is not a prefix of another module's name, sorted by code point (Python's sorted), from which random.Random(20261120).sample(that list, 2000) of Python 3.14.6 drew 2,000, written sorted, one name per line.\" Name the Python version that was actually used, if it was not 3.14.6."
+    },
+    {
+     "title": "An error in the summary itself exits with status 1, the same as 'a module failed'",
+     "severity": "low",
+     "where": "rhv_tools.py cmd_replay_summary reads --check-list with open() and .decode('utf-8') and catches no error; 09_kernel_replay.sh and full_guest.sh treat 0, 1 and 3 as answers.",
+     "problem": "An unreadable list, a list that is not UTF-8, or any other exception makes Python exit with status 1. That reads as 'some module failed' (NOT VERIFIED), not as status 2, 'could not run'. With the pinned list this does not arise, but the exit statuses --require-c3 promises no longer mean what they say.",
+     "why_it_matters": "An exit status meant as a verdict should not be produced by a crash of the summary.",
+     "proposed_text_or_fix": "Wrap the body of cmd_replay_summary (or main's dispatch) in a handler that writes the error to stderr and returns 2, so that 09 and full_guest.sh map it to 'could not run'."
+    }
+   ],
+   "checked_and_found_right": [
+    "SHA-256 of scripts/verify/replay/RhvReplay.lean is 52c1984827f2c461ce4c7db782076a1d47cce8875657722556ae62d26a7bc3ef, and its replayFromImports text is 1,131 characters with SHA-256 4a1a5a15...7464, as the draft states.",
+    "SHA-256 of scripts/verify/c3_stock_sample.txt is 73647327c7ab3aa2e2aa5d8718dad9025d15b86d027a9f17fba235b7340f773d and matches C3_STOCK_SAMPLE_SHA256. The file has 2,000 unique names, sorted, with no blank, comment or CRLF lines and no prefix names among them.",
+    "Running the method of cmd_replay_sample_list on the names in records/source/import_graph.json.gz (175,187 modules; 114 prefix; 175,073 eligible) reproduces the published file byte for byte. The draft's 175,073 + 114 = 175,187 is consistent.",
+    "A passing result for an old compiled file (stamp differs from the current .hash) counts as stale and does not satisfy (a) or (b).",
+    "A listed module that is not compiled, or has no hash, is in 'without_a_passing_leanchecker_result', so the list condition fails.",
+    "Status 96 on a prefix module is treated as not run: the prefix condition fails, no failure is recorded, and the exit status is 3.",
+    "A recorded failure for a module whose .hash file has since gone stays under FAILED.",
+    "An empty list fails (bool(listed)), and a list other than the published one fails 'the_list_is_the_published_one'. RH_C3_LIST cannot make --c3 report every condition met unless the file is byte-identical to the published list.",
+    "--require-c3 exits 1 when anything has failed, 0 only when all_hold, and 3 otherwise, including when no list was given. In --c3, a pass that exits 1 or 3 lets the next pass run; only status 2 stops the run.",
+    "Every result line carries its stamp, and the summary compares it with the current .hash, so a module compiled again between passes voids that module's earlier lines.",
+    "full_guest.sh runs the listed pass with --list on the published file and the prefix pass with --prefix-modules, and c3_summary passes --check-list, so facts.json carries the c3_as_amended_2026_11_21 block (lists are cut to 50, the block is kept whole).",
+    "Both tools run with LEAN_ABORT_ON_PANIC=1, each listed module gets a leanchecker process of its own, and prefix modules are checked with -v and pass only if 'replaying <module>' appears, as clause (b) says."
+   ],
+   "recheck_of_these_findings": [
+    {
+     "title": "A later pass wipes out an earlier rejection or crash. C3 then holds although a tool failed the module",
+     "verdict": "partly",
+     "severity": "high",
+     "reason": "The mechanism is real. replay_state keeps only the last line for each (module, method) (rhv_tools.py:812), and every plan uses --retry-failed (09_kernel_replay.sh:193, 220). But the reviewer reads the draft wrongly. Section 4 as registered says a module fails only if it fails 'reproducibly, on a re-run', and the amendment applies that rule to both tools. So one failure followed by a passing re-run (F,P) is not a failure under the text, and the code agrees with the text there. The real loophole is a failure that does reproduce. I tested this in <SCRATCH>/skep.uNRg/ffp.tsv: two rhv-replay status-1 lines for the same stamp, then a pass. The summary gave FAILED 0, all of these hold: yes, and exit 0 with --require-c3. A failure reproduced on re-run therefore still yields VERIFIED. Nothing in the text or the code says how many re-runs there are. Even an F,P case, which is an anomaly for a deterministic kernel, leaves no trace in the summary. The reviewer's fix ('any failure, ever, is permanent') goes against the registered 'reproducibly' rule and should not be adopted as written.",
+     "fix": "Text, replacing the last clause of the section-4 paragraph: 'a module that a tool rejects, or crashes on, is run again once by the same tool on the same compiled file; if that run also rejects it or crashes, the module has failed C3, whatever any later run shows. Every rejection and crash is reported, including one that a re-run did not repeat.' Code: in replay_state, count the failing or crashing lines (status not 0 and not in NOT_RUN_STATUSES) per (module, method, stamp), not just the last line. Two or more go in `failed` regardless of later passes. Exactly one, followed by a pass, goes in a new list `failed_once_then_passed`, printed in the summary and written to the JSON. The planner should re-run a module that has exactly one failure and stop re-running it once it has two."
+    },
+    {
+     "title": "all_hold does not check that the rhv-replay passes came from the pinned program",
+     "verdict": "partly",
+     "severity": "medium",
+     "reason": "Confirmed in the code. cond (rhv_tools.py, cmd_replay_summary) never reads `programs`/replay_program.tsv. Result lines carry no program identity (kernel_check_batch.sh record()). 09 accepts any binary through RH_REPLAY_DRIVER and only logs a NOTE. And replay-driver-check checks the source in scripts/verify/replay, not the source that binary was built from. It is overstated as high for the verdict run, though. The cloud run starts with an empty results file, root builds one DRIVER in setup, and facts.json reports 'every_recorded_run_used_this_program' and 'unchanged_since_it_was_built'. The realistic gap is a results.tsv carried over between runs (for example on the Mac), where results from an earlier RhvReplay.lean still count because the stamps have not changed, and where `09 --c3` prints 'all of these hold: yes'. The draft's (a) defines rhv-replay as the program built from the file with SHA-256 52c19848... (that hash is correct), and the code does not enforce this.",
+     "fix": "Code: write the program's SHA-256 as a seventh column on every rhv-replay result line (kernel_check_batch.sh, from the SHA-256 that 09 already computes, exported as RH_REPLAY_DRIVER_SHA). In 09, write the SHA-256 of the checked source beside it in replay_program.tsv. Add cond 'every_rhv_replay_pass_is_by_a_program_built_from_the_pinned_source', true only if every rhv-replay line counted under (a) names a program that replay_program.tsv records as built from a source whose SHA-256 equals DRIVER_SHA256. Text, appended to (a): 'A result of rhv-replay counts only if the results record that it was produced by a program built from that file.'"
+    },
+    {
+     "title": "Damaged lines of the results file are dropped, and C3 can still hold",
+     "verdict": "partly",
+     "severity": "low",
+     "reason": "Confirmed in the code: `unreadable` is counted and printed, but no condition in cond depends on it. In practice the effect is small. A damaged line that is a module's only line leaves the module 'remaining', so all_hold is already false. A damaged failure line followed by a pass is the same latest-wins problem as finding 1. A pass followed by a damaged failure does not happen, because the planner never re-runs a module that has passed. Requiring a clean file is still cheap and closes the gap.",
+     "fix": "Add to cond: \"results_file_has_no_damaged_lines\": unreadable == 0. No change to the text is needed beyond the general rule; if wanted, add to (c): 'and the record of results has no incomplete line.'"
+    },
+    {
+     "title": "Status 97 on a prefix module counts as a failure, which the amendment's own rule does not allow",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "kernel_check_one.sh sets rc=97 when leanchecker exits 0 without printing 'replaying <mod>'. 97 is not in NOT_RUN_STATUSES (96, 129, 130, 137, 143), so replay_state counts it as 'failed'. I reproduced this in <SCRATCH>/skep.uNRg/p97.tsv: FAILED: Zp, no module failed by either tool: NO, exit status 1. Under section 5 that is a C3 failure (NOT VERIFIED) for a case in which nothing was rejected and nothing crashed, which the section-4 rule as amended says is not a failure. The error runs in the conservative direction, but the text and the code disagree.",
+     "fix": "Treat 97 as 'not covered' rather than as a failure: add 97 to NOT_RUN_STATUSES (or give it its own state that blocks all_hold without counting as failed), and document it in kernel_check_one.sh. Text, replacing the end of (b): '...passes only if leanchecker exits with status 0 and reports having replayed that module; if it exits with status 0 without reporting that module, the module has not been tested and is run again.'"
+    },
+    {
+     "title": "'If a module is compiled again, its earlier results are void' is stronger than what the code can tell",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "The 09 header (lines 38-45) says that a byte-identical recompile keeps its results, and that the stamp is read from Lake's .olean.hash, not recomputed. So the clause 'if a module is compiled again, its earlier results are void' is literally false for the code. A result is also not voided when one of the module's imports is replaced. `09 --c3` makes no check that nothing was rebuilt or replaced while the checks ran; only full_guest.sh does, by hashing every compiled file before and after (it fails the run otherwise). The draft's claim that --c3 'reports each condition of (c)' therefore overstates what --c3 checks.",
+     "fix": "Replace the last sentence of (c) with: 'A result counts only for the compiled file it was obtained on, identified by the hash the build tool records beside it; a result recorded for a file since replaced by other content does not count. The results that count come from runs made after the build had finished, with no compiled file rebuilt or replaced between the first check and the last; the cloud run establishes this by hashing every compiled file before the checks and again after them.' Then change the closing sentence to: '`scripts/09_kernel_replay.sh --c3` runs (a) and (b) and reports each condition of (c) except the last, which the hashes taken before and after the checks establish.'"
+    },
+    {
+     "title": "In facts.json, the main pass's exit status sits beside state DONE, and the verdict on amended C3 is buried in the summary",
+     "verdict": "partly",
+     "severity": "low",
+     "reason": "Accurate as a description: 'last_exit_status' is C3_RC from the main or 'again' rhv-replay pass, the say line reports only that status, and all_hold sits only at c3_kernel_replay.summary.c3_as_amended_2026_11_21.all_hold. But nothing is hidden or wrong. facts.json also records stock_tool_on_the_published_list_exit_status, stock_prefix_pass_exit_status and the reasons a pass was skipped. The finish message tells the reader to judge facts.json against section 5, and DONE means the phases ran, not that C3 holds. This is about clarity of reporting, not a way to get VERIFIED, and it touches no text of the amendment. A related point the reviewer missed: the 'again' passes retry only the rhv-replay method, so a listed or prefix module whose leanchecker was killed (not_run) is never retried in the cloud run, and amended C3 then stays incomplete.",
+     "fix": "After the last c3_summary, write top-level facts 'c3_as_amended_all_hold' (copied from the summary JSON) and rename 'last_exit_status' to 'rhv_replay_pass_exit_status'. In the final say line, report the amended all_hold. Optionally, retry not_run modules of the listed and prefix passes once, at fewer jobs, if time remains."
+    },
+    {
+     "title": "The code adds a condition that clause (c) does not state: every source module compiled and nothing else",
+     "verdict": "partly",
+     "severity": "low",
+     "reason": "True: cond includes every_source_module_compiled_and_nothing_else, which (c) does not state. But a partial build cannot reach VERIFIED, because C1, which stands unchanged, requires the whole tree to compile, and the verdict needs C1 and C3 together. The code is stricter than the text in a safe direction. Saying so in (c) is a clarity improvement only.",
+     "fix": "Optional: begin (c) with 'C3 holds if and only if every module of the source tree is compiled, nothing else is compiled, and every compiled file has the hash the build tool writes beside it; every compiled module has passed (a); ...'"
+    },
+    {
+     "title": "Description of how the list was drawn: the Python version and the sort order are not stated",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "I reproduced the published file's SHA-256 73647327... from records/source/import_graph.json.gz with Python 3.14.6: 175,187 names, 114 prefix modules, 175,073 eligible. The code matches the draft's description. Python guarantees reproducibility across versions only for random(), not for sample(). Because the draft already makes the file the definition, this cannot change what C3 requires; it affects only whether others can regenerate the list.",
+     "fix": "In (b), replace 'sorted, from which Python's `random.Random(20261120).sample` drew 2,000' with 'sorted by code point, from which `random.Random(20261120).sample(that list, 2000)` of Python 3.14.6 drew 2,000, written sorted, one name per line'."
+    },
+    {
+     "title": "An error in the summary itself exits with status 1, the same as 'a module failed'",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "main() has no exception handler around the dispatch, and cmd_replay_summary opens and decodes --check-list without catching errors. An uncaught Python exception exits with status 1. Both 09 (case 0|1|3) and full_guest.sh pass 1 through as 'a module failed'. The error points towards NOT VERIFIED, never towards VERIFIED, and does not arise with the pinned list, but the exit statuses no longer mean what they say.",
+     "fix": "Wrap the command dispatch in main() in try/except Exception: write the traceback to stderr and return 2, so that 09 and full_guest.sh map it to 'could not run'."
+    }
+   ]
+  },
+  {
+   "lens": "hostile-referee",
+   "findings": [
+    {
+     "title": "--c3 can report 'every condition holds' without checking that rhv-replay's passes came from the pinned program",
+     "severity": "high",
+     "where": "Draft (a) and the sentence \"`scripts/09_kernel_replay.sh --c3` runs (a) and (b) and reports each condition of (c)\"; code: rhv_tools.py cmd_replay_summary, the dict `cond` of c3_as_amended_2026_11_21; 09_kernel_replay.sh lines honouring RH_REPLAY_DRIVER",
+     "problem": "(a) defines rhv-replay as the program built with the pinned toolchain from RhvReplay.lean with SHA-256 52c19848... The six conditions the summary checks do not include that one. 09 accepts any program named by RH_REPLAY_DRIVER (it only logs a NOTE), the --c3 child passes inherit it, result rows carry no program id, and replay_program.tsv is shown for information only. Earlier review finding F19 is still only partly fixed.",
+     "evidence": "I copied prune-test into a mktemp directory and ran `RH_REPLAY_DRIVER=<a 4-line stand-in that prints REPLAY_START/REPLAY_OK for every name> RH_C3_LIST=<my list> 09_kernel_replay.sh --c3`. The summary printed 'yes' for every compiled module passed by rhv replay, every listed module, every prefix module and no module failed, and 'rhv-replay program used ... (supplied through RH REPLAY DRIVER)'. 'all of these hold' was NO only because my list was not the published one. On the real tree with the published list, the same stand-in would make every condition hold. The leanchecker sample would catch it only if a bad module happened to be on the list (1.1 percent for a single module).",
+     "why_it_matters": "Read with (a), the script's own verdict line would say C3 as amended holds when (a) was never carried out by the defined program. That is a way to report VERIFIED without the condition being met.",
+     "proposed_text_or_fix": "Code: add a seventh condition, `every_rhv_replay_result_from_the_program_built_from_the_pinned_source`. Write the program's SHA-256 in a seventh column of every rhv-replay result row, and require each passing row's program to be one recorded in replay_program.tsv with origin built_here_from_the_checked_source. In the cloud case, accept instead the SHA the guest's driver check recorded, passed in explicitly. Make --c3 refuse RH_REPLAY_DRIVER unless a test flag is set, and print that flag in the summary. Draft, add to (c): \"; and every result of (a) was produced by a program built, in the run that recorded it, from the file named in (a), as the summary records by the program's SHA-256 beside each result\"."
+    },
+    {
+     "title": "A rejection can be erased by a later pass or by recompiling the module; 'reproducibly' has no bound",
+     "severity": "high",
+     "where": "Draft (c): \"no module has been failed by either tool\" and \"if a module is compiled again, its earlier results are void\"; draft paragraph \"a module is recorded as failing only when a tool rejects it, or crashes on it, reproducibly\"; code: rhv_tools.py replay_state (`latest[(f[0], method)] = f`, and status() returning 'stale' before it looks at rc); 09 plan_args \"--retry-failed\"",
+     "problem": "The summary keeps only the last result per module and method. Every run of 09, including each --c3 pass and each loop of full_guest.sh, re-plans failed modules (--retry-failed). A rejection followed by one pass on the same compiled file therefore leaves nothing in FAILED and nothing in the report. A rejection on a file that is later compiled again becomes 'stale', also unreported. The draft makes this rule: earlier results, failures included, are void after a recompile, and 'reproducibly' is not bounded, so retrying until a pass is allowed.",
+     "evidence": "In my test tree I appended a leanchecker row with status 1 for Lib.B at its current stamp. The summary showed 'FAILED: Lib.B' and 'no module failed by either tool: NO'. I then appended a row with status 0 for the same stamp. The summary showed 'FAILED: 0' and 'no module failed by either tool: yes'. The kernel is deterministic (records/two-builds: two cloud builds identical to the byte), so a rejection that does not repeat is itself an anomaly a reader must be told about.",
+     "why_it_matters": "A referee will ask whether C3 could be passed by re-running until the tool said yes. As drafted, it could, and the record would not show it.",
+     "proposed_text_or_fix": "Draft, replace the last sentence of (c) with: \"A pass counts only for the compiled file it was obtained on: if a module is compiled again, its earlier passes are void. A rejection or crash is never void. A module that either tool has rejected or crashed on is replayed once more by the same tool on the same compiled file. If that second run also rejects it, the module fails C3. If the second run passes it, the module still fails C3 unless the other tool also passes it on that file, and both results are reported with the module's name. Every rejection or crash recorded at any time, including on a file since compiled again, is listed in the report.\" Code: keep every row rather than only the last one, count any rejection or crash at any stamp in a new `ever_rejected` list, and add `no_unreported_rejection` (empty, or each entry meeting the rule above) to the conditions."
+    },
+    {
+     "title": "The draft does not say why a way to keep leanchecker on every module was not taken",
+     "severity": "medium",
+     "where": "Draft \"Why.\" paragraph, from \"leanchecker, before it checks anything, lists every compiled file on its search path\" through \"The reason for the change is this cost.\"",
+     "problem": "The cost comes from how leanchecker is invoked, not from the tool itself. Section 4 already lets 'where files are stored' vary. If each check is given a search path that holds only the project files in the module's import closure (mean 3,086) plus the libraries (10,452), the listing drops to about 13,500 files. That is close to the 12,244 of the third rehearsal, where a check took 4.4 s, so roughly 7 hours for the tree with the registered binary. Paying for a longer run, or using a second machine, were also open: the 42-hour limit is a setting chosen in cloud/gcp/pilot_local.sh (MAXRUN=151200), and the difference is about 73 USD (118 against 45 in replay_cost.json). performance-notes section 10 'What does not solve it' rules out only prefix batching and many modules per process.",
+     "evidence": "On a copy of prune-test, `LEAN_PATH=<dir holding copies of only Lib/A.olean and Lib/B.olean> leanchecker -v Lib.B` printed 'replaying Lib.B' and exited 0. Symlinked files or a symlinked directory gave 'Could not find any oleans' (findAllWithExt does not follow them), so hard links or copies would be needed. The timing at scale is my projection from the fit, not a measurement.",
+     "why_it_matters": "The draft's sole stated reason is cost. A referee who finds a cheap route that keeps the registered criterion will read the amendment as avoidable, which is the goalpost charge.",
+     "proposed_text_or_fix": "Add after \"It is not a result of any replay: none had failed.\": \"Other ways of keeping `leanchecker` for every module were available and were not taken: a run of about 63 billed hours and 118 USD in place of about 24 hours and 45 USD, which needs a longer limit than the 42 hours this project set for a run; a second machine running `leanchecker` on the compiled files; or giving each `leanchecker` process a search path that holds only its module's imports, which is untested at scale and needs every file copied or hard-linked per check. They were not taken because [the owner's actual reason: for example, time to a result, or the untested link-farm machinery being itself new code in the path]. Any of them would carry out C3 as registered. The project does not claim that the amendment was the only way.\" The owner must fill in the bracket truthfully."
+    },
+    {
+     "title": "What the 2,000-module sample can and cannot detect is not stated",
+     "severity": "medium",
+     "where": "Draft (b) and \"What this gives up\" (\"that binary examines 2,000 modules chosen at random in advance\")",
+     "problem": "The draft never says what the sample is for or how strong it is. It checks the program, not the proof: a bad module that rhv-replay rejects already fails C3 through (a). The sample only catches the case where rhv-replay wrongly passes something leanchecker would reject, and only if that happens on enough modules. With 2,000 of 175,073 drawn without replacement, a defect that wrongly passes k modules is caught with probability 1.14 percent for k=1, 10.9 percent for k=10, 68 percent for k=100 and 95 percent for k=262 or more (0.15 percent of the tree). A defect confined to a few modules, to the deepest modules (the sample's maximum depth is 149 against 203 in the tree), or to modules with a particular content would almost never be caught.",
+     "evidence": "Computed exactly (hypergeometric) from N=175,073 and n=2,000. Depths were computed from records/source/import_graph.json.gz.",
+     "why_it_matters": "Without this, '2,000 of 175,073' reads either as a 1 percent re-check of the proof (wrong) or as arbitrary. A referee will compute these figures, and the amendment should state them first.",
+     "proposed_text_or_fix": "Add to \"What this gives up\": \"The second tool's pass tests the program, not the proof: a module that rhv-replay rejects fails C3 whatever the sample shows. The sample can only show rhv-replay passing a module that `leanchecker` rejects. If no module of the list shows that, a fault that would make rhv-replay wrongly pass 262 or more modules (0.15 percent of the tree) is ruled out at 95 percent confidence. Any single module has a 1.1 percent chance of being on the list. So a fault in rhv-replay that affects only a few modules, or only modules with some rare property, would most likely not be found by the sample. Against such a fault, C3 as amended rests on reading the program, not on the second tool.\""
+    },
+    {
+     "title": "Where the seed came from, that the list was drawn once, and what was already known about listed modules are not stated",
+     "severity": "medium",
+     "where": "Draft (b): \"from which Python's random.Random(20261120).sample drew 2,000\"",
+     "problem": "The list was drawn by the project, after every module name and some results were known. The draft gives no reason for the seed and no assurance that no other seed or procedure was tried. The seed 20261120 is the registration date, and it was already the sampling seed in the pilot script committed in 6488d27 (2026-11-20 16:34 -0600) and the default SEED in 09. The draft also does not say that 59 listed modules already had replay results in the records (about 49 expected by chance), or that the list matches the tree (mean import depth 45.8 against 46.7; mean direct imports 4.23 against 4.3).",
+     "evidence": "`git show 6488d27` has `random.seed(20261120)` in the pilot's check list. I regenerated the list exactly from records/source/import_graph.json.gz with the stated procedure ('regenerated list equals file: True', 175,073 eligible). 59 of the listed modules appear in mac-build/replay-method-comparison.tsv, the rehearsals' c3_results and the pilot's check_results.",
+     "why_it_matters": "An unexplained seed chosen after the data were visible invites the cherry-picking charge. These facts, stated, answer it, and anyone can check them.",
+     "proposed_text_or_fix": "Add after the list's definition: \"The seed is the date of registration, and is the seed this project used for its earlier samples (the pilot's, committed in 6488d27 on 2026-11-20). The list was drawn once, with this seed and this procedure; no other seed or procedure was tried. It can be made again without the source tree from `records/source/import_graph.json.gz`. When it was drawn, 59 of its modules had already been replayed in the runs listed below, all passing. Its modules sit as deep in the import graph as the tree's do (mean longest import chain 45.8 against 46.7). Choosing the list could only have helped a wrong verdict if the project had known which modules rhv-replay mishandles; none was known.\""
+    },
+    {
+     "title": "'The same source text' and 'those fifty lines outside the copied function' overstate, and the program is defined by one file of four",
+     "severity": "medium",
+     "where": "Draft \"What this gives up\": \"every other module is examined by a program built locally from about fifty lines of this repository and the toolchain's libraries. The function that does the examining is the same source text in both ... what is added to that list is the correctness of those fifty lines outside the copied function\"; draft (a): \"the program built ... from scripts/verify/replay/RhvReplay.lean ..., a file whose SHA-256 is 52c1...\"",
+     "problem": "(1) RhvReplay.lean has 57 lines of code: the 23-line copied function (lines 34-56) and a 28-line main (58-85). There are not fifty lines outside the function. (2) The function shares source text with leanchecker's but is compiled separately: by the pinned toolchain's compiler, on the run machine, by `lake build` from scripts/verify/replay/lakefile.toml (supportInterpreter = true), and linked there. leanchecker is the release build. What is shared is the compiled library code the function calls (Environment.replay and the kernel). (3) The build also reads lakefile.toml, lake-manifest.json and lean-toolchain, and none is pinned. A lakefile can add link arguments or compiler options that change the program while RhvReplay.lean's hash stays the same.",
+     "evidence": "`grep -n` on RhvReplay.lean: replayFromImports at line 34, main at 58, file 85 lines. rhv_tools.py replay-driver-check hashes only RhvReplay.lean. full_guest.sh line 438 copies lakefile.toml and lean-toolchain into /opt/rhv-replay unhashed. lakefile.toml SHA-256 is 099cb356e03c29d7bae060ed96adddeba210e8f351c95980f561f491630396c3.",
+     "why_it_matters": "The paragraph is the amendment's account of what trust is added. As drafted, one number in it is wrong and it leaves out the build, which a referee will spot.",
+     "proposed_text_or_fix": "Rewrite (a)'s definition: \"That is the program that `lake build`, from the pinned toolchain, makes from the directory `scripts/verify/replay` of this repository, whose files have the SHA-256s: RhvReplay.lean 52c19848...c3ef, lakefile.toml 099cb356...96c3, lake-manifest.json 604d6df0...cd6d, lean-toolchain 3aac669c...db71.\" Pin the three further hashes in rhv_tools.py and check them in replay-driver-check. Replace the sentences in \"What this gives up\" with: \"every other module is examined by a program of 57 lines, built on the run machine by the pinned toolchain: the 23 lines of `replayFromImports`, the same source text as in `leanchecker`, compiled separately; and a 28-line loop that calls it for each name and prints the result. The kernel and `Environment.replay`, which do the checking, are the toolchain's own compiled code in both. What is added to the trusted list is the correctness of that loop, of the build of the program from the files above, and of the scripts that record what it prints.\""
+    },
+    {
+     "title": "'What changes: only how C3 is carried out' is contradicted by the draft's own additions to sections 4 and 5",
+     "severity": "medium",
+     "where": "Draft \"What changes. Only how C3 is carried out. C1, C2, the rules of section 4 and the outcomes of section 5 stand as written.\" against the later paragraph \"The rule of section 4 ... applies to both tools ... If the replay cannot be completed with the resources available, C3 is neither met nor failed and the outcome is INCONCLUSIVE\"",
+     "problem": "Section 5's INCONCLUSIVE row covers only 'The build cannot be completed'. Section 4's rule on machine failures speaks of the compiler. The amendment extends both to the replay and adds a class 'could not open or find a compiled file' that is re-run. These are changes to sections 4 and 5, so the opening sentence is false as written.",
+     "evidence": "PREREGISTRATION.md section 5 table, last row; section 4 \"Distinguishing a failure of the proof from a failure of the machine\" names only the compiler process.",
+     "why_it_matters": "A referee looking for goalpost-moving will start from the claim that nothing else changed. A false 'only' undermines the rest of the amendment.",
+     "proposed_text_or_fix": "Replace with: \"**What changes.** How C3 is carried out (below). Also, two rules are extended to the replay: the rule of section 4 for telling a failure of the proof from a failure of the machine, and the INCONCLUSIVE outcome of section 5, which covers a replay that cannot be completed with the resources available as well as a build. C1, C2 and every other rule and outcome stand as written.\""
+    },
+    {
+     "title": "The stated reason gives hours but not the binding constraint, the price difference, or how thin the estimate is",
+     "severity": "medium",
+     "where": "Draft \"Why.\" paragraph: \"Carried to 175,187 modules that is 43 to 56 hours ... The reason for the change is this cost.\"",
+     "problem": "Hours matter only against a limit, and the draft does not say what the limit is (a 42-hour run limit the project set) or what the difference costs (about 118 against 45 USD expected; 136 at the high end). It also does not say, in the amendment itself, that the stock tool's figure is a line through two measurements, that rhv-replay's 6 hours come from one rehearsal on the first hundredth of the tree, and that neither tool has been timed on deep modules. Nor does it say what happens if a full run shows the premise wrong.",
+     "evidence": "records/cloud/replay_cost.json whole_run.by_method; cloud/gcp/pilot_local.sh MAXRUN=151200 ('Google deletes the VM at 42 h'); CLAIMS.md: 'M8 and M9 rest on two measurements and a straight line.'",
+     "why_it_matters": "'Cost' with no constraint or dollar figure looks like a pretext. Stating the actual numbers lets the reader judge whether the trade was reasonable.",
+     "proposed_text_or_fix": "Add after \"about 6 hours for the tree.\": \"On the project's estimate (records/cloud/replay_cost.json), a full run would take about 63 billed hours and 118 USD with `leanchecker` on every module (60 to 73 hours, up to 136 USD), against about 24 hours and 45 USD under this amendment. This project limits a cloud run to 42 hours. The stock tool's figure is a line through two measurements made with at most 29,633 modules compiled, and rhv-replay's rests on one rehearsal on the first hundredth of the tree; neither tool has been timed on the whole tree. If a full run shows that `leanchecker` would have fitted after all, the report will say so; the amendment is not withdrawn on that ground.\""
+    },
+    {
+     "title": "The draft does not say who wrote the criteria, the program and the amendment, or that the code implementing the amendment has not been reviewed",
+     "severity": "medium",
+     "where": "Draft, last bullet of \"What was known\": \"The program and the scripts around it had been reviewed twice by AI agents ... They had not been reviewed by a person.\"",
+     "problem": "(1) The criteria, this amendment, rhv-replay and the scripts that record and judge its results all come from the same project, and the reviews were by AI agents. The draft does not say the program was written by the same hands, or with AI help, which is what a referee means by independence. (2) The two review records cover the code of 2026-11-20. They do not cover the code added with this amendment: --c3, --check-list/--require-c3, the c3_as_amended conditions, replay-sample-list and the list. That code has the defects in the two high findings above.",
+     "evidence": "replay_method_review.json and replay_method_recheck.json are dated 2026-11-20 and describe the pre-amendment code. The --c3 changes are uncommitted (`git status`: M scripts/09_kernel_replay.sh, M scripts/verify/rhv_tools.py, ?? scripts/verify/c3_stock_sample.txt).",
+     "why_it_matters": "An amendment that loosens a criterion and is judged by code written alongside it, by the same party, is exactly what a hostile referee suspects. Saying so plainly is the answer.",
+     "proposed_text_or_fix": "Replace the bullet with: \"The criteria, this amendment, rhv-replay and the scripts that run both tools and judge their results were all written by this project, [with the help of AI coding agents — the owner to confirm]. No one outside the project has reviewed any of them. The program and the scripts as they stood on 2026-11-20 had been reviewed twice by AI agents (records/cloud/replay_method_review.json, replay_method_recheck.json) and tested with injected faults on a small project. The code added with this amendment (`--c3` and the conditions the summary reports) had been reviewed by AI agents only [the record, once made], and by no person.\""
+    },
+    {
+     "title": "How a VERIFIED reached under the amended C3 will be labelled, and what a later leanchecker failure does, is left open",
+     "severity": "medium",
+     "where": "Draft paragraph \"C3 as registered can still be carried out by anyone with the time ... If that is ever done, it will be reported beside the amended criterion.\"",
+     "problem": "(c) makes any failure by either tool fail C3. But the draft does not say that a failure found later, after a verdict, withdraws the verdict. It does not commit the report to saying that C3 was carried out as amended, or whether 'leanchecker alone on every module' holds. A reader could meet an unqualified VERIFIED.",
+     "evidence": "rhv_tools.py already computes complete_by_leanchecker_alone; the draft promises only to report it 'if that is ever done'.",
+     "why_it_matters": "The reader of a VERIFIED headline must be able to tell which C3 it rests on. A referee will also ask whether a later stock-tool failure is binding.",
+     "proposed_text_or_fix": "Add: \"Every report of the verdict will say that C3 was carried out as amended by this amendment, and whether `leanchecker` alone has passed every module (C3 as registered). If `leanchecker` or rhv-replay later rejects any module of the tree that the verdict rested on, C3 fails and a verdict of VERIFIED is withdrawn and reported as such.\""
+    },
+    {
+     "title": "The result is tied to the module's own compiled file, not to the files it imports; the amendment does not say so",
+     "severity": "low",
+     "where": "Draft (c): \"A result counts only for the compiled file it was obtained on\"",
+     "problem": "A limit documented in the header of 09_kernel_replay.sh and left open on purpose after review F-list says that a recorded result is tied to the module's own compiled file, not to its imports'. The amendment's condition reads as if the result were for the module as replayed.",
+     "evidence": "docs/performance-notes.md section 10: \"one, which is stated as a limit in the header of scripts/09_kernel_replay.sh: a recorded result is tied to the module's own compiled file, not to its imports'.\"",
+     "why_it_matters": "This is part of what C3 as amended means. Under section 4's no-change rule and the end-of-run hash check it is not a practical gap, but it should be stated where the criterion is.",
+     "proposed_text_or_fix": "Append to (c): \"A result is tied to the module's own compiled file; that the files it imports did not change after it was replayed is shown by the end-of-run check that every compiled file is as it was when the tree was sealed.\""
+    },
+    {
+     "title": "Some figures in 'What was known' lack a committed record or a precise definition",
+     "severity": "low",
+     "where": "Draft: \"On the first machine 57,205 of 175,187 modules had compiled\"; \"(1,131 characters, SHA-256 4a1a5a15...)\"",
+     "problem": "(1) No committed record gives 57,205: README and CLAIMS K4 give 23,981, and records/mac-build has no later snapshot. (2) The draft does not say which span is 1,131 characters. I confirmed it is the text from \"unsafe def replayFromImports\" through \"env'.freeRegions\" with one newline: 1,130 or 1,132 characters give other hashes. The code does not pin this hash; it compares against the installed file.",
+     "evidence": "My hash of LeanChecker.lean in the installed v4.33.1 toolchain: 1,131 characters gives 4a1a5a15...; 1,130 gives d5fd4cd4...; 1,132 gives 168f5a2a...",
+     "why_it_matters": "A figure in an amendment that cannot be edited should point to a record, and a hash should say exactly what it covers.",
+     "proposed_text_or_fix": "Commit a dated Mac progress snapshot with the 57,205 count and cite it: \"(records/mac-build/progress-20261121-HHMM.txt)\". Replace the parenthesis with: \"(the 1,131 characters from `unsafe def replayFromImports` through the line `env'.freeRegions` and its newline, SHA-256 4a1a5a15aa9296ca7fa05bc6fae5413962b27b718ab9acf1b50b6c461bbe7464 in v4.33.1)\"."
+    }
+   ],
+   "checked_and_found_right": [
+    "SHA-256 of RhvReplay.lean is 52c1984827f2c461ce4c7db782076a1d47cce8875657722556ae62d26a7bc3ef and matches DRIVER_SHA256; SHA-256 of c3_stock_sample.txt is 73647327...773d and matches C3_STOCK_SAMPLE_SHA256",
+    "The 2,000-module list regenerates exactly from records/source/import_graph.json.gz with the stated procedure (175,073 eligible = 175,187 - 114 prefix modules)",
+    "The copied replayFromImports in RhvReplay.lean is identical to the installed v4.33.1 LeanChecker.lean; 1,131 characters gives the hash stated",
+    "The prefix pass is feasible: the largest subtree beneath any of the 114 prefix modules is 119 modules, 1,701 in all",
+    "Prefix-mode pass requires rc 0 and a 'replaying <module>' line, as (b) says; listed modules are checked one process each",
+    "The summary requires the published list's hash, every source module compiled, every prefix module and every listed module passed by leanchecker on the current stamp, and disagreements counted as failures",
+    "Timing figures (4.4 s at 1,792, 8.5 s at 29,633, 3.1 s rhv-replay, 43/46/56 h) match replay_cost.json and performance-notes section 10; 180 = 30 + 150 dual-tool modules and 140 = 120 + 20 Mac rhv-replay modules are consistent with the records",
+    "The registered text is commit 39c6e1d, tagged prereg-v1"
+   ],
+   "recheck_of_these_findings": []
+  }
+ ]
+}

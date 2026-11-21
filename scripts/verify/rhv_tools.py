@@ -9,6 +9,9 @@ Subcommands
   axioms-summary   read the output of the axiom check and decide pass or fail (08)
   replay-plan      decide which compiled modules still need a kernel re-check (09)
   replay-summary   summarise kernel re-check results (09)
+  import-graph     read the import lines of every source file (09)
+  closure-worker   run the stock checker on a batch of modules, each with only its imports visible (09)
+  replay-driver-check   compare the second replay program's source with the toolchain's (09)
 
 Only the Python standard library is used. Python 3.6 or later.
 Nothing here writes outside the files named on its command line.
@@ -749,22 +752,87 @@ def lib_files(root, exts):
     return out
 
 
-# Exit statuses that say nothing about the module: 96 = the checker could not do its work (it could not be
-# started, or could not open or find a compiled file; kernel_check_one.sh and kernel_check_batch.sh), and four
-# signals that come from outside the checker: 129 (hang-up), 130 (interrupt), 137 (kill; typically the system's
-# out-of-memory killer) and 143 (terminate; typically a time limit). Any other non-zero status counts as a
-# failure; one of 128 or more is a checker that crashed by itself, which is reported apart from a module the
-# kernel rejected.
-NOT_RUN_STATUSES = (96, 129, 130, 137, 143)
+# Exit statuses that say nothing about the module, because no replay of it was completed:
+#   96   the checker could not do its work (it could not be started, or could not open or find a compiled file)
+#   97   the stock tool ended with status 0 without reporting that it replayed this module
+#   98   the stock tool replayed other modules in the same process (modules beneath this one that it imports)
+#        and rejected one of THEM; this module was not judged, and the rejected one has a check of its own
+#   129, 130, 137, 143   it was ended by a signal from outside: hang-up, interrupt, kill (typically the system's
+#        out-of-memory killer), terminate (typically a time limit)
+# Any other non-zero status is a REJECTION of the module by the tool (status 1) or a CRASH of the tool on it
+# (128 or more). Neither is ever replaced by a later result: see replay_state.
+NOT_RUN_STATUSES = (96, 97, 98, 129, 130, 137, 143)
 
-# The two ways a module can be replayed. Both run the same function of the pinned toolchain on the module
-# (replayFromImports in LeanChecker.lean); they differ in how the modules to check are chosen.
-#   leanchecker   the stock tool: one process per module, and one per prefix module with the modules beneath it
-#   rhv-replay    scripts/verify/replay: many exactly-named modules per process
+# The two programs that can replay a module. Both run the same function of the pinned toolchain on it
+# (replayFromImports in LeanChecker.lean).
+#   leanchecker   the stock tool shipped with the toolchain: the tool criterion C3 names
+#   rhv-replay    scripts/verify/replay: many exactly-named modules per process; an optional second replay
 REPLAY_METHODS = ("leanchecker", "rhv-replay")
+
+RERUNS_AFTER_A_REJECTION = 2      # how often a tool is run again on a module it has rejected, as evidence
+
+
+def prefix_names(names):
+    """The names that are a proper prefix of another name in the set, by the components between dots
+    (module A when module A.B exists; not A when only AB exists)."""
+    prefixes = set()
+    for n in names:
+        parts = n.split(".")
+        for i in range(1, len(parts)):
+            prefixes.add(".".join(parts[:i]))
+    return set(names) & prefixes
+
+
+def read_results(path):
+    """Every complete line of the results file, in the order written. Returns (rows, damaged).
+
+    A row is (module, status, stamp, epoch, method, program, how). Three shapes of line are complete: five
+    fields (written before the method was recorded: all leanchecker's), six (with the method), eight (with the
+    SHA-256 of the program that produced the line and how it was run). Anything else is damaged: a line cut
+    short by a full disk, two lines run together, a status that is not a number, a last line with no newline,
+    a line with a zero byte in it (what a file can end with after the machine went down in mid-write).
+    Damaged lines are counted, never credited to a tool, and block every "complete" below."""
+    rows, damaged = [], 0
+    if not os.path.isfile(path):
+        return rows, damaged
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            f = line.rstrip("\n").split("\t")
+            if f[0] == "module" or line.strip() == "":
+                continue
+            ok = line.endswith("\n") and "\x00" not in line and len(f) in (5, 6, 8) and (len(f) == 5 or f[5] in REPLAY_METHODS)
+            if ok:
+                try:
+                    rc = int(f[1])
+                except ValueError:
+                    ok = False
+            if not ok:
+                damaged += 1
+                continue
+            rows.append((f[0], rc, f[3], f[4], f[5] if len(f) > 5 else "leanchecker",
+                         f[6] if len(f) == 8 else "", f[7] if len(f) == 8 else ""))
+    return rows, damaged
 
 
 def replay_state(a):
+    """What is compiled, and what every recorded result says about it. Nothing recorded is ever set aside.
+
+    For each module and each tool, the results for the compiled file now on disk are kept in order:
+      P  the tool passed the module            R  the tool rejected the module, or crashed on it
+    (results that say nothing, NOT_RUN_STATUSES, only mark the module as still to be checked).
+    A module's state with one tool:
+      passed         at least one P and no R
+      rejected       one R; the tool is run on it again, RERUNS_AFTER_A_REJECTION times, as evidence
+      failed         two or more R: the rejection came back
+      not_run        only results that say nothing
+      not_judged     the last such result was the stock tool stopping at a rejected module beneath this one,
+                     which it replays in the same process when this module imports it
+      stale          results only for an earlier compiled file, none of them an R
+      no_stamp       the build tool never finished this file, so no result can be for "the file now on disk"
+    An R recorded for an EARLIER compiled file of the module is not forgotten when the module is compiled
+    again: it is reported, and like every other R it blocks "complete". The kernel is deterministic on a given
+    file, so an R that does not come back is a fault of the machine or of the tooling, and it is not for this
+    script to decide that it did not matter."""
     files = lib_files(a.lib, (".olean.server", ".olean.private", ".olean"))
     compiled = files[".olean"]
     # leanchecker replays a module's ".olean.private" part when one exists, while an importing file reads only
@@ -772,16 +840,10 @@ def replay_state(a):
     # part beside a compiled file is something the build did not write: it is reported and blocks "complete".
     extra_parts = sorted(set(files[".olean.server"]) | set(files[".olean.private"]))
     sources = lib_files(a.src, (".lean",))[".lean"] if a.src else {}
-    names = set(compiled) | set(sources)
-    # leanchecker checks every module whose name has its argument as a prefix. A module that is a proper prefix
-    # of another module's name can therefore not be checked on its own by the stock tool: it is checked in one
-    # process together with the compiled modules beneath it (the "prefix pass"). rhv-replay takes exact names.
-    prefixes = set()
-    for n in names:
-        parts = n.split(".")
-        for i in range(1, len(parts)):
-            prefixes.add(".".join(parts[:i]))
-    prefix_modules = sorted(set(compiled) & prefixes)
+    # leanchecker checks every module whose name has its argument as a prefix. With the whole library on its
+    # search path, a module that is a proper prefix of another module's name can therefore not be checked on
+    # its own. With only its import closure on the search path (the default here) it can.
+    prefix_modules = sorted(set(compiled) & prefix_names(set(compiled) | set(sources)))
 
     # The stamp of a compiled file is the content hash the build tool keeps beside it. A compiled file without
     # one was left by a compiler that the build tool never saw finish; no result can be current for it.
@@ -793,121 +855,150 @@ def replay_state(a):
         except OSError:
             stamps[mod] = None
 
-    latest = {}     # (module, method) -> the last result line
-    unreadable = 0  # lines that are neither a complete old line (five fields) nor a complete new one (six)
-    if os.path.isfile(a.results):
-        with open(a.results, encoding="utf-8", errors="replace") as fh:
-            for line in fh:
-                f = line.rstrip("\n").split("\t")
-                if f[0] == "module" or line.strip() == "":
-                    continue
-                if not line.endswith("\n"):         # a write cut short, at the very end of the file
-                    unreadable += 1
-                    continue
-                # Lines written before the method column existed have five fields and were all leanchecker's.
-                # Anything else that is not a complete six-field line (a line cut short by a full disk, two
-                # lines run together) is counted and ignored: it is never credited to either method.
-                if len(f) == 5:
-                    method = "leanchecker"
-                elif len(f) == 6 and f[5] in REPLAY_METHODS:
-                    method = f[5]
-                else:
-                    unreadable += 1
-                    continue
-                latest[(f[0], method)] = f
-
-    def status(mod, method):
-        """passed, failed, crashed, not_run, stale, no_stamp, or None if there is no result."""
-        r = latest.get((mod, method))
-        if r is None:
-            return None
-        try:
-            rc = int(r[1])
-        except ValueError:
-            rc = 1
-        if stamps[mod] is None:
-            # No hash beside the file: no result can be current for it. But a failure that was recorded for
-            # this module is not forgotten for that: it stays under FAILED until the module is checked again.
+    rows, damaged = read_results(a.results)
+    seq = {m: {} for m in REPLAY_METHODS}       # method -> module -> "PRP..." for the current file, in order
+    earlier = []                                # rejections and crashes recorded for an earlier compiled file
+    rejections = []                             # every R for the current file: (module, method, status, epoch, how)
+    other = {m: {} for m in REPLAY_METHODS}     # method -> module -> "not_run" | "not_judged" | "stale"
+    programs = {m: collections.Counter() for m in REPLAY_METHODS}   # method -> {program sha256: passes counted}
+    hows = {m: collections.Counter() for m in REPLAY_METHODS}       # method -> {how the tool was run: passes counted}
+    for mod, rc, stamp, epoch, method, program, how in rows:
+        if mod not in compiled:
             if rc != 0 and rc not in NOT_RUN_STATUSES:
-                return "crashed" if rc >= 128 else "failed"
-            return "no_stamp"
-        if r[3] != stamps[mod]:
-            return "stale"          # compiled again since it was checked
+                earlier.append((mod, method, rc, stamp, "the module is no longer compiled"))
+            continue
+        cur = stamps[mod]
+        if cur is None or stamp != cur:
+            if rc != 0 and rc not in NOT_RUN_STATUSES:
+                earlier.append((mod, method, rc, stamp, "an earlier compiled file" if cur else "a file the build tool had not finished"))
+            else:
+                other[method].setdefault(mod, "stale")
+            continue
         if rc == 0:
-            return "passed"
-        if rc in NOT_RUN_STATUSES:
-            return "not_run"
-        return "crashed" if rc >= 128 else "failed"
+            seq[method][mod] = seq[method].get(mod, "") + "P"
+            programs[method][program] += 1
+            hows[method][how or "not recorded"] += 1
+        elif rc == 98:
+            other[method][mod] = "not_judged"       # the tool stopped at another module replayed with this one
+        elif rc in NOT_RUN_STATUSES:
+            other[method][mod] = "not_run"
+        else:
+            seq[method][mod] = seq[method].get(mod, "") + "R"
+            rejections.append((mod, method, rc, epoch, how))
 
-    by = {m: {} for m in REPLAY_METHODS}        # method -> {module: status}
+    def state(mod, method):
+        if stamps[mod] is None:
+            return "no_stamp"
+        s = seq[method].get(mod, "")
+        if s.count("R") >= 2:
+            return "failed"
+        if "R" in s:
+            return "rejected"
+        if "P" in s:
+            return "passed"
+        return other[method].get(mod)           # not_run, not_judged, stale, or None
+
+    def reruns_owed(mod, method):
+        """How many more times the tool is to be run on a module it has rejected once."""
+        s = seq[method].get(mod, "")
+        if s.count("R") != 1:
+            return 0
+        return max(0, RERUNS_AFTER_A_REJECTION - (len(s) - s.index("R") - 1))
+
+    by = {m: {} for m in REPLAY_METHODS}
     for mod in compiled:
         for method in REPLAY_METHODS:
-            st = status(mod, method)
+            st = state(mod, method)
             if st:
                 by[method][mod] = st
-    passed, failed, crashed, remaining, disagree = [], [], [], [], []
+    earlier_mods = {e[0] for e in earlier}
+    passed, failed, rejected_once, remaining, disagree = [], [], [], [], []
     for mod in sorted(compiled):
         sts = [by[m].get(mod) for m in REPLAY_METHODS]
-        bad = [x for x in sts if x in ("failed", "crashed")]
-        if bad and "passed" in sts:
-            disagree.append(mod)
-        if bad:
+        if "failed" in sts:
             failed.append(mod)
-            if "failed" not in sts:
-                crashed.append(mod)
+        elif "rejected" in sts or mod in earlier_mods:
+            rejected_once.append(mod)
         elif "passed" in sts:
             passed.append(mod)
         else:
             remaining.append(mod)
+        if ("failed" in sts or "rejected" in sts) and "passed" in sts:
+            disagree.append(mod)
+    owed = {m: sorted(x for x in compiled if stamps[x] is not None and reruns_owed(x, m)) for m in REPLAY_METHODS}
+    # A module that was not judged because a module beneath it was rejected cannot be judged while that module
+    # stays failed: the tool would stop at the same place again. It is not planned again, and it is reported.
+    failed_by = {m: sorted(x for x, v in by[m].items() if v == "failed") for m in REPLAY_METHODS}
+    blocked = {}
+    for m in REPLAY_METHODS:
+        nj = [x for x, v in by[m].items() if v == "not_judged"]
+        blocked[m] = sorted(x for x in nj if any(f.startswith(x + ".") for f in failed_by[m]))
     return {"compiled": compiled, "sources": sources, "prefix_modules": prefix_modules, "extra_parts": extra_parts,
-            "stamps": stamps, "by": by, "passed": passed, "failed": failed, "crashed": crashed,
-            "remaining": remaining, "disagree": disagree, "unreadable": unreadable}
+            "stamps": stamps, "by": by, "passed": passed, "failed": failed, "rejected_once": rejected_once,
+            "remaining": remaining, "disagree": disagree, "damaged": damaged, "rejections": rejections,
+            "earlier": earlier, "owed": owed, "programs": programs, "hows": hows, "blocked": blocked}
 
 
 def cmd_replay_plan(a):
+    """Print what the chosen tool has still to do: modules it has no result for, and modules it has rejected
+    once and has not yet been run on again twice. A module it has passed, or failed, is not run again."""
     st = replay_state(a)
-    done_states = ("passed",) if a.retry_failed else ("passed", "failed", "crashed")
     mine = st["by"][a.method]
     has_stamp = {m for m, s in st["stamps"].items() if s is not None}
     prefix = set(st["prefix_modules"])
-    if a.prefix_modules:
-        # One line per prefix module still to check: module, stamp, and the word "prefix", which tells
-        # kernel_check_one.sh to keep the checker's list of the modules it replayed.
-        todo = [m for m in st["prefix_modules"] if m in has_stamp and mine.get(m) not in done_states]
-        for m in todo:
-            sys.stdout.write("%s\t%s\tprefix\n" % (m, st["stamps"][m]))
-        sys.stderr.write("prefix modules: %d compiled; %d already have a current result; %d to check now\n" % (
-            len(prefix), len(prefix) - len(todo), len(todo)))
-        return 0
-    # The stock tool cannot check a prefix module by itself; the other method names modules exactly.
-    eligible = sorted(m for m in has_stamp if a.method == "rhv-replay" or m not in prefix)
+    owed = set(st["owed"][a.method])
+    blocked = set(st["blocked"][a.method])
+    def wanted(m):
+        if a.only_reruns:               # only the evidence runs after a rejection, nothing new
+            return m in owed
+        return m in owed or (mine.get(m) in (None, "not_run", "not_judged", "stale") and m not in blocked)
+    listed = None
     if a.list:
         with open(a.list, encoding="utf-8") as fh:
-            wanted = [ln.strip() for ln in fh if ln.strip() and not ln.startswith("#")]
+            listed = [ln.strip() for ln in fh if ln.strip() and not ln.startswith("#")]
+    if a.prefix_modules:
+        # Whole-library mode only. One line per prefix module still to check: module, stamp, and the word
+        # "prefix", which tells kernel_check_one.sh to keep the checker's list of the modules it replayed.
+        # With a list, only the prefix modules it names.
+        mine_prefix = [m for m in st["prefix_modules"] if listed is None or m in set(listed)]
+        todo = [m for m in mine_prefix if m in has_stamp and wanted(m)]
+        for m in todo:
+            sys.stdout.write("%s\t%s\tprefix\n" % (m, st["stamps"][m]))
+        sys.stderr.write("prefix modules: %d compiled%s; %d to check now\n" % (
+            len(prefix), " (%d of them in the list)" % len(mine_prefix) if listed is not None else "", len(todo)))
+        return 0
+    # With the whole library on its search path the stock tool cannot check a prefix module by itself: those
+    # are left to the prefix pass.
+    eligible = sorted(m for m in has_stamp if a.all_modules or a.method == "rhv-replay" or m not in prefix)
+    if listed is not None:
         ok = set(eligible)
-        unknown = [m for m in wanted if m not in ok]
+        unknown = [m for m in listed if m not in has_stamp]
         if unknown:
-            sys.stderr.write("note: %d listed modules are not compiled, were never finished by the build, or cannot be checked singly by this method; skipped\n" % len(unknown))
-        pool = [m for m in wanted if m in ok]
+            sys.stderr.write("note: %d listed modules are not compiled, or were never finished by the build; skipped\n" % len(unknown))
+        later = [m for m in listed if m in has_stamp and m not in ok]
+        if later:
+            sys.stderr.write("note: %d listed modules are prefix modules; they are checked in the prefix pass\n" % len(later))
+        pool = [m for m in listed if m in ok]
     else:
         pool = eligible
     if a.sample and a.sample < len(pool):
         pool = sorted(random.Random(a.seed).sample(sorted(pool), a.sample))
-    todo = [m for m in pool if mine.get(m) not in done_states]
+    todo = [m for m in pool if wanted(m)]
     # A fixed shuffle, so that cheap and costly modules are mixed instead of arriving library by library.
     # The order has no bearing on the result: every module is replayed from its own imports.
     random.Random(a.seed).shuffle(todo)
     for m in todo:
         sys.stdout.write("%s\t%s\n" % (m, st["stamps"][m]))
-    sys.stderr.write("%s: selected %d modules; %d already have a current result by this method; %d to check now\n" % (
-        a.method, len(pool), len(pool) - len(todo), len(todo)))
+    again = len([m for m in todo if m in owed])
+    sys.stderr.write("%s: selected %d modules; %d to check now%s\n" % (
+        a.method, len(pool), len(todo), " (of which %d are being run again after a rejection)" % again if again else ""))
     return 0
 
 
 def cmd_replay_summary(a):
     st = replay_state(a)
     compiled, by = st["compiled"], st["by"]
-    passed, failed, crashed, remaining, disagree = st["passed"], st["failed"], st["crashed"], st["remaining"], st["disagree"]
+    passed, failed, rejected_once, remaining, disagree = st["passed"], st["failed"], st["rejected_once"], st["remaining"], st["disagree"]
     prefix = st["prefix_modules"]
     total_src = len(st["sources"])
     # Compared by name, not by count: a compiled file with no source must not stand in for a missing one.
@@ -915,48 +1006,72 @@ def cmd_replay_summary(a):
     no_source = sorted(set(compiled) - set(st["sources"])) if total_src else []
     extra_parts = st["extra_parts"]
     no_stamp = sorted(m for m, s in st["stamps"].items() if s is None)
-    # Which replay programs the rhv-replay runs used (09_kernel_replay.sh keeps the list beside the results).
-    programs = {}
-    plist = os.path.join(os.path.dirname(os.path.abspath(a.results)), "replay_program.tsv")
-    if os.path.isfile(plist) and not os.path.islink(plist):
-        with open(plist, encoding="utf-8", errors="replace") as fh:
-            for line in fh:
-                f = line.rstrip("\n").split("\t")
-                if len(f) >= 3 and line.endswith("\n"):
-                    programs[(f[1], f[2])] = programs.get((f[1], f[2]), 0) + 1
-    programs = [{"sha256": k[0], "origin": k[1], "runs": n} for k, n in sorted(programs.items())]
-    # What another run could still check: everything remaining except files the build tool never finished.
-    checkable_left = len([m for m in remaining if st["stamps"][m] is not None])
-    unreadable = st["unreadable"]
-    not_run = sorted(m for m in remaining if any(by[x].get(m) == "not_run" for x in REPLAY_METHODS))
+    damaged = st["damaged"]
+    not_judged = sorted(m for m in remaining if any(by[x].get(m) == "not_judged" for x in REPLAY_METHODS))
+    not_run = sorted(m for m in remaining if m not in set(not_judged) and any(by[x].get(m) == "not_run" for x in REPLAY_METHODS))
+    blocked_all = sorted(set(st["blocked"]["leanchecker"]) | set(st["blocked"]["rhv-replay"]))
+    # A crash in a process that also replayed modules beneath the one asked for may belong to one of those.
+    beneath = "import-closure-directory-holding-modules-beneath"
+    crash_unsure = sorted({r[0] for r in st["rejections"] if r[2] >= 128 and r[4] == beneath})
     stale = sorted(m for m in remaining if any(by[x].get(m) == "stale" for x in REPLAY_METHODS))
+    owed = sorted(set(st["owed"]["leanchecker"]) | set(st["owed"]["rhv-replay"]))
     n_pass = {x: sum(1 for v in by[x].values() if v == "passed") for x in REPLAY_METHODS}
     both = sum(1 for m in compiled if all(by[x].get(m) == "passed" for x in REPLAY_METHODS))
-    prefix_left = [m for m in prefix if m in set(remaining)]
-    # Complete: the sources are known, every one of them is compiled and was finished by the build tool,
-    # nothing else is compiled, and every compiled module has a passing result for the file now on disk.
+    # What another run could still do: check what has no result, and run again what was rejected once.
+    checkable_left = len([m for m in remaining if st["stamps"][m] is not None]) + len(owed)
+    # What the plan of each tool would still select from the whole tree (the same rule as cmd_replay_plan's).
+    owed_by = {x: set(st["owed"][x]) for x in REPLAY_METHODS}
+    blocked_by = {x: set(st["blocked"][x]) for x in REPLAY_METHODS}
+    to_check = {x: len([m for m in compiled if st["stamps"][m] is not None and
+                        (m in owed_by[x] or (by[x].get(m) in (None, "not_run", "not_judged", "stale") and m not in blocked_by[x]))])
+                for x in REPLAY_METHODS}
+    any_rejection = bool(st["rejections"] or st["earlier"])
     structure_ok = total_src > 0 and not not_compiled and not no_source and not extra_parts and not no_stamp
-    complete = structure_ok and not failed and not remaining
-    complete_by = {x: structure_ok and not failed and n_pass[x] == len(compiled) for x in REPLAY_METHODS}
+    # Complete: the sources are known; every one of them is compiled and was finished by the build tool; nothing
+    # else is compiled; every compiled module has been passed, for the file now on disk; no tool has rejected
+    # or crashed on any module, in any recorded run; and no line of the results file is damaged.
+    clean = structure_ok and not any_rejection and damaged == 0
+    complete = clean and not remaining and not rejected_once and not failed
+    complete_by = {x: clean and n_pass[x] == len(compiled) for x in REPLAY_METHODS}
+    # Criterion C3 of PREREGISTRATION.md: every compiled module is re-checked by leanchecker, and every one passes.
+    c3 = {"every_source_module_is_compiled_and_nothing_else_is": structure_ok,
+          "every_compiled_module_passed_by_leanchecker": bool(compiled) and n_pass["leanchecker"] == len(compiled),
+          "no_rejection_or_crash_recorded_by_any_tool": not any_rejection,
+          "the_results_file_has_no_damaged_lines": damaged == 0}
+    c3_holds = all(c3.values())
+    # The optional second replay: one program for every pass, and which.
+    progs = {x: [{"sha256": k or "not recorded", "passes": v} for k, v in sorted(st["programs"][x].items())] for x in REPLAY_METHODS}
+    trusted = a.trusted_program
+    rhv_ok = bool(compiled) and n_pass["rhv-replay"] == len(compiled)
+    rhv_one = len(st["programs"]["rhv-replay"]) == 1 and "" not in st["programs"]["rhv-replay"] and \
+        (not trusted or list(st["programs"]["rhv-replay"]) == [trusted])
     print("== Kernel re-check summary")
     if total_src:
         print("  source modules:                         %d" % total_src)
     print("  compiled modules:                       %d" % len(compiled))
-    print("    passed (result is for the current file): %d" % len(passed))
+    print("    passed (for the file now on disk, and never rejected): %d" % len(passed))
     print("      by leanchecker: %d   by rhv-replay: %d   by both: %d" % (n_pass["leanchecker"], n_pass["rhv-replay"], both))
-    print("    FAILED:                                 %d%s" % (len(failed), "  (of which the checker itself crashed: %d)" % len(crashed) if crashed else ""))
+    print("    FAILED (rejected or crashed on, and again when run again): %d" % len(failed))
+    print("    rejected or crashed on once (not a pass, whatever followed): %d%s" % (
+        len(rejected_once), "  (still to be run again: %d)" % len(owed) if owed else ""))
     print("    remaining (never checked, or recompiled since): %d  (of which recompiled since: %d)" % (len(remaining), len(stale)))
-    print("  prefix modules (name is a prefix of another module's name): %d, of which without a result: %d" % (len(prefix), len(prefix_left)))
+    if st["earlier"]:
+        print("  rejections recorded for an earlier compiled file of a module, or for a module no longer compiled: %d" % len(st["earlier"]))
     if disagree:
-        print("  THE TWO METHODS DISAGREE on %d modules (passed by one, failed by the other)" % len(disagree))
+        print("  THE TWO TOOLS DISAGREE on %d modules (passed by one, rejected by the other)" % len(disagree))
     if not_run:
-        print("  checker not run or killed from outside (counted as remaining, not as failed; run again, with fewer jobs): %d" % len(not_run))
+        print("  checker not run or ended from outside (counted as remaining, not as rejected; run again, with fewer jobs): %d" % len(not_run))
+    if not_judged:
+        print("  not judged: the stock tool stopped at a rejected module beneath it, replayed in the same process: %d" % len(not_judged))
+        print("    (of which cannot be judged while that module stays failed, and are not run again: %d)" % len(blocked_all))
+        for m in not_judged[:20]:
+            print("  not judged: " + m)
+    if crash_unsure:
+        print("  crashes in a process that also replayed modules beneath the one asked for (the crash may be theirs; see out/<module>.out): %d" % len(crash_unsure))
     if no_stamp:
         print("  compiled files the build tool never finished (no hash beside them; rebuild them): %d" % len(no_stamp))
-    if unreadable:
-        print("  lines of the results file that are not a complete result (ignored): %d" % unreadable)
-    for pr in programs:
-        print("  rhv-replay program used in %d run(s): sha256 %s (%s)" % (pr["runs"], pr["sha256"], pr["origin"].replace("_", " ")))
+    if damaged:
+        print("  DAMAGED lines in the results file (not a complete result; nothing is complete while there are any): %d" % damaged)
     if extra_parts:
         print("  modules with an .olean.server or .olean.private file the build should not have written: %d" % len(extra_parts))
     if not_compiled:
@@ -964,34 +1079,227 @@ def cmd_replay_summary(a):
     if no_source:
         print("  compiled modules with no source file: %d" % len(no_source))
     for m in failed[:50]:
-        print("  FAILED: " + m + ("  (checker crashed)" if m in set(crashed) else ""))
-    if len(failed) > 50:
-        print("  ... and %d more" % (len(failed) - 50))
+        print("  FAILED: " + m)
+    for m in rejected_once[:50]:
+        print("  rejected once: " + m)
+    if len(failed) + len(rejected_once) > 100:
+        print("  ... and more; summary.json has the lists")
     print("  every source module compiled and passing: %s" % ("yes" if complete else "no"))
+    print("  criterion C3 (every compiled module re-checked by leanchecker, and every one passes):")
+    for k, v in c3.items():
+        print("    %-58s %s" % (k.replace("_", " ") + ":", "yes" if v else "NO"))
+    print("    all of these hold: %s" % ("yes" if c3_holds else "NO"))
+    if n_pass["rhv-replay"]:
+        print("  second replay, by rhv-replay: every compiled module passed: %s; every pass by one recorded program: %s" % (
+            "yes" if rhv_ok else "no", "yes" if rhv_one else "NO"))
     if a.json:
+        def rej(rows):
+            return [{"module": r[0], "tool": r[1], "status": r[2], "what": "crash" if r[2] >= 128 else "rejection"} for r in rows[:200]]
         write_json(a.json, {
             "check": "kernel replay of each compiled module from its imports (replayFromImports of the pinned toolchain)",
             "run_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "source_modules": total_src, "compiled_modules": len(compiled),
             "passed": len(passed), "passed_by_leanchecker": n_pass["leanchecker"], "passed_by_rhv_replay": n_pass["rhv-replay"],
             "passed_by_both": both,
-            "failed": len(failed), "failed_modules": failed, "checker_crashed": len(crashed), "crashed_modules": crashed[:200],
-            "methods_disagree": len(disagree), "disagreeing_modules": disagree[:200],
+            "failed": len(failed), "failed_modules": failed[:200],
+            "rejected_once": len(rejected_once), "rejected_once_modules": rejected_once[:200],
+            "rejections_and_crashes_recorded_for_the_current_files": len(st["rejections"]), "rejections_sample": rej(st["rejections"]),
+            "rejections_recorded_for_earlier_files": [{"module": e[0], "tool": e[1], "status": e[2], "about": e[4]} for e in st["earlier"][:200]],
+            "tools_disagree": len(disagree), "disagreeing_modules": disagree[:200],
             "remaining": len(remaining), "remaining_that_another_run_could_check": checkable_left,
-            "recompiled_since_checked": len(stale), "result_lines_ignored_as_incomplete": unreadable,
-            "rhv_replay_programs_used": programs,
-            "not_run_or_killed": len(not_run), "not_run_or_killed_modules": not_run[:200],
-            "prefix_modules": prefix, "prefix_remaining": len(prefix_left),
+            "still_to_be_run_again_after_a_rejection": len(owed),
+            "leanchecker_still_to_check": to_check["leanchecker"], "rhv_replay_still_to_check": to_check["rhv-replay"],
+            "leanchecker_passes_by_how_it_was_run": dict(sorted(st["hows"]["leanchecker"].items())),
+            "recompiled_since_checked": len(stale), "damaged_result_lines": damaged,
+            "not_run_or_ended_from_outside": len(not_run), "not_run_sample": not_run[:200],
+            "not_judged_because_a_module_beneath_was_rejected": len(not_judged), "not_judged_sample": not_judged[:200],
+            "not_judged_and_not_run_again_while_that_module_stays_failed": len(blocked_all),
+            "crash_may_belong_to_a_module_beneath": crash_unsure[:200],
+            "prefix_modules": len(prefix),
             "compiled_files_never_finished_by_the_build": len(no_stamp), "never_finished_sample": no_stamp[:50],
             "modules_with_unexpected_parts": len(extra_parts), "unexpected_parts_sample": extra_parts[:50],
             "source_modules_not_compiled": len(not_compiled), "not_compiled_sample": not_compiled[:50],
             "compiled_modules_without_source": len(no_source), "without_source_sample": no_source[:50],
+            "programs_that_produced_the_passes": progs,
             "complete": complete, "complete_by_leanchecker_alone": complete_by["leanchecker"],
             "complete_by_rhv_replay_alone": complete_by["rhv-replay"],
+            "criterion_c3": {"conditions": c3, "all_hold": c3_holds},
+            "second_replay_by_rhv_replay": {"every_compiled_module_passed": rhv_ok, "every_pass_by_one_recorded_program": rhv_one,
+                                            "program_expected": trusted or None},
         })
-    if failed:
+    if failed or rejected_once or st["earlier"]:
         return 1
-    return 3 if a.require_complete and not complete else 0
+    if damaged:
+        return 3            # a damaged line may be what is left of a rejection: never "nothing rejected"
+    if a.require_c3:
+        return 0 if c3_holds else 3
+    # A run of one tool over everything is complete when THAT tool has passed every module.
+    return 3 if a.require_complete and not complete_by[a.method] else 0
+
+
+# ---- the import graph, and directories that hold one module's import closure ----------------------------------
+
+def read_imports(path):
+    """The modules a Lean source file imports: the `import` lines of its header."""
+    out, depth = [], 0
+    try:
+        fh = open(path, encoding="utf-8", errors="replace")
+    except OSError:
+        return out
+    with fh:
+        for line in fh:
+            s = line.strip()
+            if depth:                                   # inside a block comment
+                depth += s.count("/-") - s.count("-/")
+                depth = max(depth, 0)
+                continue
+            if not s or s.startswith("--"):
+                continue
+            if s.startswith("/-"):
+                depth = s.count("/-") - s.count("-/")
+                depth = max(depth, 0)
+                continue
+            words = s.split()
+            while words and words[0] in ("public", "meta", "private"):
+                words = words[1:]
+            if words and words[0] == "import":
+                out.extend(w for w in words[1:] if w not in ("all", "runtime", "public", "meta"))
+            elif words and words[0] in ("module", "prelude"):
+                continue
+            else:
+                break                                   # the header is over
+    return out
+
+
+def source_fingerprint(sources):
+    """A digest of the source files' names, sizes and modification times: cheap to compute, and different
+    whenever a source file was added, removed or rewritten."""
+    h = hashlib.sha256()
+    for n in sorted(sources):
+        try:
+            st = os.stat(sources[n])
+            h.update(("%s\t%d\t%d\n" % (n, st.st_size, st.st_mtime_ns)).encode("utf-8"))
+        except OSError:
+            h.update(("%s\tmissing\n" % n).encode("utf-8"))
+    return h.hexdigest()
+
+
+def cmd_import_graph(a):
+    """Write the project's import graph: its modules, and for each the project modules it imports directly.
+
+    With --if-stale the graph is read again only when the source tree is not the one the existing file was
+    made from (by the names, sizes and modification times of the source files). A graph older than the
+    sources cannot make a module pass, but it would leave changed modules "not checked" for ever."""
+    sources = lib_files(a.src, (".lean",))[".lean"]
+    fp = source_fingerprint(sources)
+    if a.if_stale and os.path.isfile(a.out):
+        try:
+            with open(a.out, encoding="utf-8") as fh:
+                if json.load(fh).get("source_fingerprint") == fp:
+                    return 0
+        except (OSError, ValueError, AttributeError):
+            pass                                        # unreadable or damaged: make it again
+        sys.stderr.write("import graph: the source tree is not the one the stored graph was read from; reading it again\n")
+    names = sorted(sources)
+    index = {n: i for i, n in enumerate(names)}
+    imports = [sorted({index[x] for x in read_imports(sources[n]) if x in index}) for n in names]
+    with open(a.out + ".tmp", "w", encoding="utf-8") as fh:
+        json.dump({"what": "the project's modules and, for each, the positions of the project modules it imports directly",
+                   "source_fingerprint": fp,
+                   "source_fingerprint_is": "SHA-256 over the sorted lines 'module<TAB>size<TAB>modification time in ns' of the source files",
+                   "modules": names, "imports": imports}, fh)
+    os.replace(a.out + ".tmp", a.out)
+    sys.stderr.write("import graph: %d modules, %d import edges\n" % (len(names), sum(len(x) for x in imports)))
+    return 0
+
+
+def cmd_closure_worker(a):
+    """Check a batch of modules with the stock tool, each with only its import closure on the search path.
+
+    For each module a directory is made that holds hard links to the compiled files of the module and of every
+    project module it imports, directly or not, and nothing else of the project. kernel_check_one.sh then runs
+    leanchecker with that directory in place of the project's library directory, and the directory is removed.
+    leanchecker lists every compiled file on its search path before it checks anything; this keeps that list to
+    what the module needs. The files are the same files (hard links), so what the kernel is shown is unchanged.
+    If the closure is computed too small, the tool reports a missing file and the module is recorded as not
+    checked; it cannot make a module pass."""
+    import shutil
+    import subprocess
+    import tempfile
+    with open(a.graph, encoding="utf-8") as fh:
+        g = json.load(fh)
+    names, imports = g["modules"], g["imports"]
+    index = {n: i for i, n in enumerate(names)}
+    with open(a.batch, encoding="utf-8") as fh:
+        todo = [ln.rstrip("\n").split("\t") for ln in fh if ln.strip()]
+    warned = unknown = False
+
+    def stamp_now(rel):
+        try:
+            with open(os.path.join(a.lib, rel) + ".hash", encoding="ascii", errors="replace") as fh:
+                return fh.read().strip() or None
+        except OSError:
+            return None
+
+    for item in todo:
+        mod, stamp = item[0], (item[1] if len(item) > 1 else "nohash")
+        if mod not in index and not unknown:
+            sys.stderr.write("closure-worker: %s is not in the import graph, which is then older than the source tree; "
+                             "only its own compiled file is made visible\n" % mod)
+            unknown = True
+        seen = set()
+        stack = [index[mod]] if mod in index else []
+        while stack:
+            i = stack.pop()
+            if i in seen:
+                continue
+            seen.add(i)
+            stack.extend(j for j in imports[i] if j not in seen)
+        own = mod.replace(".", os.sep) + ".olean"
+        rels = [names[i].replace(".", os.sep) + ".olean" for i in seen] or [own]
+        farm = tempfile.mkdtemp(prefix="closure.", dir=a.dir_base)
+        made = set()
+        for rel in rels:
+            dst = os.path.join(farm, rel)
+            d = os.path.dirname(dst)
+            if d not in made:
+                os.makedirs(d, exist_ok=True)
+                made.add(d)
+            try:
+                os.link(os.path.join(a.lib, rel), dst)
+            except FileNotFoundError:
+                continue                # not compiled: the tool will say which file it missed
+            except OSError as ex:
+                if not warned:
+                    sys.stderr.write("closure-worker: cannot link compiled files into %s: %s\n" % (a.dir_base, ex))
+                    warned = True
+                break
+            # The further parts of a module compiled with the module system. The tool replays the most private
+            # part it finds beside the file, so they must be beside the link too. (This project has none, and
+            # the summary reports any as a fault of the build; the link is here so that the tool is never shown
+            # less of a module than it would be shown in the library directory.)
+            for part in (".server", ".private"):
+                try:
+                    os.link(os.path.join(a.lib, rel) + part, dst + part)
+                except OSError:
+                    pass
+        # The result will be recorded for the stamp the plan read. It must still be the stamp of the file at
+        # the module's path, and that file must be the one linked: a compiled file replaced since the plan was
+        # made is not checked under the old stamp.
+        # The tool replays every module on its search path whose name begins with the name it is given: when the
+        # module imports modules beneath itself, they are replayed in the same process, and the record says so.
+        kind = "closure-beneath" if any(names[i].startswith(mod + ".") for i in seen) else "closure"
+        try:
+            same_file = os.path.samefile(os.path.join(a.lib, own), os.path.join(farm, own))
+        except OSError:
+            same_file = True            # no file to compare: the tool will report the missing file
+        if stamp_now(own) != stamp or not same_file:
+            kind = "changed"
+        env = dict(os.environ)
+        env["RH_LEAN_PATH"] = farm + (":" + a.packages if a.packages else "")
+        subprocess.call([a.check_one, mod, stamp, kind], env=env)
+        shutil.rmtree(farm, ignore_errors=True)
+    return 0
 
 
 # The SHA-256 of scripts/verify/replay/RhvReplay.lean as reviewed. replay-driver-check refuses any other file:
@@ -1123,11 +1431,29 @@ def main():
         p.add_argument("--sample", type=int, default=0)
         p.add_argument("--seed", type=int, default=20261120)
         p.add_argument("--list", default="")
-        p.add_argument("--retry-failed", action="store_true")
         p.add_argument("--prefix-modules", action="store_true")
+        p.add_argument("--all-modules", action="store_true", help="plan prefix modules like any other (import-closure directories)")
+        p.add_argument("--only-reruns", action="store_true", help="plan only modules the tool rejected once and has not yet been run on again twice")
         p.add_argument("--require-complete", action="store_true")
+        p.add_argument("--require-c3", action="store_true")
         p.add_argument("--method", default="leanchecker", choices=list(REPLAY_METHODS))
+        p.add_argument("--trusted-program", default="", help="SHA-256 of the one rhv-replay program whose passes are expected")
         p.set_defaults(fn=fn)
+
+    p = sub.add_parser("import-graph")
+    p.add_argument("--src", required=True)
+    p.add_argument("--out", required=True)
+    p.add_argument("--if-stale", action="store_true", help="keep the existing file if it was made from this source tree")
+    p.set_defaults(fn=cmd_import_graph)
+
+    p = sub.add_parser("closure-worker")
+    p.add_argument("--graph", required=True)
+    p.add_argument("--lib", required=True)
+    p.add_argument("--dir-base", required=True)
+    p.add_argument("--packages", default="")
+    p.add_argument("--check-one", required=True)
+    p.add_argument("--batch", required=True)
+    p.set_defaults(fn=cmd_closure_worker)
 
     p = sub.add_parser("replay-driver-check")
     p.add_argument("--driver-src", required=True)

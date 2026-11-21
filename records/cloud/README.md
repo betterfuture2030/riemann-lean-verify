@@ -33,6 +33,12 @@ This is a dated snapshot, not a quotation. Cloud prices, Spot prices in particul
 | `full_run_driver_review.json` | Four AI reviews of the first draft of the full-run driver, made before it had been run. Criticism of code, not a result |
 | `full_run_driver_recheck.json` | Two AI reviews of the driver as rewritten after the first four, also before it had been run |
 | `full-rehearsals/` | Records of each rehearsal of the full-run driver; see its README |
+| `replay_cost.json` | Output of `analysis/replay_cost.py`: the cost of one kernel check as measured at two sizes of tree, the line through them, and what a replay of the whole tree and a whole run are then estimated to cost by three ways of running it. The two ways that are not the first are projections |
+| `replay_method_review.json` | First AI review of the second replay program `rhv-replay` and the scripts around it: five lenses, each re-checked by a second agent. Criticism of code, not a result |
+| `replay_method_recheck.json` | Second AI review of the same, after the changes the first led to: four areas, each re-checked |
+| `closure_replay_review.json` | AI review, four lenses each re-checked by a sceptic, of the kernel replay as it now runs: `leanchecker` on every module with only the module's import closure on its search path, the keeping of results, and the cloud driver's replay phase. 21 findings. Criticism of code, not a result |
+| `closure_replay_recheck.json` | Second look at the same after the changes the review led to: three areas, each re-checked by a sceptic, with what was done about each point that was upheld |
+| `c3_amendment_draft_review.json` | AI review, four lenses, of a draft amendment to the pre-registration that would have replaced `leanchecker` by `rhv-replay` for most modules. **The amendment was not made**; the file says why, and includes the draft as reviewed so that the findings can be read against it. The draft has no force |
 | `gcp_machine_types.csv` | 1,877 rows, no header: machine type, zone, vCPUs, memory in GB. It lists the 168 machine types with at least 96 vCPUs across 19 zones in `us-central1`, `us-east1`, `us-east4`, `us-east5`, `us-south1` and `us-west1`, as offered on 2026-11-20 |
 
 Where the reviews mention current quota values, such as a limit of 32 vCPUs across all regions, they describe the Google Cloud project that was used for this work on that date. Your project's limits will differ; check them in the console.

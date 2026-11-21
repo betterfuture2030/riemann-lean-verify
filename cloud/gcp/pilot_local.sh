@@ -8,16 +8,9 @@
 #                        pilot            the calibration pilot: about 3 hours (pilot_guest.sh)
 #                        full-rehearsal   the phases of the full run on a seven-minute build: about 20 minutes
 #                        full             the whole tree: build, axiom checks, kernel replay (full_guest.sh;
-#                                         docs/cloud-notes.md sections 8 and 9). How long depends on how the
-#                                         kernel replay covers the tree, GCP_REPLAY_METHOD in config.env:
-#                                           leanchecker  the default and the method PREREGISTRATION.md names.
-#                                                        An estimated 63 hours, which does NOT fit the 42-hour
-#                                                        limit: the run builds, runs the axiom checks, finds
-#                                                        that the replay cannot cover the tree, gives it one
-#                                                        hour and ends without a result for criterion C3
-#                                                        (about 20 hours).
-#                                           rhv-replay   an estimated 24 hours. Counts towards criterion C3
-#                                                        only under a dated amendment to PREREGISTRATION.md.
+#                                         docs/cloud-notes.md sections 8 and 9). An estimated 26 hours;
+#                                         with GCP_SECOND_REPLAY=rhv-replay, a second replay of every module
+#                                         by another program, about 6 hours more.
 #   watch              follow the run through the bucket, then delete the VM and its disks
 #   teardown           delete every VM and disk in the project, verify that nothing billable is left, close the ledger
 #   ledger             show recorded machine-time and estimated spend against the cap
@@ -47,13 +40,11 @@ ZONES=${GCP_ZONES:-us-central1-a us-central1-b us-central1-c us-central1-f}
 MT=${GCP_MACHINE_TYPE:-n4d-highmem-32}
 RATE=${GCP_RATE_USD_PER_HOUR:-2.00}      # machine plus disks, rounded up; used for the ledger and the cap check
 CAP_USD=${GCP_SPEND_CAP_USD:-40}
-# How a full run covers the tree in the kernel replay: leanchecker (the stock tool, one process a module), or
-# rhv-replay (scripts/verify/replay, with the stock tool on a random sample of GCP_STOCK_SAMPLE modules and on
-# every prefix module afterwards). See docs/performance-notes.md, section 10.
-REPLAY_METHOD=${GCP_REPLAY_METHOD:-leanchecker}
-STOCK_SAMPLE=${GCP_STOCK_SAMPLE:-2000}
-case "$REPLAY_METHOD" in leanchecker|rhv-replay) ;; *) die "GCP_REPLAY_METHOD must be leanchecker or rhv-replay" ;; esac
-case "$STOCK_SAMPLE" in ''|*[!0-9]*) die "GCP_STOCK_SAMPLE must be a number" ;; esac
+# The kernel replay of a full run is leanchecker on every module (criterion C3). GCP_SECOND_REPLAY=rhv-replay
+# adds a second replay of every module by the program in scripts/verify/replay, about six hours more, which is
+# not part of the criterion. See docs/performance-notes.md, section 10.
+SECOND_REPLAY=${GCP_SECOND_REPLAY:-}
+case "$SECOND_REPLAY" in ''|rhv-replay) ;; *) die "GCP_SECOND_REPLAY must be empty or rhv-replay" ;; esac
 HERE=$REPO_ROOT/cloud/gcp
 SELF="$HERE/pilot_local.sh"
 OUT=$RH_AN/pilot
@@ -132,7 +123,7 @@ launch)
     if [ "$MODE" = full ]; then
       DEADLINE_MIN=2460; MAXRUN=151200  # the guest stops by 41 h; Google deletes the VM at 42 h whatever happens
       DATA="name=$NAME-data,device-name=pilot-data,type=hyperdisk-balanced,size=440GB,provisioned-iops=6000,provisioned-throughput=300,auto-delete=yes"
-      MD="pilot-nmax=32,full-timebox=0,full-prune-after=3000,full-keep-oleans=${GCP_KEEP_OLEANS:-0},full-replay-method=$REPLAY_METHOD,full-stock-sample=$STOCK_SAMPLE"
+      MD="pilot-nmax=32,full-timebox=0,full-prune-after=3000,full-keep-oleans=${GCP_KEEP_OLEANS:-0},full-second-replay=$SECOND_REPLAY"
     else
       # full-rehearsal: about 35 minutes are expected. The guest stops by 55 min, its watchdog takes over 13 min
       # later at the latest (5 min, and 8 more if the report had begun), and Google deletes the VM at 75 min. The build is boxed at seven minutes, not counting
@@ -140,7 +131,7 @@ launch)
       # asked for, so that those paths are exercised on a small tree.
       DEADLINE_MIN=55; MAXRUN=4500
       DATA="name=$NAME-data,device-name=pilot-data,type=hyperdisk-balanced,size=100GB,auto-delete=yes"
-      MD="pilot-nmax=32,full-timebox=420,full-prune-after=300,full-prune-every=120,full-c2-timeout=900,full-check-trial=16 32,full-check-trial-secs=90,full-final-reserve=300,full-watchdog-wait=300,full-watchdog-finish-wait=480,full-keep-oleans=1,full-keep-min-left=420,full-replay-method=$REPLAY_METHOD,full-stock-sample=150,full-prefix-allow=180,full-c3-short-cap=300"
+      MD="pilot-nmax=32,full-timebox=420,full-prune-after=300,full-prune-every=120,full-c2-timeout=900,full-check-trial=16 32,full-check-trial-secs=90,full-final-reserve=300,full-watchdog-wait=300,full-watchdog-finish-wait=480,full-keep-oleans=1,full-keep-min-left=420,full-second-replay=rhv-replay,full-c3-short-cap=300"
     fi
     XMD="full-tools-sha=$TSHA,full-tools-commit=$TCOMMIT,full-guest-sha=$(sha256_of "$GUEST_FILE")"
   elif [ "$MODE" = pilot ]; then
@@ -160,12 +151,7 @@ launch)
   WORST=$(echo "scale=2; $RATE * $MAXRUN / 3600" | bc); SP=$(spent)
   [ "$(echo "$SP + $WORST > $CAP_USD" | bc)" = 0 ] || die "REFUSED: spent \$$SP + worst case \$$WORST would exceed the \$$CAP_USD cap"
   echo "launching $NAME ($MT): worst case \$$WORST, recorded spend so far \$$SP of \$$CAP_USD"
-  case "$MODE" in full*) echo "kernel replay of the whole tree by: $REPLAY_METHOD" ;; esac
-  if [ "$MODE" = full ] && [ "$REPLAY_METHOD" = leanchecker ]; then
-    echo "NOTE: with leanchecker for the whole tree the kernel replay is estimated at about 46 hours, more than this run's"
-    echo "      42-hour limit allows after the build. The run will build, run the axiom checks, give the replay one hour"
-    echo "      and end without a result for criterion C3. See docs/cloud-notes.md, section 8.5."
-  fi
+  case "$MODE" in full) echo "kernel replay: leanchecker on every module${SECOND_REPLAY:+; then a second replay by $SECOND_REPLAY}" ;; esac
   # Record the run BEFORE creating anything, so that a VM can never exist without a ledger row.
   NOW=$(date +%s)
   printf '%s\t%s\t%s\t%s\t%s\t%s\t\t\t\n' "$RUNTAG" "$MODE" "$MT" "$RATE" "pending" "$NOW" >> "$LEDGER" || die "could not write the ledger; not launching"

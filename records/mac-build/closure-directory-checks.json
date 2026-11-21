@@ -1,0 +1,420 @@
+{
+ "what": "leanchecker from the pinned toolchain, run on single modules with a search path that holds, of this project, only hard links to the compiled files of the module and of what it imports (an import-closure directory), on the local Mac build while that build was running",
+ "date": "2026-11-21",
+ "machine": "the Mac described in records/mac-build/README.md; the build was running with its usual cap throughout, so the times are not clean timings",
+ "what_this_shows": "that the stock tool accepts such a search path and gives the same verdict as with the whole library on it, and roughly what it costs here. It does not show the cost on a rented machine, which is a projection (records/cloud/replay_cost.json)",
+ "by_hand": {
+  "modules_compiled_at_the_time": "about 59,000",
+  "how": "for each module: its import closure from records/source/import_graph.json.gz; one hard link per compiled file into a new directory on the build's volume; leanchecker with that directory and the libraries on LEAN_PATH; then leanchecker again with the whole project library on LEAN_PATH; the directory removed",
+  "note": "symbolic links in place of hard links do not work: leanchecker reports that it could not find any compiled file for the module",
+  "rows": [
+   {
+    "module": "CompanionTheory.SpectralGeometry.LocalGlobalProofs.StableLattices.IsIsoOfClosedImmersion",
+    "modules_in_import_closure": 7753,
+    "seconds_to_make_the_links": 4.17,
+    "seconds_closure_only": 18.1,
+    "exit_closure_only": 0,
+    "seconds_whole_library": 31.5,
+    "exit_whole_library": 0
+   },
+   {
+    "module": "Development.AutomorphicSpectrum.Proofs.GeometryProofs.IsIsoAppOfIsAbelianScheme",
+    "modules_in_import_closure": 7210,
+    "seconds_to_make_the_links": 3.88,
+    "seconds_closure_only": 18.0,
+    "exit_closure_only": 0,
+    "seconds_whole_library": 29.6,
+    "exit_whole_library": 0
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.IwasawaDecomposition.EqOfMarkedFormsInSameCellSimplicialFan",
+    "modules_in_import_closure": 7119,
+    "seconds_to_make_the_links": 3.64,
+    "seconds_closure_only": 16.5,
+    "exit_closure_only": 0,
+    "seconds_whole_library": 31.5,
+    "exit_whole_library": 0
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.DegenerationProofs.AbelianSectionsProportionalOfCoordinates",
+    "modules_in_import_closure": 196,
+    "seconds_to_make_the_links": 0.39,
+    "seconds_closure_only": 10.6,
+    "exit_closure_only": 0,
+    "seconds_whole_library": 22.4,
+    "exit_whole_library": 0
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.DegenerationProofs.ExistsFramesOnUniformisedFibreThroughIso",
+    "modules_in_import_closure": 194,
+    "seconds_to_make_the_links": 0.53,
+    "seconds_closure_only": 9.5,
+    "exit_closure_only": 0,
+    "seconds_whole_library": 20.5,
+    "exit_whole_library": 0
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.AdelicLatticeProofs.ClassGroupCoprimeRepresentative",
+    "modules_in_import_closure": 1,
+    "seconds_to_make_the_links": 0.43,
+    "seconds_closure_only": 11.0,
+    "exit_closure_only": 0,
+    "seconds_whole_library": 21.3,
+    "exit_whole_library": 0
+   }
+  ]
+ },
+ "through_the_script": {
+  "command": "scripts/09_kernel_replay.sh --sample 24 --seed 31337 --jobs 2 --batch 6",
+  "modules_compiled_at_the_end": 59528,
+  "import_graph": {
+   "modules": 175187,
+   "import_edges": 753261,
+   "seconds_to_read_every_source_file": 47
+  },
+  "wall_seconds_in_all": 322,
+  "checked": 24,
+  "passed": 24,
+  "mean_seconds": 17.5,
+  "longest_seconds": 95,
+  "note": "seconds are whole seconds of one leanchecker process. Making and removing its directory of links is not in them; it is in wall_seconds_in_all, with the 47 seconds for the import graph",
+  "rows": [
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.HeightProofs.QuadraticFormIdeleValuesMemNhdsOne",
+    "status": 0,
+    "seconds": 15,
+    "compiled_file_hash": "2e530ac0bc1cdd95",
+    "epoch": 1795274282,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.TwistedOperators.SmulMemHermitianLatticeAdelicCompletionOfSmulLeStatement",
+    "status": 0,
+    "seconds": 15,
+    "compiled_file_hash": "39fa36e33d3c1824",
+    "epoch": 1795274282,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "CompanionTheory.AutomorphicTheory.UnitriangularMeasure.AdeleCoordinateMeasure.GJGlobalModulus",
+    "status": 0,
+    "seconds": 15,
+    "compiled_file_hash": "2446da00b8d54d3c",
+    "epoch": 1795274297,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.InertiaEigenvalues.UnitIndicatorHermitianBlockLiftLastBasisOfNormLeStatement",
+    "status": 0,
+    "seconds": 15,
+    "compiled_file_hash": "40d3bddb39fe527e",
+    "epoch": 1795274298,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.CubicalLineBundles.ExistsTorsionFieldExt",
+    "status": 0,
+    "seconds": 12,
+    "compiled_file_hash": "cea98d73c81b6e56",
+    "epoch": 1795274309,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AutomorphicArithmetic.IntegralCasts.CapelliIdentities.BoundedSums",
+    "status": 0,
+    "seconds": 13,
+    "compiled_file_hash": "ece02971e394f601",
+    "epoch": 1795274322,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "ReciprocityTheory.ReductiveGroups.DiscreteSeries.LaplaceOperators.KTypeLemma.TensVdApply",
+    "status": 0,
+    "seconds": 30,
+    "compiled_file_hash": "3b33c9298df6c91d",
+    "epoch": 1795274352,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Formalism.PeriodIntegrals.UnitaryGroupMassFormula.GramSchmidtFrames.GsFramesOfIso",
+    "status": 0,
+    "seconds": 18,
+    "compiled_file_hash": "85cdd91849eb8e1d",
+    "epoch": 1795274370,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Definitions.NonGaloisDescent.GoodIdempotentFixesMemGoodTypeSpace",
+    "status": 0,
+    "seconds": 24,
+    "compiled_file_hash": "1b0a6bf68a1c7b5e",
+    "epoch": 1795274395,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.InertiaEigenvalues.ThetaIsotypicInnerNeZero",
+    "status": 0,
+    "seconds": 95,
+    "compiled_file_hash": "a860399ccf35e831",
+    "epoch": 1795274400,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Formalism.LocalToGlobal.CharacterGerms.TripleMultiplicationConstantCoeff",
+    "status": 0,
+    "seconds": 13,
+    "compiled_file_hash": "5647bfb098d2a62f",
+    "epoch": 1795274408,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.DegenerationProofs.ExistsGeometricTestMapClassicalPoint",
+    "status": 0,
+    "seconds": 12,
+    "compiled_file_hash": "a6e414360dbd00a9",
+    "epoch": 1795274414,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.InertiaEigenvalues.NatCardAddMonoidHomZmodLe",
+    "status": 0,
+    "seconds": 12,
+    "compiled_file_hash": "5a7616cec2d3daba",
+    "epoch": 1795274420,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.DivisorProofs.MemLocalHomLatticeOfKeepsCompletedLatticesStatement",
+    "status": 0,
+    "seconds": 12,
+    "compiled_file_hash": "89053d86e20a74bb",
+    "epoch": 1795274427,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.FlagMeasures.NotCdomAdd",
+    "status": 0,
+    "seconds": 12,
+    "compiled_file_hash": "50a228246f3e1594",
+    "epoch": 1795274432,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.RingsOfIntegers.ExistsShiftMemPowOfMulMemPow",
+    "status": 0,
+    "seconds": 10,
+    "compiled_file_hash": "ad515dd572eab314",
+    "epoch": 1795274437,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AutomorphicSpectrum.Proofs.BlockDecomposition.BlkConjTranspose",
+    "status": 0,
+    "seconds": 12,
+    "compiled_file_hash": "8cc04a2c0f1b3efb",
+    "epoch": 1795274444,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.EtaleCohomology.CohomologicalPurity.LeafWEqvRPf",
+    "status": 0,
+    "seconds": 12,
+    "compiled_file_hash": "e98bd6c16addc380",
+    "epoch": 1795274449,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Formalism.ThetaLogCoordinates.DualWeylCoordinates.DualWeylProofs.FiltrationMaximalQuotient",
+    "status": 0,
+    "seconds": 12,
+    "compiled_file_hash": "1de31ab1b5ab8b16",
+    "epoch": 1795274456,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.InertiaEigenvalues.ISupMonomialHolderLogConvexStatement",
+    "status": 0,
+    "seconds": 12,
+    "compiled_file_hash": "048d1a6f75850948",
+    "epoch": 1795274461,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.EtaleCohomology.EtaleSheaves.LeafLevelPf",
+    "status": 0,
+    "seconds": 11,
+    "compiled_file_hash": "fbb8541539e562c2",
+    "epoch": 1795274472,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.InertiaEigenvalues.RepresentationOfIntegralMatricesEqInvTwistedCharStatement",
+    "status": 0,
+    "seconds": 15,
+    "compiled_file_hash": "c5cfc626de48980a",
+    "epoch": 1795274488,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "ReciprocityTheory.ReductiveGroups.DiscreteSeries.LaplaceOperators.SpectralGap.DSUniv",
+    "status": 0,
+    "seconds": 11,
+    "compiled_file_hash": "5e5e91cd294bae1a",
+    "epoch": 1795274499,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.FoundationProofs.ExistsMultisetSatakeEigenvalueEq",
+    "status": 0,
+    "seconds": 11,
+    "compiled_file_hash": "73513bc4a8456f7c",
+    "epoch": 1795274510,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   }
+  ]
+ },
+ "through_the_script_again_after_the_review": {
+  "what": "the same command with --sample 12, run after the changes that followed the review of this method (records/cloud/closure_replay_review.json); the stored import graph carried no fingerprint yet, so it was read again first",
+  "command": "scripts/09_kernel_replay.sh --sample 12 --seed 31337 --jobs 2 --batch 6",
+  "modules_compiled_at_the_end": 60956,
+  "wall_seconds_in_all": 266,
+  "checked": 12,
+  "passed": 12,
+  "mean_seconds": 23.8,
+  "longest_seconds": 91,
+  "rows": [
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.DecoratedLatticeProofs.KFiniteTranslatesFiniteDimensional",
+    "status": 0,
+    "seconds": 19,
+    "compiled_file_hash": "ef7b9ab1e9777a15",
+    "epoch": 1795276201,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.FlagMeasures.ExistsRectangularConjInstanceMatrixStandardPsi",
+    "status": 0,
+    "seconds": 23,
+    "compiled_file_hash": "969eac8502702cc7",
+    "epoch": 1795276206,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Definitions.NonGaloisDescent.CuspSubsetBaseForms",
+    "status": 0,
+    "seconds": 22,
+    "compiled_file_hash": "a2b4e41528ec1bf1",
+    "epoch": 1795276226,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.FoundationProofs.WeilRepresentationVacuumSignInertPlaces",
+    "status": 0,
+    "seconds": 21,
+    "compiled_file_hash": "d802db5ebdc926f1",
+    "epoch": 1795276248,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.DivisorProofs.SphericalWhittakerTorusHeckeRecursionStatement",
+    "status": 0,
+    "seconds": 33,
+    "compiled_file_hash": "fc26f4f82b26b091",
+    "epoch": 1795276282,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.UnramifiedDepth.DeterminantPairingQuotientValuationLowerBound",
+    "status": 0,
+    "seconds": 12,
+    "compiled_file_hash": "d1618a7dd687f425",
+    "epoch": 1795276294,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.InertiaEigenvalues.IsUnitPrimeProductOfTwistedPlaceTupleStatement",
+    "status": 0,
+    "seconds": 91,
+    "compiled_file_hash": "af051bee76d78508",
+    "epoch": 1795276305,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Formalism.HermitianCurvature.HermitianCurvatureProofs.MultiplicationOpHom",
+    "status": 0,
+    "seconds": 13,
+    "compiled_file_hash": "a827061a01e2c4dd",
+    "epoch": 1795276307,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Formalism.SharpRestriction.GrowthBounds.RootWeights.CrRootMem",
+    "status": 0,
+    "seconds": 16,
+    "compiled_file_hash": "d242ceb0dd517f29",
+    "epoch": 1795276323,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.TwistedOperators.FiniteGroupActsUnitarilyHilbertMultiplicityModel",
+    "status": 0,
+    "seconds": 13,
+    "compiled_file_hash": "6a2da5bd74bb32e2",
+    "epoch": 1795276337,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AutomorphicSpectrum.Proofs.BlockDecomposition.SegmentRepJacquetWordMultiplicityStatement",
+    "status": 0,
+    "seconds": 12,
+    "compiled_file_hash": "b88926c86eac0922",
+    "epoch": 1795276351,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   },
+   {
+    "module": "Development.AbelianVarietyTheory.Proofs.InertiaEigenvalues.MemRangeOfValNonneg",
+    "status": 0,
+    "seconds": 11,
+    "compiled_file_hash": "3b48b0d1dcec4b49",
+    "epoch": 1795276363,
+    "tool": "leanchecker",
+    "leanchecker_sha256": "9b9a22ecb11e8e5962ddfa09ed547851e599495e7eeb5eba2ee82ccf5ec930a1"
+   }
+  ]
+ }
+}

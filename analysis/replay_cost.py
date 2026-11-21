@@ -120,6 +120,10 @@ def main():
     closure = per_import * mean_closure_tree
     stock = fixed + listing + closure
     direct = fixed + closure
+    # leanchecker with a search path that holds, of the project, only the module's import closure (hard links):
+    # the listing then covers the libraries and that closure, and the links have to be made and removed.
+    LINK_SECONDS = 0.00006            # assumed: making and removing one hard link, 30 microseconds each way
+    closure_dir = fixed + per_file * (LIBRARY_FILES + mean_closure_tree) + closure + LINK_SECONDS * mean_closure_tree
     hours = lambda s: round(TREE_MODULES * s / JOBS / 3600.0, 1)
     out = {
         "what": "cost of the kernel replay per module, in wall-clock seconds of one check while 32 run at once on n4d-highmem-32, from two recorded runs; a two-point fit",
@@ -131,6 +135,11 @@ def main():
                        "leanchecker_one_process_per_module": {
                            "seconds_per_check": round(stock, 1), "of_which_listing_the_search_path": round(listing, 1),
                            "hours_at_32": hours(stock)},
+                       "leanchecker_with_only_the_import_closure_on_the_search_path": {
+                           "seconds_per_check": round(closure_dir, 1), "hours_at_32": hours(closure_dir),
+                           "of_which_listing": round(per_file * (LIBRARY_FILES + mean_closure_tree), 1),
+                           "of_which_making_and_removing_links_assumed": round(LINK_SECONDS * mean_closure_tree, 2),
+                           "note": "a projection from the fit; this way of running leanchecker has not been timed on the cloud machine"},
                        "without_the_listing": {"seconds_per_check": round(direct, 1), "hours_at_32": hours(direct),
                                                "note": "a projection from the stock tool's fit (its fixed and closure terms); not a measurement of rhv-replay"}},
         "earlier_estimate_it_replaces": {"hours": est["hours"]["expected"]["check_hours"],
@@ -145,13 +154,15 @@ def main():
     def whole_run(fixed_rhv):
         """Billed hours and cost by method and case; fixed_rhv is rhv-replay's cost per module before the closure term."""
         runs = {}
-        for method in ("leanchecker", "rhv-replay"):
+        for method in ("leanchecker, whole library on the search path", "leanchecker, import closure on the search path", "rhv-replay"):
             runs[method] = {}
             for case in ("low", "expected", "high"):
                 c, h = est["cases"][case], est["hours"][case]
                 closure_c = per_import * c["chk_slope"] * mean_closure_tree
-                if method == "leanchecker":
+                if method.startswith("leanchecker, whole"):
                     check = TREE_MODULES * (fixed + listing + closure_c) / JOBS / c["chk_eff"] / 3600.0
+                elif method.startswith("leanchecker, import"):
+                    check = TREE_MODULES * (closure_dir - closure + closure_c) / JOBS / c["chk_eff"] / 3600.0
                 else:
                     check = (TREE_MODULES * (fixed_rhv + closure_c) + stock_sample * (fixed + listing + closure_c)) / JOBS / c["chk_eff"] / 3600.0 + prefix_pass_hours
                 billed = h["build_hours"] + h["other_hours"] + check
@@ -159,7 +170,7 @@ def main():
                                       "billed_hours": round(billed, 1), "usd": round(billed * rate + 6 * cfg["disk_usd_per_hour"])}
         return runs
     out["whole_run"] = {"configuration": cfg["name"], "usd_per_billed_hour": round(rate, 3),
-                        "with_rhv_replay_the_stock_tool_also_checks": "%d random modules and every prefix module" % stock_sample,
+                        "the_rhv_replay_rows_include_the_stock_tool_on": "%d random modules and every prefix module, as an earlier design had it" % stock_sample,
                         "rhv_replay_cost_per_module_before_the_closure_term": {"seconds": round(fixed, 2), "source": "the fit's fixed term (no run of rhv-replay was given)"},
                         "by_method_for_the_whole_tree": whole_run(fixed)}
     drv = []
@@ -173,7 +184,7 @@ def main():
         # Every window in which rhv-replay ran: the trials and the main pass. A window's rate is taken between
         # its first and its last result, which leaves out the time the script spends planning before the first.
         for k, (t, label, _rest) in enumerate(ph):
-            if not (label.startswith("check_trial:N=") or label.startswith("check:N=")):
+            if not label.startswith(("check_trial:N=", "check:N=", "check_second:N=")):
                 continue
             end = next((t2 for t2, l2, _r in ph[k + 1:] if t2 >= t and l2 != label), None)
             if end is None:

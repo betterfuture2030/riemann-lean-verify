@@ -1,6 +1,6 @@
 # Records
 
-Evidence files from the work done so far. Everything here was recorded on 2026-11-20.
+Evidence files from the work done so far. Everything here was recorded on 2026-11-20 or 2026-11-21.
 
 Status on that date: the full compile was in progress and the proof had not been verified. These records identify the input, document how the local build was run, preserve the research behind the cloud pilot, and hold the pilot's measurements. None of them shows that the proof is correct, and none shows that it is incorrect.
 
@@ -35,8 +35,10 @@ The proof source itself is not here and is not redistributed. Build logs, the ar
 | `mac-build/tuning.tsv` | First comparison of parallelism caps (3 to 7) |
 | `mac-build/tuning2.tsv` | Second comparison of parallelism caps (5 to 10) |
 | `mac-build/checker-sample-times.txt` | Exit status and timings of `leanchecker` on 24 compiled modules |
+| `mac-build/closure-directory-checks.json` | `leanchecker` on 42 compiled modules with only each module's imports on its search path: six by hand, compared with the usual way, and 36 through the replay script |
 | `mac-build/mapped-files-sample.txt` | Files memory-mapped by one running compiler process, by type |
 | `mac-build/progress-20261120-2001.txt` | Dated snapshot of the build: modules compiled, failures, rate, and space taken by setup files |
+| `mac-build/progress-20261121-0931.txt` | A later snapshot: 59,988 modules compiled, no failures, and how deep in the import graph the compiled modules reach |
 
 ### `audit/` - static reading of the source
 
@@ -60,6 +62,18 @@ The proof source itself is not here and is not redistributed. Build logs, the ar
 | `cloud/full_run_driver_review.json` | Four reviews of the first draft of the full-run driver, before it had been run |
 | `cloud/full_run_driver_recheck.json` | Two reviews of the driver as rewritten after those |
 | `cloud/full-rehearsals/` | Records of each rehearsal of the full-run driver, with what it found |
+| `cloud/replay_cost.json` | What a kernel replay of the whole tree is estimated to cost by each of three ways of running it, from `analysis/replay_cost.py` |
+| `cloud/replay_method_review.json`, `cloud/replay_method_recheck.json` | Two rounds of AI review of the second replay program and the scripts around it |
+| `cloud/closure_replay_review.json`, `cloud/closure_replay_recheck.json` | Two rounds of AI review of the kernel replay as it now runs (the stock tool with import-closure search paths) and of the cloud driver's replay phase |
+| `cloud/c3_amendment_draft_review.json` | A draft amendment to the pre-registration that was reviewed and **not made**, with the 51 findings of its review |
+
+### `two-builds/` - the same modules compiled twice
+
+| File | Contents |
+|---|---|
+| `two-builds/README.md` | What was compared and what it shows |
+| `two-builds/mac-vs-cloud.json`, `two-builds/mac-vs-cloud-content.tsv` | 1,796 modules compiled on the Mac and on a rented Linux machine: which compiled files are byte-identical, and a comparison of their contents |
+| `two-builds/cloud-vs-cloud.json` | 1,504 modules compiled in two separate cloud rehearsals: byte-identical |
 
 ### `cloud/pilot/` - the calibration pilot
 

@@ -23,15 +23,18 @@
 #   c2      scripts/08_check_axioms.sh, without and with --deep (criterion C2), as the user `chk2`. The deep
 #           walk runs before the replay if the replay will still fit afterwards, otherwise after it, and is
 #           skipped if no time is left; facts.json says which.
-#   c3      scripts/09_kernel_replay.sh on every module (criterion C3), as the user `chk3`. Short trials first
-#           measure how many modules a second the replay manages; if that rate cannot cover the tree in the time
-#           left, the replay is given an hour and the run goes on, and facts.json says so. Modules whose checker
-#           was killed or cut off are tried again, with fewer at a time, up to twice.
-#           The method is set at launch (full-replay-method). `leanchecker`: the stock tool, one process a module,
-#           then its prefix pass. `rhv-replay`: the program in scripts/verify/replay, which root builds during
-#           setup, before any file of the proof is compiled, after comparing its copy of the replay function with
-#           the toolchain's source; then the stock tool again on a random sample of modules and on every prefix
-#           module, so that the two can be compared on the same files (docs/performance-notes.md, section 10).
+#   c3      scripts/09_kernel_replay.sh on every module (criterion C3), as the user `chk3`: `leanchecker`, the
+#           tool the criterion names, one process a module, each with only the module's import closure on its
+#           search path (docs/performance-notes.md, section 10). Short trials first measure how many modules a
+#           second the replay manages; if that rate cannot cover the tree in the time left, the replay is given
+#           an hour and the run goes on, and facts.json says so. Modules whose checker was killed or cut off are
+#           tried again, with fewer at a time, up to twice. A module the tool rejects or crashes on is run twice
+#           more as evidence and is never afterwards counted as passed.
+#           With full-second-replay=rhv-replay, every module is then replayed again by the program in
+#           scripts/verify/replay, which root builds during setup, before any file of the proof is compiled,
+#           after comparing its copy of the replay function with the toolchain's source. That second replay is
+#           not part of the criterion: its passes do not count towards it. A rejection or crash by it is kept
+#           like any other, and while one stands the summary does not say that the criterion's conditions hold.
 #   end     hashes the files beside the compiled modules, the toolchain and Mathlib again, and fails the run if
 #           any changed.
 #   report  uploads logs, measurements and a file of facts, facts.json. It does not issue a verdict: the outcome
@@ -86,12 +89,10 @@ WATCHDOG_WAIT=$(md full-watchdog-wait 600)       # seconds the watchdog gives th
 PRUNE_EVERY=$(md full-prune-every 600)           # seconds between prunings of setup files during the build
 KEEP_MIN_LEFT=$(md full-keep-min-left 1200)      # the archive of compiled files is only started with this many seconds left
 KEEP_OLEANS=$(md full-keep-oleans 0)             # 1 = also upload an archive of the compiled files
-REPLAY_METHOD=$(md full-replay-method leanchecker)  # how the kernel replay covers the tree: leanchecker | rhv-replay
-STOCK_SAMPLE=$(md full-stock-sample 2000)        # with rhv-replay: this many random modules are also checked by leanchecker
+SECOND_REPLAY=$(md full-second-replay "")        # "rhv-replay": after leanchecker has checked every module, replay them all again with that program
 C3_SHORT_CAP=$(md full-c3-short-cap 3600)        # seconds given to a replay that the trials show cannot finish in time
 FINISH_WAIT=$(md full-watchdog-finish-wait 1800) # more seconds the watchdog gives a main script that has begun its report
-PREFIX_ALLOW=$(md full-prefix-allow 1200)        # with rhv-replay: seconds kept for the stock tool's prefix pass
-DRIVER=""; DRIVER_SHA=""                         # the replay program, built by root during setup when the method needs it
+DRIVER=""; DRIVER_SHA=""                         # the second replay's program, built by root during setup when it is asked for
 GUEST_SHA=$(curl -sf --connect-timeout 5 --max-time 30 -H "Metadata-Flavor: Google" "$MDURL/attributes/startup-script" | sha256sum | cut -d' ' -f1)
 DEADLINE=$(( T0 + DEADLINE_MIN * 60 ))
 WORK=/mnt/work; PROJ=$WORK/extract/lean; LOGS=$WORK/logs; AN=$WORK/analysis; RES="results/$RUNTAG"; TOOLS=/opt/rhv
@@ -180,14 +181,15 @@ phases_end() { printf '%s\t%s\t%s\t%s\n' "$(now)" "$1:end" "$2" "$3" >> "$PD/pha
 as_pilot() { runuser -l pilot -c "ulimit -n 1048576 2>/dev/null; export RH_WORKDIR=$WORK RH_JOBS=$NMAX; cd $PROJ && $1"; }
 # as_chk <user> <command>: a clean environment (no login files, nothing inherited), with the sealed toolchain's
 # directory first on the PATH.
-as_chk() { runuser -u "$1" -- env -i HOME="/home/$1" LANG=C.UTF-8 PATH="$TC_BIN:/usr/bin:/bin" RH_WORKDIR="$WORK" RH_JOBS="$NMAX" RH_REPLAY_DRIVER="$DRIVER" bash -c "ulimit -n 1048576 2>/dev/null; cd $PROJ && $2"; }
+as_chk() { runuser -u "$1" -- env -i HOME="/home/$1" LANG=C.UTF-8 PATH="$TC_BIN:/usr/bin:/bin" RH_WORKDIR="$WORK" RH_JOBS="$NMAX" RH_REPLAY_DRIVER="$DRIVER" RH_REPLAY_TRUSTED_SHA="$DRIVER_SHA" bash -c "ulimit -n 1048576 2>/dev/null; cd $PROJ && $2"; }
 
 # ---- facts.json: what happened, as numbers. Written whenever the run reports; fields not yet known are null.
 C1_STATE=not_reached; LAKE_RC=""; RETRIED=0; RESTART_CONTROL=""; RESTART_PRUNE=""; RESTART_CONTROL_NEW=""; RESTART_PRUNE_NEW=""
 FAILED_JOBS=""; KILLED_JOBS=""; CRASHED_JOBS=""; LIB_OTHER=""; KEEP_STATE=not_requested; LAKE_N=0; LEFTOVERS=""
 C1_MISSING=""; C1_EXTRA=""; C1_SHADOW=""; SRC_SAME=""; LIBS_SAME=""; TC_COPY_SAME=""; MANIFEST_SHA=""
 C2_PLAIN_RC=""; C2_DEEP_RC=""; C2_DEEP_WHEN=not_run; C3_RC=""; CHECK_JOBS=""; OLEANS_SAME_END=""; LIBS_SAME_END=""; KEEP_PARTS=""
-C3_STOCK_RC=""; C3_PREFIX_RC=""; C3_FITS=""; C3_EXPECT=""; C3_RATE=""; DRIVER_SAME=""; STOCK_SQUEEZED=0; C3_STOCK_WHY=""; C3_PREFIX_WHY=""
+C3_FITS=""; C3_EXPECT=""; C3_RATE=""; C3_MAIN_T=""; C3_PASSES=0; DRIVER_SAME=""; SECOND_RC=""
+SECOND_WHY=""; [ "$SECOND_REPLAY" = rhv-replay ] && SECOND_WHY="the run ended before it was reached"
 # The build tool's logs, by the names this script gave them. Before the seal they are in a directory the build
 # user owns, after it in $PD; a file there that is not a plain file is ignored, and after the seal the first
 # directory, which then belongs to a checker, is not looked at.
@@ -202,8 +204,10 @@ failed_lines() { local f k c=0; for f in $(lake_logs); do k=$(grep -c '^✖ ' "$
 put_logs() { local f; for f in $(lake_logs) "$PD"/c2_*.out "$PD"/c3_*.out; do plain "$f" && gz_put "$f" "$RES/logs/$(basename "$f").gz"; done; return 0; }
 c3_summary() { # the replay's summary, recomputed by root from the results file (the replay may have been cut short)
   plain "$AN/kernel_replay/results.tsv" || return 0
-  local rc
-  timeout 900 python3 -I -B "$TOOLS/scripts/verify/rhv_tools.py" replay-summary --lib "$LIB" --src "$PROJ/src" --results "$AN/kernel_replay/results.tsv" --json "$PD/c3_summary.json.new" > "$PD/c3_summary.txt.new" 2> "$PD/c3_summary.err"
+  local rc trusted=""
+  [ -n "$DRIVER_SHA" ] && trusted="--trusted-program $DRIVER_SHA"
+  # shellcheck disable=SC2086
+  timeout 900 python3 -I -B "$TOOLS/scripts/verify/rhv_tools.py" replay-summary --lib "$LIB" --src "$PROJ/src" --results "$AN/kernel_replay/results.tsv" $trusted --json "$PD/c3_summary.json.new" > "$PD/c3_summary.txt.new" 2> "$PD/c3_summary.err"
   rc=$?
   # 0, 1 and 3 are answers (nothing failed, something failed, not complete). Anything else is the summary itself
   # failing or being cut off: the last good pair of files is then kept, and the error is uploaded beside them.
@@ -222,9 +226,8 @@ write_facts() { # write_facts <state> <message>
   F_MISSING=$C1_MISSING F_EXTRA=$C1_EXTRA F_SHADOW=$C1_SHADOW F_SRC_SAME=$SRC_SAME F_LIBS_SAME=$LIBS_SAME F_TC_COPY=$TC_COPY_SAME \
   F_MANIFEST=$MANIFEST_SHA F_C2P=$C2_PLAIN_RC F_C2D=$C2_DEEP_RC F_C2WHEN=$C2_DEEP_WHEN F_C3=$C3_RC F_CJOBS=$CHECK_JOBS \
   F_OLEANS_END=$OLEANS_SAME_END F_LIBS_END=$LIBS_SAME_END F_KEEP=$KEEP_PARTS F_PD=$PD \
-  F_LEFTOVERS=$LEFTOVERS F_METHOD=$REPLAY_METHOD F_DRIVER_SHA=$DRIVER_SHA F_DRIVER_SAME=$DRIVER_SAME F_C3_STOCK=$C3_STOCK_RC F_C3_PREFIX=$C3_PREFIX_RC \
-  F_C3_FITS=$C3_FITS F_C3_EXPECT=$C3_EXPECT F_C3_RATE=$C3_RATE F_STOCK_SAMPLE=$STOCK_SAMPLE F_SQUEEZED=$STOCK_SQUEEZED \
-  F_STOCK_WHY=$C3_STOCK_WHY F_PREFIX_WHY=$C3_PREFIX_WHY \
+  F_LEFTOVERS=$LEFTOVERS F_SECOND=$SECOND_REPLAY F_DRIVER_SHA=$DRIVER_SHA F_DRIVER_SAME=$DRIVER_SAME F_SECOND_RC=$SECOND_RC F_SECOND_WHY=$SECOND_WHY \
+  F_C3_FITS=$C3_FITS F_C3_EXPECT=$C3_EXPECT F_C3_RATE=$C3_RATE F_C3_MAIN_T=$C3_MAIN_T F_C3_PASSES=$C3_PASSES \
   python3 -I - "$PD/facts.json" <<'PY'
 import json, os, sys, time
 E = os.environ.get
@@ -269,24 +272,31 @@ json.dump({
              'compiled_files_manifest_sha256': E('F_MANIFEST') or None},
     'c2_axioms': {'plain_exit_status': num('F_C2P'), 'deep_exit_status': num('F_C2D'), 'deep_walk_ran': E('F_C2WHEN'),
                   'plain': axioms('plain.json'), 'deep': axioms('deep.json')},
-    'c3_kernel_replay': {'method_for_the_whole_tree': E('F_METHOD'), 'last_exit_status': num('F_C3'), 'jobs': num('F_CJOBS'),
+    # Criterion C3: leanchecker on every compiled module. 'conditions_all_hold' is the summary's own reading of
+    # its four conditions; the summary, with every count behind them, is given whole below.
+    'c3_kernel_replay': {'tool': 'leanchecker',
+                         # how the tool was run, as each of its passes recorded it: 'import-closure-directory' is
+                         # one process per module with only the module's import closure on the search path
+                         'passes_by_how_the_tool_was_run': (c3 or {}).get('leanchecker_passes_by_how_it_was_run'),
+                         'conditions': (c3 or {}).get('criterion_c3', {}).get('conditions'),
+                         'conditions_all_hold': (c3 or {}).get('criterion_c3', {}).get('all_hold'),
+                         'last_exit_status': num('F_C3'), 'jobs': num('F_CJOBS'),
                          # from the trials: modules a second at the chosen job count, the seconds the whole tree
                          # would then need, and whether that fitted in the time left (if not, the replay was cut short)
                          'trial_rate_modules_per_second': E('F_C3_RATE') or None, 'expected_seconds': num('F_C3_EXPECT'), 'expected_to_fit': yes('F_C3_FITS'),
-                         'replay_program': None if E('F_METHOD') != 'rhv-replay' else {
-                             'sha256': E('F_DRIVER_SHA') or None, 'unchanged_since_it_was_built': yes('F_DRIVER_SAME'),
-                             'source_check': (open(os.path.join(E('F_PD'), 'driver_check.txt')).read().strip().splitlines()
-                                              if os.path.isfile(os.path.join(E('F_PD'), 'driver_check.txt')) else None),
-                             'every_recorded_run_used_this_program': (None if not c3 or not c3.get('rhv_replay_programs_used') else
-                                                                      all(p.get('sha256') == E('F_DRIVER_SHA') for p in c3['rhv_replay_programs_used'])),
-                             'stock_sample_requested': num('F_STOCK_SAMPLE'), 'stock_sample_exit_status': num('F_C3_STOCK'),
-                             'stock_sample_not_run_because': E('F_STOCK_WHY') or None,
-                             'stock_prefix_pass_exit_status': num('F_C3_PREFIX'),
-                             'stock_prefix_pass_not_run_because': E('F_PREFIX_WHY') or None,
-                             # true when the plan let the main pass use time kept for the stock tool's passes;
-                             # it does not say the main pass needed it
-                             'main_pass_was_allowed_time_kept_for_the_stock_tool': E('F_SQUEEZED') == '1'},
+                         # the time the main pass was allowed, and how many passes there were in all (the main one
+                         # and any for modules whose checker was cut off); with expected_to_fit false, one short pass
+                         'main_pass_seconds_allowed': num('F_C3_MAIN_T'), 'passes_after_the_trials': num('F_C3_PASSES'),
                          'summary': c3},
+    # Not part of any criterion: the same replay by a second program, when it was asked for. Its passes count
+    # for nothing above; a rejection or crash by it makes 'no_rejection_or_crash_recorded_by_any_tool' false.
+    'second_replay': None if E('F_SECOND') != 'rhv-replay' else {
+        'program': 'rhv-replay', 'sha256': E('F_DRIVER_SHA') or None, 'unchanged_since_it_was_built': yes('F_DRIVER_SAME'),
+        'source_check': (open(os.path.join(E('F_PD'), 'driver_check.txt')).read().strip().splitlines()
+                         if os.path.isfile(os.path.join(E('F_PD'), 'driver_check.txt')) else None),
+        'exit_status': num('F_SECOND_RC'), 'not_run_because': E('F_SECOND_WHY') or None,
+        # null when it did not run: the summary's two answers would then read as a failed check
+        'result': (c3 or {}).get('second_replay_by_rhv_replay') if E('F_SECOND_RC') else None},
     'end': {'compiled_files_unchanged_since_seal': yes('F_OLEANS_END'), 'toolchain_and_mathlib_unchanged_since_seal': yes('F_LIBS_END'),
             'build_user_process_seen_after_seal': os.path.exists(seen)},
     'archive_of_compiled_files': {'state': E('F_KEEP_STATE'), 'objects_uploaded': num('F_KEEP')},
@@ -414,13 +424,13 @@ s_baseline() {
     || { echo "library manifests are implausibly short: $(wc -l < "$PD/baseline_tc.txt") and $(wc -l < "$PD/baseline_pkgs.txt") files"; return 1; }
   echo "toolchain: $TC_DIR ($(wc -l < "$PD/baseline_tc.txt") files, manifest sha256 $(sha256sum "$PD/baseline_tc.txt" | cut -d' ' -f1)); library files: $(wc -l < "$PD/baseline_pkgs.txt") (manifest sha256 $(sha256sum "$PD/baseline_pkgs.txt" | cut -d' ' -f1))" >> "$PD/env.txt"
 }
-# The replay program, when the method needs it. Root builds it here, before any file of the proof has been
+# The second replay's program, when it is asked for. Root builds it here, before any file of the proof has been
 # compiled, in a directory only root can write. It is not built with the toolchain where the build user keeps
 # it: root first makes its own copy of the toolchain, proves the copy identical to the record just taken, and
 # builds with that. The program's copy of replayFromImports is compared, character for character, with the
 # source in that same copy.
 s_driver() {
-  [ "$REPLAY_METHOD" = rhv-replay ] || return 0
+  [ "$SECOND_REPLAY" = rhv-replay ] || return 0
   local src="$TOOLS/scripts/verify/replay" lib bad
   kill_users                                  # nothing of the build user may be running while the copy is made
   rm -rf /opt/lean-tc && cp -a "$TC_DIR" /opt/lean-tc && chown -R root:root /opt/lean-tc && chmod -R go-w /opt/lean-tc || { echo "could not copy the toolchain"; return 1; }
@@ -699,6 +709,17 @@ as_chk chk2 "LEAN_PATH='$SEAL_LP' timeout 300 lean $PD/seal_test.lean" > "$PD/se
   || { gcs_put "$PD/seal_test_chk2.txt" "$RES/seal_test_chk2.txt"; finish FAIL "the axiom check's user cannot elaborate a file that imports a compiled module: $(head -c 300 "$PD/seal_test_chk2.txt" | tr '\n' ' ')"; }
 as_chk chk3 "LEAN_PATH='$SEAL_LP' timeout 300 leanchecker Statements" > "$PD/seal_test_chk3.txt" 2>&1 \
   || { gcs_put "$PD/seal_test_chk3.txt" "$RES/seal_test_chk3.txt"; finish FAIL "the replay's user cannot replay a compiled module: $(head -c 300 "$PD/seal_test_chk3.txt" | tr '\n' ' ')"; }
+# The replay gives each leanchecker process a directory of hard links to the compiled files it needs, and to
+# nothing else of the project. The replay's user does not own those files, and this system by default lets a
+# user hard-link only files it owns. A hard link gives no way to change a file one cannot already change, and
+# this machine does nothing but this run, so the restriction is lifted. The import graph the directories are
+# made from is read from the sealed source tree here, once.
+sysctl -w fs.protected_hardlinks=0 >/dev/null || finish FAIL "could not allow hard links to the sealed files"
+as_chk chk3 "mkdir -p $AN/kernel_replay && ln $LIB/Statements.olean $AN/kernel_replay/.probe.olean && rm -f $AN/kernel_replay/.probe.olean" \
+  || finish FAIL "the replay's user cannot hard-link a compiled file into its own directory"
+as_chk chk3 "timeout 900 python3 -I -B $TOOLS/scripts/verify/rhv_tools.py import-graph --src $PROJ/src --out $AN/kernel_replay/import_graph.json" > "$PD/import_graph.txt" 2>&1 \
+  || finish FAIL "could not read the import graph from the source tree: $(head -c 300 "$PD/import_graph.txt" | tr '\n' ' ')"
+cat "$PD/import_graph.txt" >> "$PD/env.txt"
 if [ -n "$DRIVER" ]; then
   as_chk chk3 "LEAN_NUM_THREADS=1 LEAN_PATH='$SEAL_LP' timeout 300 $DRIVER Statements" > "$PD/seal_test_driver.txt" 2>&1
   grep -qE '^REPLAY_OK Statements [0-9]+$' "$PD/seal_test_driver.txt" \
@@ -754,43 +775,42 @@ fi
 phase_mark idle; sync_small; checkpoint "the plain axiom check has run"
 
 # ---------------------------------------------------------------- criterion C3: kernel replay of every module (user chk3)
-# The whole tree is covered by REPLAY_METHOD. With rhv-replay, a random sample and every prefix module are then
-# checked again by the stock tool, so that the two can be compared on the same compiled files.
+# leanchecker, the tool the criterion names, on every compiled module, each with only its import closure on the
+# search path (scripts/09_kernel_replay.sh). If SECOND_REPLAY is set, rhv-replay then replays every module too,
+# as a second opinion from a different program; it is not part of the criterion.
 replay() { # replay <label> <jobs> <seconds> <arguments for 09_kernel_replay.sh>   -- resumable; whatever finishes is kept. Prints the script's exit status.
   local rc
-  as_chk chk3 "timeout --signal=TERM $3 bash $TOOLS/scripts/09_kernel_replay.sh --jobs $2 $4 > $AN/c3_$1.out 2>&1; echo \$? > $AN/c3_$1.rc"
+  # The script cleans up and stops when it is told to terminate; if it has not gone a minute later, it is killed.
+  as_chk chk3 "timeout --signal=TERM --kill-after=60 $3 bash $TOOLS/scripts/09_kernel_replay.sh --jobs $2 $4 > $AN/c3_$1.out 2>&1; echo \$? > $AN/c3_$1.rc"
   pkill -KILL -x leanchecker 2>/dev/null; pkill -KILL -x rhv-replay 2>/dev/null; pkill -KILL -u chk3 2>/dev/null
   rm -f "$PD/c3_$1.rc"; safe_cp "$AN/c3_$1.out" "$PD/c3_$1.out"; safe_cp "$AN/c3_$1.rc" "$PD/c3_$1.rc"
   rc=$(cat "$PD/c3_$1.rc" 2>/dev/null); case "$rc" in ''|*[!0-9]*) rc=99 ;; esac
   echo "$rc"
 }
 n_checked() { local f=$AN/kernel_replay/results.tsv; if plain "$f"; then echo $(( $(wc -l < "$f") - 1 )); else echo 0; fi; }
-n_passed() { local f=$AN/kernel_replay/results.tsv; if plain "$f"; then awk -F'\t' 'NR>1 && $2==0 {n++} END{print n+0}' "$f"; else echo 0; fi; }
+n_passed() { local f=$AN/kernel_replay/results.tsv; if plain "$f"; then awk -F'\t' 'NR>1 && $2==0 && $6=="leanchecker" {n++} END{print n+0}' "$f"; else echo 0; fi; }
 c3_left() { python3 -I -c 'import json,sys
 try:
-    d = json.load(open(sys.argv[1])); print(d["remaining_that_another_run_could_check"])
+    print(int(json.load(open(sys.argv[1]))["leanchecker_still_to_check"]))      # what the plan would still select
 except Exception: print(-1)' "$PD/c3_summary.json"; }
-CHECK_JOBS=$NMAX; METHOD_ARGS="--method $REPLAY_METHOD"
-# Time kept back for the stock tool's second look, which only follows rhv-replay: about a second a module for
-# the sample on the whole tree, and PREFIX_ALLOW seconds (twenty minutes on the whole tree) for the prefix pass.
-STOCK_NEED=0; [ "$REPLAY_METHOD" = rhv-replay ] && STOCK_NEED=$(( STOCK_SAMPLE + PREFIX_ALLOW ))
+CHECK_JOBS=$NMAX
 C3_NEED=$(( NCOMP / 3 ))                  # seconds the replay is taken to need if no trial measures it
 n_trials=$(echo $CHECK_TRIAL | wc -w)
 if [ "$n_trials" -gt 0 ] && [ "$(left)" -gt $(( n_trials * TRIAL_SECS + FINAL_RESERVE + 600 )) ]; then
   # A short run at each job count; every result is kept. The rate is counted after a warm-up (a third of the
   # trial, at most 90 seconds), which goes on planning the run and on start-up. The modules arrive in a fixed
-  # shuffled order, so each trial sees a similar mix.
+  # shuffled order, so each trial sees a similar mix. Only modules that were really checked count.
   best=0; warm=$(( TRIAL_SECS / 3 )); [ "$warm" -gt 90 ] && warm=90
   for j in $CHECK_TRIAL; do
     [ "$j" -le "$NMAX" ] || continue
     phase_mark "check_trial:N=$j"; status c3 RUNNING "kernel replay, trial at $j at a time"
-    t=$(now); replay "trial$j" "$j" "$TRIAL_SECS" "$METHOD_ARGS" >/dev/null; deadline_check
+    t=$(now); replay "trial$j" "$j" "$TRIAL_SECS" "--method leanchecker" >/dev/null; deadline_check
     rate=0; plain "$AN/kernel_replay/results.tsv" && rate=$(awk -F'\t' -v a=$((t + warm)) -v b="$(now)" 'NR>1 && $5>=a && $5<=b && ($2==0 || $2==1) {n++} END{print n+0}' "$AN/kernel_replay/results.tsv")
     phases_end "check_trial" "${rate:-0}" "$j"; say "replay trial: $j at a time finished ${rate:-0} modules in the counted window"
     [ "${rate:-0}" -gt "$best" ] && { best=$rate; CHECK_JOBS=$j; }
   done
-  # What the trials say about the whole tree. Every module is compiled by now, so the rate measured here is the
-  # rate the rest of the replay will have. No result at all in a trial means a rate too low to finish.
+  # What the trials say about the whole tree. No result at all in a trial means a rate too low to finish. The
+  # modules arrive in a shuffled order, so the trials see the tree's mix of small and large import closures.
   togo=$(( NCOMP - $(n_passed) )); [ "$togo" -gt 0 ] || togo=0
   if [ "$best" -gt 0 ]; then
     C3_RATE=$(awk -v n="$best" -v s=$(( TRIAL_SECS - warm )) 'BEGIN{printf "%.2f", n / s}')
@@ -799,74 +819,69 @@ if [ "$n_trials" -gt 0 ] && [ "$(left)" -gt $(( n_trials * TRIAL_SECS + FINAL_RE
     C3_RATE=0; C3_NEED=$(( togo * TRIAL_SECS ))
   fi
   C3_EXPECT=$C3_NEED
-  # Whether the tree can be covered is a question about the main pass alone. The stock tool's second look
-  # comes after it and takes what time is left.
   if [ "$C3_NEED" -le $(( $(left) - FINAL_RESERVE )) ]; then C3_FITS=1; else C3_FITS=0; fi
   say "replay: $C3_RATE modules a second at $CHECK_JOBS at a time; $togo modules to go need about $C3_NEED s; $(left) s left; fits: $C3_FITS"
 fi
 checkpoint "the replay's rate has been measured"
 # The deep walk of the axiom check runs now if the replay will still fit afterwards; otherwise after it, if time remains.
-t=$(( $(left) - FINAL_RESERVE - C3_NEED - STOCK_NEED )); [ "$t" -gt "$C2_TIMEOUT" ] && t=$C2_TIMEOUT
+t=$(( $(left) - FINAL_RESERVE - C3_NEED - C3_NEED / 8 )); [ "$t" -gt "$C2_TIMEOUT" ] && t=$C2_TIMEOUT
 if [ "$C3_FITS" != 0 ] && [ "$t" -ge 900 ]; then c2_deep "$t" before_replay; else C2_DEEP_WHEN=deferred; fi
-phase_mark "check:N=$CHECK_JOBS"; status c3 RUNNING "kernel replay by $REPLAY_METHOD, $CHECK_JOBS at a time; $(n_checked) results so far"
-( while true; do sleep 300; printf '%s\tcheck\t%s\t\t\n' "$(now)" "$(n_checked)" >> "$PD/progress.tsv"; status c3 RUNNING "kernel replay: $(n_checked) results of $NCOMP modules"; done ) & PROG_PID=$!
-t=$(( $(left) - FINAL_RESERVE - STOCK_NEED ))
-# If holding back the stock tool's time would leave the main pass short, the main pass comes first: it is the
-# criterion, and the second look is a comparison.
-need=$(( C3_NEED + C3_NEED / 8 + 300 ))
-if [ "$t" -lt "$need" ]; then
-  t=$need; [ "$t" -le $(( $(left) - FINAL_RESERVE )) ] || t=$(( $(left) - FINAL_RESERVE ))
-  [ "$STOCK_NEED" -gt 0 ] && { STOCK_SQUEEZED=1; say "kernel replay: little time; the main pass may use time kept for the stock tool's second look, which gets what is left"; }
-fi
-[ "$t" -gt 60 ] || t=60
+phase_mark "check:N=$CHECK_JOBS"; status c3 RUNNING "kernel replay by leanchecker, $CHECK_JOBS at a time; $(n_checked) results so far"
+# A line of progress every five minutes while a replay runs; stopped while anything else has the machine.
+c3_progress_start() { ( while true; do sleep 300; printf '%s\tcheck\t%s\t\t\n' "$(now)" "$(n_checked)" >> "$PD/progress.tsv"; status c3 RUNNING "kernel replay: $(n_checked) results of $NCOMP modules"; done ) & PROG_PID=$!; }
+c3_progress_stop() { if [ -n "${PROG_PID:-}" ]; then kill "$PROG_PID" 2>/dev/null; wait "$PROG_PID" 2>/dev/null; fi; PROG_PID=""; }
+c3_progress_start
+t=$(( $(left) - FINAL_RESERVE )); [ "$t" -gt 60 ] || t=60
 if [ "$C3_FITS" = 0 ]; then
   # It cannot finish. Hours more of it would not change what can be said about criterion C3, so it is given a
   # bounded time: the modules are taken in a fixed shuffled order, so what it reaches is a random sample.
   [ "$t" -gt "$C3_SHORT_CAP" ] && t=$C3_SHORT_CAP
   say "kernel replay: it cannot cover the tree in the time left (about $C3_NEED s needed); running it for $t s only"
 fi
-C3_RC=$(replay main "$CHECK_JOBS" "$t" "$METHOD_ARGS"); deadline_check
+C3_MAIN_T=$t; C3_PASSES=1
+C3_RC=$(replay main "$CHECK_JOBS" "$t" "--method leanchecker"); deadline_check
 c3_summary
-# Modules whose checker was killed, or that a time limit cut off, are tried again with a quarter of the jobs.
+# Modules whose checker was killed, or that a time limit cut off, are tried again with a quarter of the jobs; and
+# a module the tool rejected or crashed on gets the further runs it is owed. A pass that changes nothing is not
+# followed by another.
 pass=1; before=-2
 while [ "$C3_FITS" != 0 ] && [ "$(c3_left)" != 0 ] && [ "$(c3_left)" != "$before" ] && [ "$pass" -le 2 ] && [ "$(left)" -gt $(( FINAL_RESERVE + 600 )) ]; do
-  before=$(c3_left)                       # a pass that changes nothing is not followed by another
+  before=$(c3_left)
   j=$(( CHECK_JOBS / 4 )); [ "$j" -ge 2 ] || j=2
-  say "kernel replay: $before modules without a result that could have one; pass $((pass + 1)) at $j at a time"
-  C3_RC=$(replay "again$pass" "$j" "$(( $(left) - FINAL_RESERVE ))" "$METHOD_ARGS"); deadline_check
-  c3_summary; pass=$((pass + 1))
+  say "kernel replay: $before modules still to check; pass $((pass + 1)) at $j at a time"
+  C3_RC=$(replay "again$pass" "$j" "$(( $(left) - FINAL_RESERVE ))" "--method leanchecker"); deadline_check
+  c3_summary; pass=$((pass + 1)); C3_PASSES=$pass
 done
-if [ "$REPLAY_METHOD" = rhv-replay ]; then
-  # The stock tool on a random sample (fixed seed: anyone can list the same modules), and on every prefix module
-  # with the modules beneath it.
-  t=$(( $(left) - FINAL_RESERVE - PREFIX_ALLOW )); [ "$t" -ge 120 ] || t=$(( ($(left) - FINAL_RESERVE) / 2 ))   # the prefix pass keeps its share
-  if [ "$STOCK_SAMPLE" -le 0 ]; then C3_STOCK_WHY="no sample was asked for"
-  elif [ "$t" -lt 120 ]; then C3_STOCK_WHY="under two minutes were left for it"
-  else
-    phase_mark "check_stock:N=$NMAX"; status c3 RUNNING "kernel replay: $STOCK_SAMPLE random modules again, by leanchecker"
-    C3_STOCK_RC=$(replay stock "$NMAX" "$t" "--method leanchecker --sample $STOCK_SAMPLE"); deadline_check
-    phases_end check_stock "$(n_checked)" "$C3_STOCK_RC"
-  fi
-  t=$(( $(left) - FINAL_RESERVE ))
-  if [ "$t" -lt 120 ]; then C3_PREFIX_WHY="under two minutes were left for it"
-  else
-    phase_mark "check_prefix:N=8"; status c3 RUNNING "kernel replay: the prefix modules again, by leanchecker"
-    C3_PREFIX_RC=$(replay prefix "$NMAX" "$t" "--method leanchecker --prefix-modules"); deadline_check
-    phases_end check_prefix "$(n_checked)" "$C3_PREFIX_RC"
-  fi
-  say "stock tool: sample exit status ${C3_STOCK_RC:-not run}, prefix pass exit status ${C3_PREFIX_RC:-not run}"
-  c3_summary
+c3_progress_stop
+# The deep walk of the axiom check, if it was put off: it is part of criterion C2, so it comes before the
+# optional second replay, which no criterion needs.
+if [ "$C2_DEEP_WHEN" = deferred ]; then
+  t=$(( $(left) - FINAL_RESERVE )); [ "$t" -gt "$C2_TIMEOUT" ] && t=$C2_TIMEOUT
+  if [ "$t" -ge 600 ]; then c2_deep "$t" after_replay; else C2_DEEP_WHEN=skipped_for_lack_of_time; fi
 fi
-kill "$PROG_PID" 2>/dev/null; wait "$PROG_PID" 2>/dev/null; PROG_PID=""
+# The optional second replay, by a different program. It runs only once leanchecker has had its whole turn, and
+# not at all if leanchecker could not cover the tree: hours of a second opinion would then add nothing.
+if [ -n "$DRIVER" ]; then
+  t=$(( $(left) - FINAL_RESERVE ))
+  if [ "$C3_FITS" = 0 ]; then SECOND_WHY="the replay by leanchecker could not cover the tree in the time there was"
+  elif [ "$t" -lt 300 ]; then SECOND_WHY="under five minutes were left for it"
+  else
+    SECOND_WHY=""
+    phase_mark "check_second:N=$NMAX"; status c3 RUNNING "second replay, by rhv-replay"; c3_progress_start
+    SECOND_RC=$(replay second "$NMAX" "$t" "--method rhv-replay"); c3_progress_stop; deadline_check
+    phases_end check_second "$(n_checked)" "$SECOND_RC"
+    say "second replay, by rhv-replay: exit status $SECOND_RC"
+  fi
+  c3_summary
+elif [ "$SECOND_REPLAY" = rhv-replay ]; then
+  SECOND_WHY="the program was not built"
+fi
+c3_progress_stop
 phases_end check "$(n_checked)" "$(plain "$AN/kernel_replay/results.tsv" && awk -F'\t' 'NR>1 && $2!=0' "$AN/kernel_replay/results.tsv" | wc -l)"
 say "kernel replay: last exit status $C3_RC, $(n_checked) result lines"; cat "$PD/c3_summary.txt" 2>/dev/null
 # The checker's own output for failed modules and for the prefix pass: plain files only, links not followed.
 ( cd "$AN/kernel_replay" 2>/dev/null && find out -maxdepth 1 -type f -print0 | timeout 600 tar -czf "$PD/c3_out.tar.gz" --null -T - 2>/dev/null ) && gcs_put "$PD/c3_out.tar.gz" "$RES/c3/out.tar.gz"
 put_logs; checkpoint "the kernel replay has run"
-if [ "$C2_DEEP_WHEN" = deferred ]; then
-  t=$(( $(left) - FINAL_RESERVE )); [ "$t" -gt "$C2_TIMEOUT" ] && t=$C2_TIMEOUT
-  if [ "$t" -ge 600 ]; then c2_deep "$t" after_replay; else C2_DEEP_WHEN=skipped_for_lack_of_time; fi
-fi
 
 # ---------------------------------------------------------------- end: nothing the checks relied on may have changed
 phase_mark end_check; status end RUNNING "hashing the compiled files again"

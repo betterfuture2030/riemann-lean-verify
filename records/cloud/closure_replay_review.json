@@ -1,0 +1,448 @@
+{
+ "what": "Review of the kernel replay as changed on 2026-11-21: the stock tool leanchecker run on every module with only the module's import closure on its search path (scripts/09_kernel_replay.sh, rhv_tools.py closure-worker, kernel_check_one.sh), the strict keeping of results, and the cloud driver's replay phase. Four AI reviewers, one lens each (can a module pass without a replay; result bookkeeping and the C3 verdict; the cloud driver; shell robustness on macOS and Linux); then one AI sceptic per reviewer tried to refute that reviewer's findings, reproducing them where it could. 21 findings, all upheld; several are the same defect seen through two lenses. Their text is given as returned, apart from the removal of private paths. Criticism of code, not a result.",
+ "the_findings_that_mattered_most": [
+  "No way was found for a module to be counted as passed without the kernel having replayed it.",
+  "Given --c3 and then --method rhv-replay, the script announced that criterion C3 held without running leanchecker. Fixed: the combination is refused.",
+  "With a module's imports visible, leanchecker also replays any imported module whose name lies beneath the module's own, and a rejection of that other module was recorded against the module asked for. Fixed: the tool names the module it stopped at, and when that is another module the one asked for is recorded as not judged.",
+  "The stored import graph was never compared with the source tree. Fixed: it carries a fingerprint of the source files and is read again when that changes.",
+  "In the cloud driver the optional second replay ran before a deferred part of the axiom check and could take its time. Fixed: the order is reversed."
+ ],
+ "what_was_changed_in_response": "docs/cloud-notes.md, section 9, and docs/performance-notes.md, section 10. The changes were themselves re-checked: closure_replay_recheck.json.",
+ "reviewers": [
+  {
+   "lens": "false-pass",
+   "findings": [
+    {
+     "title": "Import-closure mode records a PASS for a module whose .olean.private part the stock tool would reject (companion files are not linked)",
+     "file": "scripts/verify/rhv_tools.py",
+     "line": 1163,
+     "severity": "misleading-record",
+     "scenario": "cmd_closure_worker links only <mod>.olean. replayFromImports (LeanChecker.lean) loads <mod>.olean.server and then .olean.private only if they sit next to the .olean it found, so in the farm it replays the exported part only. Reproduced with a toy `module` file whose private run_cmd adds `theorem badPriv : False := True.intro` with debug.skipKernelTC. `leanchecker -v Toy.M` with the real lib on LEAN_PATH exits 1 ('declaration type mismatch, badPriv'). The closure worker records `Toy.M 0 ... import-closure-directory`. The C3 verdict stays NO, because replay_state's extra_parts check (and the cloud seal's unexpected_lib_files FAIL) catches the stray parts. But results.tsv and the 'passed by leanchecker' count say the module passed, and replay_state's comment ('leanchecker replays a module's .olean.private part when one exists') does not describe closure mode. This project has no module files, so it is latent here.",
+     "suggested_fix": "In closure-worker, also link <rel>.server and <rel>.private (os.path.join(a.lib, rel)+'.server' / '.private') whenever they exist, for the module and for every import. Or refuse closure mode and record 96 for any module that has such a part, so that no 0 is ever written for a file that was only partly replayed."
+    },
+    {
+     "title": "A prefix module whose closure includes a module beneath it is recorded as REJECTED (and then FAILED) for that child's error",
+     "file": "scripts/verify/kernel_check_one.sh",
+     "line": 85,
+     "severity": "misleading-record",
+     "scenario": "In closure mode `leanchecker -v P` also replays every module P.X that is in P's import closure. In this tree, 70 of the 114 prefix modules import modules beneath them. leanchecker throws at the first failing task and prints 'leanchecker found a problem in P.X'. kernel_check_one.sh does not look at which module is named and records status 1 for P. Reproduced: ToyP (sound) imports ToyP.Bad (bad), and the row written is `ToyP 1 ...` with out file 'found a problem in ToyP.Bad'. Under the never-overwrite rule P gets two reruns, both fail the same way, and P is listed FAILED for good. If rhv-replay passes P, the summary also reports that the tools disagree on P. The C3 verdict is still right, because P.X fails in its own check, but the failed list names a module the kernel accepted.",
+     "suggested_fix": "When the 'leanchecker found a problem in X' line names an X other than $mod, do not charge a rejection to $mod. Record it as not-run for $mod (for example status 97, or a new status that says 'another module in the closure failed'), and keep the output. X gets its own check and its own rejection."
+    },
+    {
+     "title": "Import graph is cached forever and never tied to the source tree, so changed or new modules can never pass",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 187,
+     "severity": "run-fails-or-stalls",
+     "scenario": "import_graph.json is rebuilt only if it is missing or empty (`[ ! -s \"$GRAPH\" ]`). The header says that after a source change you should start from an empty results file, but the graph stays. Take a module M that gains `import N`, where N is a new project module. M's farm lacks N: 'object file ... does not exist' gives 96 on every run. N is not in the graph, so its farm holds only N.olean: every import of N is missing, and that is also 96 forever. The summary sends the operator to 'run again, with fewer jobs', which never helps, so C3 can never be established and the cause is not shown. This is not a false pass: a too-small closure only ever yields 96.",
+     "suggested_fix": "Store a digest of the source tree (or of the sorted source paths with their mtimes or sizes) in import_graph.json, and rebuild the graph when it differs. Or always rebuild it: that takes 47 s, against a run of hours. In closure-worker, treat a module missing from the graph as an error that names the cause."
+    },
+    {
+     "title": "The stamp written for a closure check is the plan-time .hash, not a hash of the inode that was actually linked",
+     "file": "scripts/verify/rhv_tools.py",
+     "line": 1154,
+     "severity": "minor",
+     "scenario": "The plan reads <mod>.olean.hash once, possibly hours before the batch runs. The worker links whatever <mod>.olean is at check time. Sequence: content A (hash hA) at plan time; the file is replaced by B (hash hB), and B is linked, replayed and passes, but is recorded with stamp hA; then A is restored, for example by Lake restoring a cached artifact after the operator switches sources back. The summary now sees hash hA == recorded stamp and counts a pass for A, which was never replayed. This needs replacement during the run, which the header rules out for counting results, and the cloud seal makes it impossible. Locally the script says it may run beside a build.",
+     "suggested_fix": "After linking, read <lib>/<rel>.hash again, and check that the linked inode is still the one at the lib path (os.stat st_ino/st_mtime before and after). If the hash differs from the planned stamp, record 96 instead of passing the plan's stamp through."
+    }
+   ],
+   "sceptic_verdicts": [
+    {
+     "title": "Import-closure mode records a PASS for a module whose .olean.private part the stock tool would reject (companion files are not linked)",
+     "verdict": "confirmed-by-reading",
+     "severity": "misleading-record (latent; the C3 verdict is unaffected)",
+     "file": "scripts/verify/rhv_tools.py",
+     "line": 1163,
+     "evidence": "cmd_closure_worker builds `rels` only as `<name>.olean` (line 1163) and hard-links only those (line 1173). LeanChecker.lean (v4.33.1) replayFromImports calls findOLean, then adds `OLeanLevel.server.adjustFileName mFile` and then the `.private` file, but only if each one exists next to the .olean it found. It then replays the constants of the last, most private, part. In the farm those files are missing, so only the exported part is replayed, and kernel_check_one.sh writes status 0 with how=import-closure-directory. The stock tool run on the real lib directory would replay the private part. The C3 verdict still comes out NO: replay_state puts any .olean.server or .olean.private file under extra_parts, which makes structure_ok false. But results.tsv, the passed-by-leanchecker count and the per-module 'passed' state all count the module as passed. The replay_state comment at line 830 describes the stock tool, not closure mode. I did not build a toy `module` file; the code path is plain.",
+     "fix": "In cmd_closure_worker, for each rel, also link `os.path.join(a.lib, rel) + '.server'` and `+ '.private'` to `dst + '.server'` / `dst + '.private'` when they exist (skip on FileNotFoundError). The farm then holds the same parts the stock tool would see. Alternatively, before running, if `<lib>/<mod rel>.olean.server` or `.olean.private` exists, write a status-96 line for the module and skip it, so that no 0 is ever recorded for a partial replay."
+    },
+    {
+     "title": "A prefix module whose closure includes a module beneath it is recorded as REJECTED (and then FAILED) for that child's error",
+     "verdict": "confirmed-by-reproduction",
+     "severity": "misleading-record (wrong module named as failed; the C3 verdict is still correct)",
+     "file": "scripts/verify/kernel_check_one.sh",
+     "line": 85,
+     "evidence": "In LeanChecker.lean, main selects every olean on the search path with `target.isPrefixOf m`, so in closure mode `leanchecker -v P` also replays every P.X in P's farm. It throws at the first failing task after printing 'leanchecker found a problem in <m>'. kernel_check_one.sh records the exit status against $mod without looking at which module the line names. The only reclassification is to 96, for file-handling messages. I reproduced this with the real closure-worker and kernel_check_one.sh and a stand-in leanchecker that copies the stock selection and reporting logic. Setup: ToyP imports ToyP.Bad, ToyP.Bad is marked bad, graph built by import-graph. The row written was `ToyP 1 0 h_ToyP ... import-closure-directory`, and out/ToyP.out read 'replaying ToyP / replaying ToyP.Bad / leanchecker found a problem in ToyP.Bad'. Under replay_state's rules ToyP is then owed two reruns, which fail the same way, and it ends up FAILED.",
+     "fix": "In kernel_check_one.sh, after rc is set and before the 96 reclassification: `bad=$(sed -n 's/^leanchecker found a problem in //p' \"$out\" | head -1); if [ \"$rc\" -ne 0 ] && [ \"$rc\" -lt 128 ] && [ -n \"$bad\" ] && [ \"$bad\" != \"$mod\" ]; then rc=98; fi`. Add 98 to NOT_RUN_STATUSES in rhv_tools.py, with a header line saying 'another module replayed with this one failed; this module was not judged'. Keep the out file. The child module gets its own check and its own rejection."
+    },
+    {
+     "title": "Import graph is cached forever and never tied to the source tree, so changed or new modules can never pass",
+     "verdict": "confirmed-by-reproduction",
+     "severity": "run-fails-or-stalls (no false pass)",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 187,
+     "evidence": "The graph is rebuilt only under `if [ ! -s \"$GRAPH\" ]`. Nothing else deletes import_graph.json locally; the cloud guest always rebuilds it (full_guest.sh line 710), so only local runs are affected. Reproduced with the real import-graph, closure-worker and kernel_check_one.sh and a stand-in leanchecker. I built the graph, then added `import ToyP.New` to ToyP.Base and created ToyP.New. ToyP.Base was recorded `96 ... import-closure-directory`, with 'object file ToyP.New.olean ... does not exist', and every later run repeats this until the graph is deleted. The summary's advice ('run again, with fewer jobs') does not help. The finding's second clause (N's own farm is missing all of N's imports) holds only when N itself imports project modules; in my toy N had no imports and passed. A too-small closure only ever gives 96, never a pass.",
+     "fix": "Always rebuild the graph in 09_kernel_replay.sh: drop the `[ ! -s \"$GRAPH\" ]` guard. It costs about 47 s against a run of hours. Alternatively, store in import_graph.json a sha256 of the sorted list of (source path, size, mtime) and rebuild when it differs. Also, in cmd_closure_worker, when `mod not in index`, write a stderr note naming the stale graph (for example 'module X is not in the import graph; delete import_graph.json') instead of silently building a one-file farm."
+    },
+    {
+     "title": "The stamp written for a closure check is the plan-time .hash, not a hash of the inode that was actually linked",
+     "verdict": "confirmed-by-reading",
+     "severity": "minor (only outside the documented operating rules; also in HEAD's whole-library mode)",
+     "file": "scripts/verify/rhv_tools.py",
+     "line": 1154,
+     "evidence": "cmd_closure_worker passes item[1], the stamp that replay-plan read from <mod>.olean.hash, straight to kernel_check_one.sh. That script records it unchanged. The file actually linked and replayed is whatever is at the lib path when the batch runs, and nothing checks that it is still the planned file. HEAD's kernel_check_one.sh also recorded the plan's stamp for whole-library checks, so this is not new with the change. The pass is credited to the wrong file only if the compiled file is replaced during the run and the earlier content is later restored. The header of 09_kernel_replay.sh excludes that for counted results ('nothing rebuilt or replaced in between'; after a source change, start from an empty results file), and the cloud seal hashes every compiled file before and after. The header does, however, allow running beside a build, and a build only replaces finished files if sources change, so the scenario is reachable only by breaking the documented rules.",
+     "fix": "In cmd_closure_worker, before calling check_one, record `ino = os.stat(os.path.join(a.lib, mod_rel)).st_ino` and re-read `<lib>/<mod_rel>.hash`. After the call, check that the hash still equals the planned stamp and that the farm link and the lib path still have the same st_ino. If either differs, append a line with status 96 (or with the stamp 'changed-during-check') so the result can never be counted for the planned file. The simplest form: pass the hash re-read after linking as the stamp, and skip with 96 when it differs from the plan."
+    }
+   ],
+   "checked_and_found_sound": [
+    "Reproduced with a toy project built with the pinned v4.33.1 lean -o (closure-worker + kernel_check_one.sh copied to a temp dir): a good module passes; a kernel-invalid declaration (skipKernelTC) is recorded as 1 with 'found a problem' and the kernel message; a prefix module (Toy) is replayed itself, and its replayed children are kept in Toy.prefix.out.",
+    "Closure too small, two ways: (a) a missing import under a root present in the farm gives 'object file ... does not exist', recorded 96; (b) a missing import whose root is absent gives 'unknown module prefix', recorded 96; a module absent from the farm gives 'Could not find any oleans', recorded 96. A missing file never produces a pass, because findOLean resolves against the first search-path entry that holds the root directory, and the farm always holds the module's own root. No project root (BuildAid, CompanionTheory, Development, Formalism, GroundTheory, Lemmata, PositivityTheory, ReciprocityTheory, Statements) clashes with a package root.",
+    "leanchecker imports from the .olean's own import list, not from the source-derived graph. The graph only controls visibility, so over-inclusion is harmless.",
+    "read_imports compared with the import lists stored in all 59,803 compiled .olean files (read with readModuleData under the pinned toolchain): 0 project imports missing, 0 extra. A regex scan of all 175,187 sources for import lines anywhere found nothing that read_imports missed. public/meta/private prefixes, 'import all', prelude, module and leading block comments are handled.",
+    "Every project module name round-trips through String.toName/Name.toString (0 of 175,187 differ), so the exact-line test `grep -qxF \"replaying $mod\"` cannot fail spuriously. 'replaying m' is printed before the task result is read, but a pass also needs exit 0, and the tool throws on the first failed task. With rc 0 and the line absent, the result is 97, which counts as not run.",
+    "The 96 reclassification only looks at the start of the first 'uncaught exception:' line and only at the three file-handling texts; a kernel error starts '(kernel)'/'while replaying', so it cannot be mistaken for 96.",
+    "Link failure (OSError) and FileNotFoundError leave a partial farm, which yields 96, never 0. Farms left by a killed worker sit under tmp, which 09 removes at start and end. rmtree only unlinks.",
+    "Hard links share the inode and its permissions, so they give the checking user no write access it lacks via the original path. With protected_hardlinks=0, root only reads from chk3's directories (plain() checks, tar of out/); nothing chowns or writes there after the seal. The end-of-run manifest is content sha256, which a link count or ctime change does not affect. The seal's '-links +1' check runs before any farm exists.",
+    "PACKAGES strip is correct, because lean_path always starts with LIB, so the project library is not also visible through the packages.",
+    "replay_state: R is never overwritten (passed requires no R), earlier-file R blocks completion, stale/no_stamp handled, damaged lines block C3; rc=0 plus the -v check is required only in closure/prefix modes, and whole-library mode never runs a prefix module singly (eligible excludes prefix unless --all-modules, which is set only in closure mode).",
+    "Existing local results.tsv: 30 legacy leanchecker rows (whole-library, pre -v) and 24 closure rows; legacy prefix-module runs replay the module itself too, so no legacy false pass.",
+    "Cloud seal FAILs on any .olean.server/.olean.private beside the compiled files, so the companion-file gap cannot affect a cloud C3 verdict.",
+    "bash 3.2 / BSD: ARGS array is never empty under set -u; split -a, xargs -0 -P, find -print0 all portable."
+   ]
+  },
+  {
+   "lens": "bookkeeping",
+   "findings": [
+    {
+     "title": "--c3 followed by --method rhv-replay announces that criterion C3 holds without running leanchecker",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 98,
+     "severity": "wrong-verdict",
+     "scenario": "The parser handles arguments in order. `--c3` sets METHOD=leanchecker, and a later `--method rhv-replay` sets it back to rhv-replay. The --c3 guard only checks --sample, --list, --prefix-modules and --summary, so this invocation is accepted. REQUIRE then becomes --require-complete instead of --require-c3. If rhv-replay passes every module, the summary returns 0 even though 'every compiled module passed by leanchecker: NO' (reproduced: 3 rhv-replay passes and no leanchecker rows give exit 0). The script then logs \"criterion C3: every condition holds\" and exits 0. The status and the final log line both claim C3 when leanchecker never ran.",
+     "suggested_fix": "Reject --method (and RH_REPLAY_METHOD) other than leanchecker when C3=1, after parsing finishes. Also pick REQUIRE=--require-c3 whenever C3=1, whatever METHOD says."
+    },
+    {
+     "title": "A full rhv-replay run exits 0 when rhv-replay itself checked few modules or none",
+     "file": "scripts/verify/rhv_tools.py",
+     "line": 1082,
+     "severity": "misleading-record",
+     "scenario": "--require-complete tests `complete`, which counts a module as passed by either tool. With leanchecker passes on record for every module, `09 --method rhv-replay` returns 0 in two cases: when every rhv-replay check ends 96/97/137 (for example the program cannot open the sealed files), and when the run stops early. Reproduced: leanchecker passes for all 3 modules and no rhv-replay rows give replay-plan '3 to check now' and replay-summary --require-complete exit 0. The header promises 3 when 'a run over everything is not yet complete'. In full_guest.sh this 0 becomes SECOND_RC, which facts.json records as second_replay.exit_status, even though rhv-replay replayed nothing.",
+     "suggested_fix": "Pass the method to replay-summary and make --require-complete test complete_by[method]. For rhv-replay also require rhv_one when --trusted-program is given."
+    },
+    {
+     "title": "A result line missing its final newline absorbs the next result, which can be a rejection, and a later pass replaces it",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 134,
+     "severity": "misleading-record",
+     "scenario": "The disk fills while kernel_check_one.sh appends `A.B\\t1\\t...` (a rejection), and the write stops before the newline. Nothing repairs the file's last byte before more lines are appended. The next record anyone writes, here `B\\t1\\t...` (another rejection), joins that line, and read_results counts the merged line as one 'damaged' line. Neither rejection is kept: both modules have no row, the plan schedules them again, and if those runs pass they show as 'passed'. Reproduced: a cut rejection plus the next appended line gives 'rejected 0, DAMAGED 1'. replay-summary exits 3 with --require-c3, and 0 for a --sample or --list run, where the header promises 1 whenever a rejection is recorded. The damaged count never goes down, so every later --c3 run exits 3 ('run it again') and can never converge.",
+     "suggested_fix": "At the start of every run (and in full_guest before each replay), append a newline if results.tsv does not end with one. In read_results, treat a damaged line whose second field is a non-zero integer, or cannot be parsed, as a possible rejection, so the summary exits 1, or give damaged lines their own exit status instead of 3."
+    },
+    {
+     "title": "A stale import_graph.json is reused forever, so affected modules are 'not run' on every run",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 171,
+     "severity": "run-fails-or-stalls",
+     "scenario": "The graph is rebuilt only when the file is missing or empty, and nothing ties it to the source tree. The header tells the user to start from an empty results file after changing a source file, but not to delete the graph. Suppose an import of project module M2 is added to M1 and the tree is rebuilt. Each closure directory for M1 and for every module that imports M1 then lacks M2.olean. leanchecker reports that the object file does not exist, which is recorded as 96. The plan schedules these modules on every run, they get 96 every time, the summary exits 3 ('run it again'), and C3 can never be met. It never yields a false pass.",
+     "suggested_fix": "Store a digest of the source tree (paths plus mtimes or sizes, or a hash of the import lines) in import_graph.json and rebuild the graph when it differs, or simply rebuild it on every run (47 s)."
+    },
+    {
+     "title": "full_guest c3_left double-subtracts modules that are both passed by leanchecker and in failed/rejected_once",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 782,
+     "severity": "minor",
+     "scenario": "passed_by_leanchecker counts a module whose leanchecker state is 'passed' even when it also sits in rejected_once or failed. That happens when rhv-replay rejected it, or when a rejection is recorded for an earlier compiled file. Reproduced: 3 modules, with A.B owed a rerun and C passed but carrying an earlier-file rejection, give 3 - 2 - 0 - 2 - 0 + 1 = 0. c3_left then reads 0 while a rerun is still owed, and the 'again' loop stops early. This only happens when results.tsv already holds rhv-replay rows or recompiled files before the loop, so it is unlikely in a fresh cloud run.",
+     "suggested_fix": "Have replay-summary write the plan's own count to the JSON: modules the leanchecker plan would schedule now, i.e. not passed, not final and not no_stamp, plus those owed a rerun. Read that number instead of recombining overlapping counts."
+    },
+    {
+     "title": "--prefix-modules ignores --sample and --list; with --whole-library, --list silently drops prefix modules and exits 0",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 243,
+     "severity": "minor",
+     "scenario": "`09 --prefix-modules --sample 5` checks every prefix module, because replay-plan --prefix-modules never reads a.sample or a.list. `09 --whole-library --list f`, where f names a prefix module, prints only a stderr note ('skipped'), runs no prefix pass for lists, and exits 0 with REQUIRE empty. The header says --list checks 'the modules named in FILE'.",
+     "suggested_fix": "Apply --list and --sample in the prefix branch of cmd_replay_plan. Run the prefix pass for a list (limited to listed prefix modules) instead of skipping it, or make the skip an error."
+    },
+    {
+     "title": "In closure mode a rejection of a sub-module that A imports is recorded as a rejection of A",
+     "file": "scripts/verify/kernel_check_one.sh",
+     "line": 72,
+     "severity": "minor",
+     "scenario": "Module A imports A.B, so A.B.olean is in A's closure directory. leanchecker A replays every module on the path whose name has A as a prefix (LeanChecker.lean: target.isPrefixOf m), so it replays A.B too. If the kernel rejects A.B, leanchecker prints 'found a problem in A.B' and exits 1. kernel_check_one then records status 1 for A and keeps the output only as out/A.out. A becomes 'failed' after its two reruns, although the kernel accepted A. A.B is also failed in its own check, so the exit status is right, but the record blames the wrong module.",
+     "suggested_fix": "When rc=1, parse 'leanchecker found a problem in X'. If X is not the module, record the module as not tested (96/97, or a separate status) and keep the output as evidence for X."
+    }
+   ],
+   "sceptic_verdicts": [
+    {
+     "title": "--c3 followed by --method rhv-replay announces that criterion C3 holds without running leanchecker",
+     "verdict": "confirmed-by-reproduction",
+     "severity": "wrong-verdict",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 100,
+     "evidence": "Arguments are parsed in order. `--c3` (line 100) sets METHOD=leanchecker, and a later `--method rhv-replay` (line 95) overwrites it. The guard at line 111 checks only SAMPLE, LIST, PREFIX_ONLY and SUMMARY_ONLY. Line 267 then picks REQUIRE=--require-complete because METHOD is rhv-replay, and line 275 logs 'criterion C3: every condition holds' whenever the status is 0. Reproduced the summary step on a toy lib (3 compiled modules with .hash files, results.tsv holding only rhv-replay passes): `replay-summary --require-complete` exits 0 and prints 'every compiled module passed by leanchecker: NO' and 'all of these hold: NO'. So the script exits 0 and the log claims C3. RH_REPLAY_METHOD=rhv-replay with --c3 does not trigger it, because --c3 overrides the default; only an explicit later --method does.",
+     "fix": "After the parse loop add: `[ \"$C3\" -eq 0 ] || [ \"$METHOD\" = leanchecker ] || die \"--c3 is leanchecker only; do not give --method with it\"`. Also make line 267 read `if [ \"$C3\" -eq 1 ] || [ \"$METHOD\" = leanchecker ]; then REQUIRE=--require-c3; ...`."
+    },
+    {
+     "title": "A full rhv-replay run exits 0 when rhv-replay itself checked few modules or none",
+     "verdict": "confirmed-by-reproduction",
+     "severity": "misleading-record",
+     "file": "scripts/verify/rhv_tools.py",
+     "line": 1082,
+     "evidence": "--require-complete tests `complete` (line 994), which is built from st['passed']. A module counts as passed when either tool passed it. Reproduced: leanchecker passes for all 3 modules plus status-96 rhv-replay rows for all 3. replay-plan --method rhv-replay reports '3 to check now', yet replay-summary --require-complete --trusted-program sha1 exits 0. full_guest.sh line 846 stores that 0 as SECOND_RC, which becomes facts.json second_replay.exit_status. The same facts entry also carries 'result' (every_compiled_module_passed=false), so the falsehood is in the exit status alone. Even so, the 09 header promises 3 while a run over everything is not complete.",
+     "fix": "Pass `--method $METHOD` to replay-summary from 09's summarise, then end with: `if a.require_complete: ok = complete_by[a.method] if a.method else complete; if a.method == 'rhv-replay': ok = ok and rhv_one; return 0 if ok else 3`. Add `p.add_argument('--method', choices=REPLAY_METHODS)` to the replay-summary parser."
+    },
+    {
+     "title": "A result line missing its final newline absorbs the next result, which can be a rejection, and a later pass replaces it",
+     "verdict": "confirmed-by-reproduction",
+     "severity": "misleading-record",
+     "file": "scripts/verify/rhv_tools.py",
+     "line": 797,
+     "evidence": "Nothing in 09, kernel_check_one.sh, kernel_check_batch.sh or full_guest.sh repairs a missing final newline (grep finds no tail -c or newline check). kernel_check_one appends with a bare printf >>. On a full disk, a short write can leave part of a line. Reproduced: header, a C pass, the cut line 'A.B\\t1\\t...\\timport-clo' with no newline, then a full 'A\\t1...' rejection. Summary: passed 1, FAILED 0, rejected once 0, DAMAGED 1. With no REQUIRE (a --sample or --list run) it exits 0, not 1. With --require-c3 it exits 3. Both rejections are lost, so A and A.B get planned again and could show as passed. C3 is still never claimed, because damaged==0 is one of its conditions, but the damaged count is permanent, so --c3 can never converge. The scenario needs a short write, which is rare but possible on a full disk.",
+     "fix": "In 09, right after the header is created (line 145), add: `[ -s \"$RESULTS\" ] && [ \"$(tail -c 1 \"$RESULTS\")\" != \"\" ] && printf '\\n' >> \"$RESULTS\"`. In replay_summary, return 1 when damaged > 0 and any damaged line's second field is not '0' (or cannot be parsed), so that a possible rejection is never reported as clean."
+    },
+    {
+     "title": "A stale import_graph.json is reused forever, so affected modules are 'not run' on every run",
+     "verdict": "confirmed-by-reproduction",
+     "severity": "run-fails-or-stalls",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 187,
+     "evidence": "The graph is rebuilt only when `[ ! -s \"$GRAPH\" ]`, and nothing ties it to the source tree. The header (lines 46-47) says to start from an empty results file after changing a source, and does not mention the graph. cmd_closure_worker links only what the stored graph lists, and a module missing from the graph gets just its own .olean. Reproduced with the pinned leanchecker: M1 imports M2, and a closure dir held only M1.olean. Output: 'leanchecker found a problem in M1' / 'uncaught exception: unknown module prefix 'M2'', rc 1. kernel_check_one rewrites that to 96 (the 'unknown module prefix' case), so the module is not_run on every run and --c3 exits 3 forever. It can never give a false pass. The cloud driver is unaffected: full_guest.sh line 710 rebuilds the graph on every run.",
+     "fix": "Rebuild the graph on every leanchecker closure run: drop the `if [ ! -s \"$GRAPH\" ]` condition on line 187, which costs about 47 s. Alternatively, store a digest of the source paths and mtimes in import_graph.json and rebuild when it differs."
+    },
+    {
+     "title": "full_guest c3_left double-subtracts modules that are both passed by leanchecker and in failed/rejected_once",
+     "verdict": "confirmed-by-reproduction",
+     "severity": "minor",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 783,
+     "evidence": "passed_by_leanchecker counts by['leanchecker']==passed, regardless of the module's overall class, while failed and rejected_once are overall classes. Reproduced with 3 modules: A.B rejected once by leanchecker, C passed now but carrying an earlier-file rejection (old stamp), A passed. Summary JSON: compiled 3, passed_by_leanchecker 2, failed 0, rejected_once 2, never_finished 0, owed 1, so c3_left = 0. replay-plan --method leanchecker --all-modules still prints 'A.B' (1 to check now, rerun). The loop at line 833 would stop with a rerun still owed. In a fresh cloud run this needs prior rhv-replay rows or recompiled files before the loop, which is unlikely. A no_stamp module with an earlier rejection is also subtracted twice.",
+     "fix": "Add a field to the summary JSON, for example `\"leanchecker_still_to_check\": len([m for m in compiled if stamps[m] and (by['leanchecker'].get(m) in (None,'not_run','stale') or m in owed_lc)])`, where owed_lc = set(st['owed']['leanchecker']). That matches cmd_replay_plan's wanted() with --all-modules. Have c3_left print that field instead of recombining the overlapping counts."
+    },
+    {
+     "title": "--prefix-modules ignores --sample and --list; with --whole-library, --list silently drops prefix modules and exits 0",
+     "verdict": "confirmed-by-reproduction",
+     "severity": "minor",
+     "file": "scripts/verify/rhv_tools.py",
+     "line": 935,
+     "evidence": "The prefix branch of cmd_replay_plan returns before a.list or a.sample is read. Reproduced: `replay-plan --prefix-modules --list l.txt` with l.txt naming only C still plans 'A hA prefix'. 09 line 251 does not pass --sample or --list to that plan anyway, so `09 --prefix-modules --sample 5` checks every prefix module. For `--whole-library --list f`, the main plan excludes prefix modules and prints only a stderr note ('skipped'). Line 247 then skips the prefix pass for a list (the comment at line 246 says so on purpose), and REQUIRE is empty, so the exit is 0 with listed modules unchecked. The header for --list says 'check the modules named in FILE'.",
+     "fix": "In the prefix branch, filter st['prefix_modules'] through the same list and sample selection used below it. In 09, pass --list and --sample to the prefix plan and run the prefix pass for a list too (it is then limited to the listed prefix modules). If listed modules are skipped, return a non-zero status (2 or 3) instead of 0."
+    },
+    {
+     "title": "In closure mode a rejection of a sub-module that A imports is recorded as a rejection of A",
+     "verdict": "confirmed-by-reading",
+     "severity": "minor",
+     "file": "scripts/verify/kernel_check_one.sh",
+     "line": 71,
+     "evidence": "LeanChecker.lean (v4.33.1) selects every module m on the path with target.isPrefixOf m, replays each in a task, and on the first error prints 'leanchecker found a problem in {m}' and rethrows, so the exit status is 1. Reproduced the selection with the pinned tool: A imports A.B, and the closure dir holds A.olean and A/B.olean. `leanchecker -v A` prints 'replaying A.B' then 'replaying A', so A.B is replayed inside A's check. A kernel rejection of A.B would therefore exit 1, and kernel_check_one records status 1 against A. The 96 rewrite applies only to the three file-handling texts. A would end up 'failed' after its reruns, although the error was in A.B. The overall verdict is still right, because A.B fails in its own check, but the record names the wrong module. The rejection itself was not reproduced, since no toy olean the kernel rejects was at hand.",
+     "fix": "In kernel_check_one.sh, when rc=1 in closure or prefix mode, read the culprit: `bad=$(sed -n 's/^leanchecker found a problem in //p' \"$out\" | head -1)`. If `[ -n \"$bad\" ] && [ \"$bad\" != \"$mod\" ]`, record the module with a new not-run status (for example 98, added to NOT_RUN_STATUSES) and keep $out as out/$bad.via.$mod.out. Alternatively, link into the closure dir only the .olean files not named with $mod. as a prefix, except $mod itself. That cannot work if A imports A.B, so the first fix is the right one."
+    }
+   ],
+   "checked_and_found_sound": [
+    "read_results: 5/6/8-column shapes, method column validation, non-integer status and missing final newline are all counted as damaged; a merge of cut and next line can only form a valid 8-field row when the cut falls inside the first field, and that row's stamp then belongs to a different module, so it never becomes a pass",
+    "replay_state: P/R sequence per tool for the current stamp only; NOT_RUN statuses never enter the sequence; an R for an earlier stamp, a no-stamp file, or a module no longer compiled goes to 'earlier' and forces exit 1; no later P clears an R (RPP stays 'rejected', RR is 'failed'); reruns_owed counts are right for R, RP, RPP, PR, PPR",
+    "cmd_replay_plan: not_run, stale and None states are scheduled and owed reruns are added; passed, failed and settled-rejected modules are not re-run; --only-reruns schedules only owed modules; no_stamp modules are never planned (blocking C3 by design); in whole-library mode prefix modules are left out of the main pass and taken by the prefix pass, including their owed reruns; a sample is deterministic for a fixed eligible set and seed and is reused in the rerun rounds",
+    "cmd_replay_summary: C3 needs structure_ok, a leanchecker pass for every compiled module on the current file, no R in any run by any tool, and no damaged lines; --require-c3 returns 0 only when all hold; any failed, rejected_once or earlier R gives 1 before the require checks; compiled-vs-source is compared by name in both directions; extra .olean.server/.private parts block C3",
+    "An exception inside rhv_tools returns 2, not 1, and summarise maps any other status to 2; full_guest keeps the previous summary when the summary itself fails",
+    "kernel_check_one/batch: only 96/97/129/130/137/143 count as not run; kernel errors are never scanned beyond the start of the first uncaught-exception line; 'replaying <mod>' is required for a pass in closure/prefix mode (LeanChecker prints it per module, and an error in that module's task still exits 1)",
+    "Interleaved leanchecker/rhv-replay rows are kept apart per tool; disagreement is reported; an rhv-replay rejection blocks C3 as section 10 says",
+    "Hard-link probe fallback to whole-library mode switches the plan to exclude prefix modules and runs the prefix pass; the --c3 guard rejects --sample/--list/--prefix-modules/--summary; bash 3.2 handles the argument parsing and the non-empty ARGS array under set -u"
+   ]
+  },
+  {
+   "lens": "cloud-driver",
+   "findings": [
+    {
+     "title": "The optional second replay runs before the deferred C2 deep walk and can take all of its time",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 841,
+     "severity": "run-fails-or-stalls",
+     "scenario": "The second replay (lines 841-851) is given t = left - FINAL_RESERVE, with no cap and no rate estimate. It runs before the deferred deep walk (lines 858-861), which then needs at least 600 s. Case A, C3 fits but tightly: the deep walk is deferred when C3_NEED falls in roughly (8(L-R-900)/9, L-R], where L is the time left and R is FINAL_RESERVE. The leanchecker pass then leaves at most about (L-R)/9 + 800 s, about 3 h on a 26-28 h replay. With full-second-replay=rhv-replay, rhv-replay (about 6 h on the whole tree) gets all of that time and is cut off by timeout. The deep walk then sees left - R < 600 and records C2_DEEP_WHEN=skipped_for_lack_of_time. Without the second replay it would have run for up to C2_TIMEOUT. Case B, C3_FITS=0: the leanchecker pass is capped at C3_SHORT_CAP, but rhv-replay then gets the whole remaining budget, possibly about 20 h. docs/performance-notes.md s.10 says rhv-replay has not been timed on large import closures on the cloud machine. If it runs long, the deep walk is skipped again, and the VM bills for hours on a run already known not to establish C3. Net effect: turning on a replay that is not part of any criterion can lose the deep half of criterion C2.",
+     "suggested_fix": "Run the deferred deep walk before the second replay. Or reserve its time: set t = left - FINAL_RESERVE - (C2_DEEP_WHEN=deferred ? min(C2_TIMEOUT, needed) : 0), and cap the second replay (for example at C3_SHORT_CAP when C3_FITS=0). Record the time the second replay was given in facts.json."
+    },
+    {
+     "title": "facts.json second_replay.result reports summary booleans even when the second replay never ran",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 289,
+     "severity": "minor",
+     "scenario": "cmd_replay_summary always emits second_replay_by_rhv_replay, with every_compiled_module_passed=false and every_pass_by_one_recorded_program=false when there are no rhv-replay rows. If the run ends before the second replay (finish at a deadline during the leanchecker pass, or the C3 retry loop using up the time), facts.json shows second_replay = {exit_status: null, not_run_because: null, result: {every_pass_by_one_recorded_program: false, ...}}. A reader can take that as the program failing its one-program check, when it simply never ran. SECOND_WHY is set only in the 'under five minutes' branch.",
+     "suggested_fix": "Set result to null when SECOND_RC is empty. Set SECOND_WHY to a reason (for example 'the run ended before it was reached') whenever SECOND_REPLAY=rhv-replay and the block at line 841 was not entered."
+    },
+    {
+     "title": "facts.json c3_kernel_replay hard-codes 'how' and does not record the capped time or the skipped retries",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 275,
+     "severity": "minor",
+     "scenario": "'how' is always 'import closure on the search path'. 09_kernel_replay.sh silently falls back to whole-library mode plus a prefix pass if its own hard-link probe fails (lines 183-196). That is unlikely after the seal probe, but the fallback would then be misreported; only the per-row 'how' column would show it. When C3_FITS=0, facts say expected_to_fit=false but record neither the seconds the main pass was given (min of C3_SHORT_CAP and the time left) nor that the retry passes were skipped by design.",
+     "suggested_fix": "Take 'how' from the results rows, for example by having the summary count rows by 'how'. Add main_pass_seconds_allowed and retries_skipped fields."
+    }
+   ],
+   "sceptic_verdicts": [
+    {
+     "title": "The optional second replay runs before the deferred C2 deep walk and can take all of its time",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 841,
+     "severity": "run-fails-or-stalls",
+     "verdict": "confirmed-by-reading",
+     "evidence": "Line 817 sets C2_DEEP_WHEN=deferred when C3_FITS=0, or when left-FINAL_RESERVE-C3_NEED*9/8 < 900. The leanchecker main pass is then capped at C3_SHORT_CAP when C3_FITS=0 (line 824). The retry loop at line 833 is skipped when C3_FITS=0. The second-replay block (lines 841-851) is entered whenever DRIVER is non-empty, and DRIVER is set by s_driver only when SECOND_REPLAY=rhv-replay. It passes t=$(left)-FINAL_RESERVE to replay(), which wraps 09_kernel_replay.sh in `timeout $t`, with no cap and no rate estimate. Only after that, at lines 858-861, does the deferred deep walk recompute t=left-FINAL_RESERVE, and it records skipped_for_lack_of_time when t<600. If rhv-replay does not finish the tree (it is killed at the timeout) or simply runs long, under 600 s remain. The deep walk, the deep half of C2, is then lost to a replay that no criterion needs. With C3_FITS=0 this can be many hours of billed VM time on a run already known not to establish C3. I did not run full_guest.sh: the rules forbid anything under cloud/gcp against a real project. But the order and the arithmetic are plain in the code.",
+     "fix": "Move the `if [ \"$C2_DEEP_WHEN\" = deferred ]; then ... fi` block (lines 858-861) so it runs before the `if [ -n \"$DRIVER\" ]; then` second-replay block at line 841. Also cap the second replay when the leanchecker pass could not fit: after `t=$(( $(left) - FINAL_RESERVE ))` on line 842, add `[ \"$C3_FITS\" = 0 ] && [ \"$t\" -gt \"$C3_SHORT_CAP\" ] && t=$C3_SHORT_CAP`."
+    },
+    {
+     "title": "facts.json second_replay.result reports summary booleans even when the second replay never ran",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 289,
+     "severity": "minor",
+     "verdict": "confirmed-by-reading",
+     "evidence": "In rhv_tools.py cmd_replay_summary, rhv_ok = bool(compiled) and n_pass['rhv-replay']==len(compiled), which is False when there are no rhv-replay rows. rhv_one = len(programs['rhv-replay'])==1 and ..., which is also False. The JSON always writes second_replay_by_rhv_replay with both values (line 1075). The text output prints the line only if n_pass['rhv-replay'], but the JSON writes it regardless. In full_guest.sh, second_replay is non-null whenever SECOND_REPLAY=rhv-replay, and 'result' is copied from c3_summary.json unconditionally. SECOND_WHY is set only in the 'under five minutes' branch (line 843). deadline_check -> finish -> report -> write_facts can fire during the trials, the main pass or the retries, before line 841 is reached. In that case SECOND_RC and SECOND_WHY are both empty and result shows false/false. That reads like a failed check, when the replay never ran.",
+     "fix": "In write_facts, change the result field to `'result': (c3 or {}).get('second_replay_by_rhv_replay') if E('F_SECOND_RC') else None`. Also set a default reason, for example `SECOND_WHY=\"the run ended before it was reached\"` when SECOND_REPLAY=rhv-replay (around line 190). Clear it (SECOND_WHY=\"\") just before the replay call on line 846, and set it to a build-failure reason if s_driver fails."
+    },
+    {
+     "title": "facts.json c3_kernel_replay hard-codes 'how' and does not record the capped time or the skipped retries",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 275,
+     "severity": "minor",
+     "verdict": "confirmed-by-reading",
+     "evidence": "Line 275 writes the literal 'one process per module, with only the module's import closure on the search path'. scripts/09_kernel_replay.sh lines 183-196 fall back to WHOLE=1, the whole-library search path, when its hard-link probe under $REPLAY fails, and they only log a NOTE. replay_state reads the per-row 'how' column into `_how` and ignores it (rhv_tools.py line 856), so neither the summary nor facts.json reflects the fallback. When C3_FITS=0, the main pass's time is min(left-FINAL_RESERVE, C3_SHORT_CAP) (line 824), and the retry loop is skipped by its `C3_FITS != 0` guard. Neither value is passed to write_facts: there is no F_ variable for it, and C3_SHORT_CAP is not written to env.txt. Only the say log and c3_main.out record it. The fallback is unlikely, because the seal step's probe makes the same check, but a reader of facts.json alone would be told the wrong method.",
+     "fix": "In cmd_replay_summary, count rows by their 'how' value and emit it, for example `\"how_counts\": {how: n, ...}` built from the rows instead of discarding `_how`. Have facts.json take 'how' from that (c3.get('how_counts')) instead of the literal. Record C3_MAIN_T=$t just before line 827 and pass it as F_C3_MAIN_T -> 'main_pass_seconds_allowed': num('F_C3_MAIN_T'). Add 'retries_skipped_because_it_could_not_fit': yes('F_C3_FITS') is False."
+    }
+   ],
+   "checked_and_found_sound": [
+    "bash -n passes on full_guest.sh, pilot_local.sh, 09_kernel_replay.sh and kernel_check_one.sh. shellcheck is not installed. No stale references to REPLAY_METHOD, STOCK_*, PREFIX_ALLOW, METHOD_ARGS or remaining_that_another_run_could_check are left in the driver.",
+    "set -u: every new variable (SECOND_REPLAY, SECOND_RC, SECOND_WHY, DRIVER_SAME, C3_FITS, C3_EXPECT, C3_RATE, trusted, pass, before, j) is initialised before use. GRAPH in 09 is only read on the closure path, where it is set.",
+    "c3_left reads compiled_modules, passed_by_leanchecker, failed, rejected_once, compiled_files_never_finished_by_the_build and still_to_be_run_again_after_a_rejection. All six exist in cmd_replay_summary's JSON. A missing summary gives -1, and the loop ends after one pass that changes nothing. The overlaps that could double-subtract only arise for no-stamp modules or earlier-file rejections, which a fresh cloud results file does not have.",
+    "facts.json reads criterion_c3.conditions, criterion_c3.all_hold and second_replay_by_rhv_replay, and all three exist. second_replay is null when the second replay was not asked for.",
+    "as_chk passes RH_REPLAY_DRIVER and RH_REPLAY_TRUSTED_SHA. Both are empty without a driver, and 09 tests -n. RH_REPLAY_METHOD is not passed, so the default is leanchecker. toolchain_bin_dir resolves to /opt/lean-tc/bin, whose src/lean/LeanChecker.lean exists for the driver check.",
+    "Seal: sysctl fs.protected_hardlinks=0 is set after the -links +1 check. The probe ln as chk3 into $AN/kernel_replay works on the same XFS volume. import_graph.json is written by chk3 into its own directory and reused by 09 (-s test). Root never reads the graph. A closure that is too small yields 'object file ... does not exist', which is classified 96, never a pass (checked against LeanChecker.lean: -v prints 'replaying m' and then t.get).",
+    "Hard links do not affect the hashing: lib_manifest and end_lib_sha256 hash $LIB content only, and the farms are under $AN, not $LIB. Root's replay-summary walks --lib only. The keep archive tars $PROJ/.lake/build/lib, which is unaffected by links outside it. chk2 and chk3 cannot write the root-owned, go-w files through a link.",
+    "A time limit in the middle of a closure worker: GNU timeout signals the whole process group, so python, kernel_check_one and leanchecker all die. At worst the farm directories and a missing record line are left. The next 09 run removes $REPLAY/tmp at its start. Leftover farms after the last pass are harmless. Record lines are single small appends.",
+    "Disk and inode use: at most 32 live farms of about 3k links on average (the recorded graph's largest prefix-module closure has 74 modules beneath it, so no umbrella module replays the tree serially). Directories and links are cheap on XFS. The 114 prefix modules are checked singly with --all-modules.",
+    "Trial rate: counts status 0 or 1 by end-epoch (column 5) within the window after the warm-up. togo uses leanchecker passes. C3_NEED and C3_FITS are consistent. With no trials, C3_FITS is empty, which behaves as 'fits', and expected_to_fit comes out null.",
+    "pilot_local.sh: full mode passes full-second-replay=$SECOND_REPLAY (empty is read as empty by md). The rehearsal always sets full-second-replay=rhv-replay and runs leanchecker in closure mode by default, so it exercises the sysctl, the link probe, import-graph, closure-worker, the second replay and the summary keys. lib.sh keeps GCP_SECOND_REPLAY from the environment.",
+    "rhv-replay rejections counting against C3's 'no rejection by any tool' condition is the documented intent (performance-notes s.10, last paragraph), so it is not reported."
+   ]
+  },
+  {
+   "lens": "shell-portability",
+   "findings": [
+    {
+     "title": "--c3 followed by --method rhv-replay reports 'criterion C3: every condition holds' and exits 0 without a single leanchecker pass",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 100,
+     "severity": "wrong-verdict",
+     "scenario": "`--c3` sets METHOD=leanchecker while the options are being parsed, so a later `--method rhv-replay` overrides it. No check after parsing ties C3 to leanchecker. REQUIRE then becomes --require-complete instead of --require-c3, and a complete rhv-replay run returns status 0, so line 276 logs 'criterion C3: every condition holds'. Reproduced on a 201-module toy tree with a stand-in rhv-replay: the summary printed 'every compiled module passed by leanchecker: NO' and 'all of these hold: NO', then the log said 'criterion C3: every condition holds'. With the options in the other order (`--method rhv-replay --c3`) leanchecker runs, as intended.",
+     "suggested_fix": "After the option loop: `[ \"$C3\" -eq 0 ] || [ \"$METHOD\" = leanchecker ] || die \"--c3 is leanchecker only\"`. Or always pass --require-c3 when C3=1, and print the line at 276 only from the summary's c3 result."
+    },
+    {
+     "title": "--list with a path that contains a space fails, because the path is word-split into the plan arguments",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 212,
+     "severity": "run-fails-or-stalls",
+     "scenario": "plan_args is a flat string (`plan_args=\"$plan_args --list $LIST\"`) that is expanded unquoted at line 215. `--list \"<VOLUME> Disk/mods.txt\"`, or any list file kept under an RH_WORKDIR whose name has a space, becomes two arguments. Reproduced: `rhv_tools.py: error: unrecognized arguments: list.txt`, then 'ERROR: could not plan the run' and exit 2. (The --lib, --src and --results paths go through \"${ARGS[@]}\" and are not affected.)",
+     "suggested_fix": "Build the plan arguments as an array (`plan=(--method \"$METHOD\" \"$@\"); [ -n \"$LIST\" ] && plan+=(--list \"$LIST\")`) and pass \"${plan[@]}\". Bash 3.2 supports arrays; it does not support +=, so use plan[${#plan[@]}]=... there."
+    },
+    {
+     "title": "Nothing stops a second run from deleting a running run's tmp directory (plan parts, import-closure directories) and todo.tsv",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 144,
+     "severity": "run-fails-or-stalls",
+     "scenario": "The header says 'One run at a time', but nothing enforces it. Run A was started on the toy tree with --jobs 4 --batch 5. Three seconds later, run B (`--sample 3`) ran `rm -rf \"$REPLAY/tmp\"` at line 144 and run 151 the same way at 261. In A, 26 closure-worker processes then died with FileNotFoundError on tmp/plan/part.* or tmp/closure/closure.*. Only 39 of 201 modules got a result, and A ended with status 1 or 3 on work it never did. The two runs also overwrite each other's todo.tsv between planning and `split`, so a run can check the other run's plan. With the real leanchecker, a closure directory that disappears mid-check mostly gives 96 (not checked). But because a rejection is sticky, any message from a vanished file that does not begin with one of the three recognised texts would become a permanent rejection.",
+     "suggested_fix": "Take a lock at the start, for example `mkdir \"$REPLAY/lock\"` holding the pid, with a stale-lock check by `kill -0` (flock is not on macOS), and refuse to run while it is held. Or give each run its own scratch directory (`mktemp -d \"$REPLAY/tmp.XXXXXX\"`) and at start-up remove only directories whose owner pid is dead."
+    },
+    {
+     "title": "On macOS (bash 3.2), Ctrl-C does not stop the script: it goes on to the re-run passes and, with --whole-library, to the prefix pass",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 205,
+     "severity": "run-fails-or-stalls",
+     "scenario": "Ctrl-C reaches every process in the job. xargs dies of SIGINT, but because it is the last element of a pipeline (`find ... | xargs`, `tr ... | xargs`), /bin/bash 3.2 does not exit; it logs 'xargs status 130' and carries on. Reproduced, with killpg(SIGINT) two seconds into `--whole-library --jobs 4`: the log shows 'checker processes finished (xargs status 130)', then 'prefix pass: 21 modules ...', and that prefix pass ran to completion and then a second round. The prefix pass is the memory-heavy one (17.5 GB per process noted in kernel_check_one.sh). In closure mode the same Ctrl-C goes on to plan, and possibly run, `--only-reruns`. A minimal script (`echo 5 5 | xargs -n1 sleep; echo continued`) shows the same bash 3.2 behaviour. The user needs one Ctrl-C per remaining pass. The tracebacks of the interrupted Python workers also fill the output.",
+     "suggested_fix": "Add `trap 'rm -rf \"${REPLAY:?}/tmp\"; exit 130' INT TERM` near the top. Also have run_batches (and the two inline xargs pipelines) return the xargs status, and leave the script when it is 125 or above, or 130."
+    },
+    {
+     "title": "In closure mode, a rejection of a module beneath a prefix module is recorded as a rejection of the prefix module",
+     "file": "scripts/verify/kernel_check_one.sh",
+     "line": 71,
+     "severity": "misleading-record",
+     "scenario": "Module Lib imports Lib.M30 and Lib.M30.S35 (directly or not). Its closure directory therefore holds both, and `leanchecker -v Lib` replays every module in that directory whose name starts with Lib. If Lib.M30.S35 is rejected, leanchecker prints 'leanchecker found a problem in Lib.M30.S35', and kernel_check_one.sh records status 1 against $mod (Lib) without reading which module the tool named. On the toy tree, Lib was listed as 'FAILED: Lib' with a clean .olean of its own. The verdict on C3 is still NO, because the guilty module is rejected in its own check, but the record names an innocent module. Its out file is kept as Lib.out, not .prefix.out, so the attribution is not obvious.",
+     "suggested_fix": "When rc is 1, read the module named in 'leanchecker found a problem in X'. If X != $mod, record $mod as not checked (96 or a new not-run status) and keep the output, or check prefix modules with the modules beneath them excluded from the closure directory."
+    },
+    {
+     "title": "An empty library directory, or an unlinkable first file, is reported as 'hard links cannot be made' and switches the run to whole-library mode",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 183,
+     "severity": "minor",
+     "scenario": "The probe hard-links only the first .olean that find returns. If $LIB exists but holds no .olean yet (step 05 not run, or the files pruned), probe is empty, and the script logs 'hard links to the compiled files cannot be made under ... (another volume, or not permitted)' and sets WHOLE=1. The real cause is that nothing is compiled. The run then checks nothing and ends with status 3.",
+     "suggested_fix": "Die with 'no compiled modules' when probe is empty. Print the hard-link NOTE only when `ln` itself fails."
+    },
+    {
+     "title": "--jobs accepts junk and zero without saying so",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 140,
+     "severity": "minor",
+     "scenario": "`--jobs junk`, `--jobs 0` and `--jobs -3` pass the option loop, and effective_jobs quietly replaces them with the recommended value. --batch and --sample are rejected for the same mistakes, so a typo in --jobs (for example `--jobs 1O`) gives an unexpected degree of parallelism with no message.",
+     "suggested_fix": "Add `case \"$JOBS\" in ''|*[!0-9]*|0) [ -z \"$JOBS\" ] || die \"--jobs must be a number above zero\" ;; esac` before calling effective_jobs."
+    }
+   ],
+   "sceptic_verdicts": [
+    {
+     "title": "--c3 followed by --method rhv-replay reports 'criterion C3: every condition holds' and exits 0 without a leanchecker pass",
+     "verdict": "confirmed-by-reading",
+     "severity": "wrong-verdict",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 100,
+     "evidence": "Line 100 sets METHOD=leanchecker only while `--c3` is being parsed, and line 95 lets a later `--method rhv-replay` overwrite it. The guard at line 111 checks SAMPLE, LIST, PREFIX_ONLY and SUMMARY_ONLY but never METHOD. Line 267 then picks --require-complete for rhv-replay. In cmd_replay_summary, `complete` is computed by any tool (`not remaining`), so a complete, clean rhv-replay run returns 0 (`return 3 if a.require_complete and not complete else 0`). With C3=1, line 275 then logs 'criterion C3: every condition holds' even though c3['every_compiled_module_passed_by_leanchecker'] is False. The cloud driver passes `--method leanchecker` itself and is not affected; a run by hand is.",
+     "fix": "After the option loop: `[ \"$C3\" -eq 0 ] || [ \"$METHOD\" = leanchecker ] || die \"--c3 is run with leanchecker only\"`. Also make line 267 use `--require-c3` whenever C3=1, so the C3 log line always comes from the summary's c3 result."
+    },
+    {
+     "title": "--list with a path that contains a space is word-split into the plan arguments",
+     "verdict": "confirmed-by-reading",
+     "severity": "run-fails-or-stalls",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 212,
+     "evidence": "`plan_args=\"$plan_args --list $LIST\"` is expanded unquoted at line 215. Under /bin/bash 3.2, `p=\"--m x --list $LIST\"; printf '[%s]\\n' $p` with LIST='/a b/c' prints [/a] and [b/c] as separate words, so argparse gets an extra argument and line 215 exits 2. The test at line 134 (`-f \"$LIST\"`) is quoted and passes, so the failure only shows up at planning. Correction to the suggested fix: bash 3.2 does support `+=` on arrays (it came in 3.1). `a=(--x); a+=(--list \"/a b/c\")` works under /bin/bash 3.2.57 with set -u.",
+     "fix": "In main_pass: `local plan=(--method \"$METHOD\" \"$@\"); [ \"$SAMPLE\" -gt 0 ] && plan+=(--sample \"$SAMPLE\" --seed \"$SEED\"); [ -n \"$LIST\" ] && plan+=(--list \"$LIST\"); [ \"$METHOD\" = leanchecker ] && [ \"$WHOLE\" -eq 0 ] && plan+=(--all-modules)`, then call `replay-plan \"${ARGS[@]}\" \"${plan[@]}\"`. The array always holds --method, so set -u on bash 3.2 does not trip on an empty array."
+    },
+    {
+     "title": "Nothing stops a second run from deleting a running run's tmp directory and todo.tsv",
+     "verdict": "confirmed-by-reading",
+     "severity": "robustness (documented limitation, not a correctness bug in normal use)",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 144,
+     "evidence": "The header says 'One run at a time', and no lock enforces it. Lines 144 and 261 run `rm -rf \"$REPLAY/tmp\"` unconditionally, and TODO is the shared path $REPLAY/todo.tsv, so a second run started by hand removes the first run's plan parts and closure directories. The closure worker then raises FileNotFoundError at tempfile.mkdtemp or open(a.batch). The cloud driver runs the script strictly one call after another, as chk3, and kills chk3's processes between calls, so it cannot hit this. I did not confirm the secondary claim that a vanished file could become a permanent rejection. In LeanChecker.lean, the errors from a missing .olean or directory are 'object file ... does not exist', 'unknown module prefix' and failed-to-open, and kernel_check_one.sh maps those, and any error raised before a replay starts, to 96 (not checked). Lines 84-97 cover that.",
+     "fix": "Near line 144, before touching tmp: `if ! mkdir \"$REPLAY/lock\" 2>/dev/null; then p=$(cat \"$REPLAY/lock/pid\" 2>/dev/null); if [ -n \"$p\" ] && kill -0 \"$p\" 2>/dev/null; then die \"another run (pid $p) is using $REPLAY\"; fi; rm -rf \"$REPLAY/lock\"; mkdir \"$REPLAY/lock\" || die \"cannot lock $REPLAY\"; fi; echo $$ > \"$REPLAY/lock/pid\"`. Remove the lock at exit with `trap 'rm -rf \"$REPLAY/lock\"' EXIT`."
+    },
+    {
+     "title": "On macOS bash 3.2, Ctrl-C does not stop the script: it goes on to the re-run passes and the prefix pass",
+     "verdict": "confirmed-by-reproduction",
+     "severity": "run-fails-or-stalls",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 205,
+     "evidence": "I ran it in a temporary directory with /bin/bash 3.2.57 and sent killpg(SIGINT) 1.5 s into the run. A script of `echo 5 5 | xargs -n1 sleep; echo continued` printed 'continued status 130', went on to the next command, and exited 0. The same xargs fed by a here-string, not a pipeline, made bash exit on the signal (rc -2). The main pass (line 205 `find | xargs`, line 228 `tr | xargs`) and the prefix pass (line 257) are all pipelines that end in xargs, so a Ctrl-C only ends the current pass. In closure mode the re-run plan usually comes back empty after an interrupt (status 130 is not a rejection), so the effect there is small. With --whole-library or --prefix-modules, the memory-heavy prefix pass starts anyway. Adding `trap 'echo trapped; exit 130' INT TERM` made the same test script exit 130 at once.",
+     "fix": "After `. common.sh`, add `trap 'rm -rf \"${REPLAY:-/nonexistent}/tmp\"; exit 130' INT` and `trap 'rm -rf \"${REPLAY:-/nonexistent}/tmp\"; exit 143' TERM`. In run_batches and the two inline pipelines, also stop when the xargs status is 130 or 143: `rc=$?; log ...; case $rc in 130|143) exit $rc ;; esac`."
+    },
+    {
+     "title": "In closure mode, a rejection of a module beneath a prefix module is recorded against the prefix module",
+     "verdict": "confirmed-by-reading",
+     "severity": "misleading-record",
+     "file": "scripts/verify/kernel_check_one.sh",
+     "line": 71,
+     "evidence": "cmd_closure_worker links the module's whole transitive import closure into the directory. A root or umbrella module such as Lib.lean usually imports Lib.* modules, so they are all present. In LeanChecker.lean (v4.33.1, lines 89-113), `main` selects every .olean on the search path with `target.isPrefixOf m`, replays each one in a task, and on the first error prints 'leanchecker found a problem in {m}' and rethrows, which makes the exit status 1. kernel_check_one.sh then records status 1 for $mod without reading which module was named, and lines 87-92 only downgrade it when the exception is a file error. The summary never replaces a rejection, so the innocent prefix module stays listed as FAILED for good. The C3 verdict is still correct, because the guilty module is also rejected in its own check.",
+     "fix": "In kernel_check_one.sh, after line 98: `if [ \"$rc\" -eq 1 ]; then culprit=$(sed -n 's/^leanchecker found a problem in //p' \"$out\" | head -1); if [ -n \"$culprit\" ] && [ \"$culprit\" != \"$mod\" ]; then rc=96; mv -f \"$out\" \"$RH_REPLAY_DIR/out/$mod.beneath-rejected.out\"; fi; fi`. The module is then recorded as not checked, and the rejection stays recorded against the module that caused it, by that module's own check."
+    },
+    {
+     "title": "An empty library directory is reported as 'hard links cannot be made' and switches to whole-library mode",
+     "verdict": "confirmed-by-reading",
+     "severity": "minor",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 183,
+     "evidence": "Line 133 only tests `-d \"$LIB\"`. If LIB holds no .olean, `probe` is empty, so the `if` at line 184 fails and lines 193-195 log the hard-link NOTE and set WHOLE=1. The plan then selects nothing and the summary under --require-c3 returns 3, because `bool(compiled)` is False. The message names the wrong cause. A real ln failure, for example fs.protected_hardlinks on Linux, takes the same branch, but the cloud driver turns protected_hardlinks off and probes the link itself (full_guest.sh lines 707-708).",
+     "fix": "Split the test: `[ -n \"$probe\" ] || die \"no compiled modules found under $LIB (run steps 04 and 05 first)\"`, then `if ln \"$probe\" \"$TMP/link-probe.olean\" 2>/dev/null; then ... else WHOLE=1; log NOTE...; fi`."
+    },
+    {
+     "title": "--jobs accepts junk and zero without saying so",
+     "verdict": "confirmed-by-reading",
+     "severity": "minor",
+     "file": "scripts/09_kernel_replay.sh",
+     "line": 140,
+     "evidence": "Line 93 stores any string. effective_jobs in scripts/common.sh lines 64-70 maps ''|*[!0-9]*|0 to recommended_jobs without a message, while --batch, --sample and --seed are validated at lines 106-108. So `--jobs 1O` quietly runs at the recommended degree of parallelism.",
+     "fix": "Before line 140: `[ -z \"$JOBS\" ] || case \"$JOBS\" in *[!0-9]*|0) die \"--jobs must be a number above zero\" ;; esac`."
+    }
+   ],
+   "checked_and_found_sound": [
+    "Ran the scripts on macOS /bin/bash 3.2 with BSD userland against a 201-module toy tree, from a copy of scripts/ (so no config.env was read). RH_WORKDIR had a space in its name (<SCRATCH> dir), with a stand-in leanchecker and stand-in rhv-replay programs. The closure mode, the whole-library mode with its prefix pass, and the rhv-replay batches all worked. Every path except --list is quoted correctly, including LEAN_PATH, PACKAGES (with a quoted pattern), the mktemp, the trap and the cp targets.",
+    "run_batches: `split -l N -a 6` (26^6 names is far above 175,187 at --batch 1). --batch 1 over all 201 modules gave 204 lines, the expected count. `find -print0 | xargs -0 -n 1 -P` with the multi-word python3 closure-worker command appends the batch file after --batch on BSD, and the same holds on GNU. The empty-plan cases return before split and xargs run, so the 'empty input runs the command once' difference between GNU and BSD xargs never comes up.",
+    "Option validation: --batch 0 or non-numeric, --whole-library or --prefix-modules with rhv-replay, and --c3 with --sample, --list, --summary or --prefix-modules are all refused with exit 2.",
+    "set -u: $* and \"${ARGS[@]}\" (never empty) inside functions work on bash 3.2. N, GRAPH, round and extra are always set before use, and RH_REPLAY_TRUSTED_SHA is guarded.",
+    "Line atomicity of concurrent appends: 48 bash processes each appended 1,500 lines of about 300 bytes with printf >> to one file. All 72,000 lines came out intact with 8 fields. The results file opens with O_APPEND and each line is a single write.",
+    "Cleanup: every rm -rf uses the ${REPLAY:?} form or a path under it. Closure directories and batch directories left by an interrupt or by timeout's SIGTERM are removed by the next run's rm -rf at line 144. The Python workers' `ignore_errors` rmtree does no harm.",
+    "kernel_check_batch.sh: a stand-in driver that SEGVs on one module and exits after a FAIL on another gave 139 and 1, charged to the right modules, and the rest of the batch was resumed. A run interrupted with SIGINT left no stray processes.",
+    "Hard-link probe and fallback: the probe and the closure-worker link into the same filesystem ($TMP under REPLAY). A link that fails stops the linking, leaves a partial directory, and the module is recorded as 96 or 97, never as a pass. The cloud guest sets fs.protected_hardlinks=0 and probes as chk3 beforehand.",
+    "In the cloud, `timeout --signal=TERM` signals the whole process group. bash, Python and leanchecker die without a pass being written: at most 143, which counts as not run. The `pkill -KILL -u chk3` afterwards and the next run's cleanup of tmp take care of the rest."
+   ]
+  }
+ ]
+}

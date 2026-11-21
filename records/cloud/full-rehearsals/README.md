@@ -2,6 +2,8 @@
 
 Short runs of [`../../../cloud/gcp/full_guest.sh`](../../../cloud/gcp/full_guest.sh) in its rehearsal mode: a build boxed at seven minutes, then every later phase on what was built. A rehearsal tests the driver. It verifies nothing about the proof.
 
+**The driver has changed since the last rehearsal here.** On 2026-11-21 its kernel-replay phase was rewritten: `leanchecker` now checks every module, each process with only its module's import closure on the search path, and `rhv-replay` is an optional second replay ([`../../../docs/performance-notes.md`](../../../docs/performance-notes.md), section 10). The five runs below are of the driver as it was at the time; the settings and `facts.json` fields they mention (`GCP_REPLAY_METHOD`, `method_for_the_whole_tree`, `replay_program`, the stock sample) are those of that driver. The present driver has not been rehearsed.
+
 | Run | Outcome | Machine time | Recorded cost |
 |---|---|---|---|
 | `full-rehearsal-20261120-211809` | Stopped itself during setup, 109 seconds in | 353 seconds | 0.20 USD |
@@ -139,7 +141,7 @@ Each built about one module in a hundred, all from the bottom of the import grap
 - the check that every source module is compiled, which a time-boxed build cannot pass;
 - the axiom check on the final theorem, which must load all 175,187 modules;
 - the stock tool's prefix pass on real prefix modules: none of the 114 was among those built (it has been run on a seven-module project and, by hand, on two real ones);
-- the stock tool as the method for the whole tree under the driver's present ordering of steps: the third rehearsal used it under the earlier ordering, the fifth used it for the sample only;
+- the kernel replay as the driver now runs it: `leanchecker` on every module with import-closure search paths, the hard links those need across two users, and the optional second replay after it. The third rehearsal used the stock tool for everything it had built, with the whole library on the search path; the fifth used it for a sample only;
 - the retry passes of the replay, and a replay that the trials find cannot cover the tree, which is then cut to an hour;
 - a real half-written file left by a killed compiler at the seal: the fourth rehearsal met one and stopped; the fifth removed a stand-in;
 - a run that reaches its deadline, and the watchdog;
