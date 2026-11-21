@@ -1,0 +1,40 @@
+# Snapshot of the local build, taken 2026-11-21 09:31:06 CST (2026-11-21T15:31Z).
+# Output of scripts/06_progress.sh, then two lines computed from the import graph for the modules compiled at that moment.
+
+== Build snapshot 2026-11-21 09:31:06
+work directory: <WORKDIR>
+state: RUNNING (launcher pid 38335, lake pid 38341 )
+runs so far: 15   last entries of the status file:
+  END 2026-11-20 14:18:22 epoch=1795205902 rc=143
+  START 2026-11-20 14:18:26 epoch=1795205906 threads=8 log=<WORKDIR>/logs/build-20261120-141826.log
+
+== Modules
+compiled: 59988 of 175187 (34.24%)
+FAILED jobs: 0 line(s) in all build logs, 0 distinct target(s)
+current log: <WORKDIR>/logs/build-20261120-141826.log
+  compiled in this run: 53557   jobs with warnings (including replayed ones): 32761
+  last job line: ⚠ [68692/68974] Built Development.AbelianVarietyTheory.Proofs.AdelicLatticeProofs.LeftTranslateMatrixPolyTensorFormProperties (8.2s)
+
+== Rate
+current run: 53557 modules in 19.21 h with 8 jobs = 2788 modules/hour
+last 15 minutes: 727 modules = 2908 modules/hour
+naive time remaining: at least 40 hours (1.7 days) at 2908 modules/hour
+  This is a floor, not a forecast: it assumes the recent rate holds for all remaining
+  modules, and later modules tend to import more of the project than earlier ones.
+
+== Compiler processes
+lean: 5   leanchecker: 0
+    5083 MB       00:39  GenSectT.lean
+     563 MB       00:02  ExistsRingEquivNeOfTranscendental.lean
+     386 MB       00:01  EqZeroOfContractions.lean
+     316 MB       00:01  IsNilpotentTmulSubTmulOfConstOnFibres.lean
+
+== Memory and disk
+cores: 10   memory: 24 GB   load: 13.00 13.63 12.60
+  System-wide memory free percentage: 62%
+  swap: total = 4096.00M  used = 2850.56M  free = 1245.44M  (encrypted)
+free disk in the work directory's filesystem: 3177 GB
+
+== Import closures of the compiled modules (project modules imported, directly or not)
+compiled on the Mac: 59996 of 175187 modules (34.2%)
+mean import closure of those: 892; largest: 34926

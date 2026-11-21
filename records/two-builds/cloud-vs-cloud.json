@@ -1,0 +1,26 @@
+{
+ "what": "files present in both builds, compared byte for byte (SHA-256)",
+ "files_in_both": 7516,
+ "by_kind": {
+  ".olean.hash": {
+   "identical": 1503,
+   "different": 0
+  },
+  ".ilean.hash": {
+   "identical": 1503,
+   "different": 0
+  },
+  ".olean": {
+   "identical": 1504,
+   "different": 0
+  },
+  ".ilean": {
+   "identical": 1503,
+   "different": 0
+  },
+  ".trace": {
+   "identical": 1503,
+   "different": 0
+  }
+ }
+}

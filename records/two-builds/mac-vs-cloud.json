@@ -1,0 +1,38 @@
+{
+ "what": "files present in both builds, compared byte for byte (SHA-256)",
+ "files_in_both": 8973,
+ "by_kind": {
+  ".olean.hash": {
+   "identical": 1097,
+   "different": 697
+  },
+  ".ilean.hash": {
+   "identical": 1794,
+   "different": 0
+  },
+  ".olean": {
+   "identical": 1097,
+   "different": 699
+  },
+  ".ilean": {
+   "identical": 1795,
+   "different": 0
+  },
+  ".trace": {
+   "identical": 0,
+   "different": 1794
+  }
+ },
+ "olean_files_that_differ_by_size_difference_in_bytes_a_minus_b": {
+  "16": 699
+ },
+ "traces": {
+  "modules_with_a_trace_in_both": 1794,
+  "same_input_hash": 849,
+  "same_recorded_olean_hash": 1097,
+  "inputs_that_differ_by_kind": {
+   "an imported module's compiled files": 2781
+  }
+ },
+ "pairs_written_for_OleanDiff": 699
+}
