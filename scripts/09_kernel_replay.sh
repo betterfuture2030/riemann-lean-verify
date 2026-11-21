@@ -71,7 +71,8 @@
 #                same sample, so an interrupted sample can be resumed)
 #   --seed S     seed for --sample (default 20261120)
 #   --jobs N     parallel checker processes (default: RH_JOBS, else the recommended value)
-#   --batch N    modules handed to one worker process (default 25)
+#   --batch N    most modules handed to one worker process (default 25; fewer when there are too
+#                few modules to give every job that many)
 #   --list FILE  check the modules named in FILE (one per line) instead of all eligible ones
 #   --prefix-modules  run only the prefix pass (leanchecker with --whole-library); with --list,
 #                only for the prefix modules the list names. A --sample with --whole-library is
@@ -244,9 +245,14 @@ fi
 export RH_PROJ RH_REPLAY_DIR RH_LEAN_PATH RH_LEANCHECKER RH_LEANCHECKER_SHA RH_REPLAY_DRIVER RH_REPLAY_DRIVER_SHA
 
 run_batches() { # run_batches <todo file> <worker command...>: one worker process per batch of the plan
-  local todo=$1; shift
+  local todo=$1 n b; shift
   rm -rf "${TMP:?}/plan"; mkdir -p "$TMP/plan" || die "cannot create $TMP/plan"
-  split -l "$BATCH" -a 6 "$todo" "$TMP/plan/part." || die "could not split the plan into batches"
+  # At most BATCH modules to a worker, and fewer when the plan is short, so that a short pass (a retry, a
+  # rehearsal) still gives every job a worker: 635 modules for 32 jobs go out 19 to a worker, which makes 34
+  # workers, where 25 to a worker made 26.
+  n=$(wc -l < "$todo" | tr -d ' ')
+  b=$(( n / JOBS )); [ "$b" -ge 1 ] || b=1; [ "$b" -le "$BATCH" ] || b=$BATCH
+  split -l "$b" -a 6 "$todo" "$TMP/plan/part." || die "could not split the plan into batches"
   find "$TMP/plan" -type f -name 'part.*' -print0 | xargs -0 -n 1 -P "$JOBS" "$@"
   log "checker processes finished (xargs status $?)"
 }
@@ -260,7 +266,7 @@ main_pass() { # main_pass <extra arguments for the plan>: plan what the tool has
   N=$(wc -l < "$TODO" | tr -d ' ')
   [ "$N" -gt 0 ] || return 0
   if [ "$METHOD" = rhv-replay ]; then
-    log "checking $N modules with rhv-replay, $BATCH to a process, $JOBS processes at a time (interrupt with Ctrl-C at any time; finished results are kept)"
+    log "checking $N modules with rhv-replay, at most $BATCH to a process, $JOBS processes at a time (interrupt with Ctrl-C at any time; finished results are kept)"
     run_batches "$TODO" "$HERE/verify/kernel_check_batch.sh"
   elif [ "$WHOLE" -eq 0 ]; then
     log "checking $N modules with leanchecker, each with only its imports on the search path, $JOBS at a time (interrupt with Ctrl-C at any time; finished results are kept)"

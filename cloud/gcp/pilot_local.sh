@@ -147,8 +147,9 @@ launch)
   fi
   [ -n "$TA" ] || die "no build target found in $TARGETS_JSON"
   SSHA=$(sha256_of "$HERE/sampler.py")
-  # Refuse to start if the worst case for this VM would break the cap.
-  WORST=$(echo "scale=2; $RATE * $MAXRUN / 3600" | bc); SP=$(spent)
+  # Refuse to start if the worst case for this VM would break the cap. The ledger can record up to 120 seconds
+  # past the maximum run time (teardown, below), so they are counted here, and the figure is rounded up to a cent.
+  WORST=$(echo "scale=2; $RATE * ($MAXRUN + 120) / 3600 + 0.01" | bc); SP=$(spent)
   [ "$(echo "$SP + $WORST > $CAP_USD" | bc)" = 0 ] || die "REFUSED: spent \$$SP + worst case \$$WORST would exceed the \$$CAP_USD cap"
   echo "launching $NAME ($MT): worst case \$$WORST, recorded spend so far \$$SP of \$$CAP_USD"
   case "$MODE" in full) echo "kernel replay: leanchecker on every module${SECOND_REPLAY:+; then a second replay by $SECOND_REPLAY}" ;; esac
