@@ -734,188 +734,335 @@ def cmd_axioms_summary(a):
 # --------------------------------------------------------------------------------------------
 # 09: kernel re-check planning and summary
 
-def module_names(root, ext):
-    """Module names of all files with the given extension under root."""
-    out = {}
+def lib_files(root, exts):
+    """One walk of root. Returns {ext: {module name: path}} for the files that end with each extension."""
+    out = {e: {} for e in exts}
     if not os.path.isdir(root):
         return out
-    n = len(ext)
     for dirpath, _dirs, files in os.walk(root):
         for f in files:
-            if f.endswith(ext):
-                rel = os.path.relpath(os.path.join(dirpath, f), root)[:-n]
-                out[rel.replace(os.sep, ".")] = os.path.join(dirpath, f)
+            for e in exts:
+                if f.endswith(e):
+                    rel = os.path.relpath(os.path.join(dirpath, f), root)[:-len(e)]
+                    out[e][rel.replace(os.sep, ".")] = os.path.join(dirpath, f)
+                    break
     return out
 
 
 # Exit statuses that say nothing about the module: 96 = the checker could not do its work (it could not be
-# started, or could not open or find a compiled file; kernel_check_one.sh),
-# 137 = killed (SIGKILL; typically the system's out-of-memory killer), 143 = terminated (SIGTERM; typically a time
-# limit). Any other non-zero status, including a crash such as 134 or 139, counts as a failure.
-NOT_RUN_STATUSES = (96, 137, 143)
+# started, or could not open or find a compiled file; kernel_check_one.sh and kernel_check_batch.sh), and four
+# signals that come from outside the checker: 129 (hang-up), 130 (interrupt), 137 (kill; typically the system's
+# out-of-memory killer) and 143 (terminate; typically a time limit). Any other non-zero status counts as a
+# failure; one of 128 or more is a checker that crashed by itself, which is reported apart from a module the
+# kernel rejected.
+NOT_RUN_STATUSES = (96, 129, 130, 137, 143)
+
+# The two ways a module can be replayed. Both run the same function of the pinned toolchain on the module
+# (replayFromImports in LeanChecker.lean); they differ in how the modules to check are chosen.
+#   leanchecker   the stock tool: one process per module, and one per prefix module with the modules beneath it
+#   rhv-replay    scripts/verify/replay: many exactly-named modules per process
+REPLAY_METHODS = ("leanchecker", "rhv-replay")
 
 
 def replay_state(a):
-    compiled = module_names(a.lib, ".olean")
+    files = lib_files(a.lib, (".olean.server", ".olean.private", ".olean"))
+    compiled = files[".olean"]
     # leanchecker replays a module's ".olean.private" part when one exists, while an importing file reads only
     # the ".olean" of a module that is not a `module` file. This project has no `module` files, so any such
     # part beside a compiled file is something the build did not write: it is reported and blocks "complete".
-    extra_parts = sorted(set(module_names(a.lib, ".olean.server")) | set(module_names(a.lib, ".olean.private")))
-    sources = module_names(a.src, ".lean") if a.src else {}
+    extra_parts = sorted(set(files[".olean.server"]) | set(files[".olean.private"]))
+    sources = lib_files(a.src, (".lean",))[".lean"] if a.src else {}
     names = set(compiled) | set(sources)
-    # leanchecker checks every module whose name has its argument as a prefix. A module that is a
-    # proper prefix of another module's name can therefore not be checked on its own: it is checked
-    # in one process together with the compiled modules beneath it (the "prefix pass").
+    # leanchecker checks every module whose name has its argument as a prefix. A module that is a proper prefix
+    # of another module's name can therefore not be checked on its own by the stock tool: it is checked in one
+    # process together with the compiled modules beneath it (the "prefix pass"). rhv-replay takes exact names.
     prefixes = set()
     for n in names:
         parts = n.split(".")
         for i in range(1, len(parts)):
             prefixes.add(".".join(parts[:i]))
     prefix_modules = sorted(set(compiled) & prefixes)
-    eligible = sorted(set(compiled) - prefixes)
 
+    # The stamp of a compiled file is the content hash the build tool keeps beside it. A compiled file without
+    # one was left by a compiler that the build tool never saw finish; no result can be current for it.
     stamps = {}
-    for mod in eligible + prefix_modules:
+    for mod, path in compiled.items():
         try:
-            with open(compiled[mod] + ".hash", encoding="ascii", errors="replace") as fh:
-                stamps[mod] = fh.read().strip() or "nohash"
+            with open(path + ".hash", encoding="ascii", errors="replace") as fh:
+                stamps[mod] = fh.read().strip() or None
         except OSError:
-            stamps[mod] = "nohash"
+            stamps[mod] = None
 
-    latest = {}
+    latest = {}     # (module, method) -> the last result line
+    unreadable = 0  # lines that are neither a complete old line (five fields) nor a complete new one (six)
     if os.path.isfile(a.results):
         with open(a.results, encoding="utf-8", errors="replace") as fh:
             for line in fh:
                 f = line.rstrip("\n").split("\t")
-                if len(f) >= 4 and f[0] != "module":
-                    latest[f[0]] = f
-    def classify(mods):
-        passed, failed, stale, killed = [], [], [], []
-        for mod in mods:
-            r = latest.get(mod)
-            if r is None:
-                continue
-            try:
-                rc = int(r[1])
-            except ValueError:
-                rc = 1
-            if r[3] != stamps[mod]:
-                stale.append(mod)       # compiled again since it was checked
-            elif rc == 0:
-                passed.append(mod)
-            elif rc in NOT_RUN_STATUSES:
-                killed.append(mod)      # the checker never ran, or was killed from outside: not a verdict on the module
-            else:
-                failed.append(mod)      # includes a checker that crashed by itself (other statuses of 128 and above)
-        return passed, failed, stale, killed
-    passed, failed, stale, killed = classify(eligible)
-    p_passed, p_failed, p_stale, p_killed = classify(prefix_modules)
-    return {"compiled": compiled, "sources": sources, "prefix_modules": prefix_modules, "eligible": eligible,
-            "extra_parts": extra_parts,
-            "stamps": stamps, "passed": passed, "failed": failed, "stale": stale, "killed": killed,
-            "prefix_passed": p_passed, "prefix_failed": p_failed, "prefix_stale": p_stale, "prefix_killed": p_killed}
+                if f[0] == "module" or line.strip() == "":
+                    continue
+                if not line.endswith("\n"):         # a write cut short, at the very end of the file
+                    unreadable += 1
+                    continue
+                # Lines written before the method column existed have five fields and were all leanchecker's.
+                # Anything else that is not a complete six-field line (a line cut short by a full disk, two
+                # lines run together) is counted and ignored: it is never credited to either method.
+                if len(f) == 5:
+                    method = "leanchecker"
+                elif len(f) == 6 and f[5] in REPLAY_METHODS:
+                    method = f[5]
+                else:
+                    unreadable += 1
+                    continue
+                latest[(f[0], method)] = f
+
+    def status(mod, method):
+        """passed, failed, crashed, not_run, stale, no_stamp, or None if there is no result."""
+        r = latest.get((mod, method))
+        if r is None:
+            return None
+        try:
+            rc = int(r[1])
+        except ValueError:
+            rc = 1
+        if stamps[mod] is None:
+            # No hash beside the file: no result can be current for it. But a failure that was recorded for
+            # this module is not forgotten for that: it stays under FAILED until the module is checked again.
+            if rc != 0 and rc not in NOT_RUN_STATUSES:
+                return "crashed" if rc >= 128 else "failed"
+            return "no_stamp"
+        if r[3] != stamps[mod]:
+            return "stale"          # compiled again since it was checked
+        if rc == 0:
+            return "passed"
+        if rc in NOT_RUN_STATUSES:
+            return "not_run"
+        return "crashed" if rc >= 128 else "failed"
+
+    by = {m: {} for m in REPLAY_METHODS}        # method -> {module: status}
+    for mod in compiled:
+        for method in REPLAY_METHODS:
+            st = status(mod, method)
+            if st:
+                by[method][mod] = st
+    passed, failed, crashed, remaining, disagree = [], [], [], [], []
+    for mod in sorted(compiled):
+        sts = [by[m].get(mod) for m in REPLAY_METHODS]
+        bad = [x for x in sts if x in ("failed", "crashed")]
+        if bad and "passed" in sts:
+            disagree.append(mod)
+        if bad:
+            failed.append(mod)
+            if "failed" not in sts:
+                crashed.append(mod)
+        elif "passed" in sts:
+            passed.append(mod)
+        else:
+            remaining.append(mod)
+    return {"compiled": compiled, "sources": sources, "prefix_modules": prefix_modules, "extra_parts": extra_parts,
+            "stamps": stamps, "by": by, "passed": passed, "failed": failed, "crashed": crashed,
+            "remaining": remaining, "disagree": disagree, "unreadable": unreadable}
 
 
 def cmd_replay_plan(a):
     st = replay_state(a)
-    eligible = st["eligible"]
+    done_states = ("passed",) if a.retry_failed else ("passed", "failed", "crashed")
+    mine = st["by"][a.method]
+    has_stamp = {m for m, s in st["stamps"].items() if s is not None}
+    prefix = set(st["prefix_modules"])
     if a.prefix_modules:
         # One line per prefix module still to check: module, stamp, and the word "prefix", which tells
         # kernel_check_one.sh to keep the checker's list of the modules it replayed.
-        done = set(st["prefix_passed"])
-        if not a.retry_failed:
-            done |= set(st["prefix_failed"])
-        todo = [m for m in st["prefix_modules"] if m not in done]
+        todo = [m for m in st["prefix_modules"] if m in has_stamp and mine.get(m) not in done_states]
         for m in todo:
             sys.stdout.write("%s\t%s\tprefix\n" % (m, st["stamps"][m]))
         sys.stderr.write("prefix modules: %d compiled; %d already have a current result; %d to check now\n" % (
-            len(st["prefix_modules"]), len(st["prefix_modules"]) - len(todo), len(todo)))
+            len(prefix), len(prefix) - len(todo), len(todo)))
         return 0
+    # The stock tool cannot check a prefix module by itself; the other method names modules exactly.
+    eligible = sorted(m for m in has_stamp if a.method == "rhv-replay" or m not in prefix)
     if a.list:
         with open(a.list, encoding="utf-8") as fh:
             wanted = [ln.strip() for ln in fh if ln.strip() and not ln.startswith("#")]
         ok = set(eligible)
         unknown = [m for m in wanted if m not in ok]
         if unknown:
-            sys.stderr.write("note: %d listed modules are not compiled or are a prefix of another module; skipped\n" % len(unknown))
+            sys.stderr.write("note: %d listed modules are not compiled, were never finished by the build, or cannot be checked singly by this method; skipped\n" % len(unknown))
         pool = [m for m in wanted if m in ok]
     else:
         pool = eligible
     if a.sample and a.sample < len(pool):
         pool = sorted(random.Random(a.seed).sample(sorted(pool), a.sample))
-    done = set(st["passed"])
-    if not a.retry_failed:
-        done |= set(st["failed"])
-    todo = [m for m in pool if m not in done]
+    todo = [m for m in pool if mine.get(m) not in done_states]
     # A fixed shuffle, so that cheap and costly modules are mixed instead of arriving library by library.
-    # The order has no bearing on the result: every module is checked in a process of its own.
+    # The order has no bearing on the result: every module is replayed from its own imports.
     random.Random(a.seed).shuffle(todo)
     for m in todo:
         sys.stdout.write("%s\t%s\n" % (m, st["stamps"][m]))
-    sys.stderr.write("selected %d modules; %d already have a current result; %d to check now\n" % (
-        len(pool), len(pool) - len(todo), len(todo)))
+    sys.stderr.write("%s: selected %d modules; %d already have a current result by this method; %d to check now\n" % (
+        a.method, len(pool), len(pool) - len(todo), len(todo)))
     return 0
 
 
 def cmd_replay_summary(a):
     st = replay_state(a)
-    eligible, passed, failed, stale = st["eligible"], st["passed"], st["failed"], st["stale"]
-    remaining = len(eligible) - len(passed) - len(failed)
-    prefix, p_passed, p_failed = st["prefix_modules"], st["prefix_passed"], st["prefix_failed"]
-    p_remaining = len(prefix) - len(p_passed) - len(p_failed)
-    killed = st["killed"] + st["prefix_killed"]
+    compiled, by = st["compiled"], st["by"]
+    passed, failed, crashed, remaining, disagree = st["passed"], st["failed"], st["crashed"], st["remaining"], st["disagree"]
+    prefix = st["prefix_modules"]
     total_src = len(st["sources"])
     # Compared by name, not by count: a compiled file with no source must not stand in for a missing one.
-    not_compiled = sorted(set(st["sources"]) - set(st["compiled"]))
-    no_source = sorted(set(st["compiled"]) - set(st["sources"])) if total_src else []
-    # Complete: the sources are known, every one of them is compiled, nothing else is, and every compiled
-    # module has a passing result for the file now on disk.
+    not_compiled = sorted(set(st["sources"]) - set(compiled))
+    no_source = sorted(set(compiled) - set(st["sources"])) if total_src else []
     extra_parts = st["extra_parts"]
-    complete = (not failed and not p_failed and remaining == 0 and p_remaining == 0
-                and total_src > 0 and not not_compiled and not no_source and not extra_parts)
+    no_stamp = sorted(m for m, s in st["stamps"].items() if s is None)
+    # Which replay programs the rhv-replay runs used (09_kernel_replay.sh keeps the list beside the results).
+    programs = {}
+    plist = os.path.join(os.path.dirname(os.path.abspath(a.results)), "replay_program.tsv")
+    if os.path.isfile(plist) and not os.path.islink(plist):
+        with open(plist, encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                f = line.rstrip("\n").split("\t")
+                if len(f) >= 3 and line.endswith("\n"):
+                    programs[(f[1], f[2])] = programs.get((f[1], f[2]), 0) + 1
+    programs = [{"sha256": k[0], "origin": k[1], "runs": n} for k, n in sorted(programs.items())]
+    # What another run could still check: everything remaining except files the build tool never finished.
+    checkable_left = len([m for m in remaining if st["stamps"][m] is not None])
+    unreadable = st["unreadable"]
+    not_run = sorted(m for m in remaining if any(by[x].get(m) == "not_run" for x in REPLAY_METHODS))
+    stale = sorted(m for m in remaining if any(by[x].get(m) == "stale" for x in REPLAY_METHODS))
+    n_pass = {x: sum(1 for v in by[x].values() if v == "passed") for x in REPLAY_METHODS}
+    both = sum(1 for m in compiled if all(by[x].get(m) == "passed" for x in REPLAY_METHODS))
+    prefix_left = [m for m in prefix if m in set(remaining)]
+    # Complete: the sources are known, every one of them is compiled and was finished by the build tool,
+    # nothing else is compiled, and every compiled module has a passing result for the file now on disk.
+    structure_ok = total_src > 0 and not not_compiled and not no_source and not extra_parts and not no_stamp
+    complete = structure_ok and not failed and not remaining
+    complete_by = {x: structure_ok and not failed and n_pass[x] == len(compiled) for x in REPLAY_METHODS}
     print("== Kernel re-check summary")
     if total_src:
         print("  source modules:                         %d" % total_src)
-    print("  compiled modules:                       %d" % len(st["compiled"]))
-    print("  checked one at a time:                  %d" % len(eligible))
+    print("  compiled modules:                       %d" % len(compiled))
     print("    passed (result is for the current file): %d" % len(passed))
-    print("    FAILED:                                 %d" % len(failed))
-    print("    remaining (never checked, or recompiled since): %d  (of which recompiled since: %d)" % (remaining, len(stale)))
-    print("  prefix modules (name is a prefix of another module's name; each is checked in one")
-    print("  process together with the compiled modules beneath it):  %d" % len(prefix))
-    print("    passed: %d   FAILED: %d   remaining: %d" % (len(p_passed), len(p_failed), p_remaining))
-    if killed:
-        print("  checker not run or killed from outside (counted as remaining, not as failed; run again, with fewer jobs): %d" % len(killed))
+    print("      by leanchecker: %d   by rhv-replay: %d   by both: %d" % (n_pass["leanchecker"], n_pass["rhv-replay"], both))
+    print("    FAILED:                                 %d%s" % (len(failed), "  (of which the checker itself crashed: %d)" % len(crashed) if crashed else ""))
+    print("    remaining (never checked, or recompiled since): %d  (of which recompiled since: %d)" % (len(remaining), len(stale)))
+    print("  prefix modules (name is a prefix of another module's name): %d, of which without a result: %d" % (len(prefix), len(prefix_left)))
+    if disagree:
+        print("  THE TWO METHODS DISAGREE on %d modules (passed by one, failed by the other)" % len(disagree))
+    if not_run:
+        print("  checker not run or killed from outside (counted as remaining, not as failed; run again, with fewer jobs): %d" % len(not_run))
+    if no_stamp:
+        print("  compiled files the build tool never finished (no hash beside them; rebuild them): %d" % len(no_stamp))
+    if unreadable:
+        print("  lines of the results file that are not a complete result (ignored): %d" % unreadable)
+    for pr in programs:
+        print("  rhv-replay program used in %d run(s): sha256 %s (%s)" % (pr["runs"], pr["sha256"], pr["origin"].replace("_", " ")))
     if extra_parts:
         print("  modules with an .olean.server or .olean.private file the build should not have written: %d" % len(extra_parts))
     if not_compiled:
         print("  source modules not compiled: %d" % len(not_compiled))
     if no_source:
         print("  compiled modules with no source file: %d" % len(no_source))
-    for m in (failed + p_failed)[:50]:
-        print("  FAILED: " + m)
-    if len(failed) + len(p_failed) > 50:
-        print("  ... and %d more" % (len(failed) + len(p_failed) - 50))
+    for m in failed[:50]:
+        print("  FAILED: " + m + ("  (checker crashed)" if m in set(crashed) else ""))
+    if len(failed) > 50:
+        print("  ... and %d more" % (len(failed) - 50))
     print("  every source module compiled and passing: %s" % ("yes" if complete else "no"))
     if a.json:
         write_json(a.json, {
-            "check": "kernel re-check with leanchecker, one process per module",
+            "check": "kernel replay of each compiled module from its imports (replayFromImports of the pinned toolchain)",
             "run_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "source_modules": total_src, "compiled_modules": len(st["compiled"]),
-            "eligible": len(eligible),
-            "passed": len(passed), "failed": len(failed), "failed_modules": failed,
-            "remaining": remaining, "recompiled_since_checked": len(stale),
-            "prefix_modules": prefix, "prefix_passed": len(p_passed), "prefix_failed": len(p_failed),
-            "prefix_failed_modules": p_failed, "prefix_remaining": p_remaining,
-            "not_run_or_killed": len(killed), "not_run_or_killed_modules": killed[:200],
+            "source_modules": total_src, "compiled_modules": len(compiled),
+            "passed": len(passed), "passed_by_leanchecker": n_pass["leanchecker"], "passed_by_rhv_replay": n_pass["rhv-replay"],
+            "passed_by_both": both,
+            "failed": len(failed), "failed_modules": failed, "checker_crashed": len(crashed), "crashed_modules": crashed[:200],
+            "methods_disagree": len(disagree), "disagreeing_modules": disagree[:200],
+            "remaining": len(remaining), "remaining_that_another_run_could_check": checkable_left,
+            "recompiled_since_checked": len(stale), "result_lines_ignored_as_incomplete": unreadable,
+            "rhv_replay_programs_used": programs,
+            "not_run_or_killed": len(not_run), "not_run_or_killed_modules": not_run[:200],
+            "prefix_modules": prefix, "prefix_remaining": len(prefix_left),
+            "compiled_files_never_finished_by_the_build": len(no_stamp), "never_finished_sample": no_stamp[:50],
             "modules_with_unexpected_parts": len(extra_parts), "unexpected_parts_sample": extra_parts[:50],
             "source_modules_not_compiled": len(not_compiled), "not_compiled_sample": not_compiled[:50],
             "compiled_modules_without_source": len(no_source), "without_source_sample": no_source[:50],
-            "complete": complete,
+            "complete": complete, "complete_by_leanchecker_alone": complete_by["leanchecker"],
+            "complete_by_rhv_replay_alone": complete_by["rhv-replay"],
         })
-    if failed or p_failed:
+    if failed:
         return 1
     return 3 if a.require_complete and not complete else 0
+
+
+# The SHA-256 of scripts/verify/replay/RhvReplay.lean as reviewed. replay-driver-check refuses any other file:
+# to change the program, change this line in the same commit, where the two can be seen together.
+DRIVER_SHA256 = "52c1984827f2c461ce4c7db782076a1d47cce8875657722556ae62d26a7bc3ef"
+DRIVER_HEADER = ["import Lean.CoreM", "import Lean.Replay", "open Lean"]
+# Words that could change what a definition in the driver means, or put other code in its place. None of them
+# has any business in a file that is one copied function and one loop.
+DRIVER_FORBIDDEN = ("@[", "attribute", "implemented_by", "extern", "macro", "syntax", "elab", "notation",
+                    "set_option", "instance", "initialize", "namespace", "section", "theorem", "axiom",
+                    "abbrev", "opaque", "example", "structure", "inductive", "class", "mutual", "universe",
+                    "variable", "deriving", "#eval", "run_cmd", "open ", "import ", "local ", "scoped ")
+
+
+def cmd_replay_driver_check(a):
+    """Exit 0 only if the driver is the reviewed file and carries the toolchain's replayFromImports unchanged.
+
+    Checked: (1) the driver file as a whole has the SHA-256 pinned above; (2) its replayFromImports is the
+    toolchain's, character for character; (3) each of the two definitions occurs exactly once; (4) the file
+    opens with one comment that contains no comment inside it, and there is no block comment anywhere after it
+    (Lean's block comments nest, so a stray opener could put the visible program out of action); (5) between
+    that comment and the function there are the three expected lines and nothing else; (6) `main`, the only
+    other definition, contains none of the words that could redefine or replace a function.
+    (1) alone settles it for the file in this repository; (2) ties that file to the toolchain actually installed;
+    the rest is there so that the check still means something if the pin is ever changed.
+    Not checked, because no comparison of text can: that `main` does what its 25 lines appear to do. Read it."""
+    START, MAIN, FRESH = "unsafe def replayFromImports", "unsafe def main", "unsafe def replayFromFresh"
+    with open(a.driver_src, encoding="utf-8") as fh:
+        ours_text = fh.read()
+    with open(a.toolchain_src, encoding="utf-8") as fh:
+        theirs_text = fh.read()
+    sha = lambda t: hashlib.sha256(t.encode("utf-8")).hexdigest()
+    problems = []
+    if sha(ours_text) != DRIVER_SHA256:
+        problems.append("the driver is not the reviewed file: its sha256 is %s, expected %s" % (sha(ours_text), DRIVER_SHA256))
+    if ours_text.count(START) != 1 or ours_text.count(MAIN) != 1:
+        problems.append("the driver must contain 'unsafe def replayFromImports' and 'unsafe def main' exactly once each")
+    if theirs_text.count(START) != 1 or theirs_text.count(FRESH) != 1:
+        problems.append("the toolchain's LeanChecker.lean does not have the two definitions expected of it")
+    structure_ok = ours_text.count(START) == 1 and ours_text.count(MAIN) == 1 and theirs_text.count(START) == 1 and theirs_text.count(FRESH) == 1
+    if structure_ok:
+        o0, o1 = ours_text.index(START), ours_text.index(MAIN)
+        t0, t1 = theirs_text.index(START), theirs_text.index(FRESH)
+        if not o0 < o1 or not t0 < t1:
+            problems.append("the definitions are not in the expected order")
+            structure_ok = False
+    if structure_ok:
+        ours, theirs = ours_text[o0:o1].rstrip() + "\n", theirs_text[t0:t1].rstrip() + "\n"
+        if ours != theirs:
+            problems.append("the two definitions of replayFromImports differ")
+        # One leading comment, with no comment opened inside it, and no block comment after it.
+        end = ours_text.find("-/")
+        if not ours_text.startswith("/-") or end < 0 or "/-" in ours_text[2:end]:
+            problems.append("the driver must open with one block comment that has no comment inside it")
+        elif "/-" in ours_text[end + 2:] or "-/" in ours_text[end + 2:]:
+            problems.append("the driver may not contain a block comment after its opening one")
+        else:
+            head = ours_text[end + 2:o0]
+            if [ln.strip() for ln in head.splitlines() if ln.strip()] != DRIVER_HEADER:
+                problems.append("between the opening comment and replayFromImports the driver must have exactly these lines: " + "; ".join(DRIVER_HEADER))
+        tail = ours_text[o1 + len(MAIN):]
+        found = [w.strip() for w in DRIVER_FORBIDDEN if w in tail] + (["def"] if re.search(r"\bdef\b", tail) else [])
+        if found:
+            problems.append("the driver's main contains text that has no place there: " + ", ".join(found))
+    if problems:
+        for msg in problems:
+            sys.stderr.write("replay-driver-check: %s\n" % msg)
+        return 1
+    print("replayFromImports: identical in the driver and in the toolchain's LeanChecker.lean (%d characters, sha256 %s)" % (len(ours), sha(ours)))
+    print("driver source as a whole: %s sha256 %s, the reviewed file" % (os.path.basename(a.driver_src), sha(ours_text)))
+    return 0
 
 
 # --------------------------------------------------------------------------------------------
@@ -979,13 +1126,25 @@ def main():
         p.add_argument("--retry-failed", action="store_true")
         p.add_argument("--prefix-modules", action="store_true")
         p.add_argument("--require-complete", action="store_true")
+        p.add_argument("--method", default="leanchecker", choices=list(REPLAY_METHODS))
         p.set_defaults(fn=fn)
+
+    p = sub.add_parser("replay-driver-check")
+    p.add_argument("--driver-src", required=True)
+    p.add_argument("--toolchain-src", required=True)
+    p.set_defaults(fn=cmd_replay_driver_check)
 
     a = ap.parse_args()
     if not a.cmd:
         ap.print_help()
         return 2
-    return a.fn(a)
+    try:
+        return a.fn(a)
+    except Exception as ex:          # an error of this tool is "could not run": never the 1 that means a finding
+        import traceback
+        traceback.print_exc()
+        sys.stderr.write("rhv_tools: %s failed: %s: %s\n" % (a.cmd, type(ex).__name__, ex))
+        return 2
 
 
 if __name__ == "__main__":

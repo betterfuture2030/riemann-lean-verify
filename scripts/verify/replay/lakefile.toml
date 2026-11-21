@@ -1,0 +1,7 @@
+name = "rhvreplay"
+defaultTargets = ["rhv-replay"]
+
+[[lean_exe]]
+name = "rhv-replay"
+root = "RhvReplay"
+supportInterpreter = true

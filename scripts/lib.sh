@@ -6,7 +6,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Values already set in the environment win over config.env, so a test can be pointed at a scratch directory
 # (for example: RH_WORKDIR=/tmp/scratch scripts/06_progress.sh) without touching a real working directory.
 _rh_keep=""
-for _v in RH_WORKDIR RH_PART_URL_PREFIX RH_PART_COUNT RH_TARBALL_SHA256 RH_JOBS GCP_PROJECT GCP_BUCKET GCP_REGION GCP_ZONES GCP_MACHINE_TYPE GCP_SPEND_CAP_USD GCP_RATE_USD_PER_HOUR; do
+for _v in RH_WORKDIR RH_PART_URL_PREFIX RH_PART_COUNT RH_TARBALL_SHA256 RH_JOBS GCP_PROJECT GCP_BUCKET GCP_REGION GCP_ZONES GCP_MACHINE_TYPE GCP_SPEND_CAP_USD GCP_RATE_USD_PER_HOUR GCP_REPLAY_METHOD GCP_STOCK_SAMPLE GCP_KEEP_OLEANS RH_REPLAY_METHOD; do
   if eval "[ -n \"\${$_v+x}\" ]"; then eval "_rh_env_$_v=\"\${$_v}\""; _rh_keep="$_rh_keep $_v"; fi
 done
 [ -f "$REPO_ROOT/config.env" ] && . "$REPO_ROOT/config.env"
