@@ -3,7 +3,7 @@
 Two things live here, driven by one controller, `pilot_local.sh`.
 
 - **The calibration pilot** (`pilot_guest.sh`). One rented virtual machine compiles a time-boxed sample of the proof, measures what each module costs, uploads its measurements to a private bucket, and is deleted. The point is to estimate the cost of a full run before committing to one. It was run on 2026-11-20; its results are in [`records/cloud/pilot/`](../../records/cloud/pilot/).
-- **The full run** (`full_guest.sh`). One virtual machine builds the whole tree and runs the pre-registered checks. It is described at the end of this page. **It had not been run, or rehearsed, when this was written.**
+- **The full run** (`full_guest.sh`). One virtual machine builds the whole tree and runs the pre-registered checks. It is described at the end of this page. **It has been rehearsed on a seven-minute build; the full run had not been made when this was written.**
 
 ## What you need
 
@@ -71,12 +71,12 @@ prints the estimated hours for a full build and a full kernel replay on the same
 
 ## The full run
 
-**Not yet run or rehearsed.** What follows describes what the scripts are written to do. Section 9 of [`docs/cloud-notes.md`](../../docs/cloud-notes.md) lists what a review of them found and changed.
+**Rehearsed, not yet run in full.** Three rehearsals on 2026-11-20 found two faults, which were fixed; the third ran every phase and each step did what it should ([`records/cloud/full-rehearsals/`](../../records/cloud/full-rehearsals/)). A rehearsal builds about one module in a hundred and does not reach the paths listed at the end of this page. Section 9 of [`docs/cloud-notes.md`](../../docs/cloud-notes.md) lists what two reviews of the scripts found and changed.
 
 ```bash
 git status --short scripts cloud                      # must be empty: a full run is tied to one commit
 bash cloud/gcp/pilot_local.sh stage                   # also uploads an archive of scripts/ made from that commit
-bash cloud/gcp/pilot_local.sh launch full-rehearsal   # about 35 minutes, at most 2.50 USD
+bash cloud/gcp/pilot_local.sh launch full-rehearsal   # about 20 minutes (0.68 USD recorded), at most 2.50 USD
 bash cloud/gcp/pilot_local.sh watch
 bash cloud/gcp/pilot_local.sh launch full             # an estimated 31 hours; refused unless the cap allows 84 USD more
 bash cloud/gcp/pilot_local.sh watch                   # can be interrupted and resumed

@@ -1,0 +1,217 @@
+{
+ "what": "facts from one run of cloud/gcp/full_guest.sh; not a verdict (see PREREGISTRATION.md, section 5)",
+ "state": "DONE",
+ "message": "all phases ran; read facts.json against PREREGISTRATION.md section 5",
+ "written_utc": "2026-11-21T04:06:29Z",
+ "elapsed_s": 994,
+ "mode": "full-rehearsal",
+ "time_boxed_build": true,
+ "jobs": 32,
+ "inputs": {
+  "tarball_sha256": "9631b4f020199e580ba86178cb56c6e9b09f690c2369a80dc4334aa93f49c7fc",
+  "tools_commit": "48eb4ff4e9650fd8ef8a1d9ed5cbb6b9d0f7f63c",
+  "tools_archive_sha256": "4706fd49342b4ecd918a1b358b14db97e0d15e54c5f7036e51c148194f1e3278",
+  "guest_script_sha256": "468470d2f5b97bdb3e191a0a59fb976be8678d1eac10c9ef7886e1d13e9d23c2",
+  "guest_script_is_the_one_sent": true
+ },
+ "c1_build": {
+  "state": "time_boxed",
+  "source_modules": 175187,
+  "compiled_modules": 1792,
+  "source_modules_not_compiled": 173395,
+  "compiled_modules_without_source": 0,
+  "compiled_modules_named_like_a_library": 0,
+  "failed_job_lines_in_all_logs": 0,
+  "last_lake_exit_status": 124,
+  "retried_after_failure": false,
+  "failed_jobs_in_last_pass": null,
+  "of_which_compiler_killed_from_outside": null,
+  "of_which_compiler_crashed": null,
+  "restart_tests": {
+   "plain_restart": {
+    "finished_modules_recompiled": 0,
+    "new_modules_built": 316
+   },
+   "restart_after_pruning": {
+    "finished_modules_recompiled": 0,
+    "new_modules_built": 305
+   }
+  }
+ },
+ "seal": {
+  "source_tree_unchanged_since_extraction": true,
+  "toolchain_and_mathlib_unchanged_since_before_first_compile": true,
+  "sealed_copy_of_toolchain_matches": true,
+  "files_beside_the_compiled_modules_that_the_build_does_not_write": 0,
+  "compiled_files_manifest_sha256": "8ddf9e098a87583f824b6fca6581b10ca623389afd35379eb5196c4316961df9"
+ },
+ "c2_axioms": {
+  "plain_exit_status": 0,
+  "deep_exit_status": 0,
+  "deep_walk_ran": "before_replay",
+  "plain": {
+   "verdict": "PASS",
+   "failures": [],
+   "mode": "probe",
+   "compiled_modules": 1792,
+   "theorem_axioms": {
+    "Formalism.VW.rh_of_right": [
+     "propext",
+     "Classical.choice",
+     "Quot.sound"
+    ]
+   },
+   "checks": {
+    "statement_is_constant_RiemannHypothesis": {
+     "subject": "Formalism.VW.rh_of_right",
+     "value": true
+    }
+   },
+   "deep_walk": {
+    "requested": false,
+    "visited": null,
+    "axiom_count": null,
+    "axioms": [],
+    "missing": [],
+    "modules_listed_completely": null,
+    "project_modules_touched": null,
+    "project_constants_visited": null,
+    "library_modules_touched": null,
+    "library_constants_visited": null
+   }
+  },
+  "deep": {
+   "verdict": "PASS",
+   "failures": [],
+   "mode": "probe",
+   "compiled_modules": 1792,
+   "theorem_axioms": {
+    "Formalism.VW.rh_of_right": [
+     "propext",
+     "Classical.choice",
+     "Quot.sound"
+    ]
+   },
+   "checks": {
+    "statement_is_constant_RiemannHypothesis": {
+     "subject": "Formalism.VW.rh_of_right",
+     "value": true
+    }
+   },
+   "deep_walk": {
+    "requested": true,
+    "visited": 54444,
+    "axiom_count": 3,
+    "axioms": [
+     {
+      "module": "Init.Core",
+      "name": "propext"
+     },
+     {
+      "module": "Init.Core",
+      "name": "Quot.sound"
+     },
+     {
+      "module": "Init.Prelude",
+      "name": "Classical.choice"
+     }
+    ],
+    "missing": [],
+    "modules_listed_completely": true,
+    "project_modules_touched": 1,
+    "project_constants_visited": 3,
+    "library_modules_touched": 1759,
+    "library_constants_visited": 54441
+   }
+  }
+ },
+ "c3_kernel_replay": {
+  "last_exit_status": 3,
+  "jobs": 32,
+  "summary": {
+   "check": "kernel re-check with leanchecker, one process per module",
+   "compiled_modules": 1792,
+   "compiled_modules_without_source": 0,
+   "complete": false,
+   "eligible": 1792,
+   "failed": 0,
+   "failed_modules": [],
+   "modules_with_unexpected_parts": 0,
+   "not_compiled_sample": [
+    "CompanionTheory.AutomorphicTheory.BesselOrbitBounds.BesselMapUniqueness.BesselMapUniqGap",
+    "CompanionTheory.AutomorphicTheory.BesselOrbitBounds.BesselMapUniqueness.BesselMapUniqGapAlt",
+    "CompanionTheory.AutomorphicTheory.BesselOrbitBounds.BesselMapUniqueness.ContinuousOnOrbit",
+    "CompanionTheory.AutomorphicTheory.BesselOrbitBounds.BesselMapUniqueness.NormPsiGen",
+    "CompanionTheory.AutomorphicTheory.BesselOrbitBounds.BesselMapUniqueness.OrbitMult",
+    "CompanionTheory.AutomorphicTheory.BesselOrbitBounds.BesselMapUniqueness.ProdNormLe",
+    "CompanionTheory.AutomorphicTheory.BesselSmoothness.BesselSmoothOf",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.AsmDiff",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.BigCellDerivativeExpansionOfIsDSOfCoefOf",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.Bridge",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.CfgTie",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.CoefFacts",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.CoefOfOfWsp",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.EigStrOfMem",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.EndpointDifferentTypesThreshold",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.EqShift",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.FamilyThroughDiscreteSeries",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.FourLeOfFive",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.GapSizes",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.GridsText",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.KDecayOfGap",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.LettersPoly",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.LimBdSh",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.LimStepsOf",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.NQText",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.NormalizedMeasureScaling",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.NqMovedExample",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.NqOfLamData",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.PStarTie",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.PowFourLeRpowNineHalves",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.ProductMoment",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.QwBound",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.SmoothCoefficientBessel",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.SpanBall",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.ThmBFinal",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.TiedNum",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.TypeHC",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.WaveBallEstimateWeightedDualAlt",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.WaveInputsOfHypothesesGlobal",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.WeightedBoundRotatedUniformOfCubicThreshold",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.WeightedBoundRotatedUniformOfHypsG",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.WeightedUniformRotatedOfExpansion",
+    "CompanionTheory.AutomorphicTheory.CompactTopologicalForms.FinalC",
+    "CompanionTheory.AutomorphicTheory.CompactTopologicalForms.FinalS",
+    "CompanionTheory.AutomorphicTheory.CompactTopologicalForms.JacobiFieldSquareIntegrable",
+    "CompanionTheory.AutomorphicTheory.CompactTopologicalForms.NormalFormTopDomination",
+    "CompanionTheory.AutomorphicTheory.DiscreteGroupWaves.NFCoreC",
+    "CompanionTheory.AutomorphicTheory.DiscreteGroupWaves.NFDomC",
+    "CompanionTheory.AutomorphicTheory.DiscreteGroupWaves.NFTopCpt",
+    "CompanionTheory.AutomorphicTheory.DiscreteGroupWaves.NFTopFormCpt"
+   ],
+   "not_run_or_killed": 0,
+   "not_run_or_killed_modules": [],
+   "passed": 1792,
+   "prefix_failed": 0,
+   "prefix_failed_modules": [],
+   "prefix_passed": 0,
+   "prefix_remaining": 0,
+   "recompiled_since_checked": 0,
+   "remaining": 0,
+   "run_utc": "2026-11-21T04:06:29Z",
+   "source_modules": 175187,
+   "source_modules_not_compiled": 173395,
+   "unexpected_parts_sample": [],
+   "without_source_sample": []
+  }
+ },
+ "end": {
+  "compiled_files_unchanged_since_seal": true,
+  "toolchain_and_mathlib_unchanged_since_seal": true,
+  "build_user_process_seen_after_seal": false
+ },
+ "archive_of_compiled_files": {
+  "state": "made",
+  "objects_uploaded": 2
+ }
+}

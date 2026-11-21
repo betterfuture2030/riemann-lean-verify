@@ -33,7 +33,7 @@ All three must pass. None of them alone is enough.
 |---|---|---|---|
 | 1 | The whole tree compiles with zero errors | `lake build` of every target in the tree's own `lakefile.toml`, with the pinned toolchain and the pinned Mathlib | In progress: 23,981 of 175,187 modules at the last recorded snapshot, zero failures |
 | 2 | The headline theorem has the right type and only the standard axioms | In a new file that imports `Main`: confirm that the type of `riemannHypothesis` is the constant `RiemannHypothesis` and that this constant comes from Mathlib's module; run `#print axioms riemannHypothesis` and require exactly `propext`, `Classical.choice`, `Quot.sound` | Not yet possible. Done for the last lemma of the chain only (see below) |
-| 3 | An independent kernel replay of every module agrees | `leanchecker`, the replay tool shipped with the toolchain, run on each compiled module in its own process | Not yet possible. Random samples of 24 compiled modules on a Mac, and of 565 and 2,233 on a cloud machine, were replayed and all passed |
+| 3 | An independent kernel replay of every module agrees | `leanchecker`, the replay tool shipped with the toolchain, run on each compiled module in its own process | Not yet possible. Random samples of 24 compiled modules on a Mac, and of 565 and 2,233 on a cloud machine, were replayed and all passed, as were all 1,792 modules of a rehearsal build |
 
 ### Check 1: the whole tree compiles
 

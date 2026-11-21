@@ -37,8 +37,8 @@ Run all of these with `scripts/reproduce_findings.sh`. Expected values are in [`
 | ID | Claim | State | Reproduce |
 |---|---|---|---|
 | K1 | Mathlib's prebuilt cache for the pinned revision is accepted by the pinned toolchain, with no Mathlib module rebuilt | Done | `scripts/04_setup_toolchain.sh` |
-| K2 | `Formalism.VW.rh_of_right` (zeta has no zeros right of the critical line implies `RiemannHypothesis`) depends only on `propext`, `Classical.choice`, `Quot.sound`; its conclusion is the constant `RiemannHypothesis`, defined in `Mathlib.NumberTheory.LSeries.RiemannZeta` | Done | `scripts/08_check_axioms.sh --probe` |
-| K3 | Sampled kernel replay passes: 24 of 24 modules on a Mac; 565 of 565 and 2,233 of 2,233 on a cloud machine (`records/cloud/pilot/*/check_results.txt.gz`) | Done, samples only | `scripts/09_kernel_replay.sh --sample 24` |
+| K2 | `Formalism.VW.rh_of_right` (zeta has no zeros right of the critical line implies `RiemannHypothesis`) depends only on `propext`, `Classical.choice`, `Quot.sound`; its conclusion is the constant `RiemannHypothesis`, defined in `Mathlib.NumberTheory.LSeries.RiemannZeta`. With `--deep`, 54,444 constants are visited and no other axiom is reached; the same on a Mac and on Linux | Done | `scripts/08_check_axioms.sh --probe --deep` |
+| K3 | Sampled kernel replay passes: 24 of 24 modules on a Mac; 565 of 565 and 2,233 of 2,233 on a cloud machine (`records/cloud/pilot/*/check_results.txt.gz`); all 1,792 modules of a rehearsal build (`records/cloud/full-rehearsals/`) | Done, samples only | `scripts/09_kernel_replay.sh --sample 24` |
 | K4 | Modules compiled so far, with zero failures | In progress; dated counts are in `records/mac-build/` (23,981 of 175,187 at 02:01 UTC on 2026-11-21) | `scripts/05_build.sh start`, `scripts/06_progress.sh` |
 | **C1** | **The whole tree compiles with zero errors** | **Not yet known** | `scripts/05_build.sh start` to completion |
 | **C2** | **The compiled `riemannHypothesis` has type `RiemannHypothesis` and standard axioms only, by `#print axioms` and by full traversal** | **Not yet possible** | `scripts/08_check_axioms.sh --deep` |
@@ -52,7 +52,7 @@ C1 to C3 are the pre-registered criteria. Nothing else in this ledger amounts to
 |---|---|---|
 | M1 | On a 10-core, 24 GB Mac the best setting was 8 parallel jobs at about 3,230 modules per hour on shallow modules; memory was the first limit | `records/mac-build/` |
 | M2 | Importing Mathlib alone costs about 6 CPU-seconds per process on macOS and about 2.6 on Linux | `records/mac-build/`, `records/cloud/` |
-| M3 | Each compiled module leaves about 0.7 MB of compiled output plus a regenerable setup file of 5 to 6 MB or more. Lake does not need the setup file of a module that is already built (tested on a five-module project, not on the real tree) | `docs/performance-notes.md` section 4; `scripts/prune_setup_files.sh` |
+| M3 | Each compiled module leaves about 0.7 MB of compiled output plus a regenerable setup file of 5 to 6 MB or more. Lake does not need the setup file of a module that is already built: on the real tree, deleting the setup files of 641 and 644 finished modules and restarting the build recompiled none of them | `docs/performance-notes.md` section 4; `scripts/prune_setup_files.sh`; `records/cloud/full-rehearsals/` |
 | M4 | A cloud machine with 16 cores and 32 threads compiled 29,633 modules, with import closures up to 17,860, at 3.2 to 3.5 per second, and kernel-checked 2,233 at 3.7 per second, with zero failures in both | `records/cloud/pilot/` |
 | M5 | Cloud prices and quota behaviour as read on 2026-11-20 | `records/cloud/`, `docs/cloud-notes.md` |
 | M6 | Extrapolated from M4: a full build takes about 16 hours and a full kernel replay about 14 on that machine, about 31 billed hours in all (28 to 39), about 58 USD on demand (53 to 74). No module above 17,860 imports has been compiled anywhere, so the top of the tree is extrapolation | `python3 analysis/pilot_estimate.py records/cloud/pilot/pilot-20261120-162141 records/source/import_graph.json.gz`; `docs/cloud-notes.md` section 8 |
@@ -79,5 +79,5 @@ These came from a 43-agent static audit in which every medium or high flag went 
 - Whether any module beyond those compiled so far compiles.
 - Whether Mathlib's definitions of the zeta function and of `RiemannHypothesis` say what is intended. They are Mathlib's, unmodified; this project has not audited them.
 - The kernel replay's prefix pass, which covers the 114 modules whose name is a prefix of another module's name, has been run only on a seven-module test project and, by hand, on two such modules of the real tree.
-- The driver for a full cloud run (`cloud/gcp/full_guest.sh`) has been reviewed but never run or rehearsed.
+- The driver for a full cloud run (`cloud/gcp/full_guest.sh`) has been rehearsed on a seven-minute build (`records/cloud/full-rehearsals/`) and not run in full. The rehearsal does not reach a failed build, the second build pass, the completeness check, the axiom check on the final theorem, or the prefix pass.
 - The Linux code paths of the numbered scripts have been run only in part (through the cloud pilot); the scripts were developed on macOS.

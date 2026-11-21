@@ -1,0 +1,56 @@
+### 2026-11-21T03:49:55Z +0s  PHASE setup
+### 2026-11-21T03:49:56Z +1s  setup: sysctl
+### 2026-11-21T03:49:56Z +1s  setup: packages
+### 2026-11-21T03:50:03Z +8s  setup: disk
+### 2026-11-21T03:50:03Z +8s  setup: user
+### 2026-11-21T03:50:03Z +8s  setup: elan
+elan 4.4.0 (3cc76985a 2026-11-18)
+### 2026-11-21T03:50:04Z +9s  setup: source
+### 2026-11-21T03:50:16Z +21s  setup: mathlib_cache
+Decompressed 8690 file(s)
+Already decompressed 8690 file(s)
+### 2026-11-21T03:51:49Z +114s  setup: baseline
+### 2026-11-21T03:51:51Z +116s  setup: lockdown
+### 2026-11-21T03:51:51Z +116s  setup: smoke_build
+✔ [8706/8707] Built Statements (2.3s)
+✔ [8707/8707] Built Formalism.GammaFactorNonvanishing.RhOfRight (2.9s)
+Build completed successfully (8707 jobs).
+### 2026-11-21T03:51:59Z +124s  PHASE build:N=32
+Terminated
+Terminated
+### 2026-11-21T03:54:57Z +302s  restart test prune: setup files found:            697 (3.9 GB) of finished modules:          644 (3.6 GB) removed:                      644 
+plain restart: 0 finished modules compiled again, 316 new ones built; after deleting setup files: 0 compiled again, 305 new ones built
+### 2026-11-21T03:58:28Z +513s  prune: setup files found:            797 (4.6 GB) of finished modules:          0 (0.0 GB) removed:                      0 
+### 2026-11-21T04:00:28Z +633s  prune: setup files found:            1168 (6.7 GB) of finished modules:          120 (0.7 GB) removed:                      120 
+### 2026-11-21T04:00:48Z +653s  build tool exited with status 124; 1788 modules finished
+### 2026-11-21T04:00:51Z +656s  final prune: setup files found:            1064 (6.1 GB) of finished modules:          1024 (5.9 GB) removed:                      1024 
+### 2026-11-21T04:00:52Z +657s  PHASE seal
+### 2026-11-21T04:01:12Z +677s  PHASE c2_plain
+### 2026-11-21T04:01:16Z +681s  axiom check exit status: 0
+### 2026-11-21T04:01:16Z +681s  PHASE c2_deep
+### 2026-11-21T04:01:23Z +688s  deep axiom check exit status: 0
+### 2026-11-21T04:01:23Z +688s  PHASE idle
+### 2026-11-21T04:01:24Z +689s  PHASE check_trial:N=16
+### 2026-11-21T04:02:55Z +780s  replay trial: 16 at a time finished 309 modules in the counted window
+### 2026-11-21T04:02:55Z +780s  PHASE check_trial:N=32
+### 2026-11-21T04:04:25Z +870s  replay trial: 32 at a time finished 415 modules in the counted window
+### 2026-11-21T04:04:25Z +870s  PHASE check:N=32
+### 2026-11-21T04:06:13Z +978s  kernel replay: last exit status 3, 1792 result lines
+== Kernel re-check summary
+  source modules:                         175187
+  compiled modules:                       1792
+  checked one at a time:                  1792
+    passed (result is for the current file): 1792
+    FAILED:                                 0
+    remaining (never checked, or recompiled since): 0  (of which recompiled since: 0)
+  prefix modules (name is a prefix of another module's name; each is checked in one
+  process together with the compiled modules beneath it):  0
+    passed: 0   FAILED: 0   remaining: 0
+  source modules not compiled: 173395
+  every source module compiled and passing: no
+### 2026-11-21T04:06:14Z +979s  PHASE end_check
+### 2026-11-21T04:06:17Z +982s  PHASE idle
+### 2026-11-21T04:06:17Z +982s  PHASE keep
+### 2026-11-21T04:06:24Z +989s  compiled files archived: 2 objects uploaded, 377M
+### 2026-11-21T04:06:24Z +989s  PHASE idle
+### 2026-11-21T04:06:24Z +989s  FINISH DONE: all phases ran; read facts.json against PREREGISTRATION.md section 5

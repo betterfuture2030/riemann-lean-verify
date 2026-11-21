@@ -281,17 +281,17 @@ After the script was revised, three further AI agents checked it and these notes
 
 ## 9. The full run: what was built, and what a review changed
 
-The pilot scripts stop short of a full run by design. After the pilot, a driver for the full run was written: [`../cloud/gcp/full_guest.sh`](../cloud/gcp/full_guest.sh), with two new modes in the controller, and [`../cloud/gcp/README.md`](../cloud/gcp/README.md) describes it. **It had not been run or rehearsed when this was written.** Everything in this section is design and review, not result.
+The pilot scripts stop short of a full run by design. After the pilot, a driver for the full run was written: [`../cloud/gcp/full_guest.sh`](../cloud/gcp/full_guest.sh), with two new modes in the controller, and [`../cloud/gcp/README.md`](../cloud/gcp/README.md) describes it. **It has been rehearsed three times and had not been run in full when this was written.** The reviews below are criticism of code; the rehearsals are measurements, of a build of about one module in a hundred.
 
 | Need, from the pilot | Why | State |
 |---|---|---|
-| Delete each module's setup file once the module has finished | Without it the setup files alone come to 1.1 to 1.3 TB, on top of about 0.13 TB of compiled output. With it the peak is about 150 GB, which fits the pilot's disk and needs no quota increase | Written. [`../scripts/prune_setup_files.sh`](../scripts/prune_setup_files.sh) passed on a five-module project. The full run tests it on its first 3,000 real modules, against a plain restart as a control, and stops if a finished module is recompiled |
+| Delete each module's setup file once the module has finished | Without it the setup files alone come to 1.1 to 1.3 TB, on top of about 0.13 TB of compiled output. With it the peak is about 150 GB, which fits the pilot's disk and needs no quota increase | Written and confirmed on real modules. In two rehearsals, deleting the setup files of 641 and 644 finished modules and restarting the build tool recompiled none of them, as did a plain restart used as a control, while over 300 new modules were built each time. The full run repeats the test on its first 3,000 modules and stops if a finished module is recompiled |
 | Raise `vm.max_map_count` and the open-file limit well above one million | Costs nothing; removes the question in point 8 above | Written |
 | Move from build to the C2 checks to the kernel replay without waiting for a person | An idle machine of this size costs about 1.86 USD per hour | Written |
 | A kernel replay that can be resumed and that includes the 114 modules whose name is a prefix of another's | A replay of 14 hours must survive an interruption, and criterion C3 is every module | Written. `scripts/09_kernel_replay.sh` now ends with a prefix pass: each such module is replayed in one process with the modules beneath it. Tested on a seven-module project, and by hand on two real prefix modules of the local build |
 | Upload results as the run goes, and a status the local `watch` can read | The machine deletes itself; anything not uploaded is lost | Written |
 | A deletion time and a spending cap sized for the run | The pilot's cap and six-hour limit are too small by design | Written: 42 hours, and `launch full` is refused until the cap in `config.env` allows for it |
-| A short rehearsal of all of the above | The pilot's rehearsal found faults that review had not | Not yet done. About 35 minutes, at most 2.50 USD |
+| A short rehearsal of all of the above | The pilot's rehearsal found faults that review had not | Done three times, for 1.51 USD in all; see below |
 
 Four AI reviewers read the first draft before anything was launched: shell correctness, cloud control and cost, whether the pipeline establishes what it claims, and the verification scripts. They found two blockers and twelve major defects. Their text is in [`../records/cloud/full_run_driver_review.json`](../records/cloud/full_run_driver_review.json). The ones that shaped the design:
 
@@ -322,5 +322,15 @@ The rewrite was then reviewed again by two agents ([`../records/cloud/full_run_d
 Two limits remain and are stated in the script's header. The axiom check's own output comes from a process that has imported the proof. And "no network" for the three unprivileged users means no connection off the machine: name lookups through the system resolver are not blocked. The machine holds nothing worth sending, since its credentials are behind the metadata server, which is blocked, and the proof source is public.
 
 On the first of these: a text scan of the source found no file or process IO at all, and the kernel replay does not share the exposure, but the `#print axioms` half of criterion C2 can be no more trustworthy than the process that produces it.
+
+**The rehearsals.** Each ran the driver with the build boxed at seven minutes. Their records are in [`../records/cloud/full-rehearsals/`](../records/cloud/full-rehearsals/).
+
+| Rehearsal | What happened | What it changed |
+|---|---|---|
+| First, 2 minutes | Stopped itself in setup: a new check that a build leaves Mathlib's compiled files untouched found five files changed | They were the build tool's own `.hash` bookkeeping, which it rewrites and no check reads. The comparison now leaves `.hash` and `.trace` files out |
+| Second, 15 minutes | Ran every phase. The restart tests, the pruning, the seal and the end check all worked. Both checks then failed with "Permission denied": Mathlib's cache is unpacked readable by its owner only, and the seal had given it to root without read permission for the users that run the checks. The replay recorded 1,710 modules as failed although no checker had checked anything | The seal adds read permission and refuses an unreadable file. Each checker user must now do one real piece of work in the sealed environment before the checks start. A checker that cannot open a compiled file is recorded as not having run, not as a failed module |
+| Third, 17 minutes | Ran every phase, and each step did what it should: 1,792 modules built with no failed job; no finished module recompiled in either restart test; seal and end check clean; the axiom probe passed, plain and deep; all 1,792 modules passed the kernel replay | Nothing |
+
+Neither review had caught the permission fault. A rehearsal is not a full run either: it builds modules from the bottom of the import graph only and does not reach a failed build, the second build pass, the completeness check, the axiom check on the final theorem, the prefix pass, or the deadline. Those remain reviewed and, where possible, tested on a small project.
 
 Two optional tests could lower the cost: the kernel checker at 16, 24 and 32 at once, which the full run now does in its first fifteen minutes of replay, and the kernel checker given many modules per process, which it does not, because that would change how criterion C3 is carried out.

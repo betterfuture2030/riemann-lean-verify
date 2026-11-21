@@ -19,7 +19,7 @@ As of 2026-11-20: **not verified; compile in progress.**
 | Final reduction step compiled; its axioms and statement checked | Done: standard axioms, Mathlib's statement |
 | **C1. Whole tree compiles with zero errors** | **In progress: 23,981 of 175,187 modules on a Mac at the last recorded snapshot ([`records/mac-build/`](records/mac-build/)), zero failures so far. A separate cloud pilot compiled 29,633, also with zero failures** |
 | **C2. Statement and axioms of the compiled headline theorem** | Not yet possible |
-| **C3. Independent kernel replay of every module** | Not yet possible; samples of 24, 565 and 2,233 modules passed |
+| **C3. Independent kernel replay of every module** | Not yet possible; samples of 24, 565, 1,792 and 2,233 modules passed |
 
 "Zero failures so far" is progress, not a verdict. This repository makes no claim that the proof is correct or incorrect.
 
@@ -67,7 +67,7 @@ Each script says at the top what it does, what it changes on disk and how long i
 
 [`cloud/gcp/`](cloud/gcp/) has a calibration pilot: one self-deleting virtual machine that compiles a time-boxed sample and measures cost per module, so the cost of a full run can be estimated before committing to it. It enforces a spending cap and never runs the full build. See [`cloud/gcp/README.md`](cloud/gcp/README.md).
 
-The pilot was run on 2026-11-20 for 5.82 USD. It compiled 29,633 modules and kernel-checked 2,233, with no failures. From its measurements, a full build and full kernel replay on the same 32-vCPU machine are estimated at about 31 hours and 58 USD (range 53 to 74 USD). That is an extrapolation: no module importing more than 17,860 others has been compiled on any machine. The data, the estimate, three AI reviews of a first version of it and the list of what a full run still needs are in [`records/cloud/pilot/`](records/cloud/pilot/) and [`docs/cloud-notes.md`](docs/cloud-notes.md), sections 8 and 9. A driver for the full run has been written and reviewed ([`cloud/gcp/full_guest.sh`](cloud/gcp/full_guest.sh)); it has not been run, and no full cloud run has been made.
+The pilot was run on 2026-11-20 for 5.82 USD. It compiled 29,633 modules and kernel-checked 2,233, with no failures. From its measurements, a full build and full kernel replay on the same 32-vCPU machine are estimated at about 31 hours and 58 USD (range 53 to 74 USD). That is an extrapolation: no module importing more than 17,860 others has been compiled on any machine. The data, the estimate, three AI reviews of a first version of it and the list of what a full run still needs are in [`records/cloud/pilot/`](records/cloud/pilot/) and [`docs/cloud-notes.md`](docs/cloud-notes.md), sections 8 and 9. A driver for the full run has been written, reviewed twice and rehearsed three times on a seven-minute build ([`cloud/gcp/full_guest.sh`](cloud/gcp/full_guest.sh), [`records/cloud/full-rehearsals/`](records/cloud/full-rehearsals/)). No full cloud run has been made.
 
 ## What has been found so far
 

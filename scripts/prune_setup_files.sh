@@ -19,9 +19,11 @@
 #   Tested on 2026-11-20 with Lake 5.0.0 (Lean 4.33.1) on a five-module project: after deleting
 #   the setup files, a second `lake build` recompiled nothing and left the compiled files
 #   byte-for-byte unchanged, modules that import the pruned ones compiled normally, and
-#   leanchecker passed on all of them. It had not been run with --delete on the real tree when
-#   this was written. If you use it there, check the first time that the next `lake build` prints
-#   no "Built" line for a module that was already compiled.
+#   leanchecker passed on all of them. On the real tree, on Linux, two cloud rehearsals then
+#   deleted the setup files of 641 and 644 finished modules and restarted the build: none was
+#   recompiled (records/cloud/full-rehearsals/). It had not been run with --delete on a Mac when
+#   this was written; the first time you do, check that the next `lake build` prints no "Built"
+#   line for a module that was already compiled.
 # What it changes on disk: nothing without --delete. With --delete, it removes files named
 #   *.setup.json under RH_PROJ/.lake/build/ir and nothing else. They are build products, not
 #   part of the proof source, and Lake writes a new one whenever it compiles a module.

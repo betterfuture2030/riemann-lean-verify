@@ -1,0 +1,12 @@
+== Kernel re-check summary
+  source modules:                         175187
+  compiled modules:                       1792
+  checked one at a time:                  1792
+    passed (result is for the current file): 1792
+    FAILED:                                 0
+    remaining (never checked, or recompiled since): 0  (of which recompiled since: 0)
+  prefix modules (name is a prefix of another module's name; each is checked in one
+  process together with the compiled modules beneath it):  0
+    passed: 0   FAILED: 0   remaining: 0
+  source modules not compiled: 173395
+  every source module compiled and passing: no

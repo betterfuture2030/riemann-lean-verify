@@ -6,6 +6,7 @@ Short runs of [`../../../cloud/gcp/full_guest.sh`](../../../cloud/gcp/full_guest
 |---|---|---|---|
 | `full-rehearsal-20261120-211809` | Stopped itself during setup, 109 seconds in | 353 seconds | 0.20 USD |
 | `full-rehearsal-20261120-212636` | Ran every phase; both checks failed for a fault of the driver, not of the proof | 1,142 seconds | 0.63 USD |
+| `full-rehearsal-20261120-214914` | Ran every phase; every step it reached did what it should | 1,216 seconds | 0.68 USD |
 
 ## `full-rehearsal-20261120-211809`
 
@@ -52,3 +53,29 @@ This is the kind of fault a rehearsal exists to find, and it exposed a second on
 - `scripts/verify/kernel_check_one.sh` records a checker that could not open or find a compiled file with status 96, "could not do its work", which the summary counts as not yet checked.
 
 Files: as for the first run, plus `restart_tests.txt`, `progress.tsv`, `disk.txt`, `c2_plain.out` (the axiom check's output), `c3_summary.txt` (the replay's summary), and `modules.tsv.gz` and `system.tsv.gz` (the sampler's measurements, in the pilot's format). `facts.json` is large because this version listed every module recorded as failed; later versions cut such lists to 50 names.
+
+## `full-rehearsal-20261120-214914`
+
+The third rehearsal, with those changes, ran every phase in under 17 minutes. Each step did what it was written to do.
+
+| Step | Result | Where |
+|---|---|---|
+| Setup | 122 seconds | `setup.tsv` |
+| Restart test, plain | 0 finished modules recompiled; 316 new ones built | `restart_tests.txt` |
+| Restart test after deleting the setup files of 644 finished modules | 0 finished modules recompiled; 305 new ones built | the same |
+| Build, boxed at seven minutes | 1,792 modules compiled, no failed job; 40 setup files left at the end | `phases.tsv`, `disk.txt` |
+| Seal | Source tree, toolchain and Mathlib unchanged since before the first compile; toolchain copy identical; no unexpected file beside the compiled modules; both checker users able to work | `facts.json`, `seal` |
+| Axiom check in probe mode, plain | Pass: `Formalism.VW.rh_of_right` depends on `propext`, `Classical.choice`, `Quot.sound`; its conclusion is the constant `RiemannHypothesis` | `c2_plain.json` |
+| The same with the deep walk | Pass: 54,444 constants visited, the same three axioms, nothing missing; 1 project module and 1,759 library modules touched | `c2_deep.json`, `c2_deep.modules.tsv` |
+| Kernel replay | 1,792 of 1,792 modules passed: 1,047 during the two trials (16 and 32 at a time), the rest in the main pass. Mean 4.1 seconds each | `c3_summary.txt`, `c3_results.tsv.gz` |
+| End check | Compiled files, toolchain and Mathlib unchanged since the seal; no process of the build user seen | `facts.json`, `end` |
+| Archive of compiled files | Made and uploaded | `facts.json` |
+
+The deep walk visited 54,444 constants on this Linux machine. The same probe on a Mac visited the same number.
+
+The replay's exit status of 3 and `complete: false` are correct for a rehearsal: 173,395 source modules were never compiled.
+
+**What a rehearsal does not show.** It built about one module in a hundred, all from the bottom of the import graph. It did not exercise a build that fails, the second build pass, the check that every source module is compiled, the axiom check on the final theorem (which must load all 175,187 modules), the prefix pass (none of the 114 prefix modules was among those built), the retry passes of the replay, a run that reaches its deadline, or an archive larger than one part. Those paths have been reviewed and, where possible, tested on a small project, but not run on this machine.
+
+Files: as for the second run, plus `c2_plain.json` and `c2_deep.json` (the axiom check's summaries), `c2_deep.modules.tsv` (which modules the deep walk touched), `c3_summary.json` and `c3_results.tsv.gz` (one line per replayed module: exit status, seconds, the stamp of the compiled file, time).
+
