@@ -78,5 +78,6 @@ These came from a 43-agent static audit in which every medium or high flag went 
 
 - Whether any module beyond those compiled so far compiles.
 - Whether Mathlib's definitions of the zeta function and of `RiemannHypothesis` say what is intended. They are Mathlib's, unmodified; this project has not audited them.
-- The 114 modules whose name is a prefix of another module's name are skipped by the per-module replay script and need a separate pass.
+- The kernel replay's prefix pass, which covers the 114 modules whose name is a prefix of another module's name, has been run only on a seven-module test project and, by hand, on two such modules of the real tree.
+- The driver for a full cloud run (`cloud/gcp/full_guest.sh`) has been reviewed but never run or rehearsed.
 - The Linux code paths of the numbered scripts have been run only in part (through the cloud pilot); the scripts were developed on macOS.

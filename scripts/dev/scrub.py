@@ -29,8 +29,8 @@ check
     session-path      agent session and scratch directories, the macOS
                       private temporary directory, per-user temp folders
     email             any e-mail address other than the public contact
-                      address, the commit co-author address, or an address
-                      at example.com
+                      address, the commit co-author address, a GitHub
+                      no-reply address, or an address at example.com
     billing-account   three groups of six hex characters joined by hyphens
     project-number    a 12-digit number next to the word project(s)
     credential        private key blocks, OAuth access tokens, GitHub tokens,
@@ -84,7 +84,8 @@ PATTERN_FILE = os.path.join(REPO_ROOT, ".private-patterns")
 CONFIG_FILE = os.path.join(REPO_ROOT, "config.env")
 
 ALLOWED_EMAILS = frozenset(["peter.lowes@sie.life", "noreply@anthropic.com"])
-ALLOWED_EMAIL_DOMAINS = frozenset(["example.com"])
+# users.noreply.github.com: the address GitHub gives an account that keeps its e-mail private; commits here use it.
+ALLOWED_EMAIL_DOMAINS = frozenset(["example.com", "users.noreply.github.com"])
 # Account names that are obviously placeholders, not people.
 PLACEHOLDER_USERS = frozenset([
     "user", "username", "you", "yourname", "your-name", "your_name",

@@ -1,0 +1,203 @@
+{
+ "note": "Two reviews of the full-run driver after it was rewritten in response to full_run_driver_review.json, made by AI agents on 2026-11-20, still before the driver had been run. Each first lists whether the earlier blockers and major findings were fixed, then reports new ones: two blockers and four major defects. Line numbers refer to the working copy at the time, which was not committed; the committed version includes the fixes, and docs/cloud-notes.md section 9 summarises them. A review is not a test.",
+ "date": "2026-11-20",
+ "reviews": [
+  {
+   "lens": "shell-cloud",
+   "result": {
+    "first_round": [
+     {
+      "finding": "shell/major: the retry pass ran as a bare foreground wait, with no pruning, no disk check and no status",
+      "status": "fixed",
+      "note": "Both passes now go through monitor_build (full_guest.sh lines 413 and 427). The script runs prune 0 before the second pass when the restart tests are done. If the first pass ends before PRUNE_AFTER modules, the restart tests run during the retry instead, which is acceptable."
+     },
+     {
+      "finding": "shell/major and cloud/major (duplicate): gz_put used a shared temporary file \"$PD/.up.$$.gz\"",
+      "status": "fixed",
+      "note": "Each call now gets its own file from mktemp (line 97) and returns gcs_put's status. Calls that run at the same time can no longer collide."
+     },
+     {
+      "finding": "cloud/major: interrupting watch (Ctrl-C, HUP) tore down a 31-hour run",
+      "status": "fixed",
+      "note": "For full* modes the trap at pilot_local.sh line 180 only prints and exits 130. The pilot modes keep the old trap that tears down."
+     },
+     {
+      "finding": "cloud/major: C1 logs, C2/C3 logs and facts.json were uploaded only in finish; keep had no time limit; the watchdog uploaded nothing",
+      "status": "partly_fixed",
+      "note": "Lake logs are uploaded after the build (line 432), C2 logs in run_c2, C3 logs at line 606, facts.json through report CHECKS_DONE before keep, and keep now runs under timeout (left-600). On a takeover the watchdog uploads the logs plus whatever facts.json exists. A takeover before the keep phase (main stuck in C2 or C3) still leaves no facts.json at all, because only report() writes it."
+     },
+     {
+      "finding": "cloud/major: final status uploaded only once with no retry; no limit when the guest never reports",
+      "status": "fixed",
+      "note": "gcs_put makes 5 attempts, each with a fresh token, a stall limit and a logged failure. idle_until_deleted re-sends status.json every minute. watch gained a 25-minute no-status rule and a heartbeat rule. The no-status rule is over-eager, though: see the new blocker."
+     },
+     {
+      "finding": "cloud/major: an untracked guest script passed the 'tied to a commit' check, and the startup script was read from the working tree",
+      "status": "fixed",
+      "note": "Launch now requires `git status --porcelain --untracked-files=all -- scripts cloud` to be empty, takes the guest from `git show HEAD:cloud/gcp/full_guest.sh`, passes full-guest-sha, and the guest hashes its own metadata startup-script."
+     }
+    ],
+    "new_findings": [
+     {
+      "file": "cloud/gcp/pilot_local.sh",
+      "where": "watch loop, line 200 (no-status rule), with lines 185-190 (any failed `gcloud storage cat` becomes state 'none')",
+      "severity": "blocker",
+      "scenario": "`cur` is \"no-status none 0 -\" whenever `gcloud storage cat` fails for any reason: a network blip, a laptop waking from a closed lid with Wi-Fi not yet up, a DNS hiccup, a GCS 5xx, or an OAuth token refresh failure. The rule has no memory that a status was seen before, no check of whether the fetch itself failed (apifail is ignored here), and no strike counter. One failed fetch at any point after minute 25 of a 31-hour full run (and of a pilot, so the pilot modes also change in effect) breaks the loop and execs teardown. If connectivity is back within the second or two before teardown's `instances list`, the VM and its disks are deleted mid-run and the run is lost. If the network is still down, teardown fails ('NOT VERIFIED') but watch has exited, so nobody deletes the VM at its final state and it bills until max-run-duration, up to about 11 hours or 22 USD.",
+      "fix": "Apply the rule only while no status has ever been parsed in this watch session, and only when the fetch positively reports that the object does not exist. Separate 'not found' from other errors, for example with `gcloud storage objects describe` and its exit status or message, or by checking `apifail`. Require several consecutive strikes, as the heartbeat rule does. Once a status or heartbeat has been seen, never tear down on a missing status.",
+      "confirmed_how": "Close reading of watch: the python fallback prints 'none' on any exception, including empty stdin from a failed gcloud. The check at line 200 runs before any check of the fetch result or of vm=UNKNOWN, and it leads straight to `exec ... teardown`."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "lines 433-443 (classification after both passes fail)",
+      "severity": "major",
+      "scenario": "Both passes fail without any compiler job line: the lake process itself is OOM-killed (rc=137 in the log, no '✖' lines), or Lake crashes or fails before building, for example on a workspace or lakefile error. FAILED_JOBS=0 and KILLED_JOBS=0, so the run ends BUILD_FAILED with 'the build failed twice with Lean errors: 0 failed job lines' and C1_STATE=failed. A harness or resource failure is then reported as a Lean failure of the proof, which PREREGISTRATION section 4 forbids for killed processes.",
+      "fix": "Before the two finish BUILD_FAILED calls, check LAKE_RC and FAILED_JOBS. If LAKE_RC is empty or 128 or more, or FAILED_JOBS is 0, end with FAIL (or a distinct state such as build_tool_failed) and say the build tool died or failed outside any module. Use the 'Lean errors' message only when FAILED_JOBS > 0 and KILLED_JOBS = 0.",
+      "confirmed_how": "Read the branch: KILLED_JOBS greps only 'Lean exited with code 1xx/2xx' lines in build_failures.txt. No other case is tested. LAKE_RC is not consulted after the second pass except to set C1_STATE=failed."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "run_c2 lines 530-534 (cat/cp of $LOGS/c2_*.rc, c2_*.out, axioms-*-latest.json), failed_lines line 153 and report line 215 (glob \"$LOGS\"/lake_build_*.log after the seal)",
+      "severity": "major",
+      "scenario": "After the seal, $LOGS belongs to chk2, the user whose lean process imports the proof and runs its initialisers: the exact case the separation is designed for. Such code can replace $LOGS/c2_plain.out or c2_plain.rc with a FIFO, or plant $LOGS/lake_build_9.log as a FIFO. Root's `cp`/`cat` then block forever. Main hangs inside run_c2. The watchdog's pkills (lake, xargs, timeout, tar, zstd) do not unblock it, and the SYNC heartbeat keeps going, so watch never tears down. The VM bills until the guest deadline at 41 h (about 84 USD) without running C3, and facts.json is never written. A planted symlink there makes root upload any root-readable file to the bucket, and planted logs are counted in failed_job_lines and uploaded as C1 evidence.",
+      "fix": "After the seal, read nothing from $LOGS except regular files that are not symlinks: test `[ -f \"$f\" ] && [ ! -L \"$f\" ]` first, and open with a timeout or with `cat -- <file` under `timeout 30`. Better, have the chk2 command write into a directory chk2 cannot write afterwards: chown it back to root before reading. In report, failed_lines and the watchdog, glob only \"$PD\"/lake_build_*.log, since the build logs were already moved there.",
+      "confirmed_how": "Experiment (macOS bash 3.2/BSD cp): `cp fifo copy` blocked until a writer appeared. GNU cp and cat on Linux also open and read a FIFO and block. Read the code: $LOGS is chowned to chk2 at line 508 and read by root at 530-534 and in report/failed_lines."
+     },
+     {
+      "file": "cloud/gcp/pilot_local.sh",
+      "where": "full-rehearsal metadata, line 125 (deadline 45 min, full-final-reserve=300, full-c2-timeout=600), with full_guest.sh lines 556 and 623",
+      "severity": "major",
+      "scenario": "Timeline of the rehearsal. Setup takes about 3-5 min. The build is time-boxed to 420 s, ending at about T0+11 min. The seal takes about 3-4 min; C2 probe about 0.5 min; two 90 s trials about 3.5 min; the main replay of about 1,000-1,500 modules about 3-5 min; then the deferred deep probe and the end hashing. End check finishes at about T0+26-30 min. The keep gate needs left > 1200 s, so end check would have to finish by T0+25 min, and it very likely does not: the keep path, which the controller comment says is 'always made', is skipped silently. The deep walk before the replay can never run in the rehearsal, because t is capped at C2_TIMEOUT=600 and the branch needs t >= 900. The full run normally takes that branch. Also, the two restart tests (up to 240 s each, plus Lake's start-up on 175k modules) must fit in the same 420 s box. The prune restart is very likely cut to start_lake's 30 s minimum, before Lake can recompile anything, and reports 0 (a vacuous pass). The 10-minute periodic prune never runs in a 420 s build. The rehearsal will look green while these paths go untested.",
+      "fix": "For the rehearsal: raise DEADLINE_MIN to about 60 (MAXRUN 5400, worst case 3 USD). Pass the keep gate and the before-replay threshold as metadata, or set full-c2-timeout >= 900. Stop the time-box clock during the restart tests (add their duration to BUILD_T0), or raise full-timebox to about 900. Add a phases.tsv line or facts field that says when keep or a restart test was skipped or truncated.",
+      "confirmed_how": "Arithmetic from the script's gates and the pilot's recorded rates: setup of about 90 s in records/cloud/pilot/*/setup.tsv plus the new manifests, about 3.2-3.9 modules/s compiling, 3.7 modules/s replaying. Line 556 caps t at C2_TIMEOUT before testing t >= 900, and line 361 floors the box at 30 s."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "no_network line 284 and s_lockdown line 325 (`! -o lo -j REJECT`)",
+      "severity": "minor",
+      "scenario": "All loopback traffic stays allowed. On Ubuntu 24.04, systemd-resolved listens on 127.0.0.53 and forwards queries, as its own user, to the GCE resolver. So pilot, chk2 and chk3 can still exchange data with the internet through DNS queries and TXT answers. The header's 'cuts the build user off from the network' is not fully true. The verification check (curl to storage.googleapis.com) passes anyway, because DNS resolves and only the TCP connection is refused.",
+      "fix": "Also reject loopback UDP/TCP port 53 for these users: `iptables -I OUTPUT -m owner --uid-owner U -o lo -p udp --dport 53 -j REJECT`, and the same for tcp. Alternatively, say in the header that DNS remains reachable.",
+      "confirmed_how": "Read the rules: the only per-user rules are REJECT for 169.254.169.254 and REJECT for `! -o lo`. Nothing restricts lo."
+     }
+    ],
+    "verdict": "fix_then_rehearse"
+   }
+  },
+  {
+   "lens": "integrity",
+   "result": {
+    "first_round": [
+     {
+      "finding": "integrity blocker: the check directories ($LOGS, $WORK/analysis) were handed from the build user to the checker without being emptied, so a results file, hard link or summary could be planted",
+      "status": "fixed",
+      "note": "full_guest.sh 499-503 now moves the build logs to $PD, deletes $LOGS, $AN and $WORK/download after the account is locked, runs chown -R root:root and chmod -R go-w over all of $WORK, asserts nothing is non-root and no lib/lean file has more than one link, and recreates the directories (508) for chk2 and chk3 separately. Planted results or summaries can no longer survive. The seal still misses decoy .olean.server/.olean.private files and symlinks (new findings 1 and 2)."
+     },
+     {
+      "finding": "integrity major: C2 and C3 ran as the same user, so initialiser code run by the axiom check could forge the replay's results; Python helpers were not isolated",
+      "status": "fixed",
+      "note": "C2 runs as chk2 and C3 as chk3 (lines 504-513, 528, 562). $AN belongs to chk3 and the script tests that chk2 cannot write to it (513). All helpers run with python3 -I -B under env -i. chk2's processes are killed after each run. Left over: chk2 keeps cron access and the users share the world-writable directories (minor, new finding 6)."
+     },
+     {
+      "finding": "integrity major: the toolchain's parent and $WORK/extract stayed writable by the build user, cron was left active and the olean manifest was never re-checked, so the toolchain or tree could be swapped during the checks",
+      "status": "fixed",
+      "note": "Lines 479-481 remove the crontab, lock the account (usermod -L, nologin), disable linger and start a guard loop that kills and logs any build-user process. The checks use a root-only copy at /opt/lean-tc, checked against the pre-build baseline (492-496). All of $WORK goes to root. The .olean files, toolchain and packages are hashed again at the end and any change ends the run with FAIL (615-619). The manifests still skip symlinks (new finding 2) and LIB's non-.olean files (new finding 1)."
+     },
+     {
+      "finding": "integrity major: compilers or checkers killed by a signal were counted as failures, with a single retry at the same parallelism",
+      "status": "fixed",
+      "note": "C1 is retried at half the jobs (424). KILLED_JOBS is counted from 'Lean exited with code 128-299', which matches Lake v4.33.1's wording (Build/Actions.lean:83; Lean reports 128+signal), and the finish messages no longer say C1 is not met. In C3, a status of 128 or more counts as killed and remaining (rhv_tools.py 795), and up to two more passes run at a quarter of the jobs (596-601). Codes 134 and 139 are lumped in with OOM kills, and a killed Lake is called 'Lean errors' (minor, new findings 4 and 5)."
+     },
+     {
+      "finding": "integrity major: the build retry ran unwatched (no pruning, disk check or status), so the disk would fill",
+      "status": "fixed",
+      "note": "Both passes go through monitor_build (413, 427), and setup files are pruned before the second pass (423)."
+     },
+     {
+      "finding": "scripts blocker: the prefix pass used one worker per hardware thread and 32 processes at once, which would exhaust memory at the end of the run",
+      "status": "fixed",
+      "note": "kernel_check_one.sh:37 runs the prefix branch with LEAN_NUM_THREADS=1, and 09_kernel_replay.sh:122 caps the prefix pass at 8 processes."
+     },
+     {
+      "finding": "scripts major: any non-zero checker status, including 137 and 143, was counted as a kernel-replay FAILURE",
+      "status": "fixed",
+      "note": "replay_state.classify puts rc>=128 in 'killed'. The summary counts those modules as remaining, lists killed_modules and leaves them out of the failure exit. 09 exits 3 for an incomplete run (--require-complete). Exception: a failed output redirection is recorded as rc=1 and so counts as FAILED (minor, new finding 6)."
+     }
+    ],
+    "new_findings": [
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "line 134 (olean_manifest hashes only -name '*.olean'); lines 447-470 (c1_names and NCOMP look only at the '.olean' suffix); line 503; with scripts/verify/kernel_check_one.sh lines 37 and 43",
+      "severity": "blocker",
+      "scenario": "leanchecker's replayFromImports (src/lean/LeanChecker.lean, toolchain v4.33.1) loads <M>.olean.server, and then <M>.olean.private, whenever those files exist next to <M>.olean, whether or not the module is a `module` file. It replays the constants of the LAST part ('Collect constants from last (\"most private\") part'). The normal import path behaves differently: readModuleDataPartsOfMod (Lean/Environment.lean:2078-2091), used by the axiom check's `lean` frontend and by leanchecker for every import, reads only the .olean when the header is not a module. The project's files are not module files: the Mac build's LIB holds only .olean, .olean.hash, .ilean, .ilean.hash and .trace. Code run at compile time as the build user, the case the seal exists for, can therefore write a kernel-valid decoy X.olean.server and X.olean.private next to an X.olean whose own constants were never kernel-checked. Example: a theorem added with debug.skipKernelTC, whose stored axiom list and value contain no axioms. C2 (plain and deep) reads X.olean and passes. C3 replays the decoy and passes. Nothing notices: the seal hashes only *.olean, the name check counts only .olean, no file-type allow-list is applied, and the end re-hash also covers only *.olean. complete=true and C2 PASS would then describe different contents for X. The header's statement that the build user 'cannot leave anything behind that the checks trust' is false.",
+      "fix": "At the seal, after the chown, fail unless every file under $LIB has one of the suffixes Lake writes for non-module files (.olean, .olean.hash, .ilean, .ilean.hash, .trace). In particular there must be no *.olean.server, *.olean.private, *.ir or *.ir.sig, and nothing that is not a regular file or a directory. Hash every file under $LIB, not just *.olean, at the seal and again at the end. As a second line of defence, have kernel_check_one.sh record a distinct non-zero status when <M>.olean.server or <M>.olean.private exists for a project module.",
+      "confirmed_how": "Close reading of LeanChecker.lean replayFromImports (lines 13-31) and Lean/Environment.lean readModuleDataPartsOfMod (2078-2091) and readModuleDataParts (1782-1790) in the installed v4.33.1 sources. The file suffixes in a legitimate project LIB were taken from the Mac build (27,609 modules; only five suffixes present). An end-to-end demonstration with lean and leanchecker in a scratch directory was refused by the permission system, so it was not run."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "line 130 (manifest: find \"$@\" -type f), used by src/tc/pkgs/olean manifests; line 492 (cp -a \"$TC_DIR\" /opt/lean-tc)",
+      "severity": "major",
+      "scenario": "Every manifest lists only regular files, so a symlink added anywhere in the toolchain directory, the package lib directories or LIB is invisible to the baseline-against-seal comparison and to the end re-hash. Before the seal the toolchain lives in <HOME>/.elan and belongs to the build user. Compile-time code can add, for example, ~/.elan/toolchains/<tc>/lib/libm.so.6 (or lib/lean/<name>.so) as a symlink to a shim library in the build user's home. The comparison at line 488 still passes. `cp -a` copies the symlink into /opt/lean-tc unchanged, and chown -R changes only the link's owner, not its target. On the Mac, leanchecker and lean carry the rpaths @executable_path/../lib and @executable_path/../lib/lean (otool -l). The Linux build uses the matching $ORIGIN RUNPATH, which the dynamic loader searches before the system directories for every needed library. So leanchecker, running as chk3, would load attacker code that can write passing lines to results.tsv, and the 'sealed copy of toolchain matches' fact would still read true. A symlink in LIB that has a new name also escapes the hashes.",
+      "fix": "Put non-regular entries into the manifests, for example a second pass with `find ... ! -type f ! -type d -printf '%y %p -> %l\\n'` that is added to the compared file. Or fail the seal if `find \"$TC_DIR\" \"$PROJ/.lake\" /opt/lean-tc ! -type f ! -type d` prints anything other than what the baseline already held. Copy the toolchain with `cp -a` and then assert that /opt/lean-tc contains no symlink that points outside itself.",
+      "confirmed_how": "Read the code: -type f in manifest(), cp -a, chown -R (GNU -R defaults to -P and lchowns links). The rpath was confirmed on the installed Mac toolchain with otool. That Linux uses the same RUNPATH is an inference from the same CMake build and was not checked on Linux."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "lines 430-480 (the build ends with kill_users at 430; c1_names at 466, NCOMP at 468 and the final prune at 471 run before crontab -r and usermod -L at 479)",
+      "severity": "minor",
+      "scenario": "The build user's crontab stays installed, and LIB stays writable by the build user, through the C1 name check and the final prune, which takes minutes. A cron job planted at compile time can delete one module's .olean and add one named after another module, for example a library name, after c1_names has passed. The count check at line 516 compares with NCOMP, which was taken before the swap, so it still passes. C1 is reported as built with 0 missing and 0 shadowing. Only C3's own name comparison then shows complete=false.",
+      "fix": "Lock the build user (crontab -r, usermod -L, disable-linger, kill_users, start the guard) immediately after the build ends at line 430, before c1_names, NCOMP and the final prune. Or run c1_names again after the chown at line 501.",
+      "confirmed_how": "Traced the order of the commands in full_guest.sh."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "line 437 (KILLED_JOBS regex 128-299); line 441 message; scripts/verify/rhv_tools.py line 795 (rc >= 128 -> killed); scripts/verify/kernel_check_one.sh header",
+      "severity": "minor",
+      "scenario": "Lean's stack-overflow guard ends the process with abort(), status 134, and a deep recursion can end it with SIGSEGV, status 139. Both are deterministic for a given module. The project builds with --tstack=400000, so deep recursion is a plausible failure here. Such a module is reported as 'compiler processes killed by a signal ... re-run with more memory or fewer jobs'. In C3 it is counted as killed and retried twice at fewer jobs, and the summary says 'run again, with fewer jobs'. Nothing passes falsely, but the guidance misreads a deterministic failure as a resource kill.",
+      "fix": "Treat only 137 (SIGKILL, the OOM killer) and 143 (our own timeout) as resource kills. Report other codes of 128 and above as 'crashed (signal N)' in both the build summary and replay-summary, without the advice to add memory.",
+      "confirmed_how": "Read the regex and the classify function. That Lean reports 128+signal comes from Lake's 'Lean exited with code {out.exitCode}' (Build/Actions.lean:83) together with Lean's process wait convention."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "lines 433-444 (C1_STATE=failed branch)",
+      "severity": "minor",
+      "scenario": "Suppose the second pass ends with Lake itself killed, for example by the OOM killer, which favours the large lake process with its 175k-node graph, or with Lake exiting non-zero for a reason that is not a job. Then there are no '✖' lines, FAILED_JOBS=0 and KILLED_JOBS=0. The run ends BUILD_FAILED with 'the build failed twice with Lean errors: 0 failed job lines', and c1_build.state is 'failed', although no module failed.",
+      "fix": "If FAILED_JOBS is 0, or LAKE_RC is 128 or more, use a distinct state (for example build_tool_died, with LAKE_RC) and a message that does not mention Lean errors.",
+      "confirmed_how": "Traced the control flow, and checked how lake_rc reads the 'rc=' line that the as_pilot wrapper appends."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "lines 504-508 and 528-529 (chk2 created and used; only pkill afterwards); scripts/verify/kernel_check_one.sh lines 37 and 43 (output redirection)",
+      "severity": "minor",
+      "scenario": "chk2 runs the proof's initialisers. Its crontab is never removed and its account never locked. It shares /tmp, /var/tmp, /dev/shm and /run/lock with chk3, and it owns $LOGS on the same XFS filesystem as $AN. A cron job planted by chk2 during the plain C2 run keeps running through C3. If it fills the work disk, every later `> \"$out\"` in kernel_check_one.sh fails, bash then returns 1 without starting leanchecker (checked: `true > /nonexistent/x; echo $?` prints 1), and the module is recorded as FAILED. The contaminated user can thus make C3 report kernel failures that never happened, or slow C3 down until it is incomplete. A false pass is not possible this way.",
+      "fix": "After each C2 run, run `crontab -r -u chk2` and `usermod -L chk2`, kill in a loop until pgrep -u chk2 is empty, and record whether any chk2 process appears during C3. Alternatively put chk2 and chk3 in /etc/cron.deny when creating them. In kernel_check_one.sh, test that $out can be created before starting the checker, and record a distinct status (for example 96, 'could not run') that the summary counts as remaining, not failed.",
+      "confirmed_how": "Read the code. The bash behaviour on a failed redirection was checked with /bin/bash 3.2; bash 5 behaves the same."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "lines 283-287 (no_network) and 324-327 (s_lockdown): REJECT for '! -o lo'",
+      "severity": "minor",
+      "scenario": "Loopback is allowed. On Ubuntu 24.04, systemd-resolved listens on 127.0.0.53 and forwards queries to the GCE resolver, running as its own user, so the build user, chk2 and chk3 can still resolve and tunnel arbitrary data over DNS. The curl tests pass, because the TCP connect is what gets rejected. Credentials stay safe, since the metadata HTTP is blocked by IP, but the header ('cuts the build user off from the network'), line 324 ('no network at all') and README ('cuts the build user off from the network') overstate the isolation.",
+      "fix": "Also reject the users' UDP and TCP traffic to port 53 on lo (or to 127.0.0.53), or say in the docs that DNS stays reachable.",
+      "confirmed_how": "Read the iptables rules, together with the Ubuntu 24.04 default resolver setup."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "lines 316-333 (baseline after cache get; the smoke test checks only for 'Built Mathlib\\.' in the closure of two targets); line 490",
+      "severity": "minor",
+      "scenario": "If `lake exe cache get` leaves any dependency module without its files, or Lake decides one is out of date, Lake compiles it during the main build into packages/*/.lake/build/lib/lean. That is legitimate behaviour. The pkgs manifest then differs from the baseline, and the run ends with FAIL ('the toolchain or Mathlib's compiled files changed during the build') only at the seal, after the whole build has been paid for. The smoke test covers only the closure of Statements and RhOfRight, and only Mathlib's name: a rebuilt Batteries, Aesop or ProofWidgets module would not match. On the Mac no package file changed after the cache was unpacked, so this is a risk rather than an observed fault.",
+      "fix": "In setup, after the baseline, run `lake build Mathlib Batteries Aesop Qq ProofWidgets Plausible ImportGraph LeanSearchClient --no-build` (the flag exists in Lake v4.33.1: 'exit immediately if a build target is not up-to-date'), or compare the manifest after the smoke build with the baseline, so that a mismatch ends the run at setup.",
+      "confirmed_how": "Read the code and Lake's CLI help. The Mac tree's package file mtimes all predate the start of its project build."
+     },
+     {
+      "file": "cloud/gcp/README.md",
+      "where": "'The full run' table rows 'Seal', 'Axiom check' and 'Kernel replay'; docs/cloud-notes.md section 9; full_guest.sh header lines 22 and 31",
+      "severity": "minor",
+      "scenario": "Several statements are not borne out by the code. 'Records a SHA-256 of every compiled file' and 'The compiled files ... are hashed again' are true only of *.olean, while leanchecker also reads .olean.server and .olean.private (finding 1). 'Then again with --deep' omits that the deep walk may be deferred until after the replay or skipped (deep_walk_ran = deferred, after_replay or skipped_for_lack_of_time). 'A second try for any module whose checker was killed' is in fact up to two more passes, covering every module without a result and also re-running failed ones. 'Two users with no writable directory in common' and 'shares no writable directory with chk2' ignore /tmp, /var/tmp, /dev/shm and cron. 'The build user cannot leave anything behind that the checks trust' is contradicted by finding 1.",
+      "fix": "Correct the wording once findings 1 and 2 are fixed. Document the deferral and skipping of the deep walk and how facts.json shows it, and describe the retry passes as they are.",
+      "confirmed_how": "Compared the prose with full_guest.sh lines 134, 546-556, 594-610 and 504-513."
+     }
+    ],
+    "verdict": "fix_then_rehearse"
+   }
+  }
+ ]
+}

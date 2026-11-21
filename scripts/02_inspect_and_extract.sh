@@ -66,7 +66,7 @@ if [ "$VERIFY_TREE" -eq 1 ]; then
 fi
 [ -n "$WRITE_EXPECTED" ] && set -- "$@" --write-expected "$WRITE_EXPECTED"
 log "listing the tarball (nothing is extracted in this step)"
-python3 -B "$RH_TOOLS" "$@" || die "the tarball listing did not pass; nothing was extracted"
+python3 -I -B "$RH_TOOLS" "$@" || die "the tarball listing did not pass; nothing was extracted"
 
 # 3. Extraction.
 if [ "$extracted" -eq 1 ]; then
@@ -86,7 +86,7 @@ else
   extracted=1
   log "extracted $(count_sources) Lean source files"
   if [ "$VERIFY_TREE" -eq 1 ]; then
-    python3 -B "$RH_TOOLS" tar-inspect "$RH_TARBALL" --quiet --verify-tree "$EXTRACT" \
+    python3 -I -B "$RH_TOOLS" tar-inspect "$RH_TARBALL" --quiet --verify-tree "$EXTRACT" \
       || die "the extracted tree does not match the tarball"
   fi
 fi
@@ -95,7 +95,7 @@ fi
 if [ "$extracted" -eq 1 ]; then
   set -- project-info "$RH_PROJ" --expected "$RH_EXPECTED"
   [ -n "$WRITE_EXPECTED" ] && set -- "$@" --write-expected "$WRITE_EXPECTED"
-  python3 -B "$RH_TOOLS" "$@" || die "the project files do not match what was expected"
+  python3 -I -B "$RH_TOOLS" "$@" || die "the project files do not match what was expected"
 else
   log "project files not checked: nothing is extracted"
 fi

@@ -1,0 +1,282 @@
+{
+ "note": "Four reviews of the first draft of the full-run driver (cloud/gcp/full_guest.sh, the full modes of cloud/gcp/pilot_local.sh, and the changes to scripts/09_kernel_replay.sh and its helpers), made by AI agents on 2026-11-20 before the driver had been run or rehearsed. Lenses: shell correctness, cloud control and cost, whether the pipeline establishes what it claims, and the verification scripts. They found two blockers and twelve major defects. Line numbers and quoted text refer to that draft, which was never committed; the committed version was rewritten in response, and docs/cloud-notes.md section 9 says what changed. A review is not a test: the driver remained unexecuted when this file was written.",
+ "date": "2026-11-20",
+ "reviews": [
+  {
+   "lens": "shell",
+   "result": {
+    "checked": "I read cloud/gcp/full_guest.sh line by line and compared it with pilot_guest.sh. I also read the scripts it calls (09_kernel_replay.sh, kernel_check_one.sh, 08_check_axioms.sh, prune_setup_files.sh, lib.sh and common.sh) and Lake v4.33.1's Build/Run.lean, Build/Common.lean and Load/Resolve.lean.\n\nPaths traced:\n- normal completion\n- every finish call: each setup step, restart-test failure, disk full, BUILD_FAILED, incomplete build, each seal failure, DONE, on_signal\n- the restart tests\n- a build that fails once, and one that fails twice\n- the time-boxed rehearsal\n- the deadline watchdog firing during the build, the seal, C2 and C3\n- the watchdog takeover\n\nExperiments in a scratch directory (bash 3.2, GNU timeout 9.12):\n- `$$` inside `( ) &` and inside `$( )` equals the main shell's PID.\n- A `kill -0` loop on a backgrounded function ends once the job exits; the child is reaped, so there is no zombie problem.\n- A TERM sent to a process group kills kernel_check_one-style bash before it writes a result line, so no false failure rows appear.\n- When `timeout` itself receives TERM, it forwards the signal and takes its child down.\n- An arithmetic syntax error is fatal to a non-interactive script. I checked that no `$(( ))` operand can be empty, and found none.\n- The awk, grep and sed expressions for Lake's ✔ ⚠ ℹ ✖ lines work in the C locale.\n\nChecks for unset variables under set -u: every variable referenced is assigned before use on all paths (scripted cross-check). All restart_test, LAKE_JOB, TC_BIN and CHECK_JOBS state lives in the parent shell. Nothing that must persist is set inside a command substitution.\n\nLake facts confirmed:\n- In non-ANSI mode Lake prints a \"Built\" line for every built job (Run.lean reportJob), so the restart test is not blind.\n- No source module name needs «» escaping (scan of the local tree, 175,187 files), so log names match the names derived from .trace files.\n- On the local <REDACTED> build, nothing under the packages' .lake/build/lib/lean was written after the cache unpack, so the library seal should not trip by itself.\n- `lake build` does not rewrite lake-manifest.json.\n\n`bash -n` passes. shellcheck is not installed.\n\nNot found to be defects: final-status overwrites in the normal finish path (PROG_PID is killed before the final status), trap deferral (the watchdog kills timeout, lake and xargs, so foreground children end), quoting in the runuser and bash -c strings, the here-documents, and the manifest find expressions and sort.",
+    "findings": [
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "lines 345-351 (the retry: start_lake 0; wait \"$LAKE_JOB\"), with the final prune only at line 365",
+      "severity": "major",
+      "scenario": "The retry exists for a transient failure such as an out-of-memory kill. Take one in a module with many dependents: Lake skips every dependent, exits non-zero, and the retry has to compile the failed module and all of them. The retry is a bare foreground `wait`, so none of the main loop's safeguards run. Setup files are not pruned every 10 minutes, the free-space check (<25 GB) is skipped, nothing goes to progress.tsv, and no RUNNING status is posted for possibly hours. Per prune_setup_files.sh a setup file is 5-6 MB or more and grows with imports; the 440 GB disk already holds the compiled tree and the last unpruned window. Somewhere around 30-40k recompiled modules the disk fills and the second build fails from ENOSPC. The run then reports BUILD_FAILED with \"criterion C1 is not met\", a harness failure recorded as a failure of the proof.",
+      "fix": "Give the retry the same monitoring as the first build. Move the body of the while-loop (prune every 600 s, free-space check, progress and status) into a function such as monitor_build. Call it after start_lake 0 instead of the bare wait, and run `prune 0` before starting the retry. Skip the restart tests on the retry.",
+      "confirmed_how": "Read the code. Only `wait \"$LAKE_JOB\"` runs between start_lake 0 and lake_rc, and prune runs only inside the first loop (line 331) and after the retry (line 365). Lake has no fail-fast option (grep of the Lake source for keepGoing or failFast found nothing), so dependents of a failed module are left unbuilt and fall to the retry."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "line 72, gz_put's temporary file \"$PD/.up.$$.gz\"; used from the SYNC loop (line 196 -> sync_big), from main (lines 358, 395, 119), and from run_c2 inside $( ) (line 408)",
+      "severity": "major",
+      "scenario": "`$$` expands to the main script's PID in every subshell, so every gz_put uses the same temporary file. Every 10 minutes the background sync loop runs sync_big, which gzips modules.tsv, system.tsv and results.tsv into that file. If this overlaps a gz_put in main, either upload can go wrong: line 395 (olean_sha256.txt, the fingerprint of every compiled file, and libs_sha256), line 358 (build_failures) or run_c2's C2 logs. `gzip -c > file` truncates the other writer's file, so an object can be uploaded with the other file's bytes or as corrupt gzip. Or one side's `rm -f` deletes the file before the other's gcs_put, which then returns 0 silently (`[ -e \"$1\" ] || return 0`) and the object is never uploaded. olean_sha256.txt.gz is uploaded only once and the VM is deleted afterwards, so that record is lost or wrong. facts.json would still carry a MANIFEST_SHA that matches no uploaded object.",
+      "fix": "Give each call its own temporary file: `local t; t=$(mktemp \"$PD/.up.XXXXXX\") && gzip -c \"$1\" > \"$t\" && gcs_put \"$t\" \"$2\"; rm -f \"$t\"`. Or use $BASHPID, which differs per subshell. Also check gcs_put's exit status for the one-time uploads (line 395) and record it.",
+      "confirmed_how": "Experiment: in bash, `$$`, `$(echo $$)` and `( echo $$ )` all printed the same PID. The three call sites run concurrently: the sync subshell runs all the time, and run_c2 runs while it is active."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "watchdog lines 200-202 versus build loop lines 315-351",
+      "severity": "minor",
+      "scenario": "At the deadline the watchdog kills lake first, then waits 3 s before sending TERM to main. Main is usually in `sleep 20`. If that sleep ends inside the 3 s window, which happens about 15% of the time, the loop sees the job gone and falls through: LAKE_RC=143, RETRIED=1, status 'trying the failed modules once more', and start_lake 0 launches a new build. The deferred TERM then arrives during `wait` and finish DEADLINE kills it. facts.json reports retried_after_failure=true and a spurious extra lake_build_N.log, as if the build had failed.",
+      "fix": "After the loop, and before deciding to retry, treat `[ -e \"$PD/DEADLINE\" ]` as the deadline: call on_signal or finish DEADLINE directly. Alternatively have the watchdog send TERM to main before it kills lake.",
+      "confirmed_how": "Read the code: there is a 3 s window between pkill lake and kill -TERM, and the post-loop branch at line 341-351 has no deadline check. The trap runs only after the foreground sleep or wait returns."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "seal lines 375-380 (manifest, same, then finish FAIL), with the watchdog's `pkill -TERM -x xargs` at line 202",
+      "severity": "minor",
+      "scenario": "There is no time check before the seal. If the deadline arrives while the seal is hashing, the watchdog kills the xargs inside manifest(), so seal_src.txt (or seal_libs.txt) comes out truncated. In the 3 s before TERM reaches main, same() finds a difference, uploads changed_src.txt, and returns 0. Line 379 then calls finish FAIL \"the source tree changed during the build\", or the trap fires first and the outcome is DEADLINE with source_tree_unchanged_since_extraction=false. Either way the run reports evidence of tampering that did not happen. Line 393 has the same race for the olean manifest.",
+      "fix": "Before the seal, require enough time (for example `[ \"$(left)\" -gt 1800 ] || finish DEADLINE ...`). In same(), or right after each manifest, treat `[ -e \"$PD/DEADLINE\" ]` as the deadline instead of as a difference.",
+      "confirmed_how": "Read the code: manifest's exit status is ignored, and the watchdog kills every xargs by name."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "lines 460-465 (optional archive of the compiled files) before finish at line 467",
+      "severity": "minor",
+      "scenario": "With full-keep-oleans=1, tar|zstd|curl of a roughly 130 GB lib runs in the foreground with no timeout, gated only by left > 900. If it is still running at the deadline, the watchdog's pkill misses it (it kills only lake, xargs and timeout) and main's TERM is deferred. 600 s later the watchdog posts DEADLINE and the watcher deletes the VM. facts.json, which only finish writes, is never uploaded.",
+      "fix": "Write and upload facts.json, the final logs and sync_big before the archive step. Or run the archive under `timeout $(( $(left) - 300 ))` and leave facts for finish.",
+      "confirmed_how": "Read the code: write_facts is reached only from finish, and the watchdog pkill list does not include tar, zstd or curl."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "lines 41, 67, 69, 71 (md, tok, gcs_get, gcs_put: curl with no --max-time, --connect-timeout or --speed-limit)",
+      "severity": "minor",
+      "scenario": "A GCS or metadata request that stalls without closing blocks the calling shell indefinitely. If it happens in the main build loop (status at line 336, or the restart-test uploads), the loop stops while lake keeps building: no pruning and no disk check, so the disk fills and the build fails. If it happens in finish, the final status is never posted. The 30-hour run makes hundreds of such calls; the 3-hour pilot made far fewer.",
+      "fix": "Add `--connect-timeout 20 --max-time 120` to md and tok. Add `--connect-timeout 20 --speed-limit 1024 --speed-time 120` (and a generous --max-time) to gcs_get and gcs_put. Consider making status uploads in the loop non-blocking.",
+      "confirmed_how": "Read the code. curl has no overall timeout by default."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "lines 120-124 (finish) and 95-98 (idle_until_deleted)",
+      "severity": "minor",
+      "scenario": "In finish, an upload of facts.json that fails after curl's four retries is ignored, and the final status is uploaded anyway, so the watcher deletes the VM and facts.json is lost. Conversely, if the one final status upload fails, idle_until_deleted never retries it. The watcher keeps waiting and the VM bills until max-run-duration (42 h after boot).",
+      "fix": "Retry facts.json until it succeeds, with a bound, before posting the final status. In the idle loop, re-upload status.json every few minutes (gcs_put \"$PD/status.json\" \"$RES/status.json\").",
+      "confirmed_how": "Read the code: gcs_put's return values are ignored in finish, and the idle loop only runs kill_users."
+     }
+    ],
+    "verdict": "fix_then_rehearse"
+   }
+  },
+  {
+   "lens": "cloud",
+   "result": {
+    "checked": "I read the full diffs of cloud/gcp/pilot_local.sh and scripts/common.sh, all of cloud/gcp/full_guest.sh, the changed parts of 09_kernel_replay.sh and kernel_check_one.sh, the header of 08_check_axioms.sh, docs/cloud-notes.md section 8 and the committed ledger. I also ran two local experiments. One showed that `$$` inside a background subshell is the parent's PID. The other showed that `git diff --quiet HEAD -- scripts cloud` returns 0 when cloud/ holds an untracked file.\n\nThings I verified and found correct:\n- **Ledger before VM:** the ledger row is written before any create call, and it stays open when the zone state is unknown.\n- **Cap arithmetic:** worst case is RATE 2.00 x 151200 s / 3600 = 84.00 USD. With 6.39 USD already recorded:\n  - cap 40: 90.39 > 40, refused.\n  - cap 90: 90.39 > 90, refused.\n  - cap 100: allowed, with 9.61 USD to spare.\n  - The full-rehearsal worst case is 2.16 USD; bc truncates 2.1667, which understates it by under a cent.\n  - After a rehearsal is recorded (about 1 USD), a cap of 90 still refuses `full`, and a cap of about 92 or more is needed.\n- **Metadata string:** no value can contain a comma. Bucket names, run tags, hex SHAs, numbers and \"none\" cannot; \"16 32\" holds only a space, and the whole argument is quoted.\n- **Metadata keys:** the guest reads every key the controller sets, under the same names. pilot-target-a and -b are set but unused, which is harmless. The defaults for the keys the full mode leaves unset are sensible: 7200, \"16 24 32\", 300 and 1500.\n- **Deletion:** max-run-duration with DELETE is set and the guest never powers off. `watch` recognises every final state the guest can post: DONE, FAIL, DEADLINE, BUILD_FAILED, plus FAIL from the reboot guard. The watchdog's grep matches json.dump's default `\"state\": \"X\"` format.\n- **Guest deadline (full):** stopping at 41 h, plus the 600 s watchdog wait, plus the uploads, ends well inside the 42 h limit.\n- **Disk:** compiled output is about 126 GB; unpruned setup files peak at about 11 GB (between 10-minute prunes) plus about 5.5 GB (the 5-minute min-age), or 16.6 GB before the restart tests. Mathlib and the toolchain add under about 10 GB, giving roughly 155 GB, or about 195 GB with the 40 GB archive. That fits 440 GB; the rehearsal writes about 9 GB on 100 GB.\n- **Upload call:** `curl -X POST -T file ...uploadType=media&name=` is a valid single-request JSON-API upload with a Content-Length.\n- **Incremental uploads:** results.tsv, the C2 json files, status and the seal manifests are uploaded as the run goes.\n- **Teardown:** it copies only results/RUNTAG/*, so keep/ is not downloaded.\n- **Stage:** the archive prefix rhv/ matches the guest's --strip-components=1, and git archive keeps the 100755 modes that the guest's -x checks need.\n\nFull-rehearsal timeline:\n- setup about 80 s; the smoke targets have empty project closures.\n- 300 modules at about 100 s, then two restart tests of about 100 s each.\n- Because BUILD_LEFT goes stale (finding 7), the build ends at about 520 to 660 s instead of 420 s.\n- Seal takes 2 to 3 min and the two probe C2 runs take seconds each. The C2 gate (more than 1800 s left) is met with about 40 min left.\n- The two 90 s trials need more than 1080 s left, which they have.\n- The main replay gets a budget of about 1900 s for about 1,100 to 1,400 modules at 3.7/s, roughly 6 min.\n- It reaches DONE at about 25 to 30 min, well inside the 55-minute guest deadline and the 65-minute limit.\n\nPhases the rehearsal does not exercise: keep (unless GCP_KEEP_OLEANS=1), the build retry and BUILD_FAILED path, the NCOMP completeness check, the full (non-probe) C2, and the deadline/watchdog takeover. The takeover cannot be reached before deletion (finding 6).\n\nThings I could not settle from memory:\n- whether Cloud Storage rejects a single-request upload whose OAuth token expires while the body is still streaming. I believe authorisation is checked when the request arrives, but I am unsure.\n- the exact list price behind RATE 2.00. The notes give 1.78 USD/h for the machine; the disk adds roughly 0.08 USD/h by my estimate.",
+    "findings": [
+     {
+      "file": "cloud/gcp/pilot_local.sh",
+      "where": "line 169 (watch: trap 'echo \"watch interrupted: tearing down\"; exec /bin/bash \"$SELF\" teardown' INT TERM HUP)",
+      "severity": "major",
+      "scenario": "Around hour 25 of a `launch full` run, the owner presses Ctrl-C, closes the terminal window (HUP), or loses an SSH session to the Mac. The trap immediately runs teardown, which deletes the VM and its disks. The guest never reaches finish(), so the C1 build logs, facts.json and the last ten minutes of replay results are never uploaded. Up to about 50-84 USD of machine time is wasted and the run has to start again. This was acceptable for a 17-minute rehearsal or a 3-hour pilot. For a 31-hour run, one keystroke or a closed laptop terminal destroys the run.",
+      "fix": "For full and full-rehearsal, have INT/TERM/HUP only stop watching, and print that the VM stays protected by max-run-duration and that teardown is a separate, explicit command. Alternatively, ask for confirmation before tearing down. Keep auto-teardown only when the guest reports a final state or the local deadline passes.",
+      "confirmed_how": "Read the code: the trap is set unconditionally in watch for every mode, and the guest's results are only complete once finish() runs."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "lines 109-125 (finish), 203-207 (watchdog takeover), 460-467 (optional keep before finish DONE)",
+      "severity": "major",
+      "scenario": "Several outputs are uploaded only inside finish(): the C1 evidence (lake_build_*.log), the c2_*.out and c3_*.out logs, facts.json and disk.txt. With full-keep-oleans=1, the keep phase starts once C3 ends, with about 1,300 s left before the deadline, because it only needs more than 900 s. It then tars and zstd-compresses about 130 GB on a disk limited to 300 MB/s (read and write together) and uploads about 40 GB in one curl stream. That can plausibly take more than 1,300 + 600 s. The watchdog then sees status 'keep RUNNING', posts DEADLINE after only sync_small, and `watch` deletes the VM. The build logs and facts.json are lost, and the final state reads DEADLINE although every criterion phase had finished. Any other watchdog takeover (main script stuck) loses the same files.",
+      "fix": "Upload the lake build logs as soon as the build phase ends (after phases_end build). Upload the c2 and c3 .out logs right after each check. Write and upload facts.json before the optional keep, and include keep's outcome by rewriting it afterwards. Have the watchdog takeover also upload the logs and a facts.json. Run keep under its own `timeout` set to (left - 600).",
+      "confirmed_how": "Read the code and worked through the timing: C3_BUDGET = left - 1500, keep's gate is left > 900, and the watchdog takes over at deadline + 600 s, calling only sync_small and status."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "line 71 (gcs_put), line 122 (single final status), lines 95-98 (idle_until_deleted), line 190; cloud/gcp/pilot_local.sh lines 170-185 (watch)",
+      "severity": "major",
+      "scenario": "(a) The final status.json is uploaded once. curl --retry 4 retries only timeouts and HTTP 408/429/5xx; it does not retry a connection reset or a 401, and the failure is silent (-s, return status ignored). If that one upload fails at the end of a 31-hour run, the guest idles and never posts the status again. `watch` keeps seeing RUNNING until MAXRUN, so up to about 11 hours, roughly 22 USD, is billed for nothing. (b) If the bucket key is missing or empty (line 190), or every upload fails (for example a missing IAM binding in a fresh project), the guest posts no status at all. `watch` has no 'no status yet' limit, so the VM bills for the full 42 hours (84 USD) while doing nothing useful.",
+      "fix": "In idle_until_deleted, re-upload $PD/status.json every minute. In gcs_put, add --retry-all-errors, fetch a fresh token on each attempt, and log failures to pilot.log. In watch, tear down if no status.json has appeared within about 20 minutes of CREATED, or if the status has not changed for an hour.",
+      "confirmed_how": "Read the code: status() is the only writer of the final state, idle_until_deleted only kills users, and watch's only exits are a final state, VM gone or not running, or CREATED+MAXRUN+300. curl's --help lists --retry-all-errors as separate from --retry."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "line 72 (gz_put uses \"$PD/.up.$$.gz\") together with line 196 (background sync loop calling sync_big)",
+      "severity": "major",
+      "scenario": "In bash, `$$` inside the background subshell is the main script's PID, so the main script and the sync loop share one temporary file. If the main script calls gz_put while the sync loop is inside its ten-minutely sync_big, one gzip truncates and rewrites the file the other curl is uploading, and then one side deletes it. The calls at risk include the seal's olean_sha256.txt.gz and libs_sha256.txt.gz, run_c2's log, and finish's logs and sync_big. Killing SYNC_PID in finish does not stop a gzip or curl child that is already running. The result can be a corrupt object, or one that holds another file's content, for example results/RUNTAG/c3/results.tsv.gz or olean_sha256.txt.gz. The VM, the only other copy, is then deleted.",
+      "fix": "Use a unique name per call, e.g. `local t; t=$(mktemp \"$PD/.up.XXXXXX\")` (or $BASHPID). In finish, also wait for the sync subshell to exit before the final sync_big.",
+      "confirmed_how": "Experiment: `bash -c 'echo main $$; ( echo sub $$ $BASHPID ) & wait'` printed the same value of $$ for the parent and the subshell."
+     },
+     {
+      "file": "cloud/gcp/pilot_local.sh",
+      "where": "line 106 (git diff --quiet HEAD -- scripts cloud) and line 148 (--metadata-from-file=startup-script=\"$HERE/$GUEST\")",
+      "severity": "major",
+      "scenario": "In the tree as it stands, cloud/gcp/full_guest.sh is untracked. `git diff --quiet` ignores untracked files and returned 0 in my test, so `launch full` would pass the 'tied to a commit' check. It would then boot a guest script that exists in no commit. Even after it is committed, the startup script is read from the working tree, and the guest records only full-tools-commit and the SHA of the scripts/ archive. facts.json therefore does not prove which guest script ran. Untracked new files under scripts/ are also silently left out of the archive.",
+      "fix": "Require `git status --porcelain --untracked-files=all -- scripts cloud` to be empty. Use `git show HEAD:cloud/gcp/full_guest.sh` (written to $OUT) as the startup script, and pass its SHA-256 as metadata so facts.json records it. Optionally have the guest hash its own script, which the metadata server can return.",
+      "confirmed_how": "Experiment in a scratch git repository: an untracked file under cloud/ left `git diff --quiet HEAD -- scripts cloud` at exit status 0. `git status --short` in the repository shows `?? cloud/gcp/full_guest.sh`."
+     },
+     {
+      "file": "cloud/gcp/pilot_local.sh",
+      "where": "line 114 (full-rehearsal DEADLINE_MIN=55, MAXRUN=3900) with full_guest.sh line 203 (sleep 600)",
+      "severity": "minor",
+      "scenario": "The guest's T0 is when the startup script starts, which is after the VM begins running. The watchdog's takeover therefore comes at 55 + 10 minutes plus boot time, which is at or after Google deletes the VM at 65 minutes. In the rehearsal the takeover path can never run, and a main script that ends in finish DEADLINE has under 10 minutes for its uploads. The rehearsal also never exercises keep (unless GCP_KEEP_OLEANS=1 is set in config.env), the retry and BUILD_FAILED path, the NCOMP completeness check, or the non-probe C2. The header's 'every phase' overstates this.",
+      "fix": "Set MAXRUN to at least DEADLINE_MIN*60 + 600 + about 600 (for example 4500 s; the worst case becomes 2.50 USD), or shorten the watchdog wait in rehearsal through a metadata key. Pass full-keep-oleans=1 for the rehearsal so the archive and large-upload path is tried on a small tree. State in the header which phases are not exercised.",
+      "confirmed_how": "Arithmetic from the code: the watchdog sleeps until DEADLINE = T0 + 55 min, then 600 s more; max-run-duration is 3900 s from VM start."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "lines 303 and 318 (restart_test calls start_lake \"$BUILD_LEFT\"; BUILD_LEFT is recomputed only at the top of the build loop)",
+      "severity": "minor",
+      "scenario": "In full-rehearsal, the restart tests start at about 100 s, with BUILD_LEFT at about 320. The control restart runs for about 100 s (up to 240 s). The prune restart then starts lake again with the same stale timeout of 320 s. The time-boxed build therefore ends at about 520 to 660 s instead of 420 s, using rehearsal time and money; the rest of the timeline still fits.",
+      "fix": "Inside restart_test, recompute `BUILD_LEFT=$(( TIMEBOX - ($(now) - BUILD_T0) ))` (minimum 30) before start_lake when TIMEBOX > 0.",
+      "confirmed_how": "Read the code path: BUILD_LEFT is assigned only at line 318, before restart_test control and restart_test prune are both called in the same loop iteration."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "lines 71 and 462 (40 GB archive sent as one simple-upload request)",
+      "severity": "minor",
+      "scenario": "The optional oleans archive (about 40 GB) goes in one POST. A dropped connection mid-stream (curl error 55/56) is not retried. A 5xx retry resends all 40 GB with the same bearer token captured when the call started. The failure is silent apart from 'archiving the compiled files failed'. I am unsure whether a token that expires during a long single request is rejected. Google's guidance is to use resumable uploads for large objects.",
+      "fix": "Use a resumable upload session (uploadType=resumable, then PUT in chunks of 256 MiB multiples, with a fresh token per chunk). Alternatively install the gcloud CLI on the guest and use `gcloud storage cp`, which does parallel composite and resumable uploads. Log curl's exit status.",
+      "confirmed_how": "Read the code and curl's documentation (`--retry` retries only transient errors; `--retry-all-errors` is separate). The token behaviour comes from memory and is uncertain."
+     },
+     {
+      "file": "cloud/gcp/pilot_local.sh",
+      "where": "line 211 (close_run with $(date +%s)) and the cap check at lines 132-133",
+      "severity": "minor",
+      "scenario": "Suppose the Mac is offline and Google deletes the VM at MAXRUN (42 h). If teardown runs days later, the ledger row closes at teardown time, for example 72 h, recording 144 USD. `spent` is inflated and every later launch is refused until the TSV is edited by hand. Separately, the cap does not include bucket storage of keep/RUNTAG/oleans.tar.zst (about 40 GB, around 0.80 USD a month and indefinitely, and teardown does not mention it) or cross-region traffic when the VM lands in a zone outside the bucket's region (the pilot ran in us-east1).",
+      "fix": "In close_run, cap the end time at CREATED + MAXRUN (both are in the state file). In teardown, list gs://BUCKET/keep/ and print its size, with a reminder that it costs money until deleted.",
+      "confirmed_how": "Read the code: close_run computes secs = end - created with no upper bound, and teardown only lists addresses and snapshots."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "line 414 (C2 gate `left > 1800` while each C2 run may take C2_TIMEOUT=7200 s in full mode)",
+      "severity": "minor",
+      "scenario": "If the build runs long, for example 38 to 39 h in the high case, C2 can start with 35 minutes left. A deep walk that takes longer is killed at the guest deadline through the watchdog, so C3 never starts. The run then ends DEADLINE with C2 incomplete and no kernel replay at all, after about 80 USD of machine time.",
+      "fix": "Base the gate on the time C2 needs (for example, run deep only if left > C2_TIMEOUT + a C3 minimum), or run plain C2, then C3, then deep C2 when time remains. Either way, record in facts.json which phases were skipped for lack of time.",
+      "confirmed_how": "Read the code: the only gate is left > 1800, the run_c2 timeouts default to 7200 s each, and the watchdog's TERM leads to finish DEADLINE without going on to C3."
+     },
+     {
+      "file": "cloud/gcp/pilot_local.sh",
+      "where": "lines 87-89 (stage writes rhv_tools.id before the upload, and the upload's exit status is not checked)",
+      "severity": "minor",
+      "scenario": "If `gcloud storage cp` of rhv_tools.tar.gz fails, for example on a network error, stage still records the new SHA and commit. launch then passes its checks, and the guest's fetch_checked finds a SHA mismatch with the old object. The run ends FAIL in setup, wasting a few minutes of billed machine time and a launch.",
+      "fix": "Add `|| die` to the cp, and write rhv_tools.id only after the upload succeeds. Optionally have launch compare the object's hash in the bucket (`gcloud storage objects describe --format='value(sha256 or md5)'`) with the local SHA before creating the VM.",
+      "confirmed_how": "Read the code order and the missing `|| die` on line 89."
+     }
+    ],
+    "verdict": "fix_then_rehearse"
+   }
+  },
+  {
+   "lens": "integrity",
+   "result": {
+    "checked": "Read PREREGISTRATION.md, docs/verification-criteria.md, cloud/gcp/full_guest.sh in full, the diff of pilot_local.sh, and 08_check_axioms.sh, axioms_check_body.lean, 09_kernel_replay.sh, kernel_check_one.sh, rhv_tools.py (axioms-summary, replay-plan, replay-summary), prune_setup_files.sh, lib.sh and common.sh. To settle Lake and leanchecker behaviour I read the v4.33.1 sources: LeanChecker.lean, Lake Build/Module.lean, Actions.lean, Common.lean, Run.lean and Load/Package.lean, and Lean's Frontend.lean and Environment.lean. Ran bash -n on the changed scripts (all clean; shellcheck is not installed) and parsed rhv_tools.py. Ran a small local lean experiment: logInfo output, including multi-line messages, comes out with no file:line prefix, so the 'RHV ' parser is sound. Inspected the local Mac build read-only: Mathlib's cache ships .olean/.ilean/.ir/.server/.private .hash and .trace files, and none were rewritten by a long build. I also read the earlier probe's deep-walk JSON (PASS, 54,444 constants, 3 axioms, nothing missing).\n\nWhat each criterion needs, and what holds up:\n- C1. Needs lake exit 0 for the default targets and every module compiled. The script requires LAKE_RC=0 and an .olean count equal to the .lean count. Because all 175,187 modules are in Main's import closure, an extra or shadowing olean cannot be hidden without breaking 'import Main'. So the count closes the gap, though only indirectly.\n- Restart tests: sound by the Lake source. A module counts as up to date when its saved .trace hash matches and its olean, ilean and c files exist; setup.json is written and read only inside compileLeanModule (by lean and leanir) and is not consulted afterwards. In non-ANSI mode every job whose action is build is printed as '<icon> [n/m] Built <module>'. So 'finished' = has a .trace is the right test. A trace is written only after a successful build.\n- Pruning: it cannot race a running compile. A first compile has no .trace yet; a recompile's old .trace is older than its new setup.json.\n- C2. Needs the type to be exactly the constant RiemannHypothesis, that constant to come from Mathlib's RiemannZeta module, and only the three axioms by both collectAxioms and the deep walk. The Lean body and the Python summary implement this correctly, including the completeness markers.\n- C3. Needs a passing result for every compiled module. leanchecker matches names by component prefix (Name.isPrefixOf), the same as rhv_tools. It imports with loadExts=false and never enables initializers, so it runs no project code. The prefix pass's 'replaying <mod>' check matches the -v output. The 'complete' flag needs no failures, remaining=0 (stale results count as remaining), prefix_remaining=0 and compiled count = source count. That is correct, so a replay cut short reads complete=false.\n- Checker runs: a checker process killed by timeout's process-group TERM leaves no result line. The one-line O_APPEND writes to results.tsv are safe. Stamps come from .olean.hash files, which Lake always creates, and no module can be recompiled after it is checked because the replay starts after the seal.\n- env -i for the checker works. PATH reaches the real lean and leanchecker in TC_BIN rather than the elan shims. The sysroot is found from the binary's location. HOME, $WORK/download, logs and analysis exist and the checker owns them.\n\nCriteria: none of the changes alters a pre-registered criterion. The prefix pass is a change in method only: C3 itself does not require one process per module, although docs/verification-criteria.md says 'in its own process' and should note the 114 prefix modules. The retry and OOM handling (finding 4), however, conflicts in practice with section 4's rule that a killed process has not been tested.",
+    "findings": [
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "line 388 (seal: chown -R checker:checker \"$LOGS\" \"$WORK/analysis\" \"$WORK/download\"); the directories were made pilot-owned at line 224",
+      "severity": "blocker",
+      "scenario": "$LOGS and $WORK/analysis belong to the build user for the whole build, and the seal re-owns them without emptying them. Code run by any proof file at compile time (exactly the case the seal exists for) can write $WORK/analysis/kernel_replay/results.tsv with an exit-0 line for every module, using the stamp from that module's readable .olean.hash. 09's replay-plan then treats every module as already passed and checks nothing, the prefix pass likewise, and root's c3_summary reports complete:true in facts.json without one leanchecker run. Two variants: (a) a hard link placed in $WORK/analysis or $LOGS pointing at a project .olean (same filesystem, owned by pilot at the time) is re-owned to checker by the chown -R, which happens after the chown to root at line 382, so that olean becomes checker-writable. The write test at line 390 only creates a new file. (b) A pre-planted axioms-*-latest.json or c2_*.rc, or a future-dated axioms-full-2*.log, is copied or uploaded by run_c2 whenever 08 dies or times out before writing its own.",
+      "fix": "At the seal, after kill_users: rm -rf \"$LOGS\" \"$WORK/analysis\" \"$WORK/download\", recreate them as root, then chown them to checker. Then assert the following and FAIL otherwise: `find \"$PROJ\" \"$TC_DIR\" ! -user root` is empty; `find \"$LIB\" -type f -links +1` is empty; nothing under $WORK besides the fresh directories is owned by pilot.",
+      "confirmed_how": "Read the code: s_user creates and chowns these directories to pilot. The seal only chowns them. 09_kernel_replay.sh keeps an existing results.tsv ([ -f ] || header). replay_state/cmd_replay_plan skip any module whose latest line has rc 0 and a matching stamp. cmd_replay_summary computes complete from those lines alone. chown changes the inode, so it applies to every hard link."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "lines 403 and 424 (C2 and C3 both run via as_checker, line 130); C2 runs first",
+      "severity": "major",
+      "scenario": "C2 runs `lean` on a file that imports Main. The Lean frontend imports with loadExts:=true and enables initializers (Lean/Elab/Import.lean:156, Frontend.lean:333), so any `initialize` block or environment-extension code anywhere in the proof's 175k modules runs as `checker`. That user then owns the C3 results directory and <HOME> Such code can write passing lines into results.tsv, or drop a usercustomize.py under <HOME>/.local, which 08's and 09's non-isolated `python3 -B` imports. Either way C3, presented as independent of the project's code, is forged before it starts. leanchecker itself runs no project code (finalizeImport ... loadExts=false), so the only path is through the shared user and the shared directories.",
+      "fix": "Run C3 before C2, or as a separate user (for example `checker3`) whose results directory C2's user cannot write. Kill every process of the C2 user before C3 starts. Run the Python helpers with `python3 -I` under the checker users. Have root re-hash the project .olean files after C3 and compare them with olean_sha256.txt.",
+      "confirmed_how": "Read the toolchain sources: Lean/Elab/Import.lean, Frontend.lean, Environment.lean (loadExts) and LeanChecker.lean (loadExts=false, no enableInitializersExecution). Read as_checker, run_c2 and replay, and the python3 calls in 08 and 09."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "line 224 ($WORK/extract chowned to pilot, never re-owned); line 382 (<HOME> left pilot-owned; only .elan and below go to root); kill_users line 94",
+      "severity": "major",
+      "scenario": "The seal makes $PROJ and $TC_DIR root-owned, but their parent directories stay pilot-owned and have no sticky bit. On Linux, renaming a directory within the same parent needs write permission only on the parent. Build-time code can install a pilot crontab (cron runs on Ubuntu images; kill_users kills processes, not crontab entries). During C2 or C3 that job can run `mv <HOME>/.elan <HOME>/.x` and put a fake toolchain at the same path, so that as_checker's PATH=$TC_BIN resolves to a leanchecker that always exits 0. Or it can swap $WORK/extract/lean for a tree of altered .olean files. The olean manifest is taken once and never re-checked. The end-of-run libs comparison (line 456) only warns, and a swap that is restored before the end escapes it.",
+      "fix": "At the seal: chown root:root \"$WORK/extract\" <HOME>; run `crontab -r -u pilot`, `usermod -L -s /usr/sbin/nologin pilot` and `loginctl disable-linger pilot`, or simply `userdel pilot`. Better still, copy the toolchain to a root-owned path such as /opt/lean and point TC_BIN there. Re-hash the project .olean files at the end and make any difference from the seal, or any change in the libraries, a FAIL rather than a warning.",
+      "confirmed_how": "Read s_user, the seal chown/chmod lines and kill_users. The rename rule is Linux vfs_rename's: write permission on a moved directory is needed only when its parent changes."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "lines 341-360 (one retry, then BUILD_FAILED); scripts/verify/kernel_check_one.sh lines 31-40; scripts/verify/rhv_tools.py lines 789-792",
+      "severity": "major",
+      "scenario": "PREREGISTRATION section 4 says a module whose compiler is killed for lack of memory has not been tested and must be re-run with enough memory. The script retries once with the same 32-way parallelism and treats every '✖' alike. If a lean process is OOM-killed (exit 137) twice, finish reports 'the build failed twice ... criterion C1 is not met', which is not what the rule says. The same happens in C3: an OOM- or signal-killed leanchecker writes a line with rc 137 or 143, which the summary counts as FAILED. In the full run nothing retries after the main pass, so C3 reads as failed. The prefix pass is the likeliest place for this: it is new and unmeasured, it runs CHECK_JOBS processes at once, and each one starts an IO.asTask, with its own complete import, for every module beneath its prefix (up to 119).",
+      "fix": "Record exit statuses of 128 and above separately ('killed', not 'failed') in the build failure list and in replay-summary. Retry killed modules at lower parallelism: the build with a smaller LEAN_NUM_THREADS, and the replay by running 09 again (it already retries failures) with fewer jobs. Run the prefix pass with a small --jobs. Never print 'C1 is not met' unless the retry ended with a Lean error rather than a signal.",
+      "confirmed_how": "Read the retry branch, kernel_check_one.sh (rc stored verbatim) and classify() in rhv_tools.py. LeanChecker.lean spawns one task per target module."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "line 349 (start_lake 0; wait during the retry)",
+      "severity": "major",
+      "scenario": "If the first pass fails early, say one shallow module killed for lack of memory, Lake skips all of its dependents, so the retry may have most of the tree left to build. The retry runs in the foreground without the monitoring loop. That means no pruning of setup files, no check of free disk space and no status uploads. Setup files grow by roughly 1.3 TB over the whole tree on a 440 GB disk, so the disk fills, lean fails with ENOSPC, and the run ends as BUILD_FAILED 'criterion C1 is not met' after many hours of machine time.",
+      "fix": "Run the retry through the same monitoring loop (prune every ten minutes, the free-disk check, status uploads), for example by moving the loop into a function that both passes call.",
+      "confirmed_how": "Read the code: the loop at lines 315-338 is entered only for the first start_lake; the retry calls wait directly."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "lines 239 and 375 (the source manifest covers only src/ plus three files)",
+      "severity": "minor",
+      "scenario": "Lake prefers lakefile.lean to lakefile.toml whenever both exist (Lake/Load/Package.lean:112). Build-time code could create $PROJ/lakefile.lean, or another file at the project root, which the restart tests or the retry then run as Lean code with changed build options. The seal would not notice, because files outside src/ and the three pinned files are not in the manifest. C3 is the backstop for the compiled files, but C1's 'no change to the tarball' is then only partly checked.",
+      "fix": "Take the baseline and seal manifest over all of $PROJ except .lake/, and FAIL on any added or removed file.",
+      "confirmed_how": "Read the manifest calls and Lake's configuration-file resolution."
+     },
+     {
+      "file": "cloud/gcp/full_guest.sh",
+      "where": "lines 276-277 (t_step smoke_build runs before t_step lockdown)",
+      "severity": "minor",
+      "scenario": "The smoke build compiles two proof files, Statements and Formalism.GammaFactorNonvanishing.RhOfRight, as pilot while pilot still has general network access (only the metadata server is blocked). The header says the proof is compiled only after the build user has been cut off from the network. Any compile-time code in those files could fetch material for the attacks above.",
+      "fix": "Run s_lockdown before s_smoke. The smoke build needs no network once the cache is in place.",
+      "confirmed_how": "Read the order of the setup steps and the header text."
+     },
+     {
+      "file": "scripts/verify/rhv_tools.py",
+      "where": "line 851 (complete uses len(compiled) == total_src); full_guest.sh line 362 (NCOMP vs NSRC by count)",
+      "severity": "minor",
+      "scenario": "Both completeness checks compare counts, not module names. The project's lib directory comes first on LEAN_PATH, so a file there named, say, Mathlib/NumberTheory/LSeries/RiemannZeta.olean would shadow the pinned Mathlib in both C2 (whose check is only on the module's name) and C3. At present the count check, together with every module being imported by Main, prevents this. That protection is indirect and breaks if a target or file layout changes.",
+      "fix": "Compare the set of compiled module names with the set of source module names, in both places. Also FAIL if any file in $LIB has a module name whose root is a library root (Init, Lean, Std, Mathlib, and so on).",
+      "confirmed_how": "Read replay_state/cmd_replay_summary, the C1 check and lean_path() ordering in lib.sh."
+     },
+     {
+      "file": "scripts/09_kernel_replay.sh",
+      "where": "final exit (exit \"$status\" from replay-summary); facts.json c3_kernel_replay.exit_status",
+      "severity": "minor",
+      "scenario": "09 exits 0 whenever no recorded module has failed, even when modules remain unchecked, for example stale ones or a prefix pass with nothing planned. In facts.json, 'exit_status': 0 then sits next to 'complete': false and can be read as success.",
+      "fix": "Exit with a distinct non-zero status, say 3, when summary.complete is false, or leave exit_status out of facts.json and report only 'complete'.",
+      "confirmed_how": "Read cmd_replay_summary, which returns 1 only when there are failures, and write_facts."
+     }
+    ],
+    "verdict": "fix_then_rehearse"
+   }
+  },
+  {
+   "lens": "scripts",
+   "result": {
+    "checked": "Read all of `git diff -- scripts` and the unchanged code around it: 09_kernel_replay.sh, kernel_check_one.sh, the replay and axioms-summary functions of rhv_tools.py, axioms_check_body.lean, common.sh raise_nofile and prune_setup_files.sh. Also read the parts of cloud/gcp/full_guest.sh that call them (as_checker, replay/trials, c3_summary, write_facts) and two pieces of toolchain source: LeanChecker.lean (v4.33.1) and Lake's Build/Actions.lean and Build/Module.lean.\n\nExperiments, all in my scratchpad:\n(1) Ran the read-only `08_check_axioms.sh --probe --deep` on the real work dir. lean exited 0 and the verdict was PASS. The multi-line DEEP_MODULE message prints as plain 'RHV DEEP_MODULE ...' lines. All 1760 were parsed (modules_listed_completely true, counts add up to the 54,444 constants visited), and modules.tsv was written. So the new Lean code (Array.replicate, modify, the for-loop, intercalate) compiles and runs on v4.33.1, and the pass/fail logic is unchanged.\n(2) Built a tiny project without lake (lean -o) with two prefix modules, P.A and Q.R, and ran 09 against it via RH_WORKDIR. Both passes, the three-field xargs input, the .prefix.out records, the summary, the JSON and the 'complete' flag all behaved as designed. Re-running skipped what had passed.\n(3) Measured leanchecker on a prefix module with 12 children (each imports Mathlib.Topology.Basic through the real Mathlib oleans, read-only), using /usr/bin/time -l (see finding 1).\n(4) Removed one compiled module and added a stray olean with no source (see finding 3).\n\nOther checks:\n- Names: the real source tree has 114 prefix modules, 1,701 modules beneath them (largest 119) and no prefix module at the root. The only unusual character in module names is the subscript '₂', which Name.toString does not escape. So the 'replaying $mod' grep and status 97 cannot misfire on this tree.\n- Shuffle: the shuffle comes after sample selection and is seeded, so --sample still picks the same sample for the same seed. The plan order is deterministic.\n- --list now skips prefix modules, as intended.\n- The only JSON key removed, prefix_modules_not_checked, is used nowhere else in the repository.\n- raise_nofile is correct and no longer lowers the 1,048,576 limit that as_checker sets.\n- prune_setup_files.sh is safe for '--delete --min-age 0 --project DIR' as root during the build. Lake runs leanir inside compileLeanModule, before buildAction writes the module's .trace. A rebuild writes a new setup.json that is newer than the old trace, so it is skipped. Deps' setup data is computed in memory and never re-read from disk.\n- bash -n passes on all changed scripts; shellcheck is not installed.",
+    "findings": [
+     {
+      "file": "scripts/verify/kernel_check_one.sh",
+      "where": "line 29, the prefix branch: LEAN_PATH=... \"$RH_LEANCHECKER\" -v \"$mod\" (and 09_kernel_replay.sh lines 114-122, which runs the prefix pass with -P $JOBS)",
+      "severity": "blocker",
+      "scenario": "leanchecker (src/lean/LeanChecker.lean) starts one IO.asTask per matched module and runs them all at once on Lean's worker pool (one worker per hardware thread). Each task imports its module's whole closure separately. When imports overlap in one process, every extra import costs about the closure's size in private memory.\n\nMeasured on this Mac with a prefix module and 12 children, each importing Mathlib.Topology.Basic:\n- one module alone: peak footprint 0.20 GB\n- prefix with 2 children: 3.5 GB\n- prefix with 12 children: 17.5 GB (max RSS 5.2 GB)\n\nOn the VM a project module's closure is at least Mathlib's 6.4 GiB, and the pool has 32 workers. One prefix process with 32 or more children therefore needs roughly 200 GiB or more. The prefix pass also runs 32 such processes at once, in alphabetical order. From the real source tree, the largest 32 consecutive prefix modules add up to about 734 concurrent imports.\n\nResult: the OOM killer or heavy thrashing at the very end of a roughly 30-hour run. Killed checkers are written to results.tsv with status 137 and counted as FAILED, so C3 reads as failed. complete=false and 09 exits 1. On an ordinary Mac (10 threads, 24 GB) the same pass goes into swap or the process is killed.",
+      "fix": "In the prefix branch, run the checker with one worker: `LEAN_NUM_THREADS=1 LEAN_PATH=\"$RH_LEAN_PATH\" \"$RH_LEANCHECKER\" -v \"$mod\"`. Measured on the 12-child case, this cuts the peak footprint from 17.5 GB to 0.22 GB with about the same wall time (20 s against 18.6 s), still prints 13 'replaying' lines and exits 0. Each task frees its regions before the next starts. Optionally also cap -P for the prefix pass. Add a one-module rehearsal check of the peak memory of the largest prefix module (the one with 119 modules beneath it).",
+      "confirmed_how": "Read LeanChecker.lean: every task is started with IO.asTask before any t.get. Then ran /usr/bin/time -l leanchecker -v on 1, 3 and 13 modules, with and without LEAN_NUM_THREADS=1. Prefix sizes and the concurrency window come from the real source tree's file list."
+     },
+     {
+      "file": "scripts/verify/rhv_tools.py",
+      "where": "replay_state.classify (`elif r[1] == \"0\": passed ... else: failed`) and cmd_replay_summary; records written by kernel_check_one.sh line 40",
+      "severity": "major",
+      "scenario": "Any non-zero status is counted as a kernel-replay failure, including a checker killed by a signal: 137 from the OOM killer (see the blocker above), or 143 from a stray TERM. The summary, summary.json (failed, prefix_failed, complete=false) and 09's exit status 1 then report C3 as failed for a resource reason, not because the kernel rejected anything. On the VM there is no later run that could retry and overwrite the result. Note that full_guest's timeout sends TERM to the whole process group, which normally kills kernel_check_one.sh before it can write a record. So the misreport mainly comes from OOM kills of the leanchecker process alone.",
+      "fix": "Classify a status of 128 or more (or 97 kept separate) as 'interrupted/killed' rather than FAILED. Count those under remaining, list them in the JSON as e.g. killed_modules, and leave them out of the failure exit status, or give them a distinct exit status. Then a resource failure cannot be read as a C3 failure.",
+      "confirmed_how": "Read classify() and kernel_check_one.sh: the rc is recorded verbatim and only \"0\" counts as passed."
+     },
+     {
+      "file": "scripts/verify/rhv_tools.py",
+      "where": "cmd_replay_summary: `complete = (... and (not total_src or len(st[\"compiled\"]) == total_src))`",
+      "severity": "minor",
+      "scenario": "The flag compares counts, not sets. If one source module is not compiled while a compiled file with no source is present (for example a stale olean from an earlier extraction or build in the same work directory), the counts still match. 'complete' is then true, and the summary prints 'every source module compiled and passing: yes' although a module was never compiled. Reproduced on the tiny project: removed P/B.olean and added a source-less Z.olean, and the summary reported complete=true. Not expected on a fresh VM, but these scripts also run on reused Mac and Linux work directories.",
+      "fix": "Use `set(st[\"sources\"]) <= set(st[\"compiled\"])` instead of the length test. Optionally also report compiled modules that have no source.",
+      "confirmed_how": "Experiment on a tiny project in the scratchpad: 09 printed 'every source module compiled and passing: yes' and summary.json had \"complete\": true while source module P.B had no olean."
+     }
+    ],
+    "verdict": "fix_then_rehearse"
+   }
+  }
+ ]
+}

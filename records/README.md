@@ -51,6 +51,8 @@ The proof source itself is not here and is not redistributed. Build logs, the ar
 | `cloud/gcp_budget_review.json` | Three independent reviews of that budget model |
 | `cloud/gcp_candidates.json` | 31 candidate machine types with sizes and the zones that offer them |
 | `cloud/gcp_machine_types.csv` | Machine types with at least 96 vCPUs in 19 US zones |
+| `cloud/full_run_driver_review.json` | Four reviews of the first draft of the full-run driver, before it had been run |
+| `cloud/full_run_driver_recheck.json` | Two reviews of the driver as rewritten after those |
 
 ### `cloud/pilot/` - the calibration pilot
 

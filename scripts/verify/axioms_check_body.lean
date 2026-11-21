@@ -18,7 +18,9 @@ Two different sources of axiom information are used, and they should not be conf
   across module boundaries. Its answer is as trustworthy as the compiled files.
 * `deepWalk` (used only with `--deep`) ignores those records. It starts from the theorems and
   visits every constant reachable through types, values and constructors, as stored in the loaded
-  environment, and lists every constant that is an axiom.
+  environment, and lists every constant that is an axiom. It also counts, for each module, how
+  many of that module's constants it visited. Those counts decide nothing; they are reported as
+  `RHV DEEP_MODULE` lines so that a reader can see which modules the theorems actually rest on.
 -/
 open Lean Elab Command
 
@@ -69,14 +71,17 @@ def constantsUsedBy (env : Environment) (c : Name) : Option (Bool × Array Name)
   | some (.inductInfo v) => some (false, v.type.getUsedConstants ++ v.ctors.toArray)
 
 /-- Visit every constant reachable from `roots`. Returns the axioms found, the names that were
-referred to but are not in the environment, and the number of constants visited. Uses an explicit
+referred to but are not in the environment, the number of constants visited, and, indexed like
+`env.header.moduleNames`, how many of each module's constants were visited. Uses an explicit
 stack, so the depth of the dependency chain does not matter. -/
-def deepWalk (env : Environment) (roots : List Name) : Array Name × Array Name × Nat := Id.run do
+def deepWalk (env : Environment) (roots : List Name) :
+    Array Name × Array Name × Nat × Array Nat := Id.run do
   let mut visited : NameSet := {}
   let mut stack : Array Name := roots.toArray
   let mut axioms : Array Name := #[]
   let mut missing : Array Name := #[]
   let mut count : Nat := 0
+  let mut perModule : Array Nat := Array.replicate env.header.moduleNames.size 0
   while !stack.isEmpty do
     let c := stack.back!
     stack := stack.pop
@@ -84,6 +89,8 @@ def deepWalk (env : Environment) (roots : List Name) : Array Name × Array Name 
       continue
     visited := visited.insert c
     count := count + 1
+    if let some i := env.getModuleIdxFor? c then
+      perModule := perModule.modify i.toNat (· + 1)
     match constantsUsedBy env c with
     | none => missing := missing.push c
     | some (isAxiom, used) =>
@@ -92,7 +99,7 @@ def deepWalk (env : Environment) (roots : List Name) : Array Name × Array Name 
       for u in used do
         unless visited.contains u do
           stack := stack.push u
-  return (axioms, missing, count)
+  return (axioms, missing, count, perModule)
 
 /-- Kind, declaring module, axioms (from `Lean.collectAxioms`) and type of one theorem. -/
 def reportTheorem (n : Name) : CommandElabM Unit := do
@@ -172,7 +179,7 @@ def run (mode : String) (deep : Bool) (primary : Name) (theorems : List Name) :
         | some v => logInfo m!"RHV DEF_BEGIN {c}\n{v}\nRHV DEF_END {c}"
         | none => logInfo m!"RHV DEF_NONE {c} {kindOf d}"
   if deep then
-    let (axs, missing, count) := deepWalk env theorems
+    let (axs, missing, count, perModule) := deepWalk env theorems
     logInfo m!"RHV DEEP_VISITED {count}"
     logInfo m!"RHV DEEP_AXIOM_COUNT {axs.size}"
     for a in axs do
@@ -180,6 +187,18 @@ def run (mode : String) (deep : Bool) (primary : Name) (theorems : List Name) :
     logInfo m!"RHV DEEP_MISSING_COUNT {missing.size}"
     for c in missing do
       logInfo m!"RHV DEEP_MISSING {c}"
+    -- Which modules the walk touched: L for a library module, P for a module of the project.
+    let names := env.header.moduleNames
+    let mut lines : Array String := #[]
+    for i in [0:names.size] do
+      let k := perModule[i]!
+      if k > 0 then
+        let m := names[i]!
+        let tag := if libraryRoots.contains m.getRoot then "L" else "P"
+        lines := lines.push s!"RHV DEEP_MODULE {tag} {m} {k}"
+    logInfo m!"RHV DEEP_MODULE_COUNT {lines.size}"
+    if !lines.isEmpty then
+      logInfo m!"{String.intercalate "\n" lines.toList}"
   logInfo m!"RHV DONE"
 
 end RHVerifyCheck

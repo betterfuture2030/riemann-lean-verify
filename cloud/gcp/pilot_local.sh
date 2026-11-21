@@ -1,8 +1,14 @@
 #!/bin/bash
-# Calibration pilot, local controller. Run it with bash on your own machine (bash 3.2 or later).
+# Local controller for the calibration pilot and for the full run. Run it with bash on your own machine (bash 3.2 or
+# later).
 #
 #   stage              create the private bucket and upload inputs (storage only; no compute cost)
-#   launch <mode>      mode = rehearsal | pilot. Creates exactly one VM, which Google deletes at a fixed maximum run time
+#   launch <mode>      Creates exactly one VM, which Google deletes at a fixed maximum run time. Modes:
+#                        rehearsal        the pilot with short windows: about 17 minutes
+#                        pilot            the calibration pilot: about 3 hours (pilot_guest.sh)
+#                        full-rehearsal   the phases of the full run on a seven-minute build: about 35 minutes
+#                        full             the whole tree: build, axiom checks, kernel replay. An estimated 31 hours
+#                                         (full_guest.sh; docs/cloud-notes.md sections 8 and 9)
 #   watch              follow the run through the bucket, then delete the VM and its disks
 #   teardown           delete every VM and disk in the project, verify that nothing billable is left, close the ledger
 #   ledger             show recorded machine-time and estimated spend against the cap
@@ -10,10 +16,17 @@
 # Safety design. (1) `launch` refuses to start a VM whose worst case would take recorded spend past GCP_SPEND_CAP_USD,
 # and records the run in the ledger BEFORE creating anything. (2) The VM is created with --max-run-duration and
 # --instance-termination-action=DELETE, and the guest never powers itself off, so that deletion stays armed even if
-# this machine is asleep or offline. (3) `watch` deletes the VM as soon as the guest reports a final state.
+# this machine is asleep or offline. (3) `watch` deletes the VM as soon as the guest reports a final state, and
+# also if the guest never reports at all or falls silent for half an hour. Interrupting `watch` (Ctrl-C, a closed
+# terminal) tears a pilot down at once; for a full run it only stops watching, because a day of work would be lost,
+# and the VM stays protected by its maximum run time. `teardown` is then a separate, deliberate command.
 # (4) `teardown` closes the ledger only after the Compute API has positively confirmed that no VM or disk remains.
 #
-# Use a project dedicated to this pilot: `teardown` deletes every instance and disk in GCP_PROJECT.
+# The cap decides whether a full run may start: its worst case is 42 hours of machine time, about 84 USD at the
+# ledger's rate, so `launch full` is refused until GCP_SPEND_CAP_USD in config.env allows for that on top of what the
+# ledger already records. Raising the cap is how you say go.
+#
+# Use a project dedicated to this work: `teardown` deletes every instance and disk in GCP_PROJECT.
 set -u
 . "$(cd "$(dirname "$0")" && pwd)/../../scripts/lib.sh"
 [ -n "${GCP_PROJECT:-}" ] || die "set GCP_PROJECT in config.env (see config.example.env)"
@@ -38,15 +51,16 @@ G="gcloud --project=$NP --quiet"
 
 spent()    { awk -F'\t' 'NR>1 && $9!="" {s+=$9} END{printf "%.2f", s+0}' "$LEDGER"; }
 open_run() { awk -F'\t' 'NR>1 && $7=="" {print $1}' "$LEDGER" | tail -1; }
-close_run() { # close_run <runtag> <end_epoch> [zero]   -- fill in end time, seconds and cost for an open ledger row
-  python3 -I - "$LEDGER" "$1" "$2" "${3:-}" <<'PY'
+close_run() { # close_run <runtag> <end_epoch> [zero] [max seconds]   -- fill in end time, seconds and cost for an open ledger row
+  python3 -I - "$LEDGER" "$1" "$2" "${3:-}" "${4:-0}" <<'PY'
 import sys
-p, tag, end, zero = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
+p, tag, end, zero, cap = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4], int(sys.argv[5] or 0)
 rows = [l.rstrip('\n').split('\t') for l in open(p)]
 for r in rows[1:]:
     while len(r) < 9: r.append('')
     if r[0] == tag and r[6] == '':
         secs = 0 if zero else max(0, end - int(r[5]))
+        if cap: secs = min(secs, cap)      # Google deletes the VM at its maximum run time, however late teardown is
         r[6] = str(end); r[7] = str(secs); r[8] = '%.2f' % (float(r[3]) * secs / 3600)
 open(p, 'w').write('\n'.join('\t'.join(r) for r in rows) + '\n')
 PY
@@ -72,16 +86,48 @@ stage)
   $G storage cp "$OUT/nonprefix_modules.txt.gz" "gs://$BUCKET/inputs/nonprefix_modules.txt.gz"
   $G storage cp "$OUT/probe_modules.txt" "gs://$BUCKET/inputs/probe_modules.txt"
   $G storage cp "$HERE/sampler.py" "gs://$BUCKET/inputs/sampler.py"
+  # This repository's scripts, as committed, for the full run to use on the VM.
+  git -C "$REPO_ROOT" diff --quiet HEAD -- scripts || echo "NOTE: scripts/ has uncommitted changes; the archive is made from the last commit and will not include them"
+  git -C "$REPO_ROOT" archive --format=tar.gz --prefix=rhv/ -o "$OUT/rhv_tools.tar.gz" HEAD scripts || die "could not archive scripts/ from git"
+  rm -f "$OUT/rhv_tools.id"
+  $G storage cp "$OUT/rhv_tools.tar.gz" "gs://$BUCKET/inputs/rhv_tools.tar.gz" || die "could not upload the scripts archive"
+  printf '%s %s\n' "$(sha256_of "$OUT/rhv_tools.tar.gz")" "$(git -C "$REPO_ROOT" rev-parse HEAD)" > "$OUT/rhv_tools.id"
   $G storage ls -l "gs://$BUCKET/inputs/"
   ;;
 launch)
-  MODE=${2:-}; [ "$MODE" = pilot ] || [ "$MODE" = rehearsal ] || die "usage: $0 launch <rehearsal|pilot>"
+  MODE=${2:-}
+  case "$MODE" in pilot|rehearsal|full|full-rehearsal) ;; *) die "usage: $0 launch <rehearsal|pilot|full-rehearsal|full>" ;; esac
   [ -z "$(open_run)" ] || die "a run is still open in the ledger: $(open_run). Run teardown first."
   existing=$($G compute instances list --format='value(name)') || die "could not list instances; not launching"
   [ -z "$existing" ] || die "an instance already exists in the project ($existing); refusing to create another"
   RUNTAG="$MODE-$(date +%Y%m%d-%H%M%S)"; NAME="lean-$MODE"
   jget() { python3 -I -c "import json,sys; print(json.load(open('$TARGETS_JSON'))[sys.argv[1]])" "$1"; }
-  if [ "$MODE" = pilot ]; then
+  GUEST_FILE="$HERE/pilot_guest.sh"; XMD=""
+  if [ "$MODE" = full ] || [ "$MODE" = full-rehearsal ]; then
+    # A full run is tied to one commit: the scripts archive and the guest script both come from HEAD, not from
+    # the working tree, and nothing under scripts/ or cloud/ may be modified or untracked.
+    [ -f "$OUT/rhv_tools.id" ] || die "run '$0 stage' first: the archive of this repository's scripts has not been uploaded"
+    read -r TSHA TCOMMIT < "$OUT/rhv_tools.id"
+    [ "$TCOMMIT" = "$(git -C "$REPO_ROOT" rev-parse HEAD)" ] || die "the staged scripts are from commit $TCOMMIT, not the current one; run '$0 stage' again"
+    [ -z "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=all -- scripts cloud)" ] || die "scripts/ or cloud/ has uncommitted or untracked files; commit them and run '$0 stage' again, so that the run is tied to a commit"
+    GUEST_FILE="$OUT/full_guest_$RUNTAG.sh"
+    git -C "$REPO_ROOT" show HEAD:cloud/gcp/full_guest.sh > "$GUEST_FILE" || die "could not read cloud/gcp/full_guest.sh from the current commit"
+    TA=none; TB=""
+    if [ "$MODE" = full ]; then
+      DEADLINE_MIN=2460; MAXRUN=151200  # the guest stops by 41 h; Google deletes the VM at 42 h whatever happens
+      DATA="name=$NAME-data,device-name=pilot-data,type=hyperdisk-balanced,size=440GB,provisioned-iops=6000,provisioned-throughput=300,auto-delete=yes"
+      MD="pilot-nmax=32,full-timebox=0,full-prune-after=3000,full-keep-oleans=${GCP_KEEP_OLEANS:-0}"
+    else
+      # full-rehearsal: about 35 minutes are expected. The guest stops by 55 min, its watchdog takes over 5 min
+      # later at the latest, and Google deletes the VM at 75 min. The build is boxed at seven minutes, not counting
+      # the two restart tests; setup files are pruned every two minutes; and the archive of compiled files is
+      # asked for, so that those paths are exercised on a small tree.
+      DEADLINE_MIN=55; MAXRUN=4500
+      DATA="name=$NAME-data,device-name=pilot-data,type=hyperdisk-balanced,size=100GB,auto-delete=yes"
+      MD="pilot-nmax=32,full-timebox=420,full-prune-after=300,full-prune-every=120,full-c2-timeout=900,full-check-trial=16 32,full-check-trial-secs=90,full-final-reserve=300,full-watchdog-wait=300,full-keep-oleans=1,full-keep-min-left=420"
+    fi
+    XMD="full-tools-sha=$TSHA,full-tools-commit=$TCOMMIT,full-guest-sha=$(sha256_of "$GUEST_FILE")"
+  elif [ "$MODE" = pilot ]; then
     DEADLINE_MIN=330; MAXRUN=21600      # the guest finishes by 5.5 h; Google deletes the VM at 6 h whatever happens
     DATA="name=$NAME-data,device-name=pilot-data,type=hyperdisk-balanced,size=440GB,provisioned-iops=6000,provisioned-throughput=300,auto-delete=yes"
     MD="pilot-nmax=32,pilot-w-cold=600,pilot-w-sweep=360,pilot-w-deep-a=6000,pilot-w-deep-b=9000,pilot-reserve=4800,pilot-w-check=600,pilot-sweep=16 32 16 32 24 8"
@@ -109,9 +155,9 @@ launch)
         --network-interface=network=default,nic-type=GVNIC,stack-type=IPV4_ONLY \
         --image-family=ubuntu-2404-lts-amd64 --image-project=ubuntu-os-cloud \
         --scopes=https://www.googleapis.com/auth/devstorage.read_write \
-        --labels=purpose=lean-pilot \
-        --metadata="pilot-bucket=$BUCKET,pilot-mode=$MODE,pilot-deadline-min=$DEADLINE_MIN,pilot-runtag=$RUNTAG,pilot-tarball-sha=$RH_TARBALL_SHA256,pilot-sampler-sha=$SSHA,pilot-target-a=$TA,pilot-target-b=$TB,$MD" \
-        --metadata-from-file=startup-script="$HERE/pilot_guest.sh" 2> "$OUT/create_$RUNTAG.err"; then
+        --labels=purpose=lean-verify \
+        --metadata="pilot-bucket=$BUCKET,pilot-mode=$MODE,pilot-deadline-min=$DEADLINE_MIN,pilot-runtag=$RUNTAG,pilot-tarball-sha=$RH_TARBALL_SHA256,pilot-sampler-sha=$SSHA,pilot-target-a=$TA,pilot-target-b=$TB,$MD${XMD:+,$XMD}" \
+        --metadata-from-file=startup-script="$GUEST_FILE" 2> "$OUT/create_$RUNTAG.err"; then
       python3 -I -c "import sys; p,t,z=sys.argv[1:4]; L=[l.rstrip('\n').split('\t') for l in open(p)]; [r.__setitem__(4,z) for r in L[1:] if r[0]==t]; open(p,'w').write('\n'.join('\t'.join(r) for r in L)+'\n')" "$LEDGER" "$RUNTAG" "$Z"
       echo "CREATED $NAME in $Z as $RUNTAG. Now run: bash $SELF watch"; exit 0
     fi
@@ -132,21 +178,44 @@ watch)
     PILOT_CAFFEINATED=1 exec caffeinate -i /bin/bash "$SELF" watch       # keep this machine awake while watching
   fi
   . "$STATE"
-  trap 'echo "watch interrupted: tearing down"; exec /bin/bash "$SELF" teardown' INT TERM HUP
-  LOCAL_DEADLINE=$(( CREATED + MAXRUN + 300 )); last=""; apifail=0
+  case "$MODE" in
+    full*) trap 'echo; echo "watch stopped. The VM is still running and Google deletes it at its maximum run time ($(( (CREATED + MAXRUN - $(date +%s)) / 60 )) minutes from now)."; echo "To resume: bash $SELF watch     To end the run now and lose what has not been uploaded: bash $SELF teardown"; exit 130' INT TERM HUP ;;
+    *)     trap 'echo "watch interrupted: tearing down"; exec /bin/bash "$SELF" teardown' INT TERM HUP ;;
+  esac
+  LOCAL_DEADLINE=$(( CREATED + MAXRUN + 300 )); last=""; apifail=0; stale=0; seen=0; absent=0
   while true; do
-    cur=$($G storage cat "gs://$BUCKET/results/$RUNTAG/status.json" 2>/dev/null | python3 -I -c 'import sys,json
+    # Three outcomes are kept apart: a status was read; the bucket says there is no status object; the fetch
+    # failed for some other reason (this machine's network, a storage error), which says nothing about the guest.
+    if raw=$($G storage cat "gs://$BUCKET/results/$RUNTAG/status.json" 2>"$OUT/watch_fetch.err"); then
+      cur=$(printf '%s' "$raw" | python3 -I -c 'import sys,json
 try:
     d=json.load(sys.stdin); print(d["phase"], d["state"], d["elapsed_s"], d["message"])
-except Exception: print("no-status none 0 -")')
+except Exception: print("unreadable-status unknown 0 -")')
+      seen=1; absent=0
+    elif grep -qiE 'matched no objects|no urls matched|not found|404' "$OUT/watch_fetch.err"; then
+      cur="no-status none 0 -"; absent=$((absent + 1))
+    else
+      cur="fetch-failed unknown 0 $(head -c 120 "$OUT/watch_fetch.err" | tr '\n' ' ')"; absent=0
+    fi
     [ "$cur" = "$last" ] || { echo "$(date +%H:%M:%S) $cur"; last=$cur; }
     state=$(echo "$cur" | awk '{print $2}')
     vm=$(vm_state "$NAME" "$ZONE")
     if [ "$vm" = UNKNOWN ]; then apifail=$((apifail+1)); echo "$(date +%H:%M:%S) Compute API call failed ($apifail in a row); keeping the VM and retrying"; else apifail=0; fi
-    if [ "$state" = DONE ] || [ "$state" = FAIL ] || [ "$state" = DEADLINE ]; then echo "guest reported $state"; break; fi
+    if [ "$state" = DONE ] || [ "$state" = FAIL ] || [ "$state" = DEADLINE ] || [ "$state" = BUILD_FAILED ]; then echo "guest reported $state"; break; fi
     if [ "$vm" = GONE ]; then echo "VM no longer exists"; break; fi
     if [ "$vm" = TERMINATED ] || [ "$vm" = STOPPED ] || [ "$vm" = SUSPENDED ]; then echo "VM is $vm"; break; fi
     if [ "$(date +%s)" -ge "$LOCAL_DEADLINE" ]; then echo "LOCAL DEADLINE reached"; break; fi
+    # A guest that never reports, or stops reporting, is billing for nothing. The full run's guest uploads a
+    # heartbeat every minute. Only a heartbeat that was fetched and is old counts; a failed fetch is this
+    # machine's problem, not the guest's.
+    # Only if no status has ever been read in this session, the bucket has just said three times running that
+    # there is none, and 25 minutes have passed since the VM was created.
+    if [ "$seen" = 0 ] && [ "$absent" -ge 3 ] && [ "$(( $(date +%s) - CREATED ))" -gt 1500 ]; then echo "the guest has reported nothing in 25 minutes"; break; fi
+    case "$MODE" in full*)
+      hb=$($G storage cat "gs://$BUCKET/results/$RUNTAG/heartbeat" 2>/dev/null | tr -cd '0-9')
+      if [ -n "$hb" ] && [ "$(( $(date +%s) - hb ))" -gt 1800 ]; then stale=$((stale + 1)); else stale=0; fi
+      if [ "$stale" -ge 3 ]; then echo "the guest's last heartbeat is more than 30 minutes old"; break; fi ;;
+    esac
     sleep 45
   done
   trap - INT TERM HUP
@@ -174,8 +243,12 @@ teardown)
     exit 1
   fi
   echo "verified: no instances and no disks remain in the project"
-  [ -n "$RUNTAG" ] && [ "$(open_run)" = "$RUNTAG" ] && close_run "$RUNTAG" "$(date +%s)"
+  [ -n "$RUNTAG" ] && [ "$(open_run)" = "$RUNTAG" ] && close_run "$RUNTAG" "$(date +%s)" "" "$(( ${MAXRUN:-0} + 120 ))"
   rm -f "$STATE"
+  if $G storage ls "gs://$BUCKET/keep/" >/dev/null 2>&1; then
+    echo "--- archives of compiled files kept in the bucket (they cost storage until you delete them):"
+    $G storage du -s -r "gs://$BUCKET/keep/" 2>/dev/null
+  fi
   echo "--- other billable compute resources (should be empty):"
   $G compute addresses list --format='table(name,region.basename(),status)' 2>/dev/null
   $G compute snapshots list --format='table(name,diskSizeGb)' 2>/dev/null
@@ -185,5 +258,5 @@ ledger)
   column -t -s "$(printf '\t')" "$LEDGER"
   echo "estimated spend so far: \$$(spent) of \$$CAP_USD cap (machine-time x $RATE USD/h, rounded up; the bill is authoritative)"
   ;;
-*) echo "usage: bash $0 stage | launch <rehearsal|pilot> | watch | teardown | ledger"; exit 2 ;;
+*) echo "usage: bash $0 stage | launch <rehearsal|pilot|full-rehearsal|full> | watch | teardown | ledger"; exit 2 ;;
 esac

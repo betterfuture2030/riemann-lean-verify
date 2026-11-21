@@ -548,7 +548,9 @@ def cmd_axioms_summary(a):
     checks, modules, defs = {}, {}, {}
     lean_version = mode = None
     done = False
-    deep = {"requested": bool(a.deep), "visited": None, "axioms": [], "missing": [], "axiom_count": None}
+    deep = {"requested": bool(a.deep), "visited": None, "axioms": [], "missing": [], "axiom_count": None,
+            "module_count": None}
+    deep_modules = []       # (P or L, module, constants visited): which modules the deep walk touched
     block_kind = block_name = None
     block = []
 
@@ -604,6 +606,10 @@ def cmd_axioms_summary(a):
                 deep["axioms"].append({"name": f[2], "module": f[3] if len(f) > 3 else None})
             elif tag == "DEEP_MISSING":
                 deep["missing"].append(" ".join(f[2:]))
+            elif tag == "DEEP_MODULE_COUNT":
+                deep["module_count"] = int(f[2])
+            elif tag == "DEEP_MODULE" and len(f) == 5:
+                deep_modules.append((f[2], f[3], int(f[4])))
 
     failures = []
     if a.lean_status != 0:
@@ -640,6 +646,23 @@ def cmd_axioms_summary(a):
                 failures.append("deep walk: reached axioms outside the allowed three: %s" % ", ".join(extra[:20]))
             if deep["missing"]:
                 failures.append("deep walk: %d referenced constants are not in the environment" % len(deep["missing"]))
+
+    # The list of modules the deep walk touched is reported, not judged: it decides nothing.
+    if a.deep and deep["visited"] is not None:
+        proj = [m for m in deep_modules if m[0] == "P"]
+        lib = [m for m in deep_modules if m[0] == "L"]
+        deep["modules_listed_completely"] = deep["module_count"] == len(deep_modules)
+        deep["project_modules_touched"] = len(proj)
+        deep["project_constants_visited"] = sum(m[2] for m in proj)
+        deep["library_modules_touched"] = len(lib)
+        deep["library_constants_visited"] = sum(m[2] for m in lib)
+        if a.json and deep_modules:
+            cone = os.path.splitext(a.json)[0] + ".modules.tsv"
+            with open(cone, "w", encoding="utf-8") as fh:
+                fh.write("origin\tmodule\tconstants_visited\n")
+                for origin, mod, k in sorted(deep_modules, key=lambda m: (m[0], m[1])):
+                    fh.write("%s\t%s\t%d\n" % ("project" if origin == "P" else "library", mod, k))
+            deep["modules_file"] = os.path.basename(cone)
 
     verdict = "PASS" if not failures else "FAIL"
     result = {
@@ -679,6 +702,11 @@ def cmd_axioms_summary(a):
     if a.deep and deep["visited"] is not None:
         print("  deep walk: visited %d constants; axioms reached: %s" % (
             deep["visited"], ", ".join(x["name"] for x in deep["axioms"]) or "none"))
+        if deep.get("project_modules_touched") is not None:
+            print("  deep walk: touched %d project modules (%d constants) and %d library modules (%d constants)%s" % (
+                deep["project_modules_touched"], deep["project_constants_visited"],
+                deep["library_modules_touched"], deep["library_constants_visited"],
+                "" if deep["modules_listed_completely"] else "; WARNING: the module list in the output is incomplete"))
     print()
     if failures:
         print("RESULT: FAIL")
@@ -720,12 +748,23 @@ def module_names(root, ext):
     return out
 
 
+# Exit statuses that say nothing about the module: 96 = the checker could not be started (kernel_check_one.sh),
+# 137 = killed (SIGKILL; typically the system's out-of-memory killer), 143 = terminated (SIGTERM; typically a time
+# limit). Any other non-zero status, including a crash such as 134 or 139, counts as a failure.
+NOT_RUN_STATUSES = (96, 137, 143)
+
+
 def replay_state(a):
     compiled = module_names(a.lib, ".olean")
+    # leanchecker replays a module's ".olean.private" part when one exists, while an importing file reads only
+    # the ".olean" of a module that is not a `module` file. This project has no `module` files, so any such
+    # part beside a compiled file is something the build did not write: it is reported and blocks "complete".
+    extra_parts = sorted(set(module_names(a.lib, ".olean.server")) | set(module_names(a.lib, ".olean.private")))
     sources = module_names(a.src, ".lean") if a.src else {}
     names = set(compiled) | set(sources)
     # leanchecker checks every module whose name has its argument as a prefix. A module that is a
-    # proper prefix of another module's name can therefore not be checked on its own.
+    # proper prefix of another module's name can therefore not be checked on its own: it is checked
+    # in one process together with the compiled modules beneath it (the "prefix pass").
     prefixes = set()
     for n in names:
         parts = n.split(".")
@@ -735,7 +774,7 @@ def replay_state(a):
     eligible = sorted(set(compiled) - prefixes)
 
     stamps = {}
-    for mod in eligible:
+    for mod in eligible + prefix_modules:
         try:
             with open(compiled[mod] + ".hash", encoding="ascii", errors="replace") as fh:
                 stamps[mod] = fh.read().strip() or "nohash"
@@ -749,31 +788,56 @@ def replay_state(a):
                 f = line.rstrip("\n").split("\t")
                 if len(f) >= 4 and f[0] != "module":
                     latest[f[0]] = f
-    passed, failed, stale = [], [], []
-    for mod in eligible:
-        r = latest.get(mod)
-        if r is None:
-            continue
-        if r[3] != stamps[mod]:
-            stale.append(mod)       # compiled again since it was checked
-        elif r[1] == "0":
-            passed.append(mod)
-        else:
-            failed.append(mod)
+    def classify(mods):
+        passed, failed, stale, killed = [], [], [], []
+        for mod in mods:
+            r = latest.get(mod)
+            if r is None:
+                continue
+            try:
+                rc = int(r[1])
+            except ValueError:
+                rc = 1
+            if r[3] != stamps[mod]:
+                stale.append(mod)       # compiled again since it was checked
+            elif rc == 0:
+                passed.append(mod)
+            elif rc in NOT_RUN_STATUSES:
+                killed.append(mod)      # the checker never ran, or was killed from outside: not a verdict on the module
+            else:
+                failed.append(mod)      # includes a checker that crashed by itself (other statuses of 128 and above)
+        return passed, failed, stale, killed
+    passed, failed, stale, killed = classify(eligible)
+    p_passed, p_failed, p_stale, p_killed = classify(prefix_modules)
     return {"compiled": compiled, "sources": sources, "prefix_modules": prefix_modules, "eligible": eligible,
-            "stamps": stamps, "passed": passed, "failed": failed, "stale": stale}
+            "extra_parts": extra_parts,
+            "stamps": stamps, "passed": passed, "failed": failed, "stale": stale, "killed": killed,
+            "prefix_passed": p_passed, "prefix_failed": p_failed, "prefix_stale": p_stale, "prefix_killed": p_killed}
 
 
 def cmd_replay_plan(a):
     st = replay_state(a)
     eligible = st["eligible"]
+    if a.prefix_modules:
+        # One line per prefix module still to check: module, stamp, and the word "prefix", which tells
+        # kernel_check_one.sh to keep the checker's list of the modules it replayed.
+        done = set(st["prefix_passed"])
+        if not a.retry_failed:
+            done |= set(st["prefix_failed"])
+        todo = [m for m in st["prefix_modules"] if m not in done]
+        for m in todo:
+            sys.stdout.write("%s\t%s\tprefix\n" % (m, st["stamps"][m]))
+        sys.stderr.write("prefix modules: %d compiled; %d already have a current result; %d to check now\n" % (
+            len(st["prefix_modules"]), len(st["prefix_modules"]) - len(todo), len(todo)))
+        return 0
     if a.list:
         with open(a.list, encoding="utf-8") as fh:
             wanted = [ln.strip() for ln in fh if ln.strip() and not ln.startswith("#")]
-        unknown = [m for m in wanted if m not in st["stamps"]]
+        ok = set(eligible)
+        unknown = [m for m in wanted if m not in ok]
         if unknown:
             sys.stderr.write("note: %d listed modules are not compiled or are a prefix of another module; skipped\n" % len(unknown))
-        pool = [m for m in wanted if m in st["stamps"]]
+        pool = [m for m in wanted if m in ok]
     else:
         pool = eligible
     if a.sample and a.sample < len(pool):
@@ -782,6 +846,9 @@ def cmd_replay_plan(a):
     if not a.retry_failed:
         done |= set(st["failed"])
     todo = [m for m in pool if m not in done]
+    # A fixed shuffle, so that cheap and costly modules are mixed instead of arriving library by library.
+    # The order has no bearing on the result: every module is checked in a process of its own.
+    random.Random(a.seed).shuffle(todo)
     for m in todo:
         sys.stdout.write("%s\t%s\n" % (m, st["stamps"][m]))
     sys.stderr.write("selected %d modules; %d already have a current result; %d to check now\n" % (
@@ -793,30 +860,61 @@ def cmd_replay_summary(a):
     st = replay_state(a)
     eligible, passed, failed, stale = st["eligible"], st["passed"], st["failed"], st["stale"]
     remaining = len(eligible) - len(passed) - len(failed)
+    prefix, p_passed, p_failed = st["prefix_modules"], st["prefix_passed"], st["prefix_failed"]
+    p_remaining = len(prefix) - len(p_passed) - len(p_failed)
+    killed = st["killed"] + st["prefix_killed"]
     total_src = len(st["sources"])
+    # Compared by name, not by count: a compiled file with no source must not stand in for a missing one.
+    not_compiled = sorted(set(st["sources"]) - set(st["compiled"]))
+    no_source = sorted(set(st["compiled"]) - set(st["sources"])) if total_src else []
+    # Complete: the sources are known, every one of them is compiled, nothing else is, and every compiled
+    # module has a passing result for the file now on disk.
+    extra_parts = st["extra_parts"]
+    complete = (not failed and not p_failed and remaining == 0 and p_remaining == 0
+                and total_src > 0 and not not_compiled and not no_source and not extra_parts)
     print("== Kernel re-check summary")
     if total_src:
         print("  source modules:                         %d" % total_src)
     print("  compiled modules:                       %d" % len(st["compiled"]))
-    print("  not checkable one at a time:            %d (name is a prefix of another module's name)" % len(st["prefix_modules"]))
-    print("  eligible:                               %d" % len(eligible))
-    print("  passed (result is for the current file): %d" % len(passed))
-    print("  FAILED:                                 %d" % len(failed))
-    print("  remaining (never checked, or recompiled since): %d  (of which recompiled since: %d)" % (remaining, len(stale)))
-    for m in failed[:50]:
+    print("  checked one at a time:                  %d" % len(eligible))
+    print("    passed (result is for the current file): %d" % len(passed))
+    print("    FAILED:                                 %d" % len(failed))
+    print("    remaining (never checked, or recompiled since): %d  (of which recompiled since: %d)" % (remaining, len(stale)))
+    print("  prefix modules (name is a prefix of another module's name; each is checked in one")
+    print("  process together with the compiled modules beneath it):  %d" % len(prefix))
+    print("    passed: %d   FAILED: %d   remaining: %d" % (len(p_passed), len(p_failed), p_remaining))
+    if killed:
+        print("  checker not run or killed from outside (counted as remaining, not as failed; run again, with fewer jobs): %d" % len(killed))
+    if extra_parts:
+        print("  modules with an .olean.server or .olean.private file the build should not have written: %d" % len(extra_parts))
+    if not_compiled:
+        print("  source modules not compiled: %d" % len(not_compiled))
+    if no_source:
+        print("  compiled modules with no source file: %d" % len(no_source))
+    for m in (failed + p_failed)[:50]:
         print("  FAILED: " + m)
-    if len(failed) > 50:
-        print("  ... and %d more" % (len(failed) - 50))
+    if len(failed) + len(p_failed) > 50:
+        print("  ... and %d more" % (len(failed) + len(p_failed) - 50))
+    print("  every source module compiled and passing: %s" % ("yes" if complete else "no"))
     if a.json:
         write_json(a.json, {
             "check": "kernel re-check with leanchecker, one process per module",
             "run_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "source_modules": total_src, "compiled_modules": len(st["compiled"]),
-            "prefix_modules_not_checked": st["prefix_modules"], "eligible": len(eligible),
+            "eligible": len(eligible),
             "passed": len(passed), "failed": len(failed), "failed_modules": failed,
             "remaining": remaining, "recompiled_since_checked": len(stale),
+            "prefix_modules": prefix, "prefix_passed": len(p_passed), "prefix_failed": len(p_failed),
+            "prefix_failed_modules": p_failed, "prefix_remaining": p_remaining,
+            "not_run_or_killed": len(killed), "not_run_or_killed_modules": killed[:200],
+            "modules_with_unexpected_parts": len(extra_parts), "unexpected_parts_sample": extra_parts[:50],
+            "source_modules_not_compiled": len(not_compiled), "not_compiled_sample": not_compiled[:50],
+            "compiled_modules_without_source": len(no_source), "without_source_sample": no_source[:50],
+            "complete": complete,
         })
-    return 1 if failed else 0
+    if failed or p_failed:
+        return 1
+    return 3 if a.require_complete and not complete else 0
 
 
 # --------------------------------------------------------------------------------------------
@@ -878,6 +976,8 @@ def main():
         p.add_argument("--seed", type=int, default=20261120)
         p.add_argument("--list", default="")
         p.add_argument("--retry-failed", action="store_true")
+        p.add_argument("--prefix-modules", action="store_true")
+        p.add_argument("--require-complete", action="store_true")
         p.set_defaults(fn=fn)
 
     a = ap.parse_args()

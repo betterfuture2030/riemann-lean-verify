@@ -71,7 +71,7 @@ nfiles=$(count_sources)
 LITS=()
 while IFS= read -r lit; do
   [ -n "$lit" ] && LITS+=(-e "$lit")
-done < <(python3 -B "$RH_TOOLS" audit-literals)
+done < <(python3 -I -B "$RH_TOOLS" audit-literals)
 [ "${#LITS[@]}" -gt 0 ] || die "could not list the search strings"
 
 set -- audit-classify --hits - --lean-files "$nfiles" --show "$SHOW" --expected "$RH_EXPECTED"
@@ -102,10 +102,10 @@ else
   log "scanning $nfiles Lean files with $TOOL for $(( ${#LITS[@]} / 2 )) fixed strings"
 fi
 if [ -n "$SAVE" ] && [ "$FROM_HITS" != "$SAVE/hits.txt" ]; then
-  stage1 | tee "$SAVE/hits.txt" | python3 -B "$RH_TOOLS" "$@" --tool "$TOOL"
+  stage1 | tee "$SAVE/hits.txt" | python3 -I -B "$RH_TOOLS" "$@" --tool "$TOOL"
   st=("${PIPESTATUS[@]}"); rc1=${st[0]}; rc=${st[2]}
 else
-  stage1 | python3 -B "$RH_TOOLS" "$@" --tool "$TOOL"
+  stage1 | python3 -I -B "$RH_TOOLS" "$@" --tool "$TOOL"
   st=("${PIPESTATUS[@]}"); rc1=${st[0]}; rc=${st[1]}
 fi
 # Status 1 from rg or grep means "no line matched", which is not an error here.

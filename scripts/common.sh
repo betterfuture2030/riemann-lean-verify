@@ -69,8 +69,12 @@ effective_jobs() {
   esac
 }
 
-# Raise the open-file limit for this shell and its children. A build keeps many files open.
+# Raise the open-file limit for this shell and its children to at least 65,536. A limit that is
+# already higher is left alone.
 raise_nofile() {
+  local cur
+  cur=$(ulimit -n 2>/dev/null)
+  case "$cur" in unlimited) return 0 ;; ''|*[!0-9]*) ;; *) [ "$cur" -ge 65536 ] && return 0 ;; esac
   ulimit -n 65536 2>/dev/null || ulimit -n "$(ulimit -Hn)" 2>/dev/null || true
 }
 

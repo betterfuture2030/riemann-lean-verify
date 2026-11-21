@@ -124,7 +124,7 @@ set -- axioms-summary --output "$OUT" --mode "$MODE" --primary "$PRIMARY" --lean
        --json "$JSON" --tarball-sha256 "$RH_TARBALL_SHA256" --compiled "$compiled" --sources "$sources"
 for t in $THEOREMS; do set -- "$@" --theorem "$t"; done
 [ "$DEEP" -eq 1 ] && set -- "$@" --deep
-python3 -B "$RH_TOOLS" "$@"
+python3 -I -B "$RH_TOOLS" "$@"
 status=$?
 cp "$JSON" "$RH_LOGS/axioms-$MODE-latest.json" 2>/dev/null
 log "summary: $JSON"

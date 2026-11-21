@@ -30,6 +30,8 @@ This is a dated snapshot, not a quotation. Cloud prices, Spot prices in particul
 | `gcp_budget.json` | Output of a budget model. `inputs`: the local rate (3,230.4 modules per hour at a cap of 8), the assumed scenario factors, and the resulting amount of work in performance-core-hours. `options`: six machine configurations, A to F, each with `low`, `expected` and `high` scenarios giving build, verification and billed hours and compute, disk and total cost |
 | `gcp_budget_review.json` | Three reviews of `gcp_budget.json`, by `lens`: `model-skeptic`, `gcp-operations` and `alternatives`. Each has `overall`, `summary`, `errors`, `revised_option_A` and `recommendation`. All three rate the model `usable_with_corrections` |
 | `gcp_candidates.json` | 31 machine types with at least 96 vCPUs that were considered: vCPUs, memory in GB, the US regions that offer them, and the `us-central1` zones that do |
+| `full_run_driver_review.json` | Four AI reviews of the first draft of the full-run driver, made before it had been run. Criticism of code, not a result |
+| `full_run_driver_recheck.json` | Two AI reviews of the driver as rewritten after the first four, also before it had been run |
 | `gcp_machine_types.csv` | 1,877 rows, no header: machine type, zone, vCPUs, memory in GB. It lists the 168 machine types with at least 96 vCPUs across 19 zones in `us-central1`, `us-east1`, `us-east4`, `us-east5`, `us-south1` and `us-west1`, as offered on 2026-11-20 |
 
 Where the reviews mention current quota values, such as a limit of 32 vCPUs across all regions, they describe the Google Cloud project that was used for this work on that date. Your project's limits will differ; check them in the console.
