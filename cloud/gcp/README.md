@@ -71,7 +71,7 @@ prints the estimated hours for a full build and a full kernel replay on the same
 
 ## The full run
 
-**Rehearsed, not yet run in full.** Three rehearsals on 2026-11-20 found two faults, which were fixed; the third ran every phase and each step did what it should ([`records/cloud/full-rehearsals/`](../../records/cloud/full-rehearsals/)). A rehearsal builds about one module in a hundred and does not reach the paths listed at the end of this page. Section 9 of [`docs/cloud-notes.md`](../../docs/cloud-notes.md) lists what two reviews of the scripts found and changed.
+**Rehearsed, not yet run in full.** Five rehearsals found three faults, which were fixed; the third ran every phase with the stock tool for the replay, and the fifth with `rhv-replay`, and in both each step did what it should ([`records/cloud/full-rehearsals/`](../../records/cloud/full-rehearsals/)). A rehearsal builds about one module in a hundred, on shortened settings; the paths no rehearsal reaches are listed at the end of that directory's README. Section 9 of [`docs/cloud-notes.md`](../../docs/cloud-notes.md) lists what four reviews of the scripts found and changed.
 
 ```bash
 git status --short scripts cloud                      # must be empty: a full run is tied to one commit
@@ -89,7 +89,7 @@ How long it takes depends on how the kernel replay covers the tree, which `GCP_R
 | `GCP_REPLAY_METHOD` | Kernel replay | Whole run, estimated | Fits the 42-hour limit? |
 |---|---|---|---|
 | `leanchecker` (the default, and the method the pre-registration names) | The stock tool, one process per module, then its prefix pass | About 63 hours, 118 USD | No. The driver measures the replay's rate first; when it sees the tree cannot be covered it gives the replay one hour and finishes the other steps |
-| `rhv-replay` | The program in `scripts/verify/replay`, then the stock tool on `GCP_STOCK_SAMPLE` random modules (default 2,000) and on every prefix module | About 23 hours, 44 USD | Yes |
+| `rhv-replay` | The program in `scripts/verify/replay`, then the stock tool on `GCP_STOCK_SAMPLE` random modules (default 2,000) and on every prefix module | About 24 hours, 45 USD | Yes |
 
 Using `rhv-replay` for a run that is to count towards criterion C3 needs a dated amendment to `PREREGISTRATION.md` made before the run. Set `GCP_KEEP_OLEANS=1` to keep an archive of the compiled files in the bucket afterwards, in 2 GB parts under `keep/`; it costs storage until you delete it.
 
@@ -116,4 +116,4 @@ What the virtual machine does, in order:
 
 A build that fails twice ends the run with the state `BUILD_FAILED` and the compiler's output for each failed module. If any of those failures was a compiler process killed from outside, for lack of memory for instance, the run says so: by section 4 of the pre-registration that is not a test of the module. If the build tool itself died without reporting a failed module, the state is `FAIL`, which is a failure of the run and says nothing about the proof.
 
-The full rehearsal builds for seven minutes, not counting the two restart tests, and then runs every later phase on what was built, with the axiom check in `--probe` mode. It exercises the build loop, both restart tests, pruning, the seal, both checks, the archive of compiled files and the reports. It does not exercise a failed build, the second build pass or the completeness check, and it verifies nothing.
+The full rehearsal builds for seven minutes, not counting the two restart tests, and then runs every later phase on what was built, with the axiom check in `--probe` mode. It exercises the build loop, both restart tests, pruning, the seal, both checks, the trials that measure the replay's rate, the archive of compiled files and the reports; with `GCP_REPLAY_METHOD=rhv-replay`, also the building and testing of that program and the stock tool's sample afterwards. It does not exercise a failed build, the second build pass, the completeness check, or a replay that cannot cover the tree, and it verifies nothing. The full list is at the end of [`records/cloud/full-rehearsals/README.md`](../../records/cloud/full-rehearsals/README.md).

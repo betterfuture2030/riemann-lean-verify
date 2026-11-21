@@ -1,0 +1,63 @@
+### 2026-11-21T05:56:24Z +0s  PHASE setup
+### 2026-11-21T05:56:24Z +0s  setup: sysctl
+### 2026-11-21T05:56:24Z +0s  setup: packages
+### 2026-11-21T05:56:31Z +7s  setup: disk
+### 2026-11-21T05:56:32Z +8s  setup: user
+### 2026-11-21T05:56:32Z +8s  setup: elan
+elan 4.4.0 (3cc76985a 2026-11-18)
+### 2026-11-21T05:56:33Z +9s  setup: source
+### 2026-11-21T05:56:45Z +21s  setup: mathlib_cache
+Decompressed 8690 file(s)
+Already decompressed 8690 file(s)
+### 2026-11-21T05:57:43Z +79s  setup: baseline
+### 2026-11-21T05:57:45Z +81s  setup: replay_program
+### 2026-11-21T05:57:48Z +84s  setup: lockdown
+### 2026-11-21T05:57:48Z +84s  setup: smoke_build
+✔ [8706/8707] Built Statements (2.3s)
+✔ [8707/8707] Built Formalism.GammaFactorNonvanishing.RhOfRight (2.8s)
+Build completed successfully (8707 jobs).
+### 2026-11-21T05:57:55Z +91s  setup: replay_program_test
+### 2026-11-21T05:58:00Z +96s  PHASE build:N=32
+Terminated
+Terminated
+### 2026-11-21T06:00:57Z +273s  restart test prune: setup files found:            694 (3.9 GB) of finished modules:          663 (3.8 GB) removed:                      663 
+plain restart: 0 finished modules compiled again, 304 new ones built; after deleting setup files: 0 compiled again, 313 new ones built
+### 2026-11-21T06:04:33Z +489s  prune: setup files found:            772 (4.4 GB) of finished modules:          0 (0.0 GB) removed:                      0 
+### 2026-11-21T06:06:33Z +609s  prune: setup files found:            1160 (6.7 GB) of finished modules:          116 (0.7 GB) removed:                      116 
+### 2026-11-21T06:06:53Z +629s  build tool exited with status 124; 1794 modules finished
+### 2026-11-21T06:06:57Z +633s  final prune: setup files found:            1047 (6.0 GB) of finished modules:          1015 (5.8 GB) removed:                      1015 
+### 2026-11-21T06:06:57Z +633s  PHASE seal
+### 2026-11-21T06:07:10Z +646s  seal: removed 1 half-written files left by killed compilers
+### 2026-11-21T06:07:19Z +655s  PHASE c2_plain
+### 2026-11-21T06:07:23Z +659s  axiom check exit status: 0
+### 2026-11-21T06:07:23Z +659s  PHASE idle
+### 2026-11-21T06:07:24Z +660s  PHASE check_trial:N=16
+### 2026-11-21T06:08:55Z +751s  replay trial: 16 at a time finished 475 modules in the counted window
+### 2026-11-21T06:08:55Z +751s  PHASE check_trial:N=32
+### 2026-11-21T06:10:25Z +841s  replay trial: 32 at a time finished 607 modules in the counted window
+### 2026-11-21T06:10:25Z +841s  replay: 10.12 modules a second at 32 at a time; 183 modules to go need about 19 s; 2459 s left; fits: 1
+### 2026-11-21T06:10:25Z +841s  PHASE c2_deep
+### 2026-11-21T06:10:32Z +848s  deep axiom check exit status: 0
+### 2026-11-21T06:10:32Z +848s  PHASE check:N=32
+### 2026-11-21T06:11:22Z +898s  PHASE check_stock:N=32
+### 2026-11-21T06:11:46Z +922s  PHASE check_prefix:N=8
+### 2026-11-21T06:11:48Z +924s  stock tool: sample exit status 0, prefix pass exit status 0
+### 2026-11-21T06:11:49Z +925s  kernel replay: last exit status 3, 1944 result lines
+== Kernel re-check summary
+  source modules:                         175187
+  compiled modules:                       1796
+    passed (result is for the current file): 1794
+      by leanchecker: 150   by rhv-replay: 1794   by both: 150
+    FAILED:                                 0
+    remaining (never checked, or recompiled since): 2  (of which recompiled since: 0)
+  prefix modules (name is a prefix of another module's name): 0, of which without a result: 0
+  compiled files the build tool never finished (no hash beside them; rebuild them): 2
+  rhv-replay program used in 3 run(s): sha256 6792c5ffda9862c55ac10285ed7f652c471a233d012812f70000a838a41ec852 (supplied through RH REPLAY DRIVER)
+  source modules not compiled: 173391
+  every source module compiled and passing: no
+### 2026-11-21T06:11:51Z +927s  PHASE end_check
+### 2026-11-21T06:11:53Z +929s  PHASE idle
+### 2026-11-21T06:11:53Z +929s  PHASE keep
+### 2026-11-21T06:12:01Z +937s  compiled files archived: 2 objects uploaded, 435M
+### 2026-11-21T06:12:01Z +937s  PHASE idle
+### 2026-11-21T06:12:01Z +937s  FINISH DONE: all phases ran; read facts.json against PREREGISTRATION.md section 5

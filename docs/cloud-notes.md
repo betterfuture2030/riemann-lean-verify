@@ -14,7 +14,7 @@ Sections 1 to 7 were written before anything had been run in the cloud; their du
 | One family has a storage trap | On H4D, network disk throughput is capped per VM at 240 MiB/s whatever the disk is provisioned for |
 | The first cost model was optimistic in structure | Three reviewers reproduced its arithmetic and each revised its conclusions; see section 6 |
 | A billing budget does not stop spending | It sends alerts, and they can arrive hours late |
-| What the pilot's measurements imply | A full build on the 32-vCPU machine: an estimated 16 hours. The kernel replay after it: about 46 hours with the stock tool run once per module, or about 5 with a program that names each module's file directly. That makes about 63 hours and 118 USD, or about 23 hours and 44 USD; the second route counts towards criterion C3 only under a dated amendment to the pre-registration (sections 8.2 and 8.5). The first estimate, 31 hours and 58 USD, understated the replay |
+| What the pilot's measurements imply | A full build on the 32-vCPU machine: an estimated 16 hours. The kernel replay after it: about 46 hours with the stock tool run once per module (43 to 56), or about 6 with a program that names each module's file directly. That makes about 63 hours and 118 USD, or about 24 hours and 45 USD; the second route counts towards criterion C3 only under a dated amendment to the pre-registration (sections 8.2 and 8.5). The first estimate, 31 hours and 58 USD, understated the replay |
 
 ## 2. Quota
 
@@ -292,11 +292,11 @@ Step 4 above took the cost of one kernel check, 8.1 seconds plus 0.263 per 1,000
 | `leanchecker`, one process per module | Low | 13.7 | 45.7 | 0.5 | 59.9 | 112 |
 | | Expected | 15.6 | 45.7 | 1.5 | 62.8 | 118 |
 | | High | 17.9 | 48.8 | 6.0 | 72.7 | 136 |
-| `rhv-replay`, then `leanchecker` on 2,000 random modules and on every prefix module | Low | 13.7 | 6.1 | 0.5 | 20.3 | 38 |
-| | Expected | 15.6 | 6.1 | 1.5 | 23.2 | 44 |
-| | High | 17.9 | 7.0 | 6.0 | 30.9 | 58 |
+| `rhv-replay`, then `leanchecker` on 2,000 random modules and on every prefix module | Low | 13.7 | 6.8 | 0.5 | 21.0 | 40 |
+| | Expected | 15.6 | 6.8 | 1.5 | 23.9 | 45 |
+| | High | 17.9 | 7.8 | 6.0 | 31.7 | 60 |
 
-The replay figures rest on two measurements of the stock tool and a straight line through them. The line's slope, 0.144 milliseconds per compiled file, is what separates 46 hours from 5; the stock tool's true figure could be several hours either side. Neither figure has been measured on a full tree, and the figure for `rhv-replay` is the stock tool's cost with the listing taken out, not a measurement of that program on this machine.
+The stock tool's rows rest on two measurements of it and a straight line through them, whose slope is 0.144 milliseconds per compiled file. The rows for `rhv-replay` use its cost as measured in the fifth rehearsal of the full-run driver, 3.1 seconds of one job's time per module at 32 at a time (the command above with `--driver-run records/cloud/full-rehearsals/full-rehearsal-20261120-235539`), plus the stock tool's allowance for deeper modules. That measurement also brackets the stock tool's figure: 43 to 56 hours for its replay, depending on how the listing's cost is carried from 40,000 compiled files to 186,000. Neither replay has been run on a full tree.
 
 What follows from it:
 
@@ -306,7 +306,7 @@ What follows from it:
 
 ## 9. The full run: what was built, and what a review changed
 
-The pilot scripts stop short of a full run by design. After the pilot, a driver for the full run was written: [`../cloud/gcp/full_guest.sh`](../cloud/gcp/full_guest.sh), with two new modes in the controller, and [`../cloud/gcp/README.md`](../cloud/gcp/README.md) describes it. **It has been rehearsed three times and had not been run in full when this was written.** The reviews below are criticism of code; the rehearsals are measurements, of a build of about one module in a hundred.
+The pilot scripts stop short of a full run by design. After the pilot, a driver for the full run was written: [`../cloud/gcp/full_guest.sh`](../cloud/gcp/full_guest.sh), with two new modes in the controller, and [`../cloud/gcp/README.md`](../cloud/gcp/README.md) describes it. **It has been rehearsed five times and had not been run in full when this was written.** The reviews below are criticism of code; the rehearsals are measurements, of a build of about one module in a hundred.
 
 | Need, from the pilot | Why | State |
 |---|---|---|
@@ -317,7 +317,7 @@ The pilot scripts stop short of a full run by design. After the pilot, a driver 
 | Upload results as the run goes, and a status the local `watch` can read | The machine deletes itself; anything not uploaded is lost | Written |
 | A deletion time and a spending cap sized for the run | The pilot's cap and six-hour limit are too small by design | Written: 42 hours, and `launch full` is refused until the cap in `config.env` allows for it. Section 8.5: that limit holds a run whose replay uses `rhv-replay`, not one that uses the stock tool for the whole tree |
 | A kernel replay that fits the run | Section 8.5: the stock tool, run once per module, needs about 46 hours for the replay alone | Written as an option: `scripts/verify/replay` and `scripts/09_kernel_replay.sh --method rhv-replay`. On the VM, root builds the program during setup, before any file of the proof is compiled, after comparing its copy of the replay function with the toolchain's source; the seal confirms the program is unchanged and that the replay's user can run it; after the main pass the stock tool checks a random sample and every prefix module again |
-| A short rehearsal of all of the above | The pilot's rehearsal found faults that review had not | Done three times, for 1.51 USD in all; see below |
+| A short rehearsal of all of the above | The pilot's rehearsal found faults that review had not | Done five times, for 2.64 USD in all; see below |
 
 Four AI reviewers read the first draft before anything was launched: shell correctness, cloud control and cost, whether the pipeline establishes what it claims, and the verification scripts. They found two blockers and twelve major defects. Their text is in [`../records/cloud/full_run_driver_review.json`](../records/cloud/full_run_driver_review.json). The ones that shaped the design:
 
@@ -370,6 +370,8 @@ On the first of these: a text scan of the source found no file or process IO at 
 | First, 2 minutes | Stopped itself in setup: a new check that a build leaves Mathlib's compiled files untouched found five files changed | They were the build tool's own `.hash` bookkeeping, which it rewrites and no check reads. The comparison now leaves `.hash` and `.trace` files out |
 | Second, 15 minutes | Ran every phase. The restart tests, the pruning, the seal and the end check all worked. Both checks then failed with "Permission denied": Mathlib's cache is unpacked readable by its owner only, and the seal had given it to root without read permission for the users that run the checks. The replay recorded 1,710 modules as failed although no checker had checked anything | The seal adds read permission and refuses an unreadable file. Each checker user must now do one real piece of work in the sealed environment before the checks start. A checker that cannot open a compiled file is recorded as not having run, not as a failed module |
 | Third, 17 minutes | Ran every phase, and each step did what it should: 1,792 modules built with no failed job; no finished module recompiled in either restart test; seal and end check clean; the axiom probe passed, plain and deep; all 1,792 modules passed the kernel replay | Nothing |
+| Fourth, 11 minutes, the first with `rhv-replay` | Setup built and tested the replay program; the build and restart tests ran as before. The seal then stopped the run: a compiler cut off in mid-write by the time box had left a half-written file, `<module>.olean.tmp.<pid>`, beside the compiled modules, and the seal refuses any file there that the build tool does not write | The seal lists, removes and counts exactly those files first. A full run kills compilers in its restart tests, so it could have met the same fault after the whole build |
+| Fifth, 16 minutes | Ran every phase, and each step did what it should: 1,794 modules replayed by `rhv-replay` at 10.4 a second, all passing; 150 of them replayed again by the stock tool with the same verdict on each; the two compiled files the build tool never finished left out and reported; seal and end check clean; the axiom probe passed, plain and deep | Nothing |
 
 Neither review had caught the permission fault. A rehearsal is not a full run either: it builds modules from the bottom of the import graph only and does not reach a failed build, the second build pass, the completeness check, the axiom check on the final theorem, the prefix pass, or the deadline. Those remain reviewed and, where possible, tested on a small project.
 

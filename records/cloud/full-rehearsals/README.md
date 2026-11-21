@@ -8,6 +8,7 @@ Short runs of [`../../../cloud/gcp/full_guest.sh`](../../../cloud/gcp/full_guest
 | `full-rehearsal-20261120-212636` | Ran every phase; both checks failed for a fault of the driver, not of the proof | 1,142 seconds | 0.63 USD |
 | `full-rehearsal-20261120-214914` | Ran every phase; every step it reached did what it should | 1,216 seconds | 0.68 USD |
 | `full-rehearsal-20261120-233826` | First rehearsal of the driver with the second replay method. Stopped itself at the seal, for a fault that a full run could have met too | 872 seconds | 0.48 USD |
+| `full-rehearsal-20261120-235539` | Ran every phase with the second replay method; every step it reached did what it should | 1,175 seconds | 0.65 USD |
 
 ## `full-rehearsal-20261120-211809`
 
@@ -78,7 +79,7 @@ The replay's exit status of 3 and `complete: false` are correct for a rehearsal:
 
 Two things in this run were changed afterwards. The four files the build tool never finished were replayed and counted with the rest (their lines in `c3_results.tsv.gz` carry `nohash` where the others carry a hash); the summary now treats a compiled file with no hash beside it as unfinished, never counts a result for it, and reports it. And the replay's rate here, about seven modules a second, says little about the whole tree: with the stock tool the cost of a check grows with the number of compiled modules ([`../../../docs/performance-notes.md`](../../../docs/performance-notes.md), section 10), and this run had 1,792 of them.
 
-**What a rehearsal does not show.** It built about one module in a hundred, all from the bottom of the import graph. It did not exercise a build that fails, the second build pass, the check that every source module is compiled, the axiom check on the final theorem (which must load all 175,187 modules), the prefix pass (none of the 114 prefix modules was among those built), the retry passes of the replay, a run that reaches its deadline, or an archive larger than one part. Those paths have been reviewed and, where possible, tested on a small project, but not run on this machine.
+**What a rehearsal does not show.** See the list at the end of this page, which covers all five.
 
 Files: as for the second run, plus `c2_plain.json` and `c2_deep.json` (the axiom check's summaries), `c2_deep.modules.tsv` (which modules the deep walk touched), `c3_summary.json` and `c3_results.tsv.gz` (one line per replayed module: exit status, seconds, the stamp of the compiled file, time).
 
@@ -104,3 +105,44 @@ The refusal was the check working as written, and too strict. It matters beyond 
 The seal now lists, removes and counts exactly these files, regular files whose name ends in `.olean.tmp.` or `.ilean.tmp.` and digits, before it applies the rule to everything else, and `facts.json` records how many there were. A rehearsal plants one stand-in, so that the step runs whether or not a compiler happens to be cut off in mid-write.
 
 Files: `setup.tsv`, `pilot.log`, `env.txt`, `facts.json`, `status.json`, `phases.tsv`, `restart_tests.txt`, `progress.tsv`, `disk.txt`, `unexpected_lib_files.txt`. Each was written by `scripts/dev/scrub.py clean`; one home-directory path in `env.txt` was replaced by a placeholder.
+
+## `full-rehearsal-20261120-235539`
+
+The fifth rehearsal repeated the fourth with the seal changed as described above. It ran every phase in under 16 minutes and each step did what it was written to do.
+
+| Step | Result | Where |
+|---|---|---|
+| Setup, with the replay program built by root and tested on two modules | 95 seconds | `setup.tsv`, `env.txt` |
+| Restart test, plain | 0 finished modules recompiled; 304 new ones built | `restart_tests.txt` |
+| Restart test after deleting setup files | 0 finished modules recompiled; 313 new ones built | the same |
+| Build, boxed at seven minutes | 1,794 modules finished by the build tool, no failed job, and 2 more compiled files that it never finished | `phases.tsv`, `pilot.log`, `facts.json` |
+| Seal | Source tree, toolchain and Mathlib unchanged since before the first compile; the stand-in for a killed compiler's half-written file removed and counted; no other unexpected file; the replay program unchanged since it was built; both checker users able to work | `facts.json`, `seal`; `compiler_leftovers.txt` |
+| Axiom check in probe mode, plain | Pass, the same result as in the third rehearsal | `c2_plain.json` |
+| Trials of the replay, by `rhv-replay` | At 16 at a time, 8.1 modules a second; at 32 at a time, 10.4 a second, which is 3.1 seconds of one job's time per module | `c3_results.tsv.gz`, `phases.tsv` |
+| The decision the trials feed | 183 modules to go, about 19 seconds needed, 2,459 seconds left: the replay fits, so the deep walk ran before the main pass | `pilot.log`, `facts.json` |
+| The axiom check with the deep walk | Pass: 54,444 constants visited, the same three axioms | `c2_deep.json` |
+| Kernel replay by `rhv-replay` | 1,794 of 1,794 finished modules passed. The 2 compiled files the build tool never finished were not replayed and are listed as such | `c3_summary.txt`, `c3_results.tsv.gz` |
+| The stock tool on a random sample | 150 of 150 passed, each for the same compiled file as the `rhv-replay` result for that module; 4.1 seconds per check | the same |
+| The stock tool's prefix pass | Ran; none of the 114 prefix modules was among those built | `pilot.log` |
+| End check | Compiled files, toolchain and Mathlib unchanged since the seal; no process of the build user seen | `facts.json`, `end` |
+| Archive of compiled files | Made and uploaded | `facts.json` |
+
+`facts.json` shows what a reader of a full run would look for: `method_for_the_whole_tree` is `rhv-replay`; under `replay_program`, `unchanged_since_it_was_built` and `every_recorded_run_used_this_program` are true and both of the stock tool's exit statuses are 0; in the summary, `passed_by_rhv_replay` is 1,794, `passed_by_leanchecker` and `passed_by_both` are 150, and `failed` and `methods_disagree` are 0. `complete` is false and the replay's exit status is 3, as they must be for a rehearsal: 173,391 source modules were never compiled, and two compiled files were never finished.
+
+Files: as for the third run, plus `compiler_leftovers.txt`. The result lines in `c3_results.tsv.gz` now end with the method that produced them.
+
+## What the rehearsals do not show
+
+Each built about one module in a hundred, all from the bottom of the import graph, on settings shortened to fit a quarter of an hour: a seven-minute build, trials of 90 seconds, a stock sample of 150 modules. A full run uses the same script with longer limits. Not exercised by any rehearsal:
+
+- a build that fails, and the second build pass that follows it;
+- the check that every source module is compiled, which a time-boxed build cannot pass;
+- the axiom check on the final theorem, which must load all 175,187 modules;
+- the stock tool's prefix pass on real prefix modules: none of the 114 was among those built (it has been run on a seven-module project and, by hand, on two real ones);
+- the stock tool as the method for the whole tree under the driver's present ordering of steps: the third rehearsal used it under the earlier ordering, the fifth used it for the sample only;
+- the retry passes of the replay, and a replay that the trials find cannot cover the tree, which is then cut to an hour;
+- a real half-written file left by a killed compiler at the seal: the fourth rehearsal met one and stopped; the fifth removed a stand-in;
+- a run that reaches its deadline, and the watchdog;
+- an archive of compiled files larger than one part.
+
+Those paths have been reviewed and, where possible, tested on a small project, but not run on this machine. A rehearsal tests the driver. None of this is evidence about the proof.

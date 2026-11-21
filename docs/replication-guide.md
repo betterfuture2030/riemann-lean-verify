@@ -108,7 +108,7 @@ Two things to do before starting:
 
 A module that fails is not necessarily a failure of the proof. If the compiler process was killed for lack of memory, re-run with fewer jobs. The rule this project uses is in section 4 of the pre-registration: a module counts as failing only when it fails with a Lean error, reproducibly, with enough memory.
 
-On Google Cloud, [`cloud/gcp/`](../cloud/gcp/) has a calibration pilot that measures the cost on a rented machine before you commit to a full run. Its results from 2026-11-20, and the estimates built on them, are in [`cloud-notes.md`](cloud-notes.md), section 8: about 16 hours for a full build, and for the kernel replay after it about 46 hours with the stock tool or about 5 with `rhv-replay` (section 8.5).
+On Google Cloud, [`cloud/gcp/`](../cloud/gcp/) has a calibration pilot that measures the cost on a rented machine before you commit to a full run. Its results from 2026-11-20, and the estimates built on them, are in [`cloud-notes.md`](cloud-notes.md), section 8: about 16 hours for a full build, and for the kernel replay after it about 46 hours with the stock tool or about 6 with `rhv-replay` (section 8.5).
 
 ## Level 4: the verdict
 

@@ -16,7 +16,7 @@
 #                                                        that the replay cannot cover the tree, gives it one
 #                                                        hour and ends without a result for criterion C3
 #                                                        (about 20 hours).
-#                                           rhv-replay   an estimated 23 hours. Counts towards criterion C3
+#                                           rhv-replay   an estimated 24 hours. Counts towards criterion C3
 #                                                        only under a dated amendment to PREREGISTRATION.md.
 #   watch              follow the run through the bucket, then delete the VM and its disks
 #   teardown           delete every VM and disk in the project, verify that nothing billable is left, close the ledger

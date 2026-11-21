@@ -142,44 +142,97 @@ def main():
     rate = cfg["machine_usd_per_hour"] + cfg["disk_usd_per_hour"]
     stock_sample = 2000                                   # modules the stock tool checks again after rhv-replay
     prefix_pass_hours = 0.3                               # allowance: 114 prefix modules with the modules beneath them
-    runs = {}
-    for method in ("leanchecker", "rhv-replay"):
-        runs[method] = {}
-        for case in ("low", "expected", "high"):
-            c, h = est["cases"][case], est["hours"][case]
-            closure_c = per_import * c["chk_slope"] * mean_closure_tree
-            if method == "leanchecker":
-                check = TREE_MODULES * (fixed + listing + closure_c) / JOBS / c["chk_eff"] / 3600.0
-            else:
-                check = (TREE_MODULES * (fixed + closure_c) + stock_sample * (fixed + listing + closure_c)) / JOBS / c["chk_eff"] / 3600.0 + prefix_pass_hours
-            billed = h["build_hours"] + h["other_hours"] + check
-            runs[method][case] = {"build_hours": h["build_hours"], "replay_hours": round(check, 1), "other_hours": h["other_hours"],
-                                  "billed_hours": round(billed, 1), "usd": round(billed * rate + 6 * cfg["disk_usd_per_hour"])}
+    def whole_run(fixed_rhv):
+        """Billed hours and cost by method and case; fixed_rhv is rhv-replay's cost per module before the closure term."""
+        runs = {}
+        for method in ("leanchecker", "rhv-replay"):
+            runs[method] = {}
+            for case in ("low", "expected", "high"):
+                c, h = est["cases"][case], est["hours"][case]
+                closure_c = per_import * c["chk_slope"] * mean_closure_tree
+                if method == "leanchecker":
+                    check = TREE_MODULES * (fixed + listing + closure_c) / JOBS / c["chk_eff"] / 3600.0
+                else:
+                    check = (TREE_MODULES * (fixed_rhv + closure_c) + stock_sample * (fixed + listing + closure_c)) / JOBS / c["chk_eff"] / 3600.0 + prefix_pass_hours
+                billed = h["build_hours"] + h["other_hours"] + check
+                runs[method][case] = {"build_hours": h["build_hours"], "replay_hours": round(check, 1), "other_hours": h["other_hours"],
+                                      "billed_hours": round(billed, 1), "usd": round(billed * rate + 6 * cfg["disk_usd_per_hour"])}
+        return runs
     out["whole_run"] = {"configuration": cfg["name"], "usd_per_billed_hour": round(rate, 3),
                         "with_rhv_replay_the_stock_tool_also_checks": "%d random modules and every prefix module" % stock_sample,
-                        "by_method_for_the_whole_tree": runs}
+                        "rhv_replay_cost_per_module_before_the_closure_term": {"seconds": round(fixed, 2), "source": "the fit's fixed term (no run of rhv-replay was given)"},
+                        "by_method_for_the_whole_tree": whole_run(fixed)}
     drv = []
     for d in a.driver_run:
-        ph = phases(os.path.join(d, "phases.tsv"))
-        w = None
-        for t, label, _rest in ph:
-            if label.startswith("check:N="):
-                w = window(ph, label)
-                jobs = int(label.split("=")[1])
         f = os.path.join(d, "c3_results.tsv.gz")
-        if w is None or not os.path.exists(f):
+        if not os.path.exists(f):
             continue
-        rows = [r for r in results(f, "rhv-replay") if w[0] <= r[3] <= w[1] and r[1] == 0]
-        if not rows:
-            continue
-        span = max(r[3] for r in rows) - min(r[3] for r in rows) or 1
-        drv.append({"run": os.path.basename(d.rstrip("/")), "compiled_modules": oleans(os.path.join(d, "disk.txt")), "jobs": jobs,
-                    "modules_replayed_in_the_main_pass": len(rows), "seconds_between_first_and_last_result": span,
-                    "modules_per_second": round(len(rows) / span, 1),
-                    "mean_seconds_inside_the_replay_per_module": round(statistics.mean(r[2] for r in rows), 2),
-                    "job_seconds_per_module": round(jobs * span / len(rows), 2)})
+        ph = phases(os.path.join(d, "phases.tsv"))
+        allrows = [r for r in results(f, "rhv-replay") if r[1] == 0]
+        windows = []
+        # Every window in which rhv-replay ran: the trials and the main pass. A window's rate is taken between
+        # its first and its last result, which leaves out the time the script spends planning before the first.
+        for k, (t, label, _rest) in enumerate(ph):
+            if not (label.startswith("check_trial:N=") or label.startswith("check:N=")):
+                continue
+            end = next((t2 for t2, l2, _r in ph[k + 1:] if t2 >= t and l2 != label), None)
+            if end is None:
+                continue
+            rows = [r for r in allrows if t < r[3] <= end]
+            if len(rows) < 20:
+                continue
+            jobs = int(label.split("=")[1])
+            span = max(r[3] for r in rows) - min(r[3] for r in rows) or 1
+            # A window with few modules for its job count is the tail of a run, with most jobs idle: it is
+            # listed, but it is not a measure of throughput.
+            windows.append({"window": label, "jobs": jobs, "modules_replayed": len(rows), "all_jobs_busy": len(rows) >= 10 * jobs,
+                            "seconds_between_first_and_last_result": span,
+                            "modules_per_second": round(len(rows) / span, 1),
+                            "job_seconds_per_module": round(jobs * span / len(rows), 2),
+                            "mean_seconds_inside_the_replay_per_module": round(statistics.mean(r[2] for r in rows), 2)})
+        if windows:
+            n = oleans(os.path.join(d, "disk.txt"))
+            at32 = [w for w in windows if w["jobs"] == JOBS and w["all_jobs_busy"]]
+            entry = {"run": os.path.basename(d.rstrip("/")), "compiled_modules": n, "windows": windows}
+            if at32:
+                js = sum(w["jobs"] * w["seconds_between_first_and_last_result"] for w in at32) / float(sum(w["modules_replayed"] for w in at32))
+                entry["at_32_job_seconds_per_module"] = round(js, 2)
+                entry["the_fit_above_had_projected"] = round(fixed, 2)
+                # The projection for the whole tree again, with the fixed term replaced by what was measured here.
+                # The closure term is still the stock tool's; rhv-replay has not been timed on deep modules.
+                sweep = TREE_MODULES * (js + closure) / JOBS / 3600.0
+                extra = stock_sample * stock / JOBS / 3600.0 + prefix_pass_hours
+                h = est["hours"]["expected"]
+                billed = h["build_hours"] + h["other_hours"] + sweep + extra
+                entry["whole_tree"] = {"seconds_per_module": round(js + closure, 2), "replay_hours_at_32": round(sweep, 1),
+                                       "with_the_stock_tool_on_a_sample_and_the_prefix_modules": round(sweep + extra, 1),
+                                       "whole_run_expected_billed_hours": round(billed, 1),
+                                       "whole_run_expected_usd": round(billed * rate + 6 * cfg["disk_usd_per_hour"])}
+                # What that measurement says about the stock tool: its cost with this many files, less the cost
+                # without the listing, is the listing itself, at two sizes of tree. Three ways to carry that to
+                # the whole tree bracket the answer.
+                l1 = p1["mean_seconds_per_check"] - js
+                l2 = p2["mean_seconds_per_check"] - per_import * p2["mean_closure"] - js
+                f1, f2 = float(p1["files_on_search_path"]), float(p2["files_on_search_path"])
+                if l1 > 0 and l2 > l1:
+                    import math
+                    expo = math.log(l2 / l1) / math.log(f2 / f1)
+                    ways = {"in_proportion_to_the_files_from_the_larger_measurement": l2 * files_tree / f2,
+                            "a_line_through_the_two_measurements": l1 + (l2 - l1) * (files_tree - f1) / (f2 - f1),
+                            "a_power_law_through_the_two_measurements": l2 * (files_tree / f2) ** expo}
+                    entry["what_it_implies_for_leanchecker"] = {
+                        "listing_seconds_per_check": {"with_%d_files" % f1: round(l1, 2), "with_%d_files" % f2: round(l2, 2)},
+                        "power_law_exponent": round(expo, 2),
+                        "whole_tree_replay_hours_at_32": {k: round(TREE_MODULES * (v + js + closure) / JOBS / 3600.0, 1) for k, v in ways.items()}}
+            drv.append(entry)
     if drv:
         out["rhv_replay_measured"] = drv
+        measured = [e["at_32_job_seconds_per_module"] for e in drv if "at_32_job_seconds_per_module" in e]
+        if measured:
+            # The whole-run table again, with rhv-replay's cost as measured in the last run given.
+            out["whole_run"]["rhv_replay_cost_per_module_before_the_closure_term"] = {
+                "seconds": measured[-1], "source": "measured at 32 at a time in " + [e["run"] for e in drv if "at_32_job_seconds_per_module" in e][-1]}
+            out["whole_run"]["by_method_for_the_whole_tree"] = whole_run(measured[-1])
     text = json.dumps(out, indent=1)
     print(text)
     if a.out:

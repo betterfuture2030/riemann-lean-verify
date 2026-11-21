@@ -197,7 +197,7 @@ Later on 2026-11-20 a calibration pilot ran for just under three hours on a rent
 | How many jobs per core? (section 2) | Each compiler process ran about 15 threads and used a little over one core. Sixteen jobs on 16 cores gave 3.1 to 3.3 modules per second; 32 jobs gave 3.2 to 3.5 |
 | What does the kernel replay cost? (section 6) | With the stock tool and 29,633 modules compiled: 8.3 CPU seconds per module with 32 running at once, 4.4 seconds for one alone. Most of that is not importing, as first written here, but the tool listing every compiled file before each check, a cost that grows with the tree (section 10) |
 | How long does a restart take as finished modules accumulate? (section 6) | 4 to 9 seconds to the first new module with up to 30,000 built |
-| Expected duration on that machine (section 6) | About 16 hours for the build, by extrapolation. The 14 hours first given here for the kernel replay was wrong: about 46 hours with the stock tool, one process per module, and about 5 with `rhv-replay` (section 10) |
+| Expected duration on that machine (section 6) | About 16 hours for the build, by extrapolation. The 14 hours first given here for the kernel replay was wrong: about 46 hours with the stock tool, one process per module, and about 6 with `rhv-replay` (section 10) |
 
 What it does not answer: nothing above 17,860 imports was compiled, so the last few thousand modules, and above all the last handful, remain unmeasured on any machine. And that machine never had to read a compiled file back from disk, so it says nothing about section 7's question of a machine with little memory.
 
@@ -213,6 +213,8 @@ Sections 6 and 9 gave an estimate of 14 hours for replaying every module on the 
 |---|---|---|
 | Cloud, third rehearsal, 32 checks at a time | 1,792 | 4.4 seconds of wall time per check |
 | Cloud, pilot, 32 checks at a time | 29,633 | 8.3 CPU seconds per check, which is 8.5 seconds of wall time at the measured 0.971 CPU seconds per second; 61 percent of the CPU time inside the operating system |
+| Cloud, fifth rehearsal, the same replay without the listing (`rhv-replay`, below), 32 at a time | 1,796 | 3.1 seconds of one job's time per module (10.4 modules a second); 2.0 seconds at 16 at a time |
+| Cloud, fifth rehearsal, `leanchecker` on 150 of those modules, 32 at a time | 1,796 | 4.1 seconds per check; the same verdict on all 150 |
 | Mac, one check alone, a module that imports nothing | 32,486 | 8.7 seconds with `leanchecker`; 0.6 seconds for the same replay without the listing |
 | Mac, sample of 24 modules (section 6) | a few percent of the tree | about 2 seconds of user CPU time and 9 to 13 of system time per check |
 
@@ -225,9 +227,12 @@ The pilot's 61 percent, and the Mac's system time, had been read as the cost of 
 | Fixed | 2.6 | |
 | Per compiled file on the search path | 0.000144 | |
 | `leanchecker`, one process per module, 175,187 modules compiled | 30.1, of which 26.6 is the listing | 46 |
-| The same replay without the listing | 3.4 | 5.2 |
+| The same replay without the listing, as the fit projects it | 3.4 | 5.2 |
+| The same, with the 3.1 seconds measured in the fifth rehearsal in place of the fit's 2.6 | 3.9 | 6.0 |
 
-This is a line through two points. It shows the size of the effect and no more: the true figure for the stock tool could be several hours either side of 46. Either way it does not fit in a run limited to 42 hours whose build takes about 16. The last row is the stock tool's own cost with the listing taken out. It is a projection: `rhv-replay` has not yet been timed on the cloud machine, and the Mac timings below were taken with the build running beside it.
+The stock tool's figure is a line through two points and shows the size of the effect, no more. The measurement in the fifth rehearsal allows a check on it: taking 3.1 seconds as the cost without the listing, the listing itself cost 1.3 seconds with 12,244 compiled files on the search path and 5.3 with 40,085, which is a little more than in proportion. Carried to the whole tree in proportion, by a line, or by a power law through those two values, the stock tool's replay comes to 43, 46 or 56 hours. On any of them it does not fit in a run limited to 42 hours whose build takes about 16.
+
+The last row is still part projection. The 3.1 seconds were measured on modules that import little of this project; the allowance for deeper modules, 0.8 seconds on average, is the stock tool's, measured in the pilot. `rhv-replay` has not been timed on modules with large import closures on the cloud machine.
 
 **What does not solve it.**
 
@@ -252,5 +257,7 @@ Tested on the seven-module project of section 9 of the cloud notes: both methods
 Four more agents then looked at the changed code and at these documents, and four more re-checked them ([`../records/cloud/replay_method_recheck.json`](../records/cloud/replay_method_recheck.json)). Of the 23 earlier findings they found 18 resolved, 4 resolved in part and the one left by decision. They reported 22 new findings, one of them refuted on the second look and two rated medium. One of those two was in the code: the check of the program's source could still be passed by a file whose visible contents were all inside a comment, because Lean's block comments nest, with a different program appended after it. That is what the pinned hash and the rule about comments in the first row of the table answer. The other was in the cloud README, whose guide to the run's facts did not say that criterion C3 as pre-registered needs the stock tool by itself to have passed every module. Eleven of the 22 were about these documents: figures in two different units in the cost fit, which moved the stock tool's estimate from 43 hours to 46; places that gave the cheaper route without saying it needs an amendment; a claim with no record behind it. All were corrected. The table above describes the code after both rounds.
 
 On the Mac, with about 34,000 modules compiled and the build running alongside, two checks at a time: `rhv-replay` replayed a random sample of 120 compiled modules and passed all of them, at a mean of 6.8 seconds each (longest 13). `leanchecker` was then run on 30 of the same modules: the same verdict on all 30, for the same compiled files, at a mean of 28 seconds each (17 to 90). After the changes that followed the review below, a further 20 random modules passed, at 7.2 seconds each. The program's memory went up and down with the module in hand, from under 1 GB to about 5.6 GB, and did not grow over the life of a process. That is a comparison on 30 modules from the first fifth of the tree, not a verification result.
+
+On the cloud machine, in the fifth rehearsal of the full-run driver ([`../records/cloud/full-rehearsals/`](../records/cloud/full-rehearsals/)): root built the program during setup in 3 seconds; it loads only the system's own shared libraries; it replayed all 1,794 modules the build tool had finished, and all passed; `leanchecker` then replayed a random 150 of them, with the same verdict on each for the same compiled file. Again a test of the method on the first hundredth of the tree, not a verification result.
 
 **Where this leaves criterion C3.** The pre-registration says that every compiled module is re-checked by `leanchecker` from the pinned toolchain. `rhv-replay` runs the same function of the same toolchain on the same files, but it is not `leanchecker`, and using it to cover the tree is a change of method. It is therefore an option, off by default, and a full run may use it only under a dated amendment to [`../PREREGISTRATION.md`](../PREREGISTRATION.md) made before the run. When it is used, the stock tool still checks a random sample of modules (fixed seed, so anyone can list the same ones) and every prefix module, on the same compiled files, and any disagreement fails the criterion.

@@ -1,6 +1,6 @@
 {
  "what": "cost of the kernel replay per module, in wall-clock seconds of one check while 32 run at once on n4d-highmem-32, from two recorded runs; a two-point fit",
- "made_utc": "2026-11-21T05:33:47Z",
+ "made_utc": "2026-11-21T06:17:16Z",
  "points": [
   {
    "run": "full-rehearsal-20261120-214914",
@@ -51,6 +51,10 @@
   "configuration": "n4d-highmem-32 on demand, 440 GB disk, setup files pruned",
   "usd_per_billed_hour": 1.863,
   "with_rhv_replay_the_stock_tool_also_checks": "2000 random modules and every prefix module",
+  "rhv_replay_cost_per_module_before_the_closure_term": {
+   "seconds": 3.09,
+   "source": "measured at 32 at a time in full-rehearsal-20261120-235539"
+  },
   "by_method_for_the_whole_tree": {
    "leanchecker": {
     "low": {
@@ -78,26 +82,85 @@
    "rhv-replay": {
     "low": {
      "build_hours": 13.7,
-     "replay_hours": 6.1,
+     "replay_hours": 6.8,
      "other_hours": 0.5,
-     "billed_hours": 20.3,
-     "usd": 38
+     "billed_hours": 21.0,
+     "usd": 40
     },
     "expected": {
      "build_hours": 15.6,
-     "replay_hours": 6.1,
+     "replay_hours": 6.8,
      "other_hours": 1.5,
-     "billed_hours": 23.2,
-     "usd": 44
+     "billed_hours": 23.9,
+     "usd": 45
     },
     "high": {
      "build_hours": 17.9,
-     "replay_hours": 7.0,
+     "replay_hours": 7.8,
      "other_hours": 6.0,
-     "billed_hours": 30.9,
-     "usd": 58
+     "billed_hours": 31.7,
+     "usd": 60
     }
    }
   }
- }
+ },
+ "rhv_replay_measured": [
+  {
+   "run": "full-rehearsal-20261120-235539",
+   "compiled_modules": 1796,
+   "windows": [
+    {
+     "window": "check_trial:N=16",
+     "jobs": 16,
+     "modules_replayed": 701,
+     "all_jobs_busy": true,
+     "seconds_between_first_and_last_result": 87,
+     "modules_per_second": 8.1,
+     "job_seconds_per_module": 1.99,
+     "mean_seconds_inside_the_replay_per_module": 1.93
+    },
+    {
+     "window": "check_trial:N=32",
+     "jobs": 32,
+     "modules_replayed": 912,
+     "all_jobs_busy": true,
+     "seconds_between_first_and_last_result": 88,
+     "modules_per_second": 10.4,
+     "job_seconds_per_module": 3.09,
+     "mean_seconds_inside_the_replay_per_module": 2.72
+    },
+    {
+     "window": "check:N=32",
+     "jobs": 32,
+     "modules_replayed": 181,
+     "all_jobs_busy": false,
+     "seconds_between_first_and_last_result": 44,
+     "modules_per_second": 4.1,
+     "job_seconds_per_module": 7.78,
+     "mean_seconds_inside_the_replay_per_module": 1.77
+    }
+   ],
+   "at_32_job_seconds_per_module": 3.09,
+   "the_fit_above_had_projected": 2.6,
+   "whole_tree": {
+    "seconds_per_module": 3.92,
+    "replay_hours_at_32": 6.0,
+    "with_the_stock_tool_on_a_sample_and_the_prefix_modules": 6.8,
+    "whole_run_expected_billed_hours": 23.9,
+    "whole_run_expected_usd": 45
+   },
+   "what_it_implies_for_leanchecker": {
+    "listing_seconds_per_check": {
+     "with_12244_files": 1.27,
+     "with_40085_files": 5.27
+    },
+    "power_law_exponent": 1.2,
+    "whole_tree_replay_hours_at_32": {
+     "in_proportion_to_the_files_from_the_larger_measurement": 43.1,
+     "a_line_through_the_two_measurements": 45.7,
+     "a_power_law_through_the_two_measurements": 56.2
+    }
+   }
+  }
+ ]
 }

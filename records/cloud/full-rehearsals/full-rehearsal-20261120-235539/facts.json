@@ -1,0 +1,256 @@
+{
+ "what": "facts from one run of cloud/gcp/full_guest.sh; not a verdict (see PREREGISTRATION.md, section 5)",
+ "state": "DONE",
+ "message": "all phases ran; read facts.json against PREREGISTRATION.md section 5",
+ "written_utc": "2026-11-21T06:12:06Z",
+ "elapsed_s": 942,
+ "mode": "full-rehearsal",
+ "time_boxed_build": true,
+ "jobs": 32,
+ "inputs": {
+  "tarball_sha256": "9631b4f020199e580ba86178cb56c6e9b09f690c2369a80dc4334aa93f49c7fc",
+  "tools_commit": "2a622a3df7452445f90d506dfdd2ef706083501a",
+  "tools_archive_sha256": "34b2d8ff1d4e29d7949a6dfb8927f26d8f7c4b272deb7a7e1c0f808f71873272",
+  "guest_script_sha256": "a270b2738092ecb03ff0721d0248dec665fee247d010eaa6224e961b719fbdb7",
+  "guest_script_is_the_one_sent": true
+ },
+ "c1_build": {
+  "state": "time_boxed",
+  "source_modules": 175187,
+  "compiled_modules": 1796,
+  "source_modules_not_compiled": 173391,
+  "compiled_modules_without_source": 0,
+  "compiled_modules_named_like_a_library": 0,
+  "failed_job_lines_in_all_logs": 0,
+  "last_lake_exit_status": 124,
+  "retried_after_failure": false,
+  "failed_jobs_in_last_pass": null,
+  "of_which_compiler_killed_from_outside": null,
+  "of_which_compiler_crashed": null,
+  "restart_tests": {
+   "plain_restart": {
+    "finished_modules_recompiled": 0,
+    "new_modules_built": 304
+   },
+   "restart_after_pruning": {
+    "finished_modules_recompiled": 0,
+    "new_modules_built": 313
+   }
+  }
+ },
+ "seal": {
+  "source_tree_unchanged_since_extraction": true,
+  "toolchain_and_mathlib_unchanged_since_before_first_compile": true,
+  "sealed_copy_of_toolchain_matches": true,
+  "half_written_files_of_killed_compilers_removed": 1,
+  "files_beside_the_compiled_modules_that_the_build_does_not_write": 0,
+  "compiled_files_manifest_sha256": "c6058c3d86b4efd883afd06a374efcd1c47127539e82560acfa4e439ed2afbf6"
+ },
+ "c2_axioms": {
+  "plain_exit_status": 0,
+  "deep_exit_status": 0,
+  "deep_walk_ran": "before_replay",
+  "plain": {
+   "verdict": "PASS",
+   "failures": [],
+   "mode": "probe",
+   "compiled_modules": 1796,
+   "theorem_axioms": {
+    "Formalism.VW.rh_of_right": [
+     "propext",
+     "Classical.choice",
+     "Quot.sound"
+    ]
+   },
+   "checks": {
+    "statement_is_constant_RiemannHypothesis": {
+     "subject": "Formalism.VW.rh_of_right",
+     "value": true
+    }
+   },
+   "deep_walk": {
+    "requested": false,
+    "visited": null,
+    "axiom_count": null,
+    "axioms": [],
+    "missing": [],
+    "modules_listed_completely": null,
+    "project_modules_touched": null,
+    "project_constants_visited": null,
+    "library_modules_touched": null,
+    "library_constants_visited": null
+   }
+  },
+  "deep": {
+   "verdict": "PASS",
+   "failures": [],
+   "mode": "probe",
+   "compiled_modules": 1796,
+   "theorem_axioms": {
+    "Formalism.VW.rh_of_right": [
+     "propext",
+     "Classical.choice",
+     "Quot.sound"
+    ]
+   },
+   "checks": {
+    "statement_is_constant_RiemannHypothesis": {
+     "subject": "Formalism.VW.rh_of_right",
+     "value": true
+    }
+   },
+   "deep_walk": {
+    "requested": true,
+    "visited": 54444,
+    "axiom_count": 3,
+    "axioms": [
+     {
+      "module": "Init.Core",
+      "name": "propext"
+     },
+     {
+      "module": "Init.Core",
+      "name": "Quot.sound"
+     },
+     {
+      "module": "Init.Prelude",
+      "name": "Classical.choice"
+     }
+    ],
+    "missing": [],
+    "modules_listed_completely": true,
+    "project_modules_touched": 1,
+    "project_constants_visited": 3,
+    "library_modules_touched": 1759,
+    "library_constants_visited": 54441
+   }
+  }
+ },
+ "c3_kernel_replay": {
+  "method_for_the_whole_tree": "rhv-replay",
+  "last_exit_status": 3,
+  "jobs": 32,
+  "trial_rate_modules_per_second": "10.12",
+  "expected_seconds": 19,
+  "expected_to_fit": true,
+  "replay_program": {
+   "sha256": "6792c5ffda9862c55ac10285ed7f652c471a233d012812f70000a838a41ec852",
+   "unchanged_since_it_was_built": true,
+   "source_check": [
+    "replayFromImports: identical in the driver and in the toolchain's LeanChecker.lean (1131 characters, sha256 4a1a5a15aa9296ca7fa05bc6fae5413962b27b718ab9acf1b50b6c461bbe7464)",
+    "driver source as a whole: RhvReplay.lean sha256 52c1984827f2c461ce4c7db782076a1d47cce8875657722556ae62d26a7bc3ef, the reviewed file"
+   ],
+   "every_recorded_run_used_this_program": true,
+   "stock_sample_requested": 150,
+   "stock_sample_exit_status": 0,
+   "stock_sample_not_run_because": null,
+   "stock_prefix_pass_exit_status": 0,
+   "stock_prefix_pass_not_run_because": null,
+   "main_pass_was_allowed_time_kept_for_the_stock_tool": false
+  },
+  "summary": {
+   "check": "kernel replay of each compiled module from its imports (replayFromImports of the pinned toolchain)",
+   "checker_crashed": 0,
+   "compiled_files_never_finished_by_the_build": 2,
+   "compiled_modules": 1796,
+   "compiled_modules_without_source": 0,
+   "complete": false,
+   "complete_by_leanchecker_alone": false,
+   "complete_by_rhv_replay_alone": false,
+   "crashed_modules": [],
+   "disagreeing_modules": [],
+   "failed": 0,
+   "failed_modules": [],
+   "methods_disagree": 0,
+   "modules_with_unexpected_parts": 0,
+   "never_finished_sample": [
+    "Formalism.HermitianCurvature.HermitianCurvatureProofs.SettingConstruction",
+    "Formalism.PeriodIntegrals.UnitaryGroupMassFormula.MirrorDecomposition.HpkRowEsI"
+   ],
+   "not_compiled_sample": [
+    "CompanionTheory.AutomorphicTheory.BesselOrbitBounds.BesselMapUniqueness.BesselMapUniqGap",
+    "CompanionTheory.AutomorphicTheory.BesselOrbitBounds.BesselMapUniqueness.BesselMapUniqGapAlt",
+    "CompanionTheory.AutomorphicTheory.BesselOrbitBounds.BesselMapUniqueness.ContinuousOnOrbit",
+    "CompanionTheory.AutomorphicTheory.BesselOrbitBounds.BesselMapUniqueness.NormPsiGen",
+    "CompanionTheory.AutomorphicTheory.BesselOrbitBounds.BesselMapUniqueness.OrbitMult",
+    "CompanionTheory.AutomorphicTheory.BesselOrbitBounds.BesselMapUniqueness.ProdNormLe",
+    "CompanionTheory.AutomorphicTheory.BesselSmoothness.BesselSmoothOf",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.AsmDiff",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.BigCellDerivativeExpansionOfIsDSOfCoefOf",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.Bridge",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.CfgTie",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.CoefFacts",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.CoefOfOfWsp",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.EigStrOfMem",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.EndpointDifferentTypesThreshold",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.EqShift",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.FamilyThroughDiscreteSeries",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.FourLeOfFive",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.GapSizes",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.GridsText",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.KDecayOfGap",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.LettersPoly",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.LimBdSh",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.LimStepsOf",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.NQText",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.NormalizedMeasureScaling",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.NqMovedExample",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.NqOfLamData",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.PStarTie",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.PowFourLeRpowNineHalves",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.ProductMoment",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.QwBound",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.SmoothCoefficientBessel",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.SpanBall",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.ThmBFinal",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.TiedNum",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.TypeHC",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.WaveBallEstimateWeightedDualAlt",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.WaveInputsOfHypothesesGlobal",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.WeightedBoundRotatedUniformOfCubicThreshold",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.WeightedBoundRotatedUniformOfHypsG",
+    "CompanionTheory.AutomorphicTheory.BesselWaveGrids.WeightedUniformRotatedOfExpansion",
+    "CompanionTheory.AutomorphicTheory.CompactTopologicalForms.FinalC",
+    "CompanionTheory.AutomorphicTheory.CompactTopologicalForms.FinalS",
+    "CompanionTheory.AutomorphicTheory.CompactTopologicalForms.JacobiFieldSquareIntegrable",
+    "CompanionTheory.AutomorphicTheory.CompactTopologicalForms.NormalFormTopDomination",
+    "CompanionTheory.AutomorphicTheory.DiscreteGroupWaves.NFCoreC",
+    "CompanionTheory.AutomorphicTheory.DiscreteGroupWaves.NFDomC",
+    "CompanionTheory.AutomorphicTheory.DiscreteGroupWaves.NFTopCpt",
+    "CompanionTheory.AutomorphicTheory.DiscreteGroupWaves.NFTopFormCpt"
+   ],
+   "not_run_or_killed": 0,
+   "not_run_or_killed_modules": [],
+   "passed": 1794,
+   "passed_by_both": 150,
+   "passed_by_leanchecker": 150,
+   "passed_by_rhv_replay": 1794,
+   "prefix_remaining": 0,
+   "recompiled_since_checked": 0,
+   "remaining": 2,
+   "remaining_that_another_run_could_check": 0,
+   "result_lines_ignored_as_incomplete": 0,
+   "rhv_replay_programs_used": [
+    {
+     "origin": "supplied_through_RH_REPLAY_DRIVER",
+     "runs": 3,
+     "sha256": "6792c5ffda9862c55ac10285ed7f652c471a233d012812f70000a838a41ec852"
+    }
+   ],
+   "run_utc": "2026-11-21T06:12:06Z",
+   "source_modules": 175187,
+   "source_modules_not_compiled": 173391,
+   "unexpected_parts_sample": [],
+   "without_source_sample": []
+  }
+ },
+ "end": {
+  "compiled_files_unchanged_since_seal": true,
+  "toolchain_and_mathlib_unchanged_since_seal": true,
+  "build_user_process_seen_after_seal": false
+ },
+ "archive_of_compiled_files": {
+  "state": "made",
+  "objects_uploaded": 2
+ }
+}

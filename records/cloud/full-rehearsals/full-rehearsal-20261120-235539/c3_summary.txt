@@ -1,0 +1,12 @@
+== Kernel re-check summary
+  source modules:                         175187
+  compiled modules:                       1796
+    passed (result is for the current file): 1794
+      by leanchecker: 150   by rhv-replay: 1794   by both: 150
+    FAILED:                                 0
+    remaining (never checked, or recompiled since): 2  (of which recompiled since: 0)
+  prefix modules (name is a prefix of another module's name): 0, of which without a result: 0
+  compiled files the build tool never finished (no hash beside them; rebuild them): 2
+  rhv-replay program used in 3 run(s): sha256 6792c5ffda9862c55ac10285ed7f652c471a233d012812f70000a838a41ec852 (supplied through RH REPLAY DRIVER)
+  source modules not compiled: 173391
+  every source module compiled and passing: no
