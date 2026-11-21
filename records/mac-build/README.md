@@ -67,3 +67,7 @@ This is a timing sample taken to plan a full replay. It covers 24 of 175,187 mod
 ### `mapped-files-sample.txt`
 
 A count of the files one running compiler process had memory-mapped, by file type and by where the files came from, read once with `vmmap` on 2026-11-20 at about 19:40 local time. It is the basis for the figures of five mapped files per library module and about one per project module in [`../../docs/performance-notes.md`](../../docs/performance-notes.md), section 7. It is one process on macOS; the Linux count is estimated separately in [`../cloud/pilot/pilot_estimate.json`](../cloud/pilot/pilot_estimate.json) under `open_files`.
+
+### `progress-20261120-2001.txt`
+
+A dated snapshot of the build: the output of `scripts/06_progress.sh` followed by `scripts/prune_setup_files.sh` in report mode, taken at 20:01 local time on 2026-11-20 (02:01 UTC on 2026-11-21). It records 23,981 compiled modules of 175,187 and no failed job, and 23,991 setup files occupying 156.1 GB. Nothing was removed. It supersedes the count under "State when these records were taken" above as the latest recorded figure.

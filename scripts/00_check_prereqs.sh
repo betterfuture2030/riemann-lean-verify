@@ -124,17 +124,19 @@ echo "  open-file limit:   $(ulimit -n) (hard limit: $(ulimit -Hn))"
 # Mathlib and of Lean's own library) and about one more for each project module it imports. The last
 # module imports all 175,186 others. See records/mac-build/mapped-files-sample.txt.
 if is_macos; then
-  vn=$(sysctl -n kern.maxvnodes 2>/dev/null || echo 0)
-  echo "  files-in-use limit: $vn (kern.maxvnodes)"
-  if [ "$vn" -lt 400000 ]; then
+  vn=$(sysctl -n kern.maxvnodes 2>/dev/null)
+  case "$vn" in ''|*[!0-9]*) vn="" ;; esac
+  echo "  files-in-use limit: ${vn:-unknown (could not read kern.maxvnodes)}"
+  if [ -n "$vn" ] && [ "$vn" -lt 400000 ]; then
     echo "  NOTE: the last modules map about 240,000 files at once, close to this limit. Whether macOS"
     echo "        copes has not been observed. Before the build reaches its last few thousand modules,"
     echo "        consider: sudo sysctl kern.maxvnodes=600000   (lasts until the next restart)"
   fi
 else
-  mm=$(cat /proc/sys/vm/max_map_count 2>/dev/null || echo 0)
-  echo "  memory-map limit:  $mm (vm.max_map_count)"
-  if [ "$mm" -lt 1000000 ]; then
+  mm=$(cat /proc/sys/vm/max_map_count 2>/dev/null)
+  case "$mm" in ''|*[!0-9]*) mm="" ;; esac
+  echo "  memory-map limit:  ${mm:-unknown (could not read vm.max_map_count)}"
+  if [ -n "$mm" ] && [ "$mm" -lt 1000000 ]; then
     echo "  NOTE: this is too low for the full build. At the usual default of 65,530, any module that"
     echo "        imports more than about 12,000 project modules is expected to fail when it maps its"
     echo "        imports. Raise it first: sudo sysctl -w vm.max_map_count=1048576"
@@ -156,8 +158,9 @@ esac
 echo "== Disk space"
 echo "  download and extraction:   about 2 GB (parts and tarball 0.5 GB, 175,187 source files 1.0 GB)"
 echo "  Mathlib and its cache:     about 8 GB"
-echo "  full build:                roughly 1.5 TB as Lake writes it, or roughly 200 GB if the"
-echo "                             regenerable setup files are removed as modules finish"
+echo "  full build:                1.2 to 1.4 TB as Lake writes it (allow 1.5 TB), or about 150 GB"
+echo "                             (allow 200 GB) if the regenerable setup files are removed as"
+echo "                             modules finish"
 echo "                             (scripts/prune_setup_files.sh). Both are extrapolations from"
 echo "                             partial builds (2026-11-20: about 0.7 MB of compiled output and"
 echo "                             6 MB of setup data per module); no complete build had been"

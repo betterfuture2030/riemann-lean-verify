@@ -39,7 +39,7 @@ Run all of these with `scripts/reproduce_findings.sh`. Expected values are in [`
 | K1 | Mathlib's prebuilt cache for the pinned revision is accepted by the pinned toolchain, with no Mathlib module rebuilt | Done | `scripts/04_setup_toolchain.sh` |
 | K2 | `Formalism.VW.rh_of_right` (zeta has no zeros right of the critical line implies `RiemannHypothesis`) depends only on `propext`, `Classical.choice`, `Quot.sound`; its conclusion is the constant `RiemannHypothesis`, defined in `Mathlib.NumberTheory.LSeries.RiemannZeta` | Done | `scripts/08_check_axioms.sh --probe` |
 | K3 | Sampled kernel replay passes: 24 of 24 modules on a Mac; 565 of 565 and 2,233 of 2,233 on a cloud machine (`records/cloud/pilot/*/check_results.txt.gz`) | Done, samples only | `scripts/09_kernel_replay.sh --sample 24` |
-| K4 | Modules compiled so far, with zero failures | In progress; see `records/` for dated counts | `scripts/05_build.sh start`, `scripts/06_progress.sh` |
+| K4 | Modules compiled so far, with zero failures | In progress; dated counts are in `records/mac-build/` (23,981 of 175,187 at 02:01 UTC on 2026-11-21) | `scripts/05_build.sh start`, `scripts/06_progress.sh` |
 | **C1** | **The whole tree compiles with zero errors** | **Not yet known** | `scripts/05_build.sh start` to completion |
 | **C2** | **The compiled `riemannHypothesis` has type `RiemannHypothesis` and standard axioms only, by `#print axioms` and by full traversal** | **Not yet possible** | `scripts/08_check_axioms.sh --deep` |
 | **C3** | **Every compiled module passes an independent kernel replay** | **Not yet possible** | `scripts/09_kernel_replay.sh` |
@@ -58,7 +58,7 @@ C1 to C3 are the pre-registered criteria. Nothing else in this ledger amounts to
 | M6 | Extrapolated from M4: a full build takes about 16 hours and a full kernel replay about 14 on that machine, about 31 billed hours in all (28 to 39), about 58 USD on demand (53 to 74). No module above 17,860 imports has been compiled anywhere, so the top of the tree is extrapolation | `python3 analysis/pilot_estimate.py records/cloud/pilot/pilot-20261120-162141 records/source/import_graph.json.gz`; `docs/cloud-notes.md` section 8 |
 | M7 | A compiler process maps five files per library module (52,260 before any project module) and about one per project module imported. Private memory grows by about 13 KB per imported project module | `records/mac-build/mapped-files-sample.txt`; `records/cloud/pilot/pilot_estimate.json` |
 
-Throughput on a small machine in the first hours cannot be extrapolated to the whole tree: later modules import far more, and memory runs out before CPU does. See `docs/performance-notes.md`. M6 is an extrapolation too. It rests on measured import costs up to closures of 17,860 and was reviewed by three independent agents, whose criticism is recorded beside it; it is an estimate of cost, not evidence about the proof.
+Throughput on a small machine in the first hours cannot be extrapolated to the whole tree: later modules import far more, and memory runs out before CPU does. See `docs/performance-notes.md`. M6 is an extrapolation too. It rests on measured import costs up to closures of 17,860. A first version of it was reviewed by three AI agents, whose criticism is recorded beside it; the figures here come from the script as revised afterwards. It is an estimate of cost, not evidence about the proof.
 
 ## Tier R: reading, with pointers for spot checks
 

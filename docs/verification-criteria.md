@@ -1,6 +1,6 @@
 # What would count as verified
 
-Status on 2026-11-20: **not verified.** The compile is in progress. At 21:51 UTC, 11,162 of the 175,187 modules had compiled, with zero failures, when this was written. The final reduction step has been compiled and its axioms checked by the Lean kernel. The theorem that carries the difficulty has not been reached. Current figures are in [`../records/`](../records/).
+Status on 2026-11-20: **not verified.** The compile is in progress. At 02:01 UTC on 2026-11-21, 23,981 of the 175,187 modules had compiled on the local machine, with zero failures ([`../records/mac-build/progress-20261120-2001.txt`](../records/mac-build/progress-20261120-2001.txt)). The final reduction step has been compiled and its axioms checked by the Lean kernel. The theorem that carries the difficulty has not been reached. Current figures are in [`../records/`](../records/).
 
 This page says which checks decide the question, what each one rules out, and what still has to be trusted after all of them pass. It makes no claim that the proof is correct or incorrect.
 
@@ -31,9 +31,9 @@ All three must pass. None of them alone is enough.
 
 | # | Check | How it is done | State on 2026-11-20 |
 |---|---|---|---|
-| 1 | The whole tree compiles with zero errors | `lake build` of every target in the tree's own `lakefile.toml`, with the pinned toolchain and the pinned Mathlib | In progress: about 6,400 of 175,187 modules, zero failures |
+| 1 | The whole tree compiles with zero errors | `lake build` of every target in the tree's own `lakefile.toml`, with the pinned toolchain and the pinned Mathlib | In progress: 23,981 of 175,187 modules at the last recorded snapshot, zero failures |
 | 2 | The headline theorem has the right type and only the standard axioms | In a new file that imports `Main`: confirm that the type of `riemannHypothesis` is the constant `RiemannHypothesis` and that this constant comes from Mathlib's module; run `#print axioms riemannHypothesis` and require exactly `propext`, `Classical.choice`, `Quot.sound` | Not yet possible. Done for the last lemma of the chain only (see below) |
-| 3 | An independent kernel replay of every module agrees | `leanchecker`, the replay tool shipped with the toolchain, run on each compiled module in its own process | Not yet possible. A random sample of 24 compiled modules was replayed and all 24 passed |
+| 3 | An independent kernel replay of every module agrees | `leanchecker`, the replay tool shipped with the toolchain, run on each compiled module in its own process | Not yet possible. Random samples of 24 compiled modules on a Mac, and of 565 and 2,233 on a cloud machine, were replayed and all passed |
 
 ### Check 1: the whole tree compiles
 
@@ -87,8 +87,8 @@ What it does not rule out: `leanchecker` uses the same kernel implementation as 
 | Every module is in the import closure of `Main` | 175,187 of 175,187 | 2026-11-20 | Import graph computed from the source |
 | Reduction from "every Dirichlet L-function is non-vanishing for real part above 1/2" to `RiemannHypothesis` | Read line by line | 2026-11-20 | Static reading |
 | `Formalism.VW.rh_of_right`, the last lemma of that reduction | Compiled; axioms are `propext`, `Classical.choice`, `Quot.sound` only | 2026-11-20 | Lean kernel |
-| Kernel replay of 24 randomly chosen compiled modules | 24 of 24 passed | 2026-11-20 | Lean kernel |
-| Whole-tree compile | 11,162 of 175,187 modules at 21:51 UTC, zero failures | 2026-11-20 | Lean kernel, in progress |
+| Kernel replay of randomly chosen compiled modules | 24 of 24 passed on a Mac; 565 of 565 and 2,233 of 2,233 on a cloud machine | 2026-11-20 | Lean kernel |
+| Whole-tree compile | 23,981 of 175,187 modules at 02:01 UTC on 2026-11-21, zero failures. Separately, a cloud pilot compiled 29,633 with zero failures | 2026-11-20 | Lean kernel, in progress |
 | `UpperTheory.FinalTheorems.everyCharacter`, the theorem that carries all the difficulty | Not yet compiled; only a few percent of the modules it imports have been | 2026-11-20 | None yet |
 
 The lemma that has been kernel-checked says: if the zeta function has no zeros with real part above 1/2 other than at `s = 1`, then `RiemannHypothesis` holds. Its file imports only Mathlib and its proof is the functional equation. It is the easy end of the argument. It shows that the last step is accepted by the kernel and, since that file imports nothing but Mathlib, that its conclusion is Mathlib's proposition. It says nothing about the hypothesis it takes.

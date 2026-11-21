@@ -2,11 +2,13 @@
 # prune_setup_files.sh - optional: reclaim disk space from a build, running or finished.
 #
 # What it does: for every module it compiles, Lake writes a file <module>.setup.json under
-#   RH_PROJ/.lake/build/ir. The file lists every compiled file the module imports. It is 5 to 6 MB
-#   for a module that imports only Mathlib and grows with the module's imports: 1.1 to 1.3 TB for
-#   the whole tree, against about 0.13 TB of compiled output. The compiler reads the file once,
-#   when it starts on that module. Lake decides what is up to date from the .trace and .hash files
-#   beside the compiled output, not from the setup file.
+#   RH_PROJ/.lake/build/ir. The file lists every compiled file the module imports. It is 5.4 to
+#   6.4 MB for a module that imports only Mathlib, depending on how long the paths are, and grows
+#   with the module's imports: 1.1 to 1.3 TB for the whole tree, against about 0.13 TB of compiled
+#   output. The file is read while its module is being built (by the compiler when it starts, and
+#   by Lake's code generator where that runs as a separate step) and not after the module's .trace
+#   file has been written. Lake decides what is up to date from the .trace and .hash files beside
+#   the compiled output, not from the setup file.
 #
 #   This script finds the setup file of each module that has finished compiling and reports how
 #   much space they take. With --delete it removes them. A module counts as finished when its

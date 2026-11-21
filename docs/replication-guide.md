@@ -104,7 +104,7 @@ What to expect is in [`performance-notes.md`](performance-notes.md). The short v
 Two things to do before starting:
 
 - On Linux, raise the limit on memory mappings: `sudo sysctl -w vm.max_map_count=1048576`. At the usual default, modules that import more than about 12,000 project modules are expected to fail. `scripts/00_check_prereqs.sh` reports the current value.
-- Check the disk. Lake writes about 1.5 TB for the whole tree, nine tenths of it regenerable setup files. If you have less, `scripts/prune_setup_files.sh --delete` removes the setup files of finished modules and can be run while the build is going; read its header first.
+- Check the disk. Lake writes 1.2 to 1.4 TB for the whole tree (allow 1.5 TB), about nine tenths of it regenerable setup files. If you have less, `scripts/prune_setup_files.sh --delete` removes the setup files of finished modules and can be run while the build is going, which brings the need down to about 150 GB (allow 200 GB); read its header first.
 
 A module that fails is not necessarily a failure of the proof. If the compiler process was killed for lack of memory, re-run with fewer jobs. The rule this project uses is in section 4 of the pre-registration: a module counts as failing only when it fails with a Lean error, reproducibly, with enough memory.
 

@@ -2,7 +2,7 @@
 
 What was learned on 2026-11-20 while planning a cloud run of the build. Everything here is generic: no account, project or billing details appear, and none are needed to use these notes. Prices are list prices for the Iowa region (`us-central1`), in US dollars, for Linux, before tax and without any commitment discount. They were read from Google's own price pages and SKU catalogue on 2026-11-20 and will change; read them again before relying on them.
 
-Sections 1 to 7 were written before anything had been run in the cloud; their durations and costs are modelled, not measured, except where a line says otherwise. The calibration pilot in [`../cloud/gcp/`](../cloud/gcp/) then ran on the same day. Section 8 gives what it measured and the estimate for a full run that follows from it, and section 9 lists what a full run still needs. Where section 8 and an earlier section disagree, section 8 is the measurement.
+Sections 1 to 7 were written before anything had been run in the cloud; their durations and costs are modelled, not measured, except where a line says otherwise. The calibration pilot in [`../cloud/gcp/`](../cloud/gcp/) then ran on the same day. Section 8 gives what it measured and the estimate for a full run that follows from it, and section 9 lists what a full run still needs. Where section 8 and an earlier section disagree, section 8 supersedes it: 8.1 is measured, and 8.2 is an estimate built on 8.1.
 
 ## 1. Summary
 
@@ -14,7 +14,7 @@ Sections 1 to 7 were written before anything had been run in the cloud; their du
 | One family has a storage trap | On H4D, network disk throughput is capped per VM at 240 MiB/s whatever the disk is provisioned for |
 | The first cost model was optimistic in structure | Three reviewers reproduced its arithmetic and each revised its conclusions; see section 6 |
 | A billing budget does not stop spending | It sends alerts, and they can arrive hours late |
-| What the pilot then measured | A full build and full kernel replay on the 32-vCPU machine: about 31 hours and 58 USD, range 53 to 74 USD (section 8) |
+| What the pilot's measurements imply | A full build and full kernel replay on the 32-vCPU machine: an estimated 31 hours and 58 USD, range 53 to 74 USD (section 8) |
 
 ## 2. Quota
 
@@ -101,7 +101,7 @@ What moves the answer away from "exactly the same":
 
 So the choice of size is a choice about waiting time and about quota, not about cost. With a 32-vCPU limit the build costs about what it would on a larger machine of the same family, and takes proportionally longer. The choice of family is a real cost decision, and the cheapest family per core was the one the quota refused.
 
-When this section was written, how long a full build takes on 32 vCPUs was not known, and the expectation was days rather than hours. The pilot measured it: about 16 hours for the build and 14 for the kernel replay (section 8).
+When this section was written, how long a full build takes on 32 vCPUs was not known, and the expectation was days rather than hours. The pilot's measurements, extrapolated in section 8.2, give an estimate of about 16 hours for the build and 14 for the kernel replay. Nothing above 17,860 imports was measured.
 
 ## 6. The budget model and what three reviewers corrected
 
@@ -189,15 +189,15 @@ It compiled 29,633 modules with zero failures and kernel-checked a random sample
 | Set-up, from the start of the guest script to a working toolchain with Mathlib's cache unpacked | 76 seconds |
 | Modules compiled per second at 32 jobs | 3.2 to 3.5 in five separate windows |
 | At 16 jobs, 24 jobs, 8 jobs | 3.1 to 3.3, 3.0, 1.3 |
-| CPU per module at 32 jobs | Mean 8.5 seconds, median 5.9. 106 modules took over a minute of wall time; the longest took 409 seconds |
+| CPU per module at 32 jobs | Mean 8.5 seconds, median 5.9. 95 modules took over a minute of wall time; the longest took 409 seconds |
 | Threads per compiler process | Median 15, so 16 jobs already occupy the 16 cores. Going from 16 to 32 jobs raised throughput by about 7 percent and CPU seconds per module by about 50 percent |
 | Importing a module, one process alone | 2.37 seconds plus 0.136 seconds per 1,000 project modules in its import closure (17 modules with closures from 0 to 17,860, three repeats each) |
 | The same import with 32 running at once | 1.66 times the CPU |
 | The build tool's own CPU | 0.35 to 0.38 seconds per module at 32 jobs, on 1.1 to 1.3 cores |
 | Restarting the build tool with up to 30,000 modules already built | 4 to 9 seconds until the first new module finished |
-| Private memory per compiler process | Median 504 MB, 99th percentile 765 MB, largest 8,130 MB. Against closure size: 508 MB plus 13 KB per imported project module, which projects to 2.7 GB for the last module |
-| Compiled files a process maps and touches | 6.6 GB plus 0.57 MB per imported project module, which projects to about 104 GB for the last module. These pages are shared between processes |
-| Whole machine | Private memory never above 21 GB; never less than 219 GB available. After start-up nothing was read from disk: every compiled file was served from memory |
+| Private memory per compiler process | Median 504 MiB, 99th percentile 765 MiB, largest 8,130 MiB. Against closure size: 508 MiB plus 13 KiB per imported project module, which projects to 2.7 GiB for the last module |
+| Compiled files a process maps and touches | 6.4 GiB plus 0.57 MiB per imported project module, which projects to about 104 GiB for the last module. These pages are shared between processes |
+| Whole machine | Private memory never above 21 GiB; never less than 219 GiB available. After start-up nothing was read from disk: every compiled file was served from memory |
 | Kernel checker, 32 at once | 3.7 modules per second; 8.3 CPU seconds per module, 61 percent of it inside the operating system |
 | Kernel checker, one process alone | 4.4 seconds plus 0.13 seconds per 1,000 imported project modules |
 | Disk written per module | 0.72 MB of compiled output and a 5.53 MB setup file, at about 21 MB per second in all |
@@ -224,7 +224,7 @@ python3 analysis/pilot_estimate.py records/cloud/pilot/pilot-20261120-162141 rec
 
 The method, in five steps:
 
-1. Cost of compiling one module, in CPU seconds at 32 jobs: `E + s × closure`. A plain regression of CPU on closure size gives a slope of 0.048 seconds per 1,000 imports with a standard error of 0.049: it cannot be told apart from zero, because in the pilot's sample closure size is mixed up with how heavy each module's own content is. So `s` is taken from the import probes, scaled by the measured cost of running 32 at once: 0.136 × 1.66 = 0.226 seconds per 1,000. `E` is set so that the model reproduces the pilot's mean.
+1. Cost of compiling one module, in CPU seconds at 32 jobs: `E + s × closure`. A plain regression of CPU on closure size gives a slope of 0.046 seconds per 1,000 imports with a standard error of 0.049: it cannot be told apart from zero, because in the pilot's sample closure size is mixed up with how heavy each module's own content is. So `s` is taken from the import probes, scaled by the measured cost of running 32 at once: 0.136 × 1.66 = 0.226 seconds per 1,000. `E` is set so that the model reproduces the pilot's mean.
 2. The model is applied to a random sample of 8,000 modules from the whole tree (mean closure 3,086), giving 442 CPU-hours.
 3. CPU becomes wall-clock through the useful CPU delivered per thread-second, measured inside the longest window: 0.911.
 4. The kernel checker is treated the same way: 8.1 seconds plus 0.263 per 1,000 imports, 434 CPU-hours, 0.971 useful CPU per thread-second.
@@ -248,7 +248,7 @@ Priced at list rates read on 2026-11-20, in US dollars, with the disk kept for s
 | `n4d-standard-32` (128 GB) on demand, 440 GB disk | 1.36 | 41 | 45 | 57 | No: see below |
 | `n4d-standard-32` Spot, 440 GB disk | 0.77 | 25 | 27 | 34 | No: both of the above |
 
-The 128 GB machine is the largest untested saving. The whole tree's compiled output is about 127 GB, Mathlib's adds about 7 GB, and the last modules each touch about 104 GB of it. On 256 GB all of that stays in memory, which is what the pilot measured. On 128 GB it would not, and the pilot read nothing from disk, so it says nothing about how much slower that is.
+The 128 GB machine is the largest untested saving. The whole tree's compiled output is about 127 GB, Mathlib and Lean's own library add about 7 GB (the 6.4 GiB every process maps), and the last modules each touch about 104 GiB of it. On 256 GB all of that stays in memory, which is what the pilot measured. On 128 GB it would not, and the pilot read nothing from disk, so it says nothing about how much slower that is.
 
 ### 8.3 What three reviewers said about the first version
 
@@ -269,6 +269,8 @@ The first version of the script gave 26.7, 29.7 and 36.4 billed hours and 58, 64
 | 11 | Run the checker alongside the build to use idle CPU | Cheaper | Not adopted: a gain of under an hour for more moving parts |
 | 12 | The count of finished compiles dropped unnamed and repeated rows | Re-derivation | Accepted. 29,606 compiler processes finished; they cover 29,388 distinct named modules. The review also exposed a fault it did not name: the rule that drops processes killed at the end of a time-boxed window was also dropping the last modules of the two windows that ran to completion, among them the largest closure compiled. Fixed; the totals did not change |
 
+After the script was revised, three further AI agents checked it and these notes against the recorded data: one recomputed every figure, one read and exercised the code, and one read as a stranger with only the repository. They corrected one transcription slip, several places where "measured" was said of an extrapolation, and the script's handling of a pilot shaped differently from this one. None of the estimate's figures changed. Their findings are in [`../records/cloud/pilot/pilot_estimate_check.json`](../records/cloud/pilot/pilot_estimate_check.json).
+
 ### 8.4 What the estimate does not cover
 
 - **The top of the import graph.** No module with more than 17,860 project imports was compiled. About 3.3 percent of the tree is above that, from a sample of 8,000; two reviewers counted exactly and agree on 27 modules above 50,000 and 13 above 100,000. The projections for them in section 8.1 are straight-line extrapolations.
@@ -283,7 +285,7 @@ The pilot scripts stop short of a full run by design. A full run needs the follo
 
 | Need | Why | State |
 |---|---|---|
-| Delete each module's setup file once the module has finished | Without it the build writes 1.1 to 1.3 TB. With it the peak is about 150 GB, which fits the pilot's disk and needs no quota increase | [`../scripts/prune_setup_files.sh`](../scripts/prune_setup_files.sh). On a five-module project with the same Lake version, a second build after pruning recompiled nothing, importers of pruned modules compiled normally, and the kernel checker passed. A full run should repeat that check on its first few thousand real modules and stop if anything is rebuilt |
+| Delete each module's setup file once the module has finished | Without it the setup files alone come to 1.1 to 1.3 TB, on top of about 0.13 TB of compiled output. With it the peak is about 150 GB, which fits the pilot's disk and needs no quota increase | [`../scripts/prune_setup_files.sh`](../scripts/prune_setup_files.sh). On a five-module project with the same Lake version, a second build after pruning recompiled nothing, importers of pruned modules compiled normally, and the kernel checker passed. A full run should repeat that check on its first few thousand real modules and stop if anything is rebuilt |
 | Raise `vm.max_map_count` and the open-file limit well above one million | Costs nothing; removes the question in point 8 above | One line each in the guest script |
 | Move from build to the C2 checks to the kernel replay without waiting for a person | An idle machine of this size costs about 1.86 USD per hour | To be written |
 | A kernel replay that can be resumed and that includes the 114 modules whose name is a prefix of another's | A replay of 14 hours must survive an interruption, and criterion C3 is every module | `scripts/09_kernel_replay.sh` skips the 114 at present |

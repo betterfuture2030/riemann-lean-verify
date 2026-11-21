@@ -15,7 +15,7 @@ It does not run the full build.
 
 ```bash
 bash cloud/gcp/pilot_local.sh stage              # private bucket and inputs; storage only
-bash cloud/gcp/pilot_local.sh launch rehearsal   # about 12 minutes, well under 1 USD
+bash cloud/gcp/pilot_local.sh launch rehearsal   # about 17 minutes, well under 1 USD
 bash cloud/gcp/pilot_local.sh watch              # follows the run, then deletes the VM and its disks
 bash cloud/gcp/pilot_local.sh launch pilot       # about 3 hours
 bash cloud/gcp/pilot_local.sh watch

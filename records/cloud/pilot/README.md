@@ -35,6 +35,7 @@ The phases, in order: `import_only`; `cold` (the whole tree from nothing, 32 job
 |---|---|
 | `pilot_estimate.json` | Output of [`../../../analysis/pilot_estimate.py`](../../../analysis/pilot_estimate.py) on the pilot run |
 | `pilot_estimate_review.json` | Three independent reviews of the first version of that estimate, written by AI agents from the recorded data. Criticism, not measurement |
+| `pilot_estimate_check.json` | Three checks of the revised script, its output and the documentation against the recorded data, also by AI agents. Their corrections changed wording and the script's robustness, not the figures |
 | `ledger.tsv` | The spend ledger kept by `pilot_local.sh`: one row per machine created, with its lifetime and estimated cost. The first row is a launch that found no capacity and created nothing |
 
 To reproduce `pilot_estimate.json` from the repository root, with Python 3 and no other dependency (about a minute):

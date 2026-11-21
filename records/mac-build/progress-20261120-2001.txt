@@ -1,0 +1,42 @@
+# Snapshot of the local build, taken 2026-11-20 20:01:31 CST (2026-11-21T02:01Z).
+# Output of scripts/06_progress.sh followed by scripts/prune_setup_files.sh (report only; nothing was removed).
+
+== Build snapshot 2026-11-20 20:01:31
+work directory: <WORKDIR>
+state: RUNNING (launcher pid 38335, lake pid 38341 )
+runs so far: 15   last entries of the status file:
+  END 2026-11-20 14:18:22 epoch=1795205902 rc=143
+  START 2026-11-20 14:18:26 epoch=1795205906 threads=8 log=<WORKDIR>/logs/build-20261120-141826.log
+
+== Modules
+compiled: 23981 of 175187 (13.69%)
+FAILED jobs: 0 line(s) in all build logs, 0 distinct target(s)
+current log: <WORKDIR>/logs/build-20261120-141826.log
+  compiled in this run: 17558   jobs with warnings (including replayed ones): 11956
+  last job line: ⚠ [32684/32835] Built CompanionTheory.SpectralGeometry.LocalGlobalProofs.StableLattices.LineFormulaOfFubiniAndParabolic (8.8s)
+
+== Rate
+current run: 17558 modules in 5.72 h with 8 jobs = 3071 modules/hour
+last 15 minutes: 783 modules = 3132 modules/hour
+naive time remaining: at least 48 hours (2.0 days) at 3132 modules/hour
+  This is a floor, not a forecast: it assumes the recent rate holds for all remaining
+  modules, and later modules tend to import more of the project than earlier ones.
+
+== Compiler processes
+lean: 8   leanchecker: 0
+    5702 MB       00:08  VanKGOf.lean
+    5597 MB       00:10  NumKG.lean
+    5320 MB       00:05  LeviActionUnitaryAdjoint.lean
+    5270 MB       00:05  BoundaryCreationAnticommutator.lean
+     877 MB       00:03  FiniteDimInvariantSubspaceAdjointPair.lean
+
+== Memory and disk
+cores: 10   memory: 24 GB   load: 12.53 15.63 15.97
+  System-wide memory free percentage: 58%
+  swap: total = 3072.00M  used = 2126.12M  free = 945.88M  (encrypted)
+free disk in the work directory's filesystem: 3424 GB
+
+== Setup files (scripts/prune_setup_files.sh, report only)
+setup files found:            23991 (156.1 GB)
+of finished modules:          23704 (154.2 GB)
+nothing was removed; run again with --delete to remove the files of finished modules

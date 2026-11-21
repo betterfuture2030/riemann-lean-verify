@@ -297,6 +297,7 @@
     "mean": 9.96
    }
   ],
+  "useful_cpu_per_thread_second": 0.971,
   "kernel_share_of_cpu": 0.613,
   "alone": {
    "n": 17,
@@ -312,6 +313,7 @@
   "peak_gb_if_setup_files_are_deleted_as_modules_finish": 152
  },
  "memory": {
+  "units": "MiB and GiB, as the operating system reports them",
   "file_backed_mb": {
    "base": 6598,
    "per_import": 0.572,
@@ -329,18 +331,30 @@
   }
  },
  "open_files": {
-  "samples": 1311,
-  "per_process_base": 63693,
-  "per_imported_project_module": 2.09,
-  "projected_for_last_module": 429033,
+  "windows": [
+   "cold",
+   "deepA",
+   "deepB",
+   "sweep2",
+   "sweep4"
+  ],
+  "samples": 1452,
+  "per_process_base": 63701,
+  "per_imported_project_module": 2.11,
+  "projected_for_last_module": 433712,
   "note": "system-wide count regressed on live processes and their imports; noisy"
+ },
+ "utilisation": {
+  "expected_from_window": "deepB",
+  "useful_cpu_per_thread_second": 0.911,
+  "best_window": 0.946
  },
  "cases": {
   "low": {
    "slope": 4.6e-05,
    "strat": true,
    "eff": 0.946,
-   "eff_chk": 0.971,
+   "chk_eff": 1.0,
    "chk_slope": 1.0,
    "setup": 0.3,
    "top": 0.2,
@@ -351,7 +365,7 @@
    "slope": 0.000226,
    "strat": false,
    "eff": 0.911,
-   "eff_chk": 0.971,
+   "chk_eff": 1.0,
    "chk_slope": 1.0,
    "setup": 0.5,
    "top": 0.4,
@@ -362,7 +376,7 @@
    "slope": 0.000451,
    "strat": false,
    "eff": 0.86545,
-   "eff_chk": 0.92245,
+   "chk_eff": 0.95,
    "chk_slope": 1.5,
    "setup": 1.0,
    "top": 1.0,

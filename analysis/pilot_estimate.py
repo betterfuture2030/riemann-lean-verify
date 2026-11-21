@@ -25,7 +25,8 @@ Method (the reasoning, and the review that shaped it, are in docs/cloud-notes.md
      used for the low and high cases.
   3. Apply the model to a random sample of the whole tree. Mean times module count is the CPU needed.
   4. Convert CPU to wall-clock with the measured useful CPU per machine thread-second: the CPU found in
-     compiler processes during the interior of a window, divided by threads times seconds.
+     compiler processes during the interior of a window, divided by threads times seconds. The expected
+     case takes it from the longest window run at the full job count.
   5. The kernel checker is treated the same way from its own phase.
   6. Low, expected and high differ in the slope, the utilisation and the fixed allowances, all listed in
      the output under "cases".
@@ -42,7 +43,9 @@ def op(d, name):
 
 D, GRAPH = sys.argv[1], sys.argv[2]
 VCPUS = arg('--vcpus', 32); OUT = arg('--out', '')
-CONFIGS = [c.split(':') for c in args('--config')] or [['n4d-highmem-32 on demand, 440 GB disk', '1.78', '440']]
+CONFIGS = [c.rsplit(':', 2) for c in args('--config')] or [['n4d-highmem-32 on demand, 440 GB disk', '1.78', '440']]
+for c in CONFIGS:
+    if len(c) != 3: sys.exit('--config needs NAME:USD_PER_HOUR:DISK_GB, got: ' + ':'.join(c))
 
 g = json.load((gzip.open if GRAPH.endswith('.gz') else open)(GRAPH, 'rt'))
 names = sorted(g); idx = {m: i for i, m in enumerate(names)}
@@ -102,8 +105,11 @@ for d in (lean, chk):
     for p in d.values(): p['c'] = closure(idx[p['mod']])
 
 def ols(xs, ys):
+    # least squares y = a + b*x; returns (a, b, standard error of b), or None if there are too few distinct points
+    if len(xs) < 3: return None
     mx, my = st.mean(xs), st.mean(ys)
     sxx = sum((x - mx) ** 2 for x in xs)
+    if sxx == 0: return None
     b = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / sxx
     a = my - b * mx
     se = (sum((y - a - b * x) ** 2 for x, y in zip(xs, ys)) / max(1, len(xs) - 2) / sxx) ** 0.5
@@ -117,16 +123,19 @@ def bins(recs):
 
 # ---- compile cost model
 full = [p for p in lean.values() if p['n'] == VCPUS]
-a_fit, b_fit, se_fit = ols([p['c'] for p in full], [p['cpu'] for p in full])
+if len(full) < 100: sys.exit('fewer than 100 modules finished at %d jobs: not enough to estimate from' % VCPUS)
+a_fit, b_fit, se_fit = ols([p['c'] for p in full], [p['cpu'] for p in full]) or sys.exit('every compiled module has the same closure size')
+TAIL_MIN = 30                                          # a slope fitted to fewer large closures than this is not used
 tail = [p for p in full if p['c'] > 8000]
-_, b_tail, se_tail = ols([p['c'] for p in tail], [p['cpu'] for p in tail])
+tail_fit = ols([p['c'] for p in tail], [p['cpu'] for p in tail]) if len(tail) >= TAIL_MIN else None
 mean_cpu = st.mean(p['cpu'] for p in full); mean_c = st.mean(p['c'] for p in full); max_obs = max(p['c'] for p in full)
 
 probe = [r for r in csv.DictReader(op(D, 'import_probe.tsv'), delimiter='\t') if r['module'] in idx]
 def probe_fit(kind):
     rows = [(closure(idx[r['module']]), float(r['user_s']) + float(r['sys_s'])) for r in probe if r['kind'] == kind and r['failures'] == '0']
-    return ols([x for x, _ in rows], [y for _, y in rows]) + (len(rows),)
-imp_a, imp_b, imp_se, imp_n = probe_fit('import')
+    f = ols([x for x, _ in rows], [y for _, y in rows])
+    return f + (len(rows),) if f else None
+imp_a, imp_b, imp_se, imp_n = probe_fit('import') or sys.exit('import_probe.tsv has too few import rows to fit')
 io = list(csv.DictReader(op(D, 'import_only.tsv'), delimiter='\t'))
 def per_proc(n): return st.mean((float(r['user_s']) + float(r['sys_s'])) / n for r in io if int(r['n']) == n)
 contention = per_proc(VCPUS) / per_proc(1)            # CPU per import when the full job count runs at once, over alone
@@ -181,14 +190,17 @@ for base in sorted(jobs):
                          mean_cpu_s=round(st.mean(p['cpu'] for p in done), 2) if done else None,
                          seconds_to_first=round(first - starts[base], 1) if first else None, **m)
 full_windows = [b for b in BUILD if jobs[b] == VCPUS]
-eff_expected = windows['deepB']['useful_cpu_per_thread_second'] if 'deepB' in windows else st.mean(windows[b]['useful_cpu_per_thread_second'] for b in full_windows)
+longest = max(full_windows, key=lambda b: ends[b] - starts[b])
+eff_expected = windows[longest]['useful_cpu_per_thread_second']
 eff_best = max(windows[b]['useful_cpu_per_thread_second'] for b in full_windows)
 
-# ---- kernel checker
-c_a, c_b, c_se = ols([p['c'] for p in chk.values()], [p['cpu'] for p in chk.values()])
-chk_a, chk_b, chk_se, chk_n = probe_fit('checker')
-eff_check = windows['check']['useful_cpu_per_thread_second']
-def check_cpu_h(slope_factor=1.0): return N * st.mean(c_a + c_b * slope_factor * c for c in cs) / 3600
+# ---- kernel checker (absent if the pilot had no check phase: the estimate then covers the build only)
+chk_fit = ols([p['c'] for p in chk.values()], [p['cpu'] for p in chk.values()]) if 'check' in windows else None
+chk_alone = probe_fit('checker')
+if chk_fit:
+    c_a, c_b, c_se = chk_fit
+    eff_check = windows['check']['useful_cpu_per_thread_second']
+def check_cpu_h(slope_factor=1.0): return N * st.mean(c_a + c_b * slope_factor * c for c in cs) / 3600 if chk_fit else 0.0
 
 # ---- memory and open files, against closure size
 allc = list(lean.values())
@@ -203,13 +215,14 @@ base_files = int(S[0]['file_nr'])
 X = []
 for r in S:
     ph = r['phase'].split(':')[0]
-    if ph not in ('cold', 'deepA', 'deepB'): continue
+    if ph not in full_windows: continue
     t = float(r['t'])
     live = [p['c'] for p in rows_of[ph] if p['t0'] + 1.5 <= t <= p['t1'] - 0.5]
     if len(live) >= 8: X.append((len(live), sum(live), int(r['file_nr']) - base_files))
 snn = sum(n * n for n, c, y in X); scc = sum(c * c for n, c, y in X); snc = sum(n * c for n, c, y in X)
 sny = sum(n * y for n, c, y in X); scy = sum(c * y for n, c, y in X); det = snn * scc - snc * snc
-of_base = (sny * scc - scy * snc) / det; of_per = (snn * scy - snc * sny) / det        # system-wide open files = base * processes + per * imports
+# system-wide open files = base * processes + per * imports
+of_base, of_per = ((sny * scc - scy * snc) / det, (snn * scy - snc * sny) / det) if len(X) >= 50 and det else (None, None)
 
 # ---- disk
 disk = dict(l.split(' ', 1) for l in op(D, 'disk.txt').read().splitlines() if ' ' in l and not l.startswith('/'))
@@ -223,9 +236,10 @@ setup_tb = N * (B0 + b1 * mean_closure) / 1e6; ole_tb = N * ole_mb / 1e6
 # ---- cases
 #           slope used for compiling            stratified  efficiency          checker slope  fixed hours: setup, top of graph, criterion C2, slack
 CASES = dict(
-    low=dict(slope=b_fit, strat=True, eff=eff_best, eff_chk=eff_check, chk_slope=1.0, setup=0.3, top=0.2, c2=0.2, slack=0.0),
-    expected=dict(slope=s_phys, strat=False, eff=eff_expected, eff_chk=eff_check, chk_slope=1.0, setup=0.5, top=0.4, c2=0.5, slack=0.5),
-    high=dict(slope=max(b_tail, s_phys) * 1.10, strat=False, eff=eff_expected * 0.95, eff_chk=eff_check * 0.95, chk_slope=1.5, setup=1.0, top=1.0, c2=2.0, slack=3.0),
+    low=dict(slope=min(b_fit, s_phys), strat=True, eff=eff_best, chk_eff=1.0, chk_slope=1.0, setup=0.3, top=0.2, c2=0.2, slack=0.0),
+    expected=dict(slope=s_phys, strat=False, eff=eff_expected, chk_eff=1.0, chk_slope=1.0, setup=0.5, top=0.4, c2=0.5, slack=0.5),
+    # high: the slope seen among the largest closures if there were enough of them, else twice the probe slope; then 10 percent more
+    high=dict(slope=(max(tail_fit[1], s_phys) if tail_fit else 2 * s_phys) * 1.10, strat=False, eff=eff_expected * 0.95, chk_eff=0.95, chk_slope=1.5, setup=1.0, top=1.0, c2=2.0, slack=3.0),
 )
 def disk_usd_per_hour(gb, iops=6000, mbps=300, boot_gb=50):
     # Hyperdisk Balanced list prices per month: capacity 0.08 per GB, 0.005 per IOPS above 3,000, 0.04 per MB/s above 140
@@ -233,7 +247,7 @@ def disk_usd_per_hour(gb, iops=6000, mbps=300, boot_gb=50):
 hours = {}
 for name, c in CASES.items():
     cpu_b = tree_cpu_h(c['slope'], c['strat']); cpu_c = check_cpu_h(c['chk_slope'])
-    bh = cpu_b / (VCPUS * c['eff']) + c['top']; ch = cpu_c / (VCPUS * c['eff_chk'])
+    bh = cpu_b / (VCPUS * c['eff']) + c['top']; ch = cpu_c / (VCPUS * eff_check * c['chk_eff']) if chk_fit else 0.0
     hours[name] = dict(compile_cpu_hours=round(cpu_b), check_cpu_hours=round(cpu_c), build_hours=round(bh, 1), check_hours=round(ch, 1),
                        other_hours=round(c['setup'] + c['c2'] + c['slack'], 1), billed_hours=round(bh + ch + c['setup'] + c['c2'] + c['slack'], 1))
 configs = []
@@ -254,7 +268,8 @@ res = dict(
                   threads_per_compiler=dict(median=st.median(p['thr'] for p in full), max=max(p['thr'] for p in full))),
     compile_model=dict(mean_cpu_seconds=round(mean_cpu, 2),
                        plain_regression=dict(base=round(a_fit, 3), per_1000_imports=round(b_fit * 1000, 3), standard_error=round(se_fit * 1000, 3)),
-                       largest_closures_only=dict(n=len(tail), per_1000_imports=round(b_tail * 1000, 3), standard_error=round(se_tail * 1000, 3)),
+                       largest_closures_only=dict(n=len(tail), per_1000_imports=round(tail_fit[1] * 1000, 3), standard_error=round(tail_fit[2] * 1000, 3)) if tail_fit
+                                             else dict(n=len(tail), note='too few modules above 8,000 imports to fit'),
                        import_probe=dict(n=imp_n, base=round(imp_a, 3), per_1000_imports=round(imp_b * 1000, 3), standard_error=round(imp_se * 1000, 3)),
                        contention_at_full_jobs=round(contention, 3), slope_used_per_1000_imports=round(s_phys * 1000, 3),
                        by_closure=bins(full)),
@@ -262,17 +277,21 @@ res = dict(
               share_with_closure_beyond_compiled=round(sum(1 for c in cs if c > max_obs) / len(cs), 3)),
     windows=windows,
     checker=dict(base=round(c_a, 3), per_1000_imports=round(c_b * 1000, 3), standard_error=round(c_se * 1000, 3), by_closure=bins(list(chk.values())),
+                 useful_cpu_per_thread_second=eff_check,
                  kernel_share_of_cpu=round(sum(p['sys'] for p in chk.values()) / sum(p['cpu'] for p in chk.values()), 3),
-                 alone=dict(n=chk_n, base=round(chk_a, 3), per_1000_imports=round(chk_b * 1000, 3))),
+                 alone=dict(n=chk_alone[3], base=round(chk_alone[0], 3), per_1000_imports=round(chk_alone[1] * 1000, 3)) if chk_alone else None)
+            if chk_fit else dict(note='the pilot had no usable check phase; check hours are not estimated and are counted as zero'),
     disk=dict(compiled_mb_per_module=round(ole_mb, 2), setup_file_mb_per_module=round(json_mb, 2), setup_files_tb_full_tree=round(setup_tb, 2),
               compiled_tb_full_tree=round(ole_tb, 3), peak_gb_if_setup_files_are_deleted_as_modules_finish=round(ole_tb * 1000 + 25)),
-    memory=dict(file_backed_mb=dict(base=round(sh_a), per_import=round(sh_b, 3), projected_for_last_module_gb=round((sh_a + sh_b * TOP) / 1024)),
+    memory=dict(units='MiB and GiB, as the operating system reports them', file_backed_mb=dict(base=round(sh_a), per_import=round(sh_b, 3), projected_for_last_module_gb=round((sh_a + sh_b * TOP) / 1024)),
                 private_mb=dict(base=round(pr_a), per_import=round(pr_b, 4), projected_for_last_module_gb=round((pr_a + pr_b * TOP) / 1024, 1)),
                 whole_machine=dict(peak_anonymous_gb=round(max(int(r['anon_mb']) for r in S) / 1024, 1),
                                    least_available_gb=round(min(int(r['mem_avail_mb']) for r in S) / 1024),
                                    most_cached_gb=round(max(int(r['cached_mb']) for r in S) / 1024))),
-    open_files=dict(samples=len(X), per_process_base=round(of_base), per_imported_project_module=round(of_per, 2),
-                    projected_for_last_module=round(of_base + of_per * TOP), note='system-wide count regressed on live processes and their imports; noisy'),
+    open_files=dict(windows=sorted(full_windows), samples=len(X), per_process_base=round(of_base), per_imported_project_module=round(of_per, 2),
+                    projected_for_last_module=round(of_base + of_per * TOP), note='system-wide count regressed on live processes and their imports; noisy')
+               if of_base is not None else dict(samples=len(X), note='too few samples to fit'),
+    utilisation=dict(expected_from_window=longest, useful_cpu_per_thread_second=eff_expected, best_window=eff_best),
     cases={k: {kk: (round(vv, 6) if isinstance(vv, float) else vv) for kk, vv in c.items()} for k, c in CASES.items()},
     hours=hours,
     configurations=configs,

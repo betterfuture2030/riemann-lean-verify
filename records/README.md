@@ -30,6 +30,7 @@ The proof source itself is not here and is not redistributed. Build logs, the ar
 | `mac-build/tuning2.tsv` | Second comparison of parallelism caps (5 to 10) |
 | `mac-build/checker-sample-times.txt` | Exit status and timings of `leanchecker` on 24 compiled modules |
 | `mac-build/mapped-files-sample.txt` | Files memory-mapped by one running compiler process, by type |
+| `mac-build/progress-20261120-2001.txt` | Dated snapshot of the build: modules compiled, failures, rate, and space taken by setup files |
 
 ### `audit/` - static reading of the source
 
@@ -60,6 +61,7 @@ The proof source itself is not here and is not redistributed. Build logs, the ar
 | `cloud/pilot/rehearsal-20261120-160322/` | The 17-minute rehearsal that preceded it |
 | `cloud/pilot/pilot_estimate.json` | Estimate for a full build and full kernel replay, computed from the pilot by `analysis/pilot_estimate.py` |
 | `cloud/pilot/pilot_estimate_review.json` | Three independent reviews of the first version of that estimate |
+| `cloud/pilot/pilot_estimate_check.json` | Three checks of the revised estimate and its documentation against the recorded data |
 | `cloud/pilot/ledger.tsv` | Machine-time and estimated cost of each run |
 
 ## How the records were produced
@@ -86,8 +88,9 @@ Every file in this directory, apart from the README files, was written by `scrip
 | `<WORKDIR>` | The working directory of the local build (`RH_WORKDIR` in `config.env`) |
 | `<HOME>` | A home directory |
 | `<SCRATCH>` | A temporary or session scratch directory |
+| `<REDACTED>` | A name from a private list, here the name of a local disk |
 
-Five files were changed by it: `mac-build/build-status.txt` (15 paths), `audit/audit_results.json` (846 paths), `cloud/gcp_pricing.json` (1 path), `cloud/gcp_budget_review.json` (2 paths) and `cloud/pilot/pilot_estimate_review.json` (1 path and 1 name of a local disk). All other files are byte-for-byte copies of the originals; those whose name ends in `.gz` are byte-for-byte copies before compression. No numbers, hashes, module names or findings were altered.
+Six files were changed by it: `mac-build/build-status.txt` (15 paths), `mac-build/progress-20261120-2001.txt` (3 paths), `audit/audit_results.json` (846 paths), `cloud/gcp_pricing.json` (1 path), `cloud/gcp_budget_review.json` (2 paths) and `cloud/pilot/pilot_estimate_review.json` (1 path and 1 name of a local disk). All other files are byte-for-byte copies of the originals; those whose name ends in `.gz` are byte-for-byte copies before compression. No numbers, hashes, module names or findings were altered.
 
 ## What is left out
 

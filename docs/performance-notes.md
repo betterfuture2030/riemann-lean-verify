@@ -12,15 +12,15 @@ For anyone running the build on their own machine. Sections 1 to 8 were measured
 | Same machine with other applications holding memory | 5 jobs: about 2,330 modules per hour; 7 jobs collapsed to about 910 | Measured |
 | Cost of a shallow module | About 11 CPU-seconds, of which about 6 (about 55 percent) is importing Mathlib | Derived from the measured rate and a measured import-only compile, on macOS |
 | Disk written per module | About 0.8 MB of compiled output plus a JSON file of 6.4 MB or more | Measured over the first 10,300 modules |
-| Disk for the whole build | About 1.4 TB as Lake writes it, of which about 90 percent is regenerable JSON; allow 1.5 TB, or about 200 GB if the JSON is removed as modules finish | Projection, section 4 |
+| Disk for the whole build | About 1.4 TB as Lake writes it, of which about 90 percent is regenerable JSON; allow 1.5 TB. About 150 GB if the JSON is removed as modules finish; allow 200 GB | Projection, section 4 |
 | Can the early rate be extrapolated? | No. It gives a floor of about 54 hours. Later modules import far more | Section 5 |
 | Biggest risk on a small machine | The last few files import all 175,186 others | Section 7; not yet observed |
 
 ## 2. Memory and the number of jobs
 
-Every module in the tree imports Mathlib, directly or indirectly. Each compiler process therefore begins by memory-mapping the compiled files of Mathlib and the libraries beneath it: 8,690 modules, of which Mathlib's own occupy 5.9 GB on disk. Mapped files are shared between processes through the operating system's page cache, so this is paid once in memory, but it has to stay resident for the build to run at speed. On top of it each process needs private memory for its own work.
+Every module in the tree imports Mathlib, directly or indirectly. Each compiler process therefore begins by memory-mapping the compiled files of Mathlib and the libraries beneath it: 8,690 modules, of which Mathlib's own occupy 5.9 GB on disk. (A later count on a running process found about 8,650 of those mapped, plus 1,801 modules of Lean's own library that this figure leaves out: 10,452 library modules in all. See section 7.) Mapped files are shared between processes through the operating system's page cache, so this is paid once in memory, but it has to stay resident for the build to run at speed. On top of it each process needs private memory for its own work.
 
-A snapshot of the running build on 2026-11-20 showed compiler processes with resident sizes from about 0.1 GB (just started) to about 5.6 GB. Most of the larger figure is the shared Mathlib mapping, so resident size per process overstates what an extra job costs. The private share was not measured separately.
+A snapshot of the running build on 2026-11-20 showed compiler processes with resident sizes from about 0.1 GB (just started) to about 5.6 GB. Most of the larger figure is the shared Mathlib mapping, so resident size per process overstates what an extra job costs. The private share was not measured separately here. It was later, on Linux: a median of 0.5 GB per process (section 9).
 
 A working rule consistent with these measurements is:
 
@@ -87,7 +87,7 @@ The kernel replay reads `.olean` files only. Deleting setup files once the build
 
 **Deleting them during a build.** Lake decides what is up to date from the `.trace` and hash files beside the compiled output. A test on 2026-11-20 with the same Lake version (5.0.0) on a five-module project found that it does not look at the setup file of a module that is already built: after the setup files were deleted, a second `lake build` recompiled nothing and left every `.olean` byte-for-byte unchanged, modules importing the pruned ones compiled normally, and `leanchecker` passed on all of them. The compiler reads a module's setup file once, when it starts on that module; Lake writes the setup file first and the `.trace` file last.
 
-[`../scripts/prune_setup_files.sh`](../scripts/prune_setup_files.sh) uses that ordering: it reports, and with `--delete` removes, the setup file of every module whose `.trace` is newer than its setup file. Run without `--delete` on the real build at 23,057 setup files, it found 149.9 GB, of which 148.3 GB belonged to finished modules. It had not been run with `--delete` on the real tree when this was written, so the first time you do, check that the next `lake build` prints no "Built" line for a module that was already compiled.
+[`../scripts/prune_setup_files.sh`](../scripts/prune_setup_files.sh) uses that ordering: it reports, and with `--delete` removes, the setup file of every module whose `.trace` is newer than its setup file. Run without `--delete` on the real build at 23,991 setup files, it found 156.1 GB, of which 154.2 GB belonged to finished modules ([`../records/mac-build/progress-20261120-2001.txt`](../records/mac-build/progress-20261120-2001.txt)). It had not been run with `--delete` on the real tree when this was written, so the first time you do, check that the next `lake build` prints no "Built" line for a module that was already compiled.
 
 **Projection for the whole tree.** With a mean of about 2,950 imported project modules per module (section 5), the mean setup file is about 7.2 MB, so the JSON totals about 1.26 TB. If the remaining modules are the same size on average as the first 10,300, compiled output adds about 0.13 TB. Mathlib's own compiled files are 5.9 GB. That is about 1.4 TB in total, or about 150 GB without the setup files. Allow 1.5 TB. Both figures are projections from the first six percent of the build.
 
@@ -144,6 +144,8 @@ The percentiles are from a random sample of 1,500 modules. A few modules at the 
 | 99th percentile (21,794) | 30,480 | 22 GB |
 | `Main` (175,186) | 183,880 | about 130 GB |
 
+"Files to load" here counts modules, and leaves out the 1,801 modules of Lean's own library. Each library module is mapped as five files and each project module as about one; section 7 has the measured counts.
+
 Since importing Mathlib alone is already about 55 percent of the cost of a shallow module, the import cost of a typical later module is likely to be larger than anything measured so far. How much larger in time was not known when this was written. It has since been measured on Linux for closures up to 17,860 and is small: see section 9.
 
 **The fit that failed.** An attempt was made to fit wall time per module against closure size using the first 1,228 timed modules. The largest closure among them was 837. The fitted slope was slightly negative, which would project a negative build time. The sample simply contains no information about deep modules. This is recorded as a warning against doing the same thing with better-looking numbers.
@@ -154,12 +156,12 @@ Since importing Mathlib alone is already about 55 percent of the cost of a shall
 |---|---|---|
 | Floor on the measured machine: 175,187 modules at the best shallow rate of 3,230 per hour | 54 hours | Arithmetic on a measured rate. A lower bound, not a forecast |
 | Same, at the rate achieved with memory tight (2,330 per hour) | 75 hours | Arithmetic on a measured rate |
-| With a penalty for deeper modules of 1.1 to 2.0 times, as assumed in desk reviews | 60 to 110 hours | Assumed range. No measurement supports either end |
-| Kernel replay of every module afterwards | Not known. In a 24-module sample each replay took 14 to 28 seconds of wall time (median 16), about 2 seconds of user and 11 of system CPU time, one process per module, while the build was also running | Measured on shallow modules only |
+| With a penalty for deeper modules of 1.1 to 2.0 times, as assumed in desk reviews | 60 to 110 hours | Assumed range. No measurement on this machine supports either end. On Linux, with ample memory, deeper modules cost about 6 percent more on average (section 9); on 24 GB the limit is memory, which that figure does not capture |
+| Kernel replay of every module afterwards | Not known on this machine; on a 32-vCPU Linux machine, an estimated 14 hours (section 9). In a 24-module sample each replay took 14 to 28 seconds of wall time (median 16), about 2 seconds of user and 11 of system CPU time, one process per module, while the build was also running | Measured on shallow modules only |
 
 "Days on a laptop" is the accurate summary. The replay is not a small addition: per module, on these shallow modules, it costs about as much CPU time as compiling did, because it too has to load the import closure.
 
-The build can be stopped and restarted. Lake keeps finished modules. The tuning runs allowed 100 seconds after each restart for Lake to start up before measuring; that start-up time is likely to grow as the number of finished modules grows.
+The build can be stopped and restarted. Lake keeps finished modules. The tuning runs allowed 100 seconds after each restart for Lake to start up before measuring; that start-up time is likely to grow as the number of finished modules grows. On Linux it was 4 to 9 seconds with up to 30,000 modules built (section 9).
 
 ## 7. The final files on a machine with little memory
 
@@ -190,7 +192,7 @@ Later on 2026-11-20 a calibration pilot ran for just under three hours on a rent
 | Question left open above | What was measured |
 |---|---|
 | Does a module get much dearer as its import closure grows? (section 5) | No. Importing costs 2.4 seconds plus 0.14 seconds per 1,000 project modules imported, for one process alone. Mean CPU per module was 8.4 seconds for closures of 1 to 100 and 8.3 seconds above 8,000. The tree's mean closure adds about 6 percent to the pilot's mean cost |
-| How much of the mapped data does a module touch? (section 5) | About 0.57 MB per imported project module, of the 0.72 MB average file: most of it |
+| How much of the mapped data does a module touch? (section 5) | About 0.6 MB per imported project module, of the 0.72 MB average file: most of it |
 | Private memory per compiler process (sections 2 and 7) | Median 0.5 GB, 99th percentile 0.8 GB, largest 8.1 GB; 0.5 GB plus 13 KB per imported project module |
 | How many jobs per core? (section 2) | Each compiler process ran about 15 threads and used a little over one core. Sixteen jobs on 16 cores gave 3.1 to 3.3 modules per second; 32 jobs gave 3.2 to 3.5 |
 | What does the kernel replay cost? (section 6) | 8.3 CPU seconds per module with 32 running at once, 4.4 seconds for one alone: about the same as compiling. Most of it is importing |
