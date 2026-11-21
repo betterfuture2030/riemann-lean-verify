@@ -60,9 +60,23 @@ Results of running `leanchecker`, the kernel replay tool shipped with the toolch
 
 - All 24 lines have `rc=0`: the tool accepted each module and printed nothing else.
 - Run this way (without `--fresh`), `leanchecker` loads the compiled files of everything the module imports and replays through the kernel only the declarations of the named module. Each run therefore re-checks one module and trusts its imports.
-- Wall time was 13.8 to 28.1 seconds per module. User time was about 2 seconds in 23 of the 24 runs and system time 9 to 13 seconds. A plausible reading is that loading the imported modules dominates and kernel checking of one small module is quick; that split was not measured separately.
+- Wall time was 13.8 to 28.1 seconds per module. User time was about 2 seconds in 23 of the 24 runs and system time 9 to 13 seconds. A plausible reading is that loading the imported modules dominates and kernel checking of one small module is quick; that split was not measured separately. (Later the same day that reading was found to be wrong: most of the system time is `leanchecker` listing every compiled file on the search path, once per process. See [`../../docs/performance-notes.md`](../../docs/performance-notes.md), section 10.)
 
 This is a timing sample taken to plan a full replay. It covers 24 of 175,187 modules, all from the first few percent to be compiled, and it is not a verification result for the proof.
+
+### `replay-method-comparison.tsv`
+
+The kernel replay's results file from the Mac build as it stood at 05:20 UTC on 2026-11-21, with about 34,000 modules compiled and the build running: 170 result lines, written by [`../../scripts/09_kernel_replay.sh`](../../scripts/09_kernel_replay.sh).
+
+```
+module <TAB> exit status <TAB> seconds <TAB> stamp of the compiled file <TAB> time (epoch) <TAB> method
+```
+
+- 140 lines by `rhv-replay`, all with exit status 0: a random sample of 120 compiled modules (`--method rhv-replay --sample 120 --seed 77`), then, after the changes that followed the first review of that program, 20 more (`--method rhv-replay --sample 20 --seed 4242`).
+- 30 lines by `leanchecker`, all with exit status 0: the first 30 modules of the 120, replayed again by the stock tool (`--list` with those names). The stamp on each of those 30 lines is the same as on the `rhv-replay` line for the same module: both tools were given the same compiled file.
+- Seconds per module, two checks at a time: `rhv-replay` 6.8 on average over the 120 and 7.2 over the 20; `leanchecker` 28 on average, 17 to 90.
+
+A seeded sample is drawn from the modules compiled at the time, so the same command on a build that has moved on picks different modules; the names here are the record of which were checked. This is a comparison of two ways of running one check on 30 modules, and a timing sample. It covers modules from the first fifth of the tree and is not a verification result for the proof. Background: [`../../docs/performance-notes.md`](../../docs/performance-notes.md), section 10.
 
 ### `mapped-files-sample.txt`
 

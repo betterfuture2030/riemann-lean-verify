@@ -63,17 +63,19 @@ The third rehearsal, with those changes, ran every phase in under 17 minutes. Ea
 | Setup | 122 seconds | `setup.tsv` |
 | Restart test, plain | 0 finished modules recompiled; 316 new ones built | `restart_tests.txt` |
 | Restart test after deleting the setup files of 644 finished modules | 0 finished modules recompiled; 305 new ones built | the same |
-| Build, boxed at seven minutes | 1,792 modules compiled, no failed job; 40 setup files left at the end | `phases.tsv`, `disk.txt` |
+| Build, boxed at seven minutes | 1,788 modules finished by the build tool, no failed job, and 4 more whose compiler had written its file when the time box stopped the build tool: 1,792 compiled files; 40 setup files left at the end | `phases.tsv`, `pilot.log`, `disk.txt` |
 | Seal | Source tree, toolchain and Mathlib unchanged since before the first compile; toolchain copy identical; no unexpected file beside the compiled modules; both checker users able to work | `facts.json`, `seal` |
 | Axiom check in probe mode, plain | Pass: `Formalism.VW.rh_of_right` depends on `propext`, `Classical.choice`, `Quot.sound`; its conclusion is the constant `RiemannHypothesis` | `c2_plain.json` |
 | The same with the deep walk | Pass: 54,444 constants visited, the same three axioms, nothing missing; 1 project module and 1,759 library modules touched | `c2_deep.json`, `c2_deep.modules.tsv` |
-| Kernel replay | 1,792 of 1,792 modules passed: 1,047 during the two trials (16 and 32 at a time), the rest in the main pass. Mean 4.1 seconds each | `c3_summary.txt`, `c3_results.tsv.gz` |
+| Kernel replay | 1,792 of 1,792 compiled files passed. By the time each result was written: 452 in the trial at 16 at a time (mean 3.1 seconds each), 595 in the trial at 32 (4.7 seconds), 745 in the main pass at 32 (4.4 seconds) | `c3_summary.txt`, `c3_results.tsv.gz` |
 | End check | Compiled files, toolchain and Mathlib unchanged since the seal; no process of the build user seen | `facts.json`, `end` |
 | Archive of compiled files | Made and uploaded | `facts.json` |
 
 The deep walk visited 54,444 constants on this Linux machine. The same probe on a Mac visited the same number.
 
 The replay's exit status of 3 and `complete: false` are correct for a rehearsal: 173,395 source modules were never compiled.
+
+Two things in this run were changed afterwards. The four files the build tool never finished were replayed and counted with the rest (their lines in `c3_results.tsv.gz` carry `nohash` where the others carry a hash); the summary now treats a compiled file with no hash beside it as unfinished, never counts a result for it, and reports it. And the replay's rate here, about seven modules a second, says little about the whole tree: with the stock tool the cost of a check grows with the number of compiled modules ([`../../../docs/performance-notes.md`](../../../docs/performance-notes.md), section 10), and this run had 1,792 of them.
 
 **What a rehearsal does not show.** It built about one module in a hundred, all from the bottom of the import graph. It did not exercise a build that fails, the second build pass, the check that every source module is compiled, the axiom check on the final theorem (which must load all 175,187 modules), the prefix pass (none of the 114 prefix modules was among those built), the retry passes of the replay, a run that reaches its deadline, or an archive larger than one part. Those paths have been reviewed and, where possible, tested on a small project, but not run on this machine.
 

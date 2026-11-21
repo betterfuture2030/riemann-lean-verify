@@ -108,7 +108,7 @@ Two things to do before starting:
 
 A module that fails is not necessarily a failure of the proof. If the compiler process was killed for lack of memory, re-run with fewer jobs. The rule this project uses is in section 4 of the pre-registration: a module counts as failing only when it fails with a Lean error, reproducibly, with enough memory.
 
-On Google Cloud, [`cloud/gcp/`](../cloud/gcp/) has a calibration pilot that measures the cost on a rented machine before you commit to a full run. Its results from 2026-11-20, and the estimate of about 31 hours and 58 USD for a full build and kernel replay, are in [`cloud-notes.md`](cloud-notes.md), section 8.
+On Google Cloud, [`cloud/gcp/`](../cloud/gcp/) has a calibration pilot that measures the cost on a rented machine before you commit to a full run. Its results from 2026-11-20, and the estimates built on them, are in [`cloud-notes.md`](cloud-notes.md), section 8: about 16 hours for a full build, and for the kernel replay after it about 46 hours with the stock tool or about 5 with `rhv-replay` (section 8.5).
 
 ## Level 4: the verdict
 
@@ -120,6 +120,17 @@ scripts/09_kernel_replay.sh           # criterion C3: every module through the k
 ```
 
 Compare the outcome with the table in section 5 of the pre-registration.
+
+The second command, as written, uses the stock tool `leanchecker`, one process per module. On the whole tree that is slow for a reason that has nothing to do with the proof: the tool lists every compiled file before each check. It is estimated at about 46 hours on a 32-thread machine and at weeks on a laptop ([`performance-notes.md`](performance-notes.md), section 10). The script has a second method that runs the same replay function of the same toolchain without the listing:
+
+```bash
+scripts/09_kernel_replay.sh --method rhv-replay    # every module, a few seconds each
+scripts/09_kernel_replay.sh --sample 2000          # the stock tool on 2,000 random modules, for comparison
+scripts/09_kernel_replay.sh --prefix-modules       # the stock tool on the 114 prefix modules and the modules beneath them
+scripts/09_kernel_replay.sh --summary              # counts by method, and any module on which the two disagree
+```
+
+Before it runs, the script compares the copy of the replay function in [`../scripts/verify/replay/RhvReplay.lean`](../scripts/verify/replay/RhvReplay.lean) with the toolchain's own source and stops if they differ. You can make the same comparison by eye: the function is 23 lines, and the rest of the file is a loop that calls it. The pre-registration names `leanchecker`; whether a replay by the second method satisfies criterion C3 is governed by the pre-registration and its dated amendments, not by this guide.
 
 ## If something does not reproduce
 

@@ -14,7 +14,7 @@ Sections 1 to 7 were written before anything had been run in the cloud; their du
 | One family has a storage trap | On H4D, network disk throughput is capped per VM at 240 MiB/s whatever the disk is provisioned for |
 | The first cost model was optimistic in structure | Three reviewers reproduced its arithmetic and each revised its conclusions; see section 6 |
 | A billing budget does not stop spending | It sends alerts, and they can arrive hours late |
-| What the pilot's measurements imply | A full build and full kernel replay on the 32-vCPU machine: an estimated 31 hours and 58 USD, range 53 to 74 USD (section 8) |
+| What the pilot's measurements imply | A full build on the 32-vCPU machine: an estimated 16 hours. The kernel replay after it: about 46 hours with the stock tool run once per module, or about 5 with a program that names each module's file directly. That makes about 63 hours and 118 USD, or about 23 hours and 44 USD; the second route counts towards criterion C3 only under a dated amendment to the pre-registration (sections 8.2 and 8.5). The first estimate, 31 hours and 58 USD, understated the replay |
 
 ## 2. Quota
 
@@ -236,6 +236,8 @@ The method, in five steps:
 | Expected | 15.6 | 14.0 | 1.5 | 31.0 |
 | High | 17.9 | 15.4 | 6.0 | 39.3 |
 
+**The kernel replay column is wrong for the stock tool, and so are the totals built on it. Section 8.5 corrects them.** The table is left as it was made.
+
 Low uses the plain regression's slope, per-library corrections shrunk towards zero, and the best utilisation seen. High uses the slope fitted to the 153 largest closures alone (0.41 per 1,000, standard error 0.18) raised by 10 percent, 5 percent lower utilisation, a steeper checker slope, and three hours for one failure that is noticed late. An independent cross-check from raw throughput agrees with the expected case: 175,187 modules at 3.32 per second is 14.7 hours, and 6 percent more for larger closures gives 15.5; 3.7 checks per second, with the checker's own 8 percent for larger closures, gives 14.1.
 
 Priced at list rates read on 2026-11-20, in US dollars, with the disk kept for six hours after the machine stops:
@@ -265,7 +267,7 @@ The first version of the script gave 26.7, 29.7 and 36.4 billed hours and 58, 64
 | 7 | A 2 TB disk does not fit the 500 GB quota in the only region where the machine could be had | All three | Addressed by deleting setup files as modules finish; see section 9 |
 | 8 | The last six modules would exceed the per-process limits on memory mappings and open files, at about 6 per imported module | Operations | Checked and not upheld. The figure of 6 divided by Mathlib's module count alone; a process also imports the 1,801 modules of Lean's own library. A running compiler process was inspected directly: it had mapped 53,122 files for about 11,300 imported modules, which is 5 per library module and about 1 per project module ([`../records/mac-build/mapped-files-sample.txt`](../records/mac-build/mapped-files-sample.txt)). That projects to about 240,000 for the last module; the regression in section 8.1 projects 430,000. The limit set by the pilot is 1,048,576. A full run should still raise it, since that costs nothing |
 | 9 | Spot pricing and the 128 GB machine would cut the cost by more than half | Cheaper | Recorded as options in section 8.2. Neither was measured |
-| 10 | One checker process per module imports Mathlib 175,187 times. Checking many modules per process could halve the replay | All three | Open. It would change how criterion C3 is carried out and needs its own test first |
+| 10 | One checker process per module imports Mathlib 175,187 times. Checking many modules per process could halve the replay | All three | Taken up later, for a different reason. The saving the reviewers saw was the repeated import; the larger cost turned out to be the stock tool listing every compiled file before each check (section 8.5). A program that replays many modules per process now exists as an option, off by default, because it changes how criterion C3 is carried out and so needs a dated amendment to the pre-registration |
 | 11 | Run the checker alongside the build to use idle CPU | Cheaper | Not adopted: a gain of under an hour for more moving parts |
 | 12 | The count of finished compiles dropped unnamed and repeated rows | Re-derivation | Accepted. 29,606 compiler processes finished; they cover 29,388 distinct named modules. The review also exposed a fault it did not name: the rule that drops processes killed at the end of a time-boxed window was also dropping the last modules of the two windows that ran to completion, among them the largest closure compiled. Fixed; the totals did not change |
 
@@ -279,6 +281,29 @@ After the script was revised, three further AI agents checked it and these notes
 - **A genuine failure.** A module that fails to compile ends the estimate's relevance: the work becomes diagnosis.
 - Tax, network egress and the cost of keeping results in a bucket. Small.
 
+### 8.5 Correction: the kernel replay
+
+Step 4 above took the cost of one kernel check, 8.1 seconds plus 0.263 per 1,000 imports, from the pilot, where 29,633 modules had been compiled, and applied it to a tree of 175,187. An audit of the full-run driver on 2026-11-20 found that the cost of a check with the stock tool is not fixed: `leanchecker` lists every compiled file on the search path before each check, so a check gets dearer as the tree is built. [`performance-notes.md`](performance-notes.md), section 10, has the measurements, the fit, and what was tried.
+
+[`../analysis/replay_cost.py`](../analysis/replay_cost.py) redoes the arithmetic from the recorded runs (`python3 analysis/replay_cost.py`, one second; output in [`../records/cloud/replay_cost.json`](../records/cloud/replay_cost.json)). With the build and the allowances of section 8.2 unchanged, on `n4d-highmem-32` on demand with the 440 GB disk:
+
+| Method for the whole tree | Case | Build | Kernel replay | Set-up, C2 and slack | Billed hours | USD |
+|---|---|---|---|---|---|---|
+| `leanchecker`, one process per module | Low | 13.7 | 45.7 | 0.5 | 59.9 | 112 |
+| | Expected | 15.6 | 45.7 | 1.5 | 62.8 | 118 |
+| | High | 17.9 | 48.8 | 6.0 | 72.7 | 136 |
+| `rhv-replay`, then `leanchecker` on 2,000 random modules and on every prefix module | Low | 13.7 | 6.1 | 0.5 | 20.3 | 38 |
+| | Expected | 15.6 | 6.1 | 1.5 | 23.2 | 44 |
+| | High | 17.9 | 7.0 | 6.0 | 30.9 | 58 |
+
+The replay figures rest on two measurements of the stock tool and a straight line through them. The line's slope, 0.144 milliseconds per compiled file, is what separates 46 hours from 5; the stock tool's true figure could be several hours either side. Neither figure has been measured on a full tree, and the figure for `rhv-replay` is the stock tool's cost with the listing taken out, not a measurement of that program on this machine.
+
+What follows from it:
+
+- A full run with the stock tool for the whole tree does not fit the 42-hour limit of `launch full`. It would need a limit of about 75 hours, whose worst case is 150 USD at the ledger's rate.
+- `rhv-replay` fits with room to spare, but criterion C3 as pre-registered names `leanchecker`. Using it for the whole tree is a change of method that needs a dated amendment to `PREREGISTRATION.md` before the run. The driver offers it as an option, off by default (`GCP_REPLAY_METHOD` in `config.env`).
+- Whichever is chosen, the driver now measures the replay's rate in short trials before the main pass. If that rate cannot cover the tree in the time left, it gives the replay one hour and goes on to the remaining steps, and `facts.json` says so, in place of running for hours towards a result it cannot reach.
+
 ## 9. The full run: what was built, and what a review changed
 
 The pilot scripts stop short of a full run by design. After the pilot, a driver for the full run was written: [`../cloud/gcp/full_guest.sh`](../cloud/gcp/full_guest.sh), with two new modes in the controller, and [`../cloud/gcp/README.md`](../cloud/gcp/README.md) describes it. **It has been rehearsed three times and had not been run in full when this was written.** The reviews below are criticism of code; the rehearsals are measurements, of a build of about one module in a hundred.
@@ -288,9 +313,10 @@ The pilot scripts stop short of a full run by design. After the pilot, a driver 
 | Delete each module's setup file once the module has finished | Without it the setup files alone come to 1.1 to 1.3 TB, on top of about 0.13 TB of compiled output. With it the peak is about 150 GB, which fits the pilot's disk and needs no quota increase | Written and confirmed on real modules. In two rehearsals, deleting the setup files of 641 and 644 finished modules and restarting the build tool recompiled none of them, as did a plain restart used as a control, while over 300 new modules were built each time. The full run repeats the test on its first 3,000 modules and stops if a finished module is recompiled |
 | Raise `vm.max_map_count` and the open-file limit well above one million | Costs nothing; removes the question in point 8 above | Written |
 | Move from build to the C2 checks to the kernel replay without waiting for a person | An idle machine of this size costs about 1.86 USD per hour | Written |
-| A kernel replay that can be resumed and that includes the 114 modules whose name is a prefix of another's | A replay of 14 hours must survive an interruption, and criterion C3 is every module | Written. `scripts/09_kernel_replay.sh` now ends with a prefix pass: each such module is replayed in one process with the modules beneath it. Tested on a seven-module project, and by hand on two real prefix modules of the local build |
+| A kernel replay that can be resumed and that includes the 114 modules whose name is a prefix of another's | A replay of many hours must survive an interruption, and criterion C3 is every module | Written. `scripts/09_kernel_replay.sh` now ends with a prefix pass: each such module is replayed in one process with the modules beneath it. Tested on a seven-module project, and by hand on two real prefix modules of the local build |
 | Upload results as the run goes, and a status the local `watch` can read | The machine deletes itself; anything not uploaded is lost | Written |
-| A deletion time and a spending cap sized for the run | The pilot's cap and six-hour limit are too small by design | Written: 42 hours, and `launch full` is refused until the cap in `config.env` allows for it |
+| A deletion time and a spending cap sized for the run | The pilot's cap and six-hour limit are too small by design | Written: 42 hours, and `launch full` is refused until the cap in `config.env` allows for it. Section 8.5: that limit holds a run whose replay uses `rhv-replay`, not one that uses the stock tool for the whole tree |
+| A kernel replay that fits the run | Section 8.5: the stock tool, run once per module, needs about 46 hours for the replay alone | Written as an option: `scripts/verify/replay` and `scripts/09_kernel_replay.sh --method rhv-replay`. On the VM, root builds the program during setup, before any file of the proof is compiled, after comparing its copy of the replay function with the toolchain's source; the seal confirms the program is unchanged and that the replay's user can run it; after the main pass the stock tool checks a random sample and every prefix module again |
 | A short rehearsal of all of the above | The pilot's rehearsal found faults that review had not | Done three times, for 1.51 USD in all; see below |
 
 Four AI reviewers read the first draft before anything was launched: shell correctness, cloud control and cost, whether the pipeline establishes what it claims, and the verification scripts. They found two blockers and twelve major defects. Their text is in [`../records/cloud/full_run_driver_review.json`](../records/cloud/full_run_driver_review.json). The ones that shaped the design:
@@ -319,6 +345,20 @@ The rewrite was then reviewed again by two agents ([`../records/cloud/full_run_d
 | A dead build tool would have been called a failed proof | If the build tool itself was killed, with no failed module, the run reported "failed twice with Lean errors" | That case ends as a failure of the run. A compiler that crashed by itself is now told apart from one killed from outside |
 | The rehearsal would have looked green without testing much | Its time limits were too tight for the restart tests, the periodic pruning and the archive to run | The rehearsal's time box excludes the restart tests, pruning runs every two minutes in it, and the facts record whether each restart test built anything and whether the archive was made |
 
+**The replay method.** When the audit of section 8.5 led to a second way of running the kernel replay, the driver was changed to offer it, and that change was reviewed in its turn before anything ran: five agents, then five more to re-check them ([`../records/cloud/replay_method_review.json`](../records/cloud/replay_method_review.json)). They reported 23 findings, none of them a way for a module to be counted as passed without a replay. Those that changed the driver:
+
+| Finding | What was wrong | What the script does now |
+|---|---|---|
+| A kernel rejection could be filed as "not checked" | A check that cannot open a compiled file is tried again later, and that case was recognised by searching the whole error for phrases such as "No such file or directory". A kernel error quotes names the author of a module chose, so a rejected declaration with such a name would have been retried for ever and never shown as a failure | Both methods look only at how the error begins, which the tool's own file handling writes. Anything else is a failure |
+| Time kept for the stock tool's sample could cost the main replay | If the main pass and the sample together did not fit, the main pass was cut to one hour, though it would have fitted alone | Whether the replay fits is decided on the main pass alone, and the main pass comes first; the sample and the prefix pass take what is left, and `facts.json` records it |
+| The measured rate counted checks that never ran | A trial's rate counted every result line, including those of checkers that were killed or could not start, so the worst job count could look best | Only lines of modules that were really checked count |
+| The replay program was built with the build user's copy of the toolchain | Root ran the build tool from a directory the build user could write, and only the result was recorded | Root first makes its own copy of the toolchain, proves it identical to the record taken before anything was compiled, and builds with that; the program may load shared libraries only from the system or from that copy |
+| A process that died before starting was charged to a module | Every module of its batch was then recorded as a crash of the checker, which counts as a failure | The program announces each module before it starts on it. A death is charged only to a module that had been started; a death before the first leaves the batch for later |
+| The source check proved less than it said | It compared the copied function and nothing around it, so an attribute on the line above could have swapped the function out; and, as a second look found after the first fix, a file whose visible contents all sat inside a nested comment could still pass | The program's source must have the SHA-256 written in `rhv_tools.py`, so it cannot change without that line changing in the same commit; the function must be the installed toolchain's, character for character; and the file's shape is checked as well. That the remaining loop does what it appears to do is for a reader, and the documents say so |
+| The watchdog could cut off the final report | At the deadline it ended every time-limited command, including the one inside a report already under way | It leaves a report alone, and waits longer for one that has begun |
+
+The changed code was then looked at again by four agents, with four more to re-check them ([`../records/cloud/replay_method_recheck.json`](../records/cloud/replay_method_recheck.json)): 18 of the 23 findings resolved, 4 in part, one left by decision and stated as a limit, and 22 new findings, half of them about the documents. Those in the driver were small and are fixed: root's copy of the toolchain is checked for links that lead out of it before anything is built with it; the summary's two files are replaced together and only by a run that succeeded; and `facts.json` says why a pass of the stock tool did not run when it did not.
+
 Two limits remain and are stated in the script's header. The axiom check's own output comes from a process that has imported the proof. And "no network" for the three unprivileged users means no connection off the machine: name lookups through the system resolver are not blocked. The machine holds nothing worth sending, since its credentials are behind the metadata server, which is blocked, and the proof source is public.
 
 On the first of these: a text scan of the source found no file or process IO at all, and the kernel replay does not share the exposure, but the `#print axioms` half of criterion C2 can be no more trustworthy than the process that produces it.
@@ -333,4 +373,4 @@ On the first of these: a text scan of the source found no file or process IO at 
 
 Neither review had caught the permission fault. A rehearsal is not a full run either: it builds modules from the bottom of the import graph only and does not reach a failed build, the second build pass, the completeness check, the axiom check on the final theorem, the prefix pass, or the deadline. Those remain reviewed and, where possible, tested on a small project.
 
-Two optional tests could lower the cost: the kernel checker at 16, 24 and 32 at once, which the full run now does in its first fifteen minutes of replay, and the kernel checker given many modules per process, which it does not, because that would change how criterion C3 is carried out.
+Two optional tests could lower the cost: the kernel checker at 16, 24 and 32 at once, which the full run now does in its first fifteen minutes of replay, and the kernel checker given many modules per process. The second is now an option (`rhv-replay`, section 8.5), off by default, because it changes how criterion C3 is carried out and so needs a dated amendment to the pre-registration.

@@ -1,0 +1,408 @@
+{
+ "what": "First review of the two-method kernel replay (scripts/verify/replay, kernel_check_batch.sh, the replay summary, and the cloud guest's changes), 2026-11-20. Five AI reviewers, one lens each; then one AI sceptic per reviewer re-checked that reviewer's findings. Their text is given as returned, apart from the removal of private paths. What was changed in response is in docs/cloud-notes.md, section 9.",
+ "reviewers": [
+  {
+   "lens": "batch-and-script",
+   "examined_and_found_sound": [
+    "Pairing of driver lines with batch lines: the name check and the kind check, the fd 3 read kept in step, and n written only after record(). Out-of-step and crash paths re-tested with a stand-in under bash 3.2: correct rows, the rest restarted.",
+    "Signals sent to the process group: SIGTERM, SIGHUP and SIGINT (with default disposition) kill the batch script, so nothing is recorded for the modules in progress, finished rows are kept, and the EXIT trap removes the work dir. The reader subshell does not inherit the EXIT trap.",
+    "SIGKILL to the driver alone gives 137 (not_run) and a restart. Rows are written only from REPLAY_OK/REPLAY_FAIL lines whose name matches the expected module, so no module is recorded as passed without a finished replay.",
+    "PIPESTATUS[0] is read right after the pipeline. Process substitution, mktemp -d with a template, split -l -a 6, find -print0 | xargs -0 -n 1 -P are portable between bash 3.2/BSD and bash 5/GNU.",
+    "Loop termination: left shrinks by at least one line per iteration. Each append to results.tsv is a single short O_APPEND write.",
+    "The leanchecker path in 09 is unchanged apart from passing --method leanchecker, the 6th column, and a prefix pass gated on the method. The prefix plan defaults to --method leanchecker. Old 5-column rows are read as leanchecker.",
+    "Module names with spaces or odd characters lead to out_of_step and 96, never to a false pass."
+   ],
+   "findings": [
+    {
+     "title": "A kernel rejection can be turned into 'not checked' (96) by text in the error message",
+     "severity_as_reported": "medium",
+     "where": "scripts/verify/kernel_check_batch.sh line 57 (the same pattern already existed at scripts/verify/kernel_check_one.sh line 57)",
+     "scenario": "The grep that marks a REPLAY_FAIL as 96 ('nothing was checked') runs over the whole error text. That text comes from Environment.replay and includes declaration names, which the author of the module chooses. Take a tampered .olean whose kernel-rejected declaration is named «No such file or directory» or «failed to open file». The kernel error then reads something like \"(kernel) declaration type mismatch, 'Foo.«No such file or directory»'\" and matches the grep. The module is recorded 96, which the summary counts as not_run (remaining), not failed. It is retried forever. A full run exits 3 ('not yet complete, run again') instead of 1 ('a module failed'), and FAILED shows 0. The module is never counted as passed, but the failure is hidden.",
+     "suggested_fix": "Classify as 96 only when the error is the driver's own lookup or open failure. Either have RhvReplay.lean print a separate status word (for example REPLAY_NOFILE) for the findOLean, pathExists and readModuleDataParts IO errors, or anchor the pattern to the start of the message (for example ^REPLAY_FAIL \\S+ [0-9]+ (object file '|failed to open file)) and exclude any message that starts with '(kernel)'. Apply the same tightening to kernel_check_one.sh.",
+     "evidence": "Line 57 greps \"$line\" (the whole REPLAY_FAIL line) for 'failed to open file|Permission denied|No such file or directory|object file .* does not exist|unknown module prefix'. rhv_tools.py replay_state maps 96 to not_run, and the summary counts not_run as remaining.",
+     "second_agent": {
+      "verdict": "confirmed",
+      "severity": "medium",
+      "reason": "kernel_check_batch.sh:57 runs the 'nothing was checked' pattern over the whole REPLAY_FAIL line, and kernel_check_one.sh does the same over the whole checker output. In the toolchain's Lean/Replay.lean, line 136 wraps every replay failure as \"while replaying declaration '{name}': ...\", and throwKernelException (line 56) prints the kernel's message, which also names constants. Both contain names the module's author chooses. A rejected declaration named Foo.«No such file or directory» therefore matches the pattern and is recorded as 96. rhv_tools.py lists 96 in NOT_RUN_STATUSES, so the module counts as remaining, not failed: FAILED stays at 0, the run exits 3 instead of 1, and every retry repeats this. The module is never counted as passed and its .replay.out is kept, so the effect is a hidden failure rather than a false pass.",
+      "fix": "Have RhvReplay.lean say when the error is its own lookup or open failure. Either print a separate status word (REPLAY_NOFILE) when findOLean, pathExists or readModuleDataParts fails, before any replay starts, and map only that word to 96. Or anchor the pattern to the start of the error text (for example ^REPLAY_FAIL \\S+ [0-9]+ (object file '|failed to open file|unknown module prefix)) and never use 96 when the text contains 'while replaying declaration' or '(kernel)'. For kernel_check_one.sh, match only the checker's own open and lookup messages at the start of a line, and never when the output contains 'while replaying declaration'."
+     }
+    },
+    {
+     "title": "Setup failures in the rhv-replay path exit with 1, which the exit-status contract reserves for 'a module failed'",
+     "severity_as_reported": "low",
+     "where": "scripts/09_kernel_replay.sh lines 158-159 (mkdir/split use die), lines 89-91 (new --batch/--method/--prefix-modules checks); die is defined in scripts/lib.sh line 27 as exit 1",
+     "scenario": "Suppose split cannot write the batch files under RH_REPLAY_DIR/tmp (for example a full disk), or --method rhv-replay --prefix-modules is given. 09 exits 1. The header says 1 = 'any module has failed' and 2 = 'could not run'. The cloud guest records that number as F_C3 / C3_PREFIX_RC, so a run that checked nothing reads as a C3 failure.",
+     "suggested_fix": "Use the existing pattern { echo ERROR...; exit 2; } for these new checks (and for the --sample/--seed checks too).",
+     "evidence": "lib.sh:27 die() { ...; exit 1; }. 09 header lines 61-63 give the exit-status contract.",
+     "second_agent": {
+      "verdict": "confirmed",
+      "severity": "low",
+      "reason": "die in scripts/lib.sh exits 1. These die calls are new in this diff: the --method, --batch and --prefix-modules checks, mkdir \"$TMP\", mkdir \"$TMP/plan\" and split. The header of 09_kernel_replay.sh says 1 means a module failed and 2 means it could not run. The cloud guest's replay() stores that number as C3_RC, C3_STOCK_RC or C3_PREFIX_RC. So a run that checked nothing, for example because split failed on a full disk, reads as a C3 failure. The guest never passes --prefix-modules together with rhv-replay, so that case is reachable only by hand. The disk-full and mkdir cases can really happen.",
+      "fix": "For these checks, use the existing pattern { echo \"ERROR: ...\" >&2; exit 2; } in place of die, or define a die2 helper that exits 2."
+     }
+    },
+    {
+     "title": "A driver that dies before it starts the first module gets every module of the batch recorded as crashed (failed)",
+     "severity_as_reported": "low",
+     "where": "scripts/verify/kernel_check_batch.sh lines 70-82 (and RhvReplay.lean main, which prints nothing when it starts a module)",
+     "scenario": "Suppose rhv-replay is killed by a signal during startup, before any replay: SIGABRT from the runtime, SIGSEGV from a bad shared library, or a ulimit. The batch script charges the status to module n+1, restarts the driver, and the same thing happens again. Tested with a stand-in that runs kill -ABRT $$: all 4 modules were recorded with status 134. The summary then reports every module of every batch as FAILED (checker crashed), and none of them was ever replayed. The same thing happens if the driver crashes after one module's replay finished but before its line was flushed. The leanchecker method behaves the same way (one process per module), and --retry-failed tries the modules again, so the effect is limited.",
+     "suggested_fix": "Have the driver print 'REPLAY_START <module>' (flushed) before each replay. Charge a crash to a module only if its START line was seen; otherwise record 96.",
+     "evidence": "Stand-in run in my own temp dir: results.tsv lines A.a..A.d all '134 0 sN ... rhv-replay'.",
+     "second_agent": {
+      "verdict": "confirmed",
+      "severity": "low",
+      "reason": "In kernel_check_batch.sh lines 70-82, the 'cannot run here' branch (all_not_run) is taken only when rc < 128 and n == 0. If the driver is killed by any signal other than KILL or TERM before it prints anything, the status is charged to line n+1 as a crash: for example SIGABRT or SIGSEGV in initSearchPath, findSysroot or the runtime start-up. The script then starts the driver again on the rest, it dies the same way, and every module in the batch is recorded with that status. RhvReplay.lean's main prints nothing when it starts a module, so there is no way to tell a start-up death from a death during a replay. The result is a false FAILED, not a false pass, and --retry-failed tries the modules again, so the effect is limited.",
+      "fix": "In main, print and flush 'REPLAY_START <module>' before each replay. In the batch script, charge a signal status to a module only if its START line was seen. Otherwise record 96 and stop the batch (call all_not_run on the rest) instead of restarting the driver in a loop."
+     }
+    },
+    {
+     "title": "Rows for modules that were not checked (96/137) count toward the measured trial rate",
+     "severity_as_reported": "low",
+     "where": "cloud/gcp/full_guest.sh line 742 (counts every results.tsv row in the window), fed by kernel_check_batch.sh record() / all_not_run()",
+     "scenario": "In a trial at a high job count, the OOM killer kills rhv-replay processes. Each kill appends a 137 row and the driver restarts for the rest of the batch. A driver that cannot run appends 25 rows of 96 at once. The awk counts every row whose epoch falls in the window, whatever its status. The rate is overstated, so the trial with the most kills can be chosen as CHECK_JOBS, or C3_FITS can become 1 when the tree cannot really be covered. The main replay then runs uncapped for hours.",
+     "suggested_fix": "Count only rows with $2==0 (or rows whose status is not 96, 137 or 143), and count distinct modules.",
+     "evidence": "awk -F'\\t' 'NR>1 && $5>=a && $5<=b {n++}' has no test on $2. Likewise n_checked (line 722), which is used for togo, counts all rows.",
+     "second_agent": {
+      "verdict": "confirmed",
+      "severity": "low",
+      "reason": "The trial-rate awk at full_guest.sh line 742 is 'NR>1 && $5>=a && $5<=b {n++}' and does not test $2. Each row with status 137, 143 or 96 counts as a module finished. n_checked counts every row of results.tsv, and the togo figure is taken from it. Rows of 96 or 137 that will be retried therefore make togo too small, and C3_NEED with it. Each OOM kill adds one row, so the overstatement grows with the number of kills, and the job count with the most kills can look best. A driver that cannot run at all writes a whole batch of 96 rows at once, but s_driver_test should catch that before the trials. In practice the error is a modest overstatement that can tip C3_FITS to 1. The main replay is still bounded by the time left, but it is no longer cut to C3_SHORT_CAP.",
+      "fix": "In the trial awk, count only rows with $2==0 or $2==1 (rows that were really checked), or at least leave out 96, 137 and 143. Count distinct modules ($1) rather than rows. Compute togo from the summary's 'remaining' (c3_summary or replay-summary) rather than from the raw row count."
+     }
+    }
+   ]
+  },
+  {
+   "lens": "summary-logic",
+   "examined_and_found_sound": [
+    "Classification across method pairs (ran on a synthetic tree): passed+stale gives passed, passed+not_run gives passed, crashed+passed gives failed, crashed and disagreeing, failed+stale gives failed, no result or stale/not_run only gives remaining. A missing or empty .olean.hash gives None, which makes any result stale and blocks completion through no_stamp.",
+    "complete needs structure_ok, no failures and no remaining. complete_by_X needs every compiled module passed by X and no failure by either method. Exit status is 1 on any failure (crashed included) and 3 with --require-complete when incomplete.",
+    "replay-plan: leanchecker leaves prefix modules out of the main pass and puts them in --prefix-modules; rhv-replay includes them in the main pass. --retry-failed leaves out only modules this method passed; --list gives a note for unknown or ineligible names; --sample with a seed is deterministic; modules with no stamp are never planned.",
+    "Old 5-column result lines are attributed to leanchecker; a non-numeric status counts as failed; the header line is skipped.",
+    "lib_files tests the longer suffixes first, so .olean.server/.olean.private are not taken for .olean, and .olean.hash is not matched.",
+    "The JSON keys the guest reads ('remaining', 'prefix_remaining') still exist; facts.json copies the summary except 'prefix_modules'.",
+    "The toolchain span (replayFromImports up to replayFromFresh) has nothing between the two definitions in v4.33.1, so the character-for-character comparison is meaningful for the body itself."
+   ],
+   "findings": [
+    {
+     "title": "replay-driver-check compares only the text from the `unsafe def` keyword on, so an attribute placed just before it can swap the function out and the check still returns 0",
+     "severity_as_reported": "medium",
+     "where": "scripts/verify/rhv_tools.py cmd_replay_driver_check, block() (start = text.find(\"unsafe def replayFromImports\"))",
+     "scenario": "RhvReplay.lean gets `unsafe def fakeReplay (module : Name) : IO Unit := pure ()` and `@[implemented_by fakeReplay]` on the line right before the verbatim `unsafe def replayFromImports`. The compared span starts at `unsafe def`, so the attribute line is not in it. replay-driver-check prints 'identical' and exits 0, but the built driver runs fakeReplay, which does nothing, and prints REPLAY_OK for every module. The rest of the file is not compared either (for example `main`), but this case leaves the checked text itself unchanged.",
+     "suggested_fix": "Start the compared span at the end of the previous declaration (just after `open Lean`), or refuse any text between `open Lean` and the definition other than blank lines. Also reject `implemented_by`, `extern`, `macro`/`macro_rules`/`elab`, `attribute [` and `set_option` anywhere in the driver file, or compare the whole file against a pinned hash that covers `main` too.",
+     "evidence": "In my own temp dir I made Evil.lean (the real driver plus those two lines) and ran replay-driver-check against the toolchain's LeanChecker.lean: rc=0, 'identical in both files (1131 characters ...)'. A small Lean 4.33.1 file `unsafe def fake ... ; @[implemented_by fake] unsafe def real ... ; main := real 3` printed 'fake' under `lean --run`, so the attribute does take effect.",
+     "second_agent": {
+      "verdict": "partly",
+      "severity": "low",
+      "reason": "The code matches the description. rhv_tools.py:962 sets start = text.find(\"unsafe def replayFromImports\") and the span ends at \"unsafe def main\", so nothing before the def (lines 26-29 of RhvReplay.lean, or an attribute inserted there) is compared. The severity is overstated, though. The check only ever covered this one function: `main` (RhvReplay.lean:55-79), which prints REPLAY_OK, is not compared at all. So a hostile or careless edit of main defeats the check just as fully without any attribute trick. The rest of the driver is protected only by review of the committed tools source, the tools_commit recorded in facts.json, and the built binary's sha256 (full_guest.sh:409, 644). An attribute line cannot be added by accident, which is the kind of drift this check exists to catch. It is a gap between what the check says (\"identical\") and what it guarantees, not a plausible path to a wrong result.",
+      "fix": "Smallest fix: in block(), require that the driver text between the end of the `open Lean` line and `unsafe def replayFromImports` is whitespace only (or start the compared span at `open Lean` in both files, if the toolchain's preamble matches). Better: also pin a sha256 of the whole RhvReplay.lean, recorded beside the check output, so that `main` is covered too."
+     }
+    },
+    {
+     "title": "c3_left in the guest counts prefix modules twice under the new summary keys; cloud README names a key that no longer exists",
+     "severity_as_reported": "low",
+     "where": "scripts/verify/rhv_tools.py cmd_replay_summary JSON keys 'remaining'/'prefix_remaining' (read by cloud/gcp/full_guest.sh:723-726); cloud/gcp/README.md:105",
+     "scenario": "In the old version 'remaining' counted only non-prefix modules, and prefix modules were counted separately. Now 'remaining' covers every compiled module, prefix modules included, and 'prefix_remaining' is a subset of it. So c3_left (remaining + prefix_remaining) reports each unchecked prefix module twice, and the 'N modules without a result' message is too high. The `!= 0` loop test still works, because both are 0 at the same time. Separately, README.md:105 tells the reader of facts.json to check that `prefix_failed` is 0, but the summary no longer has that key, so the C3 criterion as written cannot be checked.",
+     "suggested_fix": "Make c3_left read d[\"remaining\"] alone. Update README.md:105 to say `failed`, `methods_disagree` and `modules_with_unexpected_parts` are 0 and `complete` is true.",
+     "evidence": "Synthetic tree in my temp dir with prefix module A left unchecked: remaining includes A and prefix_remaining=1. Diff: the old summary had 'prefix_failed', 'prefix_passed' and 'eligible'; the new one has none of them. grep finds prefix_failed only in cloud/gcp/README.md.",
+     "second_agent": {
+      "verdict": "confirmed",
+      "severity": "low",
+      "reason": "In the new replay_state, `remaining` takes every compiled module with no pass or fail, prefix modules included. cmd_replay_summary sets prefix_left = [m for m in prefix if m in remaining], so it is a subset. full_guest.sh:725 prints d[\"remaining\"] + d[\"prefix_remaining\"], which counts each unchecked prefix module twice. The only uses are the `!= 0` test at line 776, which is still right because both are zero together, and the 'N modules without a result' message at line 778, which is inflated. Separately, the old summary JSON had prefix_failed, but the new one does not. README.md:105 still tells the reader to check that `prefix_failed` is 0, a key no longer in c3_kernel_replay.summary. Only documentation and a log message are wrong; no verification result is.",
+      "fix": "In c3_left, print d[\"remaining\"] alone. Change README.md:105 to: `complete` is true; `failed`, `methods_disagree` and `modules_with_unexpected_parts` are 0."
+     }
+    },
+    {
+     "title": "Any result line whose 6th field is missing or not an exact method name counts as the stock tool's",
+     "severity_as_reported": "low",
+     "where": "scripts/verify/rhv_tools.py replay_state, `method = f[5] if len(f) > 5 and f[5] in REPLAY_METHODS else \"leanchecker\"`",
+     "scenario": "The intended case is old 5-column lines. But an rhv-replay line cut short after the stamp field (e.g. 'M\\t0\\t1.2\\t<stamp>' when the disk fills), or one with a misspelled or future method name, is credited to leanchecker. If such a line passes, it raises passed_by_leanchecker and can make complete_by_leanchecker_alone true for a module the stock tool never checked. It can also replace a real leanchecker result for that module, since only the last line per (module, method) is kept.",
+     "suggested_fix": "Fall back to leanchecker only when len(f) == 5, i.e. a complete old-format line. Ignore and count lines with other field counts or an unknown method, and report that count in the summary.",
+     "evidence": "Read the code; old-format lines in my synthetic results.tsv ('C\\t0\\t1\\th_C\\t1') were counted under leanchecker as expected, and the same branch accepts any line with 4 or more fields.",
+     "second_agent": {
+      "verdict": "confirmed",
+      "severity": "low",
+      "reason": "rhv_tools.py:800-801 accepts any line with 4 or more fields. It uses f[5] as the method only when it is exactly a known name, and otherwise credits the line to leanchecker. The writers (kernel_check_one.sh:42/61, kernel_check_batch.sh:31) always write 6 fields, so this happens only with a damaged line. One such case: a partial append on a full disk, after which the next append runs onto the unterminated line, e.g. 'M\\t0\\t1\\t<stamp>\\t17N2\\t0\\t...'. Here f[5] is '0' and the module's stamp is intact, so M is credited to leanchecker as passed, and the merged module N2 loses its line. The rc 0 did come from a real rhv-replay pass, so no unreplayed module is counted as passed. The effects are that passed_by_leanchecker and complete_by_leanchecker_alone are inflated, and that the line can replace a real earlier leanchecker failure for M as the last (M, leanchecker) entry, which hides a methods disagreement. It needs a damaged results file, so the severity is low.",
+      "fix": "Use the leanchecker fallback only when len(f) == 5 (a complete old-format line). Require len(f) == 6 with f[5] in REPLAY_METHODS otherwise. Skip all other lines, count them, and report the count in the summary and JSON (and keep `complete` false while it is non-zero)."
+     }
+    }
+   ]
+  },
+  {
+   "lens": "cloud-guest",
+   "examined_and_found_sound": [
+    "bash -n passes on full_guest.sh and pilot_local.sh",
+    "Metadata keys match between pilot_local.sh and the guest: full-replay-method, full-stock-sample, full-c3-short-cap, full-watchdog-finish-wait (plus the existing ones). GCP_REPLAY_METHOD and GCP_STOCK_SAMPLE are validated locally.",
+    "Watchdog vs max run time. Full: takeover at most at deadline + 600 + 1800 = 150,000 s, against MAXRUN 151,200. Rehearsal: 3300 + 300 + 480 = 4080 s, against 4500. Both leave some margin for boot delay and the takeover uploads.",
+    "With the recorded rehearsal timings (trials end about 870 s after start), the rehearsal with rhv-replay still fits STOCK_NEED=1350 inside 3300 - 870 - 300 s",
+    "Trials that yield zero results: best=0 gives C3_RATE=0 and C3_NEED = togo*TRIAL_SECS (0 if nothing is left to do). No division by zero. Arithmetic stays 64-bit.",
+    "Under set -u every variable the check phase uses is initialised (C3_FITS, C3_STOCK_RC, DRIVER, DRIVER_SAME and others). The no-trial path leaves C3_FITS empty, which is treated as fits (as before).",
+    "replay(): $4 is expanded unquoted inside the bash -c string, so '--method leanchecker --sample N' and '--method leanchecker --prefix-modules' split into separate arguments correctly. Labels are unique per call.",
+    "as_chk passes RH_WORKDIR, RH_JOBS, PATH with /opt/lean-tc/bin first, and RH_REPLAY_DRIVER. 09 then finds leanchecker and ../src/lean/LeanChecker.lean via command -v lean and skips its own build. The driver's findSysroot resolves through PATH to /opt/lean-tc.",
+    "Checker users cannot write to /opt/rhv-replay (seal touch test plus find over owner and perms). The driver is linked statically (supportInterpreter only adds -rdynamic on Linux). The local driver build has no symlinks that would trip -perm /go+w.",
+    "s_driver sets DRIVER and TC_DIR in the main shell (t_step does not use a subshell), and s_driver runs before s_smoke, the first compile of a proof file",
+    "c3_left keys (remaining, prefix_remaining) exist in the new replay-summary JSON",
+    "facts.json embedded Python runs and produces the new c3 keys for both methods (tested in a scratch copy with sample environment variables)",
+    "The stock sample is drawn from the non-prefix, stamped modules and skips those already passed by leanchecker. The prefix pass runs alone with --prefix-modules."
+   ],
+   "findings": [
+    {
+     "title": "The stock-tool reserve alone can cut the rhv-replay main pass to one hour",
+     "severity_as_reported": "medium",
+     "where": "cloud/gcp/full_guest.sh:730, 756, 765-771",
+     "scenario": "Full run with rhv-replay. The fit test is C3_NEED + STOCK_NEED <= left - FINAL_RESERVE, with STOCK_NEED = 2000 + 1200 = 3200 s. Take a build that ran long, so that after the trials left is 27,000 s and the measured C3_NEED is 24,000 s. The main pass alone fits (24,000 <= 25,500), but 24,000 + 3,200 does not, so C3_FITS=0. The main replay is then capped at C3_SHORT_CAP (3600 s, about 15% of the tree) and the retry loop is skipped. The stock sample (about 1,800 s) and the prefix pass then get all the remaining time, and the run ends DONE with hours unused. Most of the tree could have been covered: C3 coverage is lost because of the secondary comparison pass, not the primary one.",
+     "suggested_fix": "Decide the cut on C3_NEED alone, or, when only STOCK_NEED tips it over, shrink the stock sample or the prefix allowance instead of capping the main pass. At least record in facts.json which term caused C3_FITS=0.",
+     "evidence": "Lines 756 and 766-769: the cap is applied whenever C3_FITS=0, and C3_FITS includes STOCK_NEED. The stock and prefix passes (785-796) then use left - FINAL_RESERVE without limit.",
+     "second_agent": {
+      "verdict": "confirmed",
+      "severity": "medium",
+      "reason": "full_guest.sh:730 sets STOCK_NEED = STOCK_SAMPLE + 1200 (3200 s by default). Line 756 sets C3_FITS from C3_NEED + STOCK_NEED <= left - FINAL_RESERVE. Lines 766-769 then cap the main pass at C3_SHORT_CAP (3600 s) whenever C3_FITS=0, and line 776 skips the retries. With left=27000, FINAL_RESERVE=1500 and C3_NEED=24000, the main pass alone fits (24000 <= 25500), but 27200 > 25500, so the main pass gets 3600 s instead of the roughly 22300 s it could have had. Line 765 already holds STOCK_NEED back from the main pass, so the cap is not needed to protect the stock passes. It only throws away most of the C3 coverage. The deep axiom walk is also deferred for the same reason (line 761).",
+      "fix": "Decide the cap on the main pass alone: apply C3_SHORT_CAP only when C3_NEED > left - FINAL_RESERVE (line 765 still keeps STOCK_NEED back). Keep the combined test for the deep-walk-before decision if wanted, and record both tests in facts.json."
+     }
+    },
+    {
+     "title": "Trial rate counts results that are not checks (96, 137, 143)",
+     "severity_as_reported": "low",
+     "where": "cloud/gcp/full_guest.sh:742 (awk over results.tsv column 5)",
+     "scenario": "During a trial at 32 jobs, rhv-replay processes are killed (for example by OOM). kernel_check_batch.sh writes a 137 line for each killed module and immediately starts a new process, so 'not checked' lines arrive quickly. They are counted as throughput. The trial at 32 then wins, and C3_NEED and C3_FITS rest on an inflated rate. Status-96 lines (driver cannot run) inflate it the same way.",
+     "suggested_fix": "Count only lines whose status is 0 or 1 (or below 128 and not 96).",
+     "evidence": "The awk condition is only NR>1 && $5>=a && $5<=b. It has no test on $2.",
+     "second_agent": {
+      "verdict": "partly",
+      "severity": "low",
+      "reason": "The defect exists. The awk at full_guest.sh:742 counts every line in the time window and never looks at column 2. The OOM scenario is overstated, though. kernel_check_batch.sh writes a 137 line only for the module in flight, and then starts a new driver, which must load the imports again. Killed modules therefore do not produce lines faster than real checks. The real inflation comes from status 96. all_not_run writes a 96 line at once for every module of a batch when the driver cannot start, and the driver also writes 96 for 'failed to open file'-type errors. s_driver_test makes the first case unlikely.",
+      "fix": "In the awk, count only $2==0 || $2==1 (for example add `&& ($2==0 || $2==1)` to the condition)."
+     }
+    },
+    {
+     "title": "Driver is built by root from the pilot-owned toolchain, which is not re-verified at build time",
+     "severity_as_reported": "low",
+     "where": "cloud/gcp/full_guest.sh:397-411 (s_driver), called at 441 before s_lockdown and with no kill_users",
+     "scenario": "root runs $TC_BIN/lake (and through it lean, leanc, the bundled clang and the linker) from <HOME>/.elan, which pilot can write. Any pilot process still alive after `lake exe cache get` could alter the toolchain after s_baseline, during the build, and restore it later. The seal (601-606) compares only contents at seal time and the binary's own sha256 recorded after the build, so a tampered driver would go undetected. leanchecker, by contrast, runs from /opt/lean-tc, which is verified against the baseline. The claim 'before any file of the proof is compiled' itself holds: s_driver runs before s_smoke.",
+     "suggested_fix": "Before building, kill_users pilot, copy TC_DIR to a root-only directory, compare that copy to baseline_tc.txt, and build from it. Optionally fail if ldd lists any library outside /lib or /usr/lib.",
+     "evidence": "s_driver uses TC_BIN from s_baseline (<HOME>/.elan/...). Nothing is killed or locked between s_cache and s_driver. ldd output is logged but never checked.",
+     "second_agent": {
+      "verdict": "confirmed",
+      "severity": "low",
+      "reason": "s_baseline (line 387) sets TC_BIN from pilot's `elan which lean`, so it points under <HOME>/.elan. s_driver (lines 397-411) runs `$TC_BIN/lake build` as root from there right after s_baseline. Nothing kills pilot's processes between s_cache, which runs the project's and Mathlib's lake code as pilot, and s_driver (kill_users first appears at line 536). Root is therefore running binaries that pilot can write, and the result is not checked against baseline_tc.txt. The seal (lines 601-615) checks the toolchain only at seal time, so a tamper-and-restore in between would pass unnoticed. ldd output is logged but never checked. The threat needs hostile code in the build user's session, hence low.",
+      "fix": "In s_driver, kill_users first, then copy TC_DIR to a root-only directory (as the seal does for /opt/lean-tc). Run tc_manifest on the copy, cmp it with baseline_tc.txt, and build with that copy's lake/lean."
+     }
+    },
+    {
+     "title": "c3_left can never reach 0 when a compiled file has no .hash, so retries are wasted",
+     "severity_as_reported": "low",
+     "where": "cloud/gcp/full_guest.sh:723-726, 776; scripts/verify/rhv_tools.py replay_state/cmd_replay_plan",
+     "scenario": "A module whose .olean has no .olean.hash is counted in 'remaining' (it has no current status) but is never planned (the plan requires has_stamp). The retry loop therefore always makes both extra passes. Each pass is a full 09 run with a walk of 175k files, a plan and a summary. This is likely in a time-boxed rehearsal, where the build is cut off by TERM.",
+     "suggested_fix": "Exclude never-finished modules from the retry condition (for example, subtract compiled_files_never_finished_by_the_build), or stop when a pass reduces nothing.",
+     "evidence": "remaining includes every compiled module with no passing or failing status. eligible requires has_stamp. c3_left = remaining + prefix_remaining.",
+     "second_agent": {
+      "verdict": "confirmed",
+      "severity": "low",
+      "reason": "In rhv_tools.py replay_state, a module with stamps[mod]=None gets status 'stale' or none, so it goes into `remaining`. cmd_replay_plan plans only modules in has_stamp. c3_left (full_guest.sh:723-726) adds remaining and prefix_remaining, so it stays above 0, and the loop at line 776 always runs both extra passes. Each pass does a full plan walk plus a summary over the whole tree but replays nothing new. The cost is limited to that overhead, a few minutes or so per pass.",
+      "fix": "Have the loop condition subtract compiled_files_never_finished_by_the_build (or test only plannable modules), or stop retrying when a pass does not lower c3_left."
+     }
+    },
+    {
+     "title": "Stock sample is not limited to its share, so it can starve the prefix pass",
+     "severity_as_reported": "low",
+     "where": "cloud/gcp/full_guest.sh:785-796",
+     "scenario": "With C3_FITS=1, the stock sample is given t = left - FINAL_RESERVE, which is the whole STOCK_NEED (3200 s), including the 1200 s meant for the prefix pass. The recorded cost for leanchecker is 28.5 s a check at 32 jobs (replay_cost.json), so 2000 modules take about 1,780 s. Any slowdown pushes the prefix pass under 120 s and it is skipped, and the prefix modules are then checked by rhv-replay alone.",
+     "suggested_fix": "Give the stock sample at most left - FINAL_RESERVE - 1200.",
+     "evidence": "Stock: t=$(( $(left) - FINAL_RESERVE )). Prefix: recomputed afterwards, run only if >= 120.",
+     "second_agent": {
+      "verdict": "partly",
+      "severity": "low",
+      "reason": "It is true that line 785 gives the stock sample all of left - FINAL_RESERVE, and that the prefix pass (line 791) only gets what is left, if that is at least 120 s. The scenario is overstated, though. The sample is bounded by its size, not by time: at the recorded ~28.5 s per check over 32 jobs, 2000 modules take about 1780 s, which leaves about 1400 s of the 3200 s reserve. The stock pass would need to run about 70% slower than recorded before the prefix pass dropped under 120 s. Also, when C3_FITS=1 the main pass often finishes early and leaves extra slack. Even if the prefix pass is skipped, the prefix modules still have their rhv-replay results, so only the comparison is lost.",
+      "fix": "Give the stock sample at most left - FINAL_RESERVE - 1200 (with a floor of 120 s)."
+     }
+    },
+    {
+     "title": "Watchdog's pkill -x timeout at the deadline can kill the report's replay-summary",
+     "severity_as_reported": "low",
+     "where": "cloud/gcp/full_guest.sh:324 vs c3_summary at 203",
+     "scenario": "If finish() is already running its report when the deadline passes, the watchdog's 'pkill -TERM -x timeout' kills 'timeout 900 python3 ... replay-summary'. c3_summary.json then stays stale (from the last pass, before the stock and prefix passes), and facts.json reports that older summary.",
+     "suggested_fix": "Skip the pkill when $PD/FINISHING exists, or have the report call replay-summary without timeout.",
+     "evidence": "The watchdog TERMs every 'timeout' process once at the deadline. c3_summary runs its python under timeout.",
+     "second_agent": {
+      "verdict": "partly",
+      "severity": "low",
+      "reason": "The kill can happen: report() (line 278) calls c3_summary, which runs python under `timeout 900`, and the watchdog's `pkill -TERM -x timeout` (line 324) would kill it if finish() had already reached that call when the deadline passed. The claimed effect is wrong, though. c3_summary already ran at line 798, after the stock and prefix passes. Nothing writes results.tsv between that call and finish(), so the c3_summary.json that is left is the current one, not an older one. write_json replaces the file atomically, so the json is never half-written. In every other path the TERM arrives while the main script is blocked on a child, so the pkill happens before finish reaches c3_summary. The only real harm is that `> \"$PD/c3_summary.txt\"` truncates the text summary before python runs, so a truncated or empty summary.txt is uploaded.",
+      "fix": "Have the watchdog skip the pkill when $PD/FINISHING exists, or have c3_summary write the text to a temp file and move it into place only on success."
+     }
+    }
+   ]
+  },
+  {
+   "lens": "semantics",
+   "examined_and_found_sound": [
+    "replayFromImports in RhvReplay.lean matches the toolchain's LeanChecker.lean character for character. The two programs locate files the same way: leanchecker lists files but still opens each module through findOLean inside replayFromImports, and rhv-replay calls findOLean directly, with the same search path (initSearchPath + findSysroot + LEAN_PATH).",
+    "Kernel errors arrive through IO.asTask/Task.get as .error: replay throws an IO.userError 'while replaying declaration ...'. A real kernel rejection (debug.skipKernelTC-built theorem False := Nat.zero) gives REPLAY_FAIL from rhv-replay and exit 1 from leanchecker. Running it in batches before and after good modules, and repeating it, gave the same verdicts, so no state carried over to change a later result.",
+    "Panics, unreachable!, and handling of duplicate theorems are the same code in both programs. In both, a panic goes to stderr and does not change the exit path.",
+    "A module with no constants (Lib.Empty) gives REPLAY_OK and leanchecker exit 0.",
+    "String.toName edge cases: names with spaces, an empty component, a digit-leading component, or a leading/trailing dot become anonymous and give REPLAY_FAIL 'not a module name' (status 1). Foo.12 becomes Name.num and is reported as a missing file (96). Empty lines are filtered on both sides. A name starting with '-' gives a usage error, so the whole batch is filed 96. None of these can produce a pass.",
+    "Line protocol: each result is printed and flushed after its task finishes. A wrong name or unexpected stdout sets out_of_step and files 96. A SIGPIPE after the reader stops is overridden by out_of_step. A crash or kill is pinned on module n+1, which is conservative.",
+    "The global state between replays in one process (search path, extension registry, a fresh ImportState and realizeMapRef each time) has nothing a verdict depends on. freeRegions runs only after env' is the last reference, as in leanchecker.",
+    "On success memory stays flat across 40 replays in one process (365 MB, then 368 MB).",
+    "LEAN_NUM_THREADS=1 has no effect on the replay itself, which runs sequentially inside one task.",
+    "In replay_state, a module counts as passed only if some method passed it for the current .olean.hash and no method failed or crashed it, and a module with no hash is never current."
+   ],
+   "findings": [
+    {
+     "title": "A real kernel rejection is recorded as 96 (\"not run\") when the error text happens to contain one of the file-error phrases",
+     "severity_as_reported": "medium",
+     "where": "scripts/verify/kernel_check_batch.sh, the REPLAY_FAIL branch (grep -qE 'failed to open file|Permission denied|No such file or directory|object file .* does not exist|unknown module prefix'); kernel_check_one.sh has the same grep for leanchecker",
+     "scenario": "The wrapper greps the whole REPLAY_FAIL line, and that line includes the kernel's printed expected type. So if the rejected declaration's type, or its name, contains one of the phrases (for example a string literal \"No such file or directory\"), the rejection is filed as status 96. The summary then lists the module under \"checker not run or killed from outside ... run again\" and never as FAILED. Every retry gives 96 again. The module is never counted as passed and `complete` stays false, but a real kernel failure is shown as an infrastructure problem.",
+     "suggested_fix": "Only downgrade to 96 when the error did not come from the kernel replay. In the batch wrapper, skip the grep when the error text starts with \"while replaying declaration '\". Only Environment.replay produces that prefix, and the file and import errors come before it. Make the same change in kernel_check_one.sh, for example skip the downgrade when the output contains \"leanchecker found a problem in\" followed by \"uncaught exception: while replaying declaration\".",
+     "evidence": "In my own temp copy of the scratch project I built Lib.Bad2 with debug.skipKernelTC: a theorem of type Eq \"No such file or directory\" \"x\" whose value is Nat.zero. rhv-replay printed `REPLAY_FAIL Lib.Bad2 1420 while replaying declaration 'bad2': | (kernel) declaration type mismatch ... Eq \"No such file or directory\" \"x\"`, and kernel_check_batch.sh wrote `Lib.Bad2  96  1.4  <stamp>  ...  rhv-replay`. A module whose message has no such phrase (Lib.Bad) was correctly recorded as 1.",
+     "second_agent": {
+      "verdict": "confirmed",
+      "severity": "medium",
+      "reason": "In kernel_check_batch.sh, the REPLAY_FAIL branch runs `grep -qE 'failed to open file|Permission denied|No such file or directory|object file .* does not exist|unknown module prefix'` over the whole driver line. For a kernel rejection that line holds Environment.replay's message, `while replaying declaration '<name>': <kernel exception>` (Lean/Replay.lean line 136), and the kernel exception prints the declaration's name and its type or term. So a declaration named, say, «No such file or directory», or one whose type contains such a string literal, gets rc=96. The summary then lists the module as 'not run / run again' instead of FAILED, and every retry gives 96 again. The module is still never counted as passed and `complete` stays false, so there is no false pass. Because the tree being checked is a third-party claimed proof, the trigger can be crafted on purpose and cannot be ruled out. kernel_check_one.sh has the same downgrade for leanchecker, but that grep is older code: the diff touches only the line after it.",
+      "fix": "In kernel_check_batch.sh, downgrade to 96 only when the error text after the milliseconds field does not start with \"while replaying declaration '\". The file and import errors come from findOLean, readModuleDataParts and importModulesCore, all of which throw before replay starts. In kernel_check_one.sh, likewise skip the downgrade when the output contains \"while replaying declaration '\"."
+     }
+    },
+    {
+     "title": "Each failed replay keeps its imports' compacted regions in memory, so RSS grows within a batch",
+     "severity_as_reported": "low",
+     "where": "scripts/verify/replay/RhvReplay.lean main loop (the replay is copied from replayFromImports: freeRegions runs only on success, and the module's own parts are never freed)",
+     "scenario": "leanchecker exits after a failure, so the leak never matters there. rhv-replay goes on to the next module in the same process, and every REPLAY_FAIL, including the \"not run\" kind such as a missing import's olean, leaves that module's whole import closure in memory. A batch with several failures in a large import closure can grow until the OOM killer sends status 137. The remaining modules are then filed as not run, and the cloud spends time on restarts and retries. It never produces a wrong verdict.",
+     "suggested_fix": "Optional. After a REPLAY_FAIL, end the process (exit with the protocol's status) and let kernel_check_batch.sh start a new one for the rest of the batch, as it already does after a crash. Alternatively, keep batches small; the default is 25.",
+     "evidence": "40 replays of a failing module that imports Lean, in one process with LEAN_NUM_THREADS=1: maximum RSS 1.09 GB for 1 replay, 3.26 GB for 40 (about 55 MB more per failure). 40 replays of a passing module: 365 MB, then 368 MB.",
+     "second_agent": {
+      "verdict": "confirmed",
+      "severity": "low",
+      "reason": "In RhvReplay.lean, replayFromImports calls `env'.freeRegions` only after `env.replay` succeeds. If the replay throws, or importModulesCore or finalizeImport throws (for example a missing import olean), the regions of the imported modules already loaded are never freed. Leanchecker exits after a failure, so it never pays for this; rhv-replay goes on to the next module in the same process. The reviewer's measurement (about 55 MB more per failure, flat for passes) fits the code. The worst outcome is an OOM kill: status 137, a restart, and a retry. That never changes a verdict and matters only when failures are frequent.",
+      "fix": "After a REPLAY_FAIL, print the line, flush, and exit with status 1. kernel_check_batch.sh already starts a new process for the rest of the batch. It would then see rc<128 with n>=1 and record the next module as 96, so the wrapper must treat an exit right after a reported failure as a normal restart. The simpler alternative is to leave it as it is and keep batches small."
+     }
+    },
+    {
+     "title": "replay-driver-check compares only the text from `unsafe def replayFromImports` to `unsafe def main`, not everything that decides what code runs",
+     "severity_as_reported": "low",
+     "where": "scripts/verify/rhv_tools.py cmd_replay_driver_check, block() (start = text.find(\"unsafe def replayFromImports\"))",
+     "scenario": "The check never sees text just before the matched string, such as an attribute on the line above (`@[implemented_by other]`) or on the same line, a `set_option`, a change to `open`/`import`, or a change in `main` that calls something else. Any of these changes what the built program runs, and the check would still print \"identical in both files\". The check establishes that the definition's text is the same, but not that the binary runs exactly that definition, which is what the log message and the cloud record suggest.",
+     "suggested_fix": "Also compare the whole driver file with a pinned hash recorded in the repository, or check that the text before the definition is exactly the expected header (imports plus `open Lean`) and that `main` matches a pinned hash. Reword the message to say what is actually compared.",
+     "evidence": "By reading the code: the slice starts at the matched string and ends at the next \"unsafe def main\". Nothing else in RhvReplay.lean is compared or constrained.",
+     "second_agent": {
+      "verdict": "confirmed",
+      "severity": "low",
+      "reason": "In rhv_tools.py, cmd_replay_driver_check's block() slices from the first occurrence of \"unsafe def replayFromImports\" up to \"unsafe def main\". Nothing before the slice (attributes, set_option, imports, opens) or in `main` is compared. There is a slightly stronger variant: if an earlier comment contained the literal text \"unsafe def replayFromImports\", the compared slice would start there instead of at the real definition. The printed message ('replayFromImports: identical in both files') is accurate about what it compares. In full_guest.sh, s_driver records the built binary's sha256 but not the source file's. The driver source is in the owner's own repository, so this guards against drift rather than an adversary. In 09_kernel_replay.sh, an RH_REPLAY_DRIVER set in the environment skips the build, so the source check then says nothing about the binary used. Robustness nicety only.",
+      "fix": "Also record the sha256 of the whole RhvReplay.lean, plus lakefile.toml and lean-toolchain, in driver_check.txt / env.txt. Require exactly one occurrence of \"unsafe def replayFromImports\" in the driver. Optionally check that the text before it is exactly the expected header (the imports and `open Lean`)."
+     }
+    }
+   ]
+  },
+  {
+   "lens": "hands-on-tests",
+   "examined_and_found_sound": [
+    "rhv-replay on the 7-module copy with batch 3, jobs 2: 7 passed, exit 0. leanchecker on the same records afterwards: 7 passed by both, and the prefix pass wrote Lib.A.prefix.out.",
+    "Running leanchecker first and rhv-replay second gave the right counts each way: 'by both' and the planner's skip counts were correct.",
+    "Real driver interrupted with timeout -s TERM 1.5 and with timeout -s INT 1.5 (whole process group): only finished modules were recorded, nothing in flight was recorded as passed or failed, and the resume completed the rest. The leftover tmp/batch.* directory is removed by the next run.",
+    "Stand-in slow driver interrupted with SIGINT to the process group, then resumed with the real driver: 4 recorded, then 3 more, complete.",
+    "--prefix-modules with rhv-replay is refused with a clear error. --sample 3 --batch 1 --jobs 10 (more jobs than batches) works. --list with an unknown name and a comment line, at --batch 100 (larger than the plan), works for both methods; leanchecker skips the prefix module and Main correctly.",
+    "Old 5-column results.tsv (header with no method column): its lines are read as leanchecker. A stock failure (1) and a stock crash (139) that rhv-replay then passed are both reported as FAILED and listed under THE TWO METHODS DISAGREE; summary.json has failed=2, methods_disagree=2, complete=false; exit 1.",
+    "A deleted .olean.hash: the module is excluded from planning by both methods, reported as never finished by the build, and keeps the run from counting as complete.",
+    "Recompiling a module whose own .olean hash changes (Lib.B): its old results become stale and it alone is re-planned (but see the finding about its importers).",
+    "--summary works with no results file, and at each stage the numbers match results.tsv."
+   ],
+   "findings": [
+    {
+     "title": "A result stays 'current' after Lake recompiles the module against changed imports, because the stamp is only the module's own .olean hash",
+     "severity_as_reported": "medium",
+     "where": "scripts/verify/rhv_tools.py replay_state(): stamps / status() (r[3] != stamps[mod]); the claim is in the 09_kernel_replay.sh header, lines 36-38",
+     "scenario": "All 7 modules passed by both methods. I appended a theorem to src/Lib/B.lean and ran lake build. Lake reported 'Built Lib.Sub.C', 'Built Lib.D' and 'Built Main', but only Lib/B.olean.hash changed (de64d00f... to 14b01493...). The other three .olean.hash files are byte-identical. --summary then reports 'remaining 1 (of which recompiled since: 1)' and counts Lib.Sub.C, Lib.D and Main as passed for the current file. Their replays ran against the old environment of Lib.B, and a re-run rechecks only Lib.B. The header says modules are rechecked when 'compiled again since (Lake's content hash changed)'; that misses this case. It matters for local runs that overlap the build, or a tampering build user who swaps an imported module after its importers were replayed. The cloud seals the tree before C3, so the effect there is small. This stamp logic was already in HEAD, but both methods now inherit it.",
+     "suggested_fix": "Make the stamp cover the import closure. For example, key a result on the module's .trace (Lake's trace includes the dependencies' hashes), or on the module hash plus the stamps of its transitive imports.",
+     "evidence": "diff of every *.olean.hash before and after the rebuild changed only Lib/B.olean.hash; RH_WORKDIR=W 09 --summary: 'passed 6 ... remaining 1 (of which recompiled since: 1)'; the next --method rhv-replay run: 'selected 7 modules; 6 already have a current result; 1 to check now'.",
+     "second_agent": {
+      "verdict": "partly",
+      "severity": "low",
+      "reason": "Reproduced in my own copy of prune-test (scratchpad/v1.Wefy). I appended a theorem to Lib/B.lean and ran lake build. Lake rebuilt Lib.B, Lib.Sub.C, Lib.D and Main, but only Lib/B.olean.hash changed, so replay_state()/status() (rhv_tools.py ~786-814) keep the importers' old passes as current. The header of 09_kernel_replay.sh (lines 36-38) is therefore inaccurate. It does not give a wrong result for an honest build: the importers' .olean files are byte-identical and were accepted against the new B when they were compiled. It only matters if someone swaps an imported .olean and its .hash after the importers were replayed. That is an adversarial local case, and the cloud seals the tree before C3. Also not new in this change.",
+      "fix": "Key the stamp on the module's .trace, which includes the hashes of its dependencies. Alternatively, store the module hash together with a digest of its import-closure stamps. At minimum, correct the header claim."
+     }
+    },
+    {
+     "title": "A kernel rejection whose message contains one of the 'could not open' phrases is recorded as 96 (not run), so it shows as remaining, never as FAILED",
+     "severity_as_reported": "medium",
+     "where": "scripts/verify/kernel_check_batch.sh line 57 (the same idea for leanchecker at kernel_check_one.sh line 57)",
+     "scenario": "The whole REPLAY_FAIL line, kernel error text included, is grepped for 'Permission denied|No such file or directory|failed to open file|object file .* does not exist|unknown module prefix'. Kernel errors quote declaration names, and a module's author picks those names (for example «No such file or directory»). If the kernel rejects a declaration like that, the result is 96. The summary then lists the module under 'checker not run or killed from outside ... run again, with fewer jobs', never under FAILED, and every re-run records 96 again. A genuine rejection would appear only as 'not complete' (exit 3), described as an infrastructure problem. With rhv-replay covering the whole tree on the cloud, no other method's failure would surface it.",
+     "suggested_fix": "Have the driver mark which errors are I/O or file errors: print a distinct kind such as REPLAY_NOFILE when findOLean or readModuleDataParts fails, before the kernel is reached. Use 96 only for that kind and never pattern-match kernel text.",
+     "evidence": "Code reading. A REPLAY_FAIL line is '<kind> <module> <ms> <toString e>' with no separate error class, and the grep runs over the whole line.",
+     "second_agent": {
+      "verdict": "partly",
+      "severity": "low",
+      "reason": "Confirmed in the code: kernel_check_batch.sh line 57 greps the whole REPLAY_FAIL line, kernel message included, and kernel_check_one.sh line 57 greps the whole checker output. All five phrases contain spaces, so a declaration name can only match through «...» quoting, which takes a deliberate choice of names. The result is a module stuck in 'remaining' with exit 3, 'not complete'. It never becomes a pass, and out/<mod>.replay.out keeps the kernel error.",
+      "fix": "In RhvReplay.lean, print a separate kind (for example REPLAY_NOFILE) when findOLean or readModuleDataParts fails, before the kernel runs, and map only that kind to 96. For leanchecker, match the phrases only on lines that are not '(kernel)' errors."
+     }
+    },
+    {
+     "title": "Any program set in RH_REPLAY_DRIVER is recorded as 'rhv-replay'; nothing records which binary produced the passes",
+     "severity_as_reported": "low",
+     "where": "scripts/09_kernel_replay.sh lines 125-133; kernel_check_batch.sh record()",
+     "scenario": "With RH_REPLAY_DRIVER pointing at a stand-in that only echoes 'REPLAY_OK <m> 1000' (my slow.sh), 4 modules were recorded as passed by rhv-replay. A later run with the real driver skipped them ('4 already have a current result'), and the summary said 'every source module compiled and passing: yes'. replay-driver-check validates the source in the repo, not the binary that ran. A stale test setting of RH_REPLAY_DRIVER would silently produce passes in results.tsv that cannot be told apart from real ones.",
+     "suggested_fix": "Record the driver's sha256 in each result line (or in a sidecar file) and refuse to count passes from an unknown driver. Or allow the override only behind an explicit test flag.",
+     "evidence": "W2 run: python pg.py with RH_REPLAY_DRIVER=$T/slow.sh, interrupted, then resumed with the real driver. results.tsv lines 1-4 came from the fake, and the summary reported complete.",
+     "second_agent": {
+      "verdict": "confirmed",
+      "severity": "low",
+      "reason": "In 09_kernel_replay.sh lines 125-133, a preset RH_REPLAY_DRIVER is used as-is; the source check (replay-driver-check) covers RhvReplay.lean, not the binary that runs. record() in kernel_check_batch.sh always writes 'rhv-replay'. The path is only logged, and nothing tied to the binary goes into results.tsv. A stale test setting could therefore leave passes that cannot be told apart from real ones.",
+      "fix": "Record the driver's sha256 in each result line or in a sidecar file, and count a pass only from the expected hash. Or honour the override only together with an explicit test flag."
+     }
+    },
+    {
+     "title": "A driver killed from outside by SIGINT or SIGHUP is recorded as 'crashed' and counted FAILED",
+     "severity_as_reported": "low",
+     "where": "scripts/verify/kernel_check_batch.sh lines 76-82; rhv_tools.py status() (rc >= 128 means crashed)",
+     "scenario": "A stand-in driver that dies of SIGINT on its second module made the batch record 'Lib.Sub.C 130'. The summary then counts Lib.Sub.C as FAILED ('checker crashed') until a re-run overwrites it. Only 137 and 143 are treated as killed from outside, so `pkill -INT rhv-replay`, or a hangup reaching only the driver, turns an interruption into a failure. A Ctrl-C to the whole process group is fine: I ran real-driver runs under timeout -s TERM 1.5 and timeout -s INT 1.5, and both recorded nothing for the modules in flight and resumed correctly.",
+     "suggested_fix": "Treat 129 (HUP) and 130 (INT) as not run, the same as 137 and 143.",
+     "evidence": "SELFSIG=SIGINT RH_REPLAY_DRIVER=$T/selfsig.sh 09 --method rhv-replay --batch 3 --sample 3 wrote the line 'Lib.Sub.C 130 0 10f586a1... rhv-replay'.",
+     "second_agent": {
+      "verdict": "confirmed",
+      "severity": "low",
+      "reason": "In kernel_check_batch.sh lines 76-82, st=rc for any rc>=128, and NOT_RUN_STATUSES in rhv_tools.py line 757 is (96,137,143). So 129 and 130 become 'crashed', which is counted under FAILED until a re-run replaces the result. The effect is limited to a spurious failure that clears on the next run.",
+      "fix": "Add 129 and 130 to NOT_RUN_STATUSES. In kernel_check_batch.sh, treat those statuses the same way as 137 and 143."
+     }
+    },
+    {
+     "title": "A Lean panic during the replay does not stop a pass from being recorded; stderr is thrown away on success",
+     "severity_as_reported": "low",
+     "where": "kernel_check_batch.sh line 43 (2> \"$work/err\", copied only on a crash); RhvReplay.lean main",
+     "scenario": "Lean's panic! prints 'PANIC at ...' to stderr and carries on with a default value unless LEAN_ABORT_ON_PANIC is set. If something inside replayFromImports or Environment.replay panics and still returns, the driver prints REPLAY_OK and the batch records 0 with no trace of the panic. kernel_check_one.sh behaves the same way: it deletes the output on a pass. Both methods share this, so the methods would also agree with each other.",
+     "suggested_fix": "Run both checkers with LEAN_ABORT_ON_PANIC=1, so a panic becomes a crash (134) instead of a silent pass.",
+     "evidence": "Code reading: neither script sets LEAN_ABORT_ON_PANIC=1 or checks stderr for 'PANIC' before recording 0.",
+     "second_agent": {
+      "verdict": "partly",
+      "severity": "low",
+      "reason": "True that neither script sets LEAN_ABORT_ON_PANIC or looks at stderr on success. But no actual panic path that would skip a check was shown. The kernel itself throws exceptions and does not panic. The stock leanchecker, which C3 names, behaves the same way, so this is a hardening suggestion rather than a defect of the change.",
+      "fix": "Export LEAN_ABORT_ON_PANIC=1 for both checkers in kernel_check_batch.sh and kernel_check_one.sh."
+     }
+    },
+    {
+     "title": "replay-driver-check can be satisfied by an exact copy inside a comment",
+     "severity_as_reported": "low",
+     "where": "scripts/verify/rhv_tools.py cmd_replay_driver_check(), block()",
+     "scenario": "block() takes the first occurrence of 'unsafe def replayFromImports' and ends at the next 'unsafe def main', even when both are inside a /- ... -/ comment. A file that puts the exact copy plus the text 'unsafe def main' in a comment, followed by a modified real definition, passes the 'identical' check. The source is public and reviewed, so this only matters for an adversarial edit, but it is what the cloud's s_driver relies on.",
+     "suggested_fix": "Require exactly one occurrence of each marker outside comments, or compare a hash of the whole driver file pinned in the repo, in addition to the copy check.",
+     "evidence": "Code reading of text.find(...).",
+     "second_agent": {
+      "verdict": "partly",
+      "severity": "low",
+      "reason": "True in cmd_replay_driver_check(): block() uses text.find on the first occurrence and ignores comments. However, the check never covered the rest of the driver. An adversarial edit to main, for example printing REPLAY_OK without replaying, already defeats it, so the comment trick adds no new exposure. Only an adversarial edit of a public, reviewed file is at risk.",
+      "fix": "Require exactly one occurrence of each marker. Also pin and check the sha256 of the whole RhvReplay.lean, or of the built binary."
+     }
+    },
+    {
+     "title": "Compiled files with no .olean.hash are also counted under 'recompiled since'",
+     "severity_as_reported": "low",
+     "where": "rhv_tools.py cmd_replay_summary(): stale; status() returns 'stale' when stamps[mod] is None",
+     "scenario": "With Lib/A/Child.olean.hash moved aside, --summary printed 'remaining 1 (of which recompiled since: 1)' and, separately, 'compiled files the build tool never finished ...: 1'. The same module is counted under both labels, and recompiled_since_checked in summary.json is too high by the number of files without a hash.",
+     "suggested_fix": "Return a separate status such as 'no_stamp' when stamps[mod] is None, and leave those modules out of the stale count.",
+     "evidence": "W run after moving Child.olean.hash aside.",
+     "second_agent": {
+      "verdict": "confirmed",
+      "severity": "low",
+      "reason": "In status(), stamps[mod] None returns 'stale'. cmd_replay_summary() counts stale modules among the remaining, so a module that has a result but no hash appears both under 'recompiled since' and under 'never finished by the build', and recompiled_since_checked is too high. This is cosmetic only, because no_stamp already blocks 'complete'.",
+      "fix": "Have status() return a separate 'no_stamp' state when stamps[mod] is None, and leave those modules out of the stale count."
+     }
+    }
+   ]
+  }
+ ]
+}

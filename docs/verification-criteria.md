@@ -76,6 +76,8 @@ What it rules out: reliance on the compile having followed the normal path; dama
 
 What it does not rule out: `leanchecker` uses the same kernel implementation as the compiler. It is independent of the elaborator and of the project's code, not of the kernel. It also accepts axioms, which are legal declarations, so it does not replace check 2. As planned it covers the 175,187 project modules; Mathlib's compiled files are a separate matter (see below).
 
+How it is run. The pre-registration says `leanchecker` from the pinned toolchain; this repository runs it one process per module. On the whole tree that is estimated, from a line through two measurements, at about 46 hours on a 32-thread machine, most of it spent by the tool listing compiled files before each check and not on checking ([`performance-notes.md`](performance-notes.md), section 10). [`../scripts/09_kernel_replay.sh`](../scripts/09_kernel_replay.sh) can also run the same replay function through a small program, `rhv-replay`. That adds one thing to trust: about fifty lines of this repository's Lean, compiled locally against the toolchain's libraries, whose copy of the replay function is compared with the toolchain's source before every run. Whether a replay by that program counts towards this check is decided by the pre-registration and its dated amendments, not here.
+
 ## What has been checked so far
 
 | Item | Result | Date | Kind of evidence |

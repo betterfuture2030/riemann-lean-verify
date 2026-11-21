@@ -1,0 +1,522 @@
+{
+ "what": "Second look at the two-method kernel replay, 2026-11-20, after the changes made in response to replay_method_review.json. Four AI agents, one area each, said for every earlier finding in their area whether it was resolved and reported anything new; a second agent per area then re-checked whatever was reported as open or new. Their text is given as returned, apart from the removal of private paths. F1 to F23 number the findings of the first review in the order that file lists them. What was changed in response is in docs/performance-notes.md, section 10.",
+ "areas": [
+  {
+   "area": "wrapper-and-driver",
+   "earlier_findings": [
+    {
+     "finding": "F1",
+     "state": "resolved",
+     "evidence": "kernel_check_batch.sh:74 now matches only the start of the error text. A real kernel rejection (an old Lib/Sub/C.olean replayed against a rebuilt Lib.B that renames the constant to «failed to open file 'z») prints 'REPLAY_FAIL Lib.D 307 while replaying declaration 'd_four': | (kernel) unknown constant ...'. It was recorded as 1 by both methods. Replay.lean:136 wraps every kernel error in 'while replaying declaration'."
+    },
+    {
+     "finding": "F2",
+     "state": "resolved",
+     "evidence": "09:78 redefines die as exit 2 before need_cmd and the argument checks run, and every other could-not-run path in 09 uses an explicit exit 2. The one remaining gap (a Python exception in replay-summary) is listed below as a new defect."
+    },
+    {
+     "finding": "F3",
+     "state": "resolved",
+     "evidence": "Stand-in drivers through the real kernel_check_batch.sh (bash 3.2): one that runs kill -ABRT $$ at startup gives all 4 modules 96. One that prints START b and then segfaults gives a=0, b=139, c=0, d=139, so the crash is charged only to the module that was started. No START line gives all 96."
+    },
+    {
+     "finding": "F14",
+     "state": "resolved",
+     "evidence": "Same as F1 for the driver. For leanchecker, kernel_check_one.sh:63-66 looks at the first '^uncaught exception: ' line, which for a kernel error is 'uncaught exception: while replaying declaration ...'. A real run recorded Lib.D as 1."
+    },
+    {
+     "finding": "F15",
+     "state": "resolved",
+     "evidence": "RhvReplay.lean:81-84 returns 1 after the first REPLAY_FAIL, and the wrapper starts a new process for the rest of the batch (fail-then-exit stand-in: 4 modules, 4 processes, each recorded 1). A passing module's own regions are still not freed, but that is bounded by the batch size."
+    },
+    {
+     "finding": "F18",
+     "state": "resolved",
+     "evidence": "Same evidence as F1 and F14. Real file errors still give 96: own .olean unreadable gives 'failed to open file ...: Permission denied', own .olean missing gives 'object file ... does not exist' (leanchecker: 'Could not find any oleans for:'), and a missing or unreadable imported .olean gives the same texts. All were recorded as 96."
+    },
+    {
+     "finding": "F19",
+     "state": "partly",
+     "evidence": "09:148 appends the program's sha256 and origin to replay_program.tsv, and 09:136 logs a NOTE. But result rows still carry no program id, and the summary counts passes from any RH_REPLAY_DRIVER, so a stand-in that only prints REPLAY_START/REPLAY_OK still records 0 for every module (ok-all stand-in)."
+    },
+    {
+     "finding": "F20",
+     "state": "resolved",
+     "evidence": "The wrapper records the raw signal status (rc>=128) for the started module, and rhv_tools.py:758 NOT_RUN_STATUSES = (96, 129, 130, 137, 143)."
+    },
+    {
+     "finding": "F21",
+     "state": "resolved",
+     "evidence": "Both scripts set LEAN_ABORT_ON_PANIC=1. A test program built with this toolchain: panic! (main thread and inside IO.asTask) exits 0 without the variable and 134 with it; an INTERNAL PANIC (Nat.pow) exits 1 without it and 134 with it. The 134 is recorded as a crash, not a pass and not 96."
+    }
+   ],
+   "new_findings": [
+    {
+     "title": "leanchecker: an unreadable directory on the search path is recorded as FAILED (1) for every module",
+     "severity": "low",
+     "where": "scripts/verify/kernel_check_one.sh:62-66",
+     "scenario": "I ran chmod 000 on proj/.lake/build/lib/lean/Lib/Sub and then ran kernel_check_one.sh Lib.A (an unrelated module), both normal and prefix. leanchecker lists the whole search path and stops with 'uncaught exception: permission denied (error code: 13) / file: .../Lib'. That matches none of the four prefixes, so the module is recorded 1, and so would every other module checked that way. 09 then exits 1 ('a module failed') although nothing was checked. A too-many-open-files error while listing ('resource exhausted (error code: 24 ...') would go the same way. rhv-replay is not affected: for the same directory it reports 'object file ... does not exist', which is recorded 96.",
+     "evidence": "Results rows: 'Lib.A 1 s2' and 'Lib.A 1 s3' (prefix mode) with Lib/Sub unreadable; the same module is 0 when the directory is readable.",
+     "suggested_fix": "Also treat a first line of the form 'uncaught exception: permission denied (error code: 13)' or 'resource exhausted (error code: 24' as 96, but only when no 'leanchecker found a problem in' line comes before it: that line means a replay started, so such an error happens only while the files are being listed."
+    },
+    {
+     "title": "A module whose own compiled file lists an import with no compiled file is recorded 96 forever, never FAILED (both methods)",
+     "severity": "low",
+     "where": "scripts/verify/kernel_check_batch.sh:74; scripts/verify/kernel_check_one.sh:65",
+     "scenario": "The import list comes from the module's own .olean. A tampered or inconsistent .olean whose imports name a module that has no compiled file makes importModulesCore fail. The error is 'unknown module prefix 'X'' or 'object file '...' of module X does not exist' (checked: removing Lib/Sub/C.olean gives that text for Lib.D in both tools). The error is recorded 96, so the module shows as remaining or 'not run', never as failed. A full run keeps exiting 3, and retries are spent on it. It is never counted as passed. Classifying it as 96 is right while the build is still running, so this is a trade-off.",
+     "evidence": "imp-missing test: driver 'REPLAY_FAIL Lib.D 255 object file '.../Lib/Sub/C.olean' of module Lib.Sub.C does not exist'; leanchecker same text after 'uncaught exception: '; kernel_check_one.sh recorded 'Lib.D 96'.",
+     "suggested_fix": "When the module named in the error is not the module under check and is not a module of the source tree (or the build is known to be finished, as on the sealed cloud tree), record 1 instead of 96. At least list such modules apart in the summary."
+    },
+    {
+     "title": "An exception inside rhv_tools.py replay-summary makes 09 exit 1, which means 'a module failed'",
+     "severity": "low",
+     "where": "scripts/09_kernel_replay.sh:106-107 and 204-207",
+     "scenario": "replay-plan failures are mapped to exit 2, but the summary's status is passed through unchanged. If the summary raises (for example a PermissionError on results.tsv or a MemoryError on a very large file), Python exits 1 with a traceback. The cloud guest then records C3 as failed for a run whose results may all be passes.",
+     "evidence": "rhv_tools.py main() has no try/except around a.fn(a) (lines 1103-1111); cmd_replay_summary returns 0, 1 or 3 itself.",
+     "suggested_fix": "Map any status other than 0, 1 or 3 to 2 (and the same for the Python traceback exit 1, by having main() catch exceptions and return 2)."
+    },
+    {
+     "title": "Module names containing a space are never checked by rhv-replay (always 96)",
+     "severity": "low",
+     "where": "scripts/verify/kernel_check_batch.sh:64 (name=${rest%% *})",
+     "scenario": "The REPLAY_START match takes the whole rest of the line, but the result line is split at the first space. For a module named 'A.Foo Bar' (from a source file 'Foo Bar.lean'), 'REPLAY_OK A.Foo Bar 12' gives name='A.Foo', which does not match, so the module is out of step and recorded 96 on every run. The run can never complete by rhv-replay alone. This never gives a false pass. It matters only if the tree has such file names, which I could not check (the tree is under /Volumes).",
+     "evidence": "Reading lines 57-68. Stand-in tests show that every malformed or mismatched line gives 96 and never 0 (ok-noSTART, double-start, ok-extra-field, ok-other-mod, crlf: all 96).",
+     "suggested_fix": "Parse the result line from the right (milliseconds are the last field for OK), or compare the prefix 'REPLAY_OK '$mod' ' directly with the line; or have replay-plan refuse module names containing whitespace."
+    }
+   ],
+   "second_agent": [
+    {
+     "item": "EARLIER F19",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "Rating it 'partly resolved' is correct. 09:148 appends the program's sha256 and origin (supplied_through_RH_REPLAY_DRIVER or built_here_from_the_checked_source) to replay_program.tsv, and 09:136 logs a NOTE. But rhv_tools.py never reads replay_program.tsv (grep finds nothing), and result rows carry no program id. I reproduced it: a 2-line stand-in that only prints REPLAY_START and REPLAY_OK, run through kernel_check_batch.sh, recorded 'Lib.D 0 ... rhv-replay' and 'Lib.A 0 ... rhv-replay' even with Lib.Sub.C.olean present or absent. The summary would count both as passed. A stale test setting of RH_REPLAY_DRIVER is needed, so the severity stays low.",
+     "fix": "Smallest fix: in cmd_replay_summary, read replay_program.tsv and report each distinct sha256 and origin. Set complete=false, or print a warning, when any row says supplied_through_RH_REPLAY_DRIVER and its sha256 differs from the one the cloud run recorded for its root-built program. A fuller fix is a 7th column with the program's sha256 in record(), and passes counted only for a known sha256."
+    },
+    {
+     "item": "NEW 1",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "Reproduced in my own copy of prune-test. After chmod 000 on .lake/build/lib/lean/Lib/Sub, kernel_check_one.sh Lib.A recorded 'Lib.A 1' in both normal and prefix mode; with the directory readable it recorded 0. Lib.A.out begins 'uncaught exception: permission denied (error code: 13) / file: .../Lib/Sub', which matches none of the four prefixes at kernel_check_one.sh:65. rhv-replay was unaffected: Lib.A and Lib.B both recorded 0, since neither imports Sub. One correction to the suggested guard: in my missing-import test leanchecker printed 'leanchecker found a problem in Lib.D' BEFORE the 'uncaught exception: object file ...' line. So that line does not mean a kernel replay started, and import-time I/O errors also follow it. The guard is conservative (it would leave such cases at 1), not wrong. The failure is loud and the output files show the cause, so it stays low.",
+     "fix": "In kernel_check_one.sh's case at line 65, also map the first 'uncaught exception: ' line beginning 'uncaught exception: permission denied (error code: 13)' or 'uncaught exception: resource exhausted (error code: 24' to 96. A kernel error is never an I/O error, so the 'found a problem in' guard is not needed."
+    },
+    {
+     "item": "NEW 2",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "Reproduced. With Lib/Sub/C.olean moved away, rhv-replay wrote 'REPLAY_FAIL Lib.D 257 object file '.../Lib/Sub/C.olean' of module Lib.Sub.C does not exist', recorded as 'Lib.D 96'. leanchecker printed 'leanchecker found a problem in Lib.D' then 'uncaught exception: object file ...', recorded as 'Lib.D 96'. Lib.A in the same batch still passed. Such a module is never counted as passed, so this cannot give a false pass: a full run keeps exiting 3 instead of 1 and spends retries on it. One small overstatement: Lake builds a module's imports first, so a missing import is less likely to be just 'the build still running' than the author assumes. It arises after a deletion, a partial copy or tampering.",
+     "fix": "In kernel_check_batch.sh:74 and kernel_check_one.sh:65, when the error has the form \"object file '...' of module X does not exist\" and X is not the module under check, record a distinct status (for example 95, 'an import has no compiled file'). The summary should list those modules apart, and the cloud run, whose tree is sealed, can treat them as failures."
+    },
+    {
+     "item": "NEW 3",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "rhv_tools.py main() calls a.fn(a) with no try/except (lines 1103-1111), and 09 passes the summary's status straight through at both places it runs it (--summary at 09:106-107; the end of a run at 09:204-207). I reproduced it by running replay-summary directly. An unreadable results file raised PermissionError, and '--json' into a directory that does not exist raised FileNotFoundError; the second exited 1. 09's header (lines 66-68, 77) says 1 means 'a module failed', and full_guest.sh records that number as c3 last_exit_status. Likely triggers are rare, because the run's own user writes results.tsv, so the severity stays low.",
+     "fix": "In 09, after each replay-summary call: case $status in 0|1|3) ;; *) status=2 ;; esac. Also wrap 'return a.fn(a)' in main() with try/except Exception that prints the error and returns 2, so a traceback is never read as exit 1."
+    },
+    {
+     "item": "NEW 4",
+     "verdict": "partly",
+     "severity": "low",
+     "reason": "The parsing flaw is real. RhvReplay.lean:68/79 prints the argument exactly as given, so a name with a space gives 'REPLAY_OK A.Foo Bar 12'. kernel_check_batch.sh:64 then takes name=${rest%% *}='A.Foo', the names do not match, the batch is out of step and the module is recorded 96, never 0. But the scenario does not arise for this project. I loaded records/source/import_graph.json.gz in the repo: none of its ~175k module names contains whitespace. So it cannot keep the run from completing here. It is only a hazard if the scripts are reused on another tree.",
+     "fix": "Have replay-plan refuse, or list apart, module names that contain whitespace. Alternatively, in the batch script, test the line against the prefix \"REPLAY_OK $mod \" or \"REPLAY_FAIL $mod \" and take the rest of the line after that prefix, instead of splitting at the first space."
+    }
+   ]
+  },
+  {
+   "area": "summary-and-check",
+   "earlier_findings": [
+    {
+     "finding": "F5",
+     "state": "resolved",
+     "evidence": "Built both F5 variants in my own dir: the @[implemented_by fakeReplay] attribute on the line before, or on the same line as, `unsafe def replayFromImports`. replay-driver-check rejects both with rc=1, because the text before the function must be exactly the three expected lines. The same goes for set_option in the header. A different way around the check is reported below as a new defect."
+    },
+    {
+     "finding": "F6",
+     "state": "resolved",
+     "evidence": "full_guest.sh:739-742 c3_left now reads only d[\"remaining_that_another_run_could_check\"]. cloud/gcp/README.md:114 names complete, failed, methods_disagree, modules_with_unexpected_parts, compiled_files_never_finished_by_the_build, passed_by_*, complete_by_leanchecker_alone. The synthetic summary JSON has every one of these keys, and prefix_failed is gone from the README."
+    },
+    {
+     "finding": "F7",
+     "state": "partly",
+     "evidence": "Synthetic results file: the 4-field line (K), the unknown method 'rhv_replay' (J) and the 7-field line (M) are ignored (result_lines_ignored_as_incomplete=3). But an rhv-replay line cut short inside or right after the epoch field ('O\\t0\\t1\\thO\\t17000', no newline) has 5 fields and is still credited to leanchecker as a pass: passed_by_leanchecker=4 includes O (rhv_tools.py:807-808)."
+    },
+    {
+     "finding": "F16",
+     "state": "partly",
+     "evidence": "The checks added are: each marker exactly once, the exact header, and a word blacklist on main. But the 'text compared is the text compiled' claim (2) in the docstring can still be defeated (new defect 1). The sha256 of the whole file is printed but never compared with a pinned value. 'No second definition' only catches the word `def`: `opaque foo : Nat` or `example` after main passes (rc=0)."
+    },
+    {
+     "finding": "F17",
+     "state": "not resolved",
+     "evidence": "Left unchanged by decision, as stated. The 09_kernel_replay.sh header (lines 36-42) now says honestly that the result is tied only to the module's own hash and that a module whose imports were recompiled is not replayed again. One remaining point: the stamp is read from the .olean.hash file and never recomputed, so a .olean replaced while its .hash is kept still counts as current for a local run (the cloud's seal manifest covers this)."
+    },
+    {
+     "finding": "F22",
+     "state": "partly",
+     "evidence": "The exact case (a commented copy plus a real definition) is now rejected with rc=1: 'must contain ... exactly once each'. But a single copy of the function can sit inside a Lean nested comment that the check does not see as a comment, and that passes (new defect 1)."
+    },
+    {
+     "finding": "F23",
+     "state": "resolved",
+     "evidence": "Synthetic module H (no .olean.hash, passing result) has status no_stamp. It is counted under compiled_files_never_finished_by_the_build=1 and not under recompiled_since_checked: that count is 1, for G only, which has a mismatched stamp."
+    },
+    {
+     "finding": "F20",
+     "state": "resolved",
+     "evidence": "In the synthetic run, E (rhv-replay 129) and F (leanchecker 130) appear in not_run_or_killed_modules ['E','F'], not in FAILED. Both are planned again by both methods."
+    },
+    {
+     "finding": "F11",
+     "state": "resolved",
+     "evidence": "In the synthetic run, remaining=9 and remaining_that_another_run_could_check=8, the difference being H (no stamp). full_guest.sh:802-803 also stops the retry loop when a pass changes nothing."
+    }
+   ],
+   "new_findings": [
+    {
+     "title": "replay-driver-check can be passed while neither the compared replayFromImports nor the visible main is compiled (Lean block comments nest; the check strips the header comment only up to the first '-/')",
+     "severity": "medium",
+     "where": "scripts/verify/rhv_tools.py:1015-1021 (head handling) and docstring claim (2) at 988-992; docs/performance-notes.md section 10, safeguard table row 1",
+     "scenario": "Alteration built in my own dir (r4-tools.c29Y/drvA/RhvReplay.lean). The file opens with '/- /- ' instead of '/-', so Lean opens two comment levels. The original header, the original replayFromImports and the original main are kept verbatim. Appended after them are '-/' and 'abbrev main (args : List String) : IO UInt32 := do ... out.putStrLn s!\"REPLAY_START {arg}\"; out.putStrLn s!\"REPLAY_OK {arg} 1\" ...'. Python sees one comment, the three header lines, the identical function (sha256 4a1a5a15...) and a tail containing none of the blacklisted words, because `abbrev` is not on the list, so replay-driver-check prints 'identical' and exits 0. Lean treats everything up to the final '-/' as a comment. `lake build` succeeded with the v4.33.1 toolchain, producing an 11 MB binary that links no Lean, against 176 MB for the real one. `rhv-replay Does.Not.Exist Another.Fake` printed REPLAY_START/REPLAY_OK for both and exited 0, whereas the real driver prints REPLAY_FAIL ... unknown module prefix. 09 and the cloud's s_driver would then record every module as passed by rhv-replay with no replay at all. Only the stock-tool sample and the prefix pass would still check anything. The documentation is not honest about this limit. It says the check guarantees 'the text compared is the text compiled' and that the rest of the file contains 'no second definition', and leaves only main's behaviour to the reader, whereas here the function itself is never compiled. For comparison, alterations inside main, which the docs do admit are not checked, also pass: drvC adds one line, `let replayFromImports : Name → IO Unit := fun _ => pure ()`, after `let out ← IO.getStdout`, and drvB adds a `where replayFromImports (_m : Name) : IO Unit := pure ()` clause. Both pass the check, build, and print REPLAY_OK for a nonexistent module. Of all the alterations tried, drvA is the most damaging that the check claims to rule out.",
+     "suggested_fix": "Pin the sha256 of the whole RhvReplay.lean in the repository (or in the pre-registration) and require an exact match. Today the hash is printed but never compared. Additionally, reject any '/-' or '-/' after the first '-/' of the header and anywhere in the tail, and add `abbrev`, `opaque`, `example`, `structure`, `inductive`, `class` and `mutual` to the blacklist. Better still, add a behavioural canary before each run: the built binary must print REPLAY_FAIL with a '(kernel)' error for a fixture .olean with a deliberately ill-typed declaration, and REPLAY_FAIL for a nonexistent module."
+    },
+    {
+     "title": "A truncated rhv-replay result line with 5 fields is credited to leanchecker",
+     "severity": "low",
+     "where": "scripts/verify/rhv_tools.py:807-808",
+     "scenario": "This is what remains of F7. kernel_check_batch.sh record() writes 'mod\\tstatus\\tsecs\\tstamp\\tepoch\\trhv-replay\\n'. If the disk fills mid-write after the stamp and before '\\trhv-replay', the line has 5 fields and status 0. It is then counted as a leanchecker pass: passed_by_leanchecker went up in the synthetic test. It can replace a real leanchecker result for that module, and it lifts complete_by_leanchecker_alone toward true for a module the stock tool never checked.",
+     "suggested_fix": "Count a line only when it ends with '\\n' (a cut-short line normally lacks it). Also, or instead, accept 5-field lines only from a results file whose header has no method column, or only with an epoch earlier than the date the method column was introduced."
+    },
+    {
+     "title": "no_stamp is decided before the exit status, so a recorded kernel failure disappears from FAILED if the .olean.hash is later missing",
+     "severity": "low",
+     "where": "scripts/verify/rhv_tools.py:825-826 (status())",
+     "scenario": "A module is rejected by the kernel and recorded with status 1. Its .olean.hash is then removed (by a tampering build user, or a rebuild that is interrupted). The summary then shows FAILED: 0, lists the module only under 'compiled files the build tool never finished', and exits 3 ('not complete') instead of 1. complete stays false, so this never produces a pass, but a genuine rejection is presented as a build problem. The old code behaved the same through 'stale'.",
+     "suggested_fix": "When the stamp is missing but the latest result is failed or crashed, keep reporting the module under FAILED, or at least list it separately as 'failed, file since lost its hash'."
+    }
+   ],
+   "second_agent": [
+    {
+     "item": "EARLIER F7",
+     "verdict": "confirmed",
+     "reason": "Rated 'partly' correctly. rhv_tools.py:807-814 now ignores lines with an unknown method or the wrong number of fields. But any line with exactly 5 fields still counts as leanchecker's. kernel_check_batch.sh:43 writes 'mod\\tst\\tsecs\\tstamp\\tepoch\\trhv-replay\\n', so a write cut off anywhere inside the epoch field, or just after it, leaves 5 fields with a valid status and the current stamp.",
+     "severity": "low",
+     "fix": "See NEW 2: accept a 5-field line only if it ends with '\\n'."
+    },
+    {
+     "item": "EARLIER F16",
+     "verdict": "confirmed",
+     "reason": "Rated 'partly' correctly. The check now requires each marker exactly once, the exact header, and a word blacklist on the tail (rhv_tools.py:999-1023). Line 1030 prints the sha256 of the whole driver, but nothing compares it: grepping the repo for the real driver's sha (52c19848...) finds no pinned copy. The blacklist does not contain abbrev, opaque or example. I reproduced the drvA bypass myself (NEW 1). The opaque/example point alone matters little: a second definition with the same name would not compile, so the real exposure is drvA and the changes to main that the docs already admit.",
+     "severity": "low",
+     "fix": "Pin the sha256 of the whole RhvReplay.lean in the repo and require an exact match in replay-driver-check."
+    },
+    {
+     "item": "EARLIER F17",
+     "verdict": "confirmed",
+     "reason": "Not resolved, as the author decided. The stamp is still only the module's own hash (rhv_tools.py:788-794 and 827). The extra point also holds: the stamp is read from '<path>.olean.hash' and never recomputed from the .olean. So a .olean replaced while its .hash file is kept still counts as current on a local run. The cloud's seal manifest covers that case.",
+     "severity": "medium",
+     "fix": "Key results on the module's .trace (it includes the dependencies' hashes), or on the module's hash plus its imports' stamps. Recompute or check the .olean content hash rather than trusting the .hash file."
+    },
+    {
+     "item": "EARLIER F22",
+     "verdict": "confirmed",
+     "reason": "Rated 'partly' correctly. A commented-out copy plus a real definition is now rejected by count() != 1 (rhv_tools.py:999). But line 1017 strips the header comment only up to the first '-/', and Lean block comments nest. I ran replay-driver-check from the repo against the v4.33.1 toolchain's LeanChecker.lean on the other agent's drvA: it printed 'identical' and returned rc=0. The single copy there sits inside an unclosed outer comment.",
+     "severity": "medium",
+     "fix": "Same as NEW 1: pin the sha256 of the whole file, or reject any '/-' or '-/' after the header comment ends."
+    },
+    {
+     "item": "NEW 1",
+     "verdict": "confirmed",
+     "reason": "I reproduced it in my own directory, scratchpad/skep.kctg/drvA. replay-driver-check returned rc=0 and printed 'identical' (function sha 4a1a5a15...; whole-file sha 8049cef3..., which is not compared with anything). lake build with v4.33.1 succeeded and gave an 11,124,960-byte binary. 'rhv-replay Does.Not.Exist Another.Fake' printed REPLAY_START and REPLAY_OK for both names and exited 0. Its first line is '/- /- ', so the real header lines, replayFromImports and main all sit inside the comment, and only the appended 'abbrev main' is compiled. In 09 (line 130) and in full_guest.sh:413 this check is the only gate before a binary built from that source is used. docs/performance-notes.md:241 claims more than the check delivers ('rest of the file ... no second definition'). It needs an adversarial edit to the reviewed public source, but that edit is the case the check exists for, and it is harder to spot than the edits to main that the docs admit.",
+     "severity": "medium",
+     "fix": "Pin the sha256 of the whole RhvReplay.lean in the repo or the pre-registration and require an exact match. Until then, reject any '/-' or '-/' after the first header '-/', require the tail to start with 'unsafe def main', and reword the docs row. A canary (the built binary must print REPLAY_FAIL for a nonexistent module before the run) would catch this whole class cheaply."
+    },
+    {
+     "item": "NEW 2",
+     "verdict": "confirmed",
+     "reason": "rhv_tools.py:807-808 maps every 5-field line to leanchecker. The record() format (kernel_check_batch.sh:43) means a write cut off inside or right after the epoch field gives such a line, and record \"$mod\" 0 is written only after a REPLAY_OK. If that cut line is followed by more writes, they run together into one line of more than 6 fields, which is already ignored. So the risk is only a cut line at the end of the file. The effect is wrong attribution, and possibly worse: it becomes the latest leanchecker result and can hide an earlier leanchecker failure (rc 1) for that module. Then 'disagree' and FAILED lose that module. It needs a partial write that ends inside a ~12-byte window, so low is right.",
+     "severity": "low",
+     "fix": "In replay_state, skip and count as unreadable any line that does not end with '\\n'. One condition: `if not line.endswith('\\n'): unreadable += 1; continue`."
+    },
+    {
+     "item": "NEW 3",
+     "verdict": "confirmed",
+     "reason": "status() returns 'no_stamp' (rhv_tools.py:825-826) before it looks at rc. A status-1 result for a module whose .olean.hash has since vanished is therefore neither failed nor crashed (lines 844-854), lands in 'remaining', and gets only the 'never finished' line. cmd_replay_summary then returns 3 (with --require-complete) instead of 1, because failed is empty. complete stays false (structure_ok needs no no_stamp), so this can never produce a false pass. It is a presentation and exit-code issue.",
+     "severity": "low",
+     "fix": "In status(), when stamps[mod] is None and rc is non-zero and not in NOT_RUN_STATUSES, return 'failed' or 'crashed' (or report the module separately as 'failed, hash since lost'), so it stays under FAILED."
+    }
+   ]
+  },
+  {
+   "area": "cloud-guest",
+   "earlier_findings": [
+    {
+     "finding": "F4",
+     "state": "resolved",
+     "evidence": "full_guest.sh:758 now counts only rows with $2==0||$2==1 inside the window. In both row formats column 5 is the epoch (kernel_check_batch.sh:43 record(), kernel_check_one.sh:47/69), and 96/137/143 rows are excluded."
+    },
+    {
+     "finding": "F8",
+     "state": "resolved",
+     "evidence": "The fit test at :774 is C3_NEED <= left-FINAL_RESERVE, without STOCK_NEED. Traced with left=27,000 and C3_NEED=24,000: FITS=1, main t=min(27,300, 25,500)=25,500, STOCK_SQUEEZED=1, no 3600 s cap. Afterwards the stock and prefix passes get only what is left."
+    },
+    {
+     "finding": "F9",
+     "state": "resolved",
+     "evidence": "Same change as F4 (:758). togo at :764 is now NCOMP - n_passed."
+    },
+    {
+     "finding": "F10",
+     "state": "resolved",
+     "evidence": "s_driver (:405-426) runs kill_users, copies TC_DIR to /opt/lean-tc as root, cmp's its manifest with baseline_tc.txt, builds with /opt/lean-tc/bin/lake (PATH limited to it) and filters ldd. It runs after s_baseline and before s_lockdown/s_smoke. Residual gap listed under new defects: no check for symlinks that lead out of the copy."
+    },
+    {
+     "finding": "F11",
+     "state": "resolved",
+     "evidence": "c3_left (:739) reads remaining_that_another_run_could_check, which is remaining minus no-stamp modules (rhv_tools.py:912). The loop at :802 stops when the value does not change (before starts at -2; a missing summary gives -1, so at most one pass runs)."
+    },
+    {
+     "finding": "F12",
+     "state": "resolved",
+     "evidence": ":812 gives the stock sample left-FINAL_RESERVE-1200, falling back to half the usable time when that is under 120. Full rhv run: about 1,780 s for 2000 modules at about 1.12/s, so the prefix pass keeps its 1,200 s."
+    },
+    {
+     "finding": "F13",
+     "state": "resolved",
+     "evidence": ":330 skips pkill of lake/xargs/timeout/tar/zstd when $PD/FINISHING exists, and finish() touches it first (:290). One window is left: the keep-phase 'report CHECKS_DONE' (:853) runs without FINISHING, but finish() then reruns c3_summary unharmed. :204 moves the text summary only when it is non-empty."
+    }
+   ],
+   "new_findings": [
+    {
+     "title": "Root's toolchain copy in s_driver is not checked for symlinks that lead out of it",
+     "severity": "low",
+     "where": "cloud/gcp/full_guest.sh:409-411 (the seal does this check at :628)",
+     "scenario": "The manifest records a symlink only as its target text. If the elan toolchain holds an absolute link into <HOME>/.elan, or a relative link that climbs out (for example a lib or bin entry), the copy compares equal to baseline_tc.txt. root's lake/leanc/clang build of the driver then follows the link into pilot-writable files, the same exposure F10 was about. The seal re-copies and checks for such links, but only after the driver is built, and DRIVER_SAME covers only the binary's hash.",
+     "suggested_fix": "Run the realpath check from :628 on /opt/lean-tc inside s_driver, before the build."
+    },
+    {
+     "title": "main_pass_took_time_kept_for_the_stock_tool is true in almost every rehearsal and does not show what really took the time",
+     "severity": "low",
+     "where": "cloud/gcp/full_guest.sh:746, 786-789, 271",
+     "scenario": "Rehearsal: STOCK_NEED=150+1200=1350 s, which is more than the roughly 1,000 s left after the trials. So t<need and STOCK_SQUEEZED=1 even when the main pass needs about 76 s (600 to go at 8/s) and finishes at once. The flag is also set whenever t<need, whether or not the main pass used the extra time. In the other direction, the retry passes (:806) get left-FINAL_RESERVE and can use up the stock reserve without setting the flag. The stock sample and prefix pass are then skipped (:813, :819), and facts.json shows null exit statuses with no reason.",
+     "suggested_fix": "Record the seconds the main and retry passes actually used beyond the original t, and the reason a stock pass was skipped (stock_sample_skipped_reason), instead of a planning-time flag."
+    },
+    {
+     "title": "The 55-minute rehearsal may never reach the trials, so it skips the fit and cap logic it is meant to test",
+     "severity": "low",
+     "where": "cloud/gcp/full_guest.sh:749 with pilot_local.sh:132-134",
+     "scenario": "Trials run only if left > 2*90+300+600 = 1,080 s. Rough timeline: setup with cache get, driver build and smoke about 10-12 min; build 420 s plus two restart tests of up to 240 s each; seal; c2 --probe up to 900 s. That can easily pass 37 min. Then C3_FITS stays empty, C3_NEED=NCOMP/3 is about 600, the main pass runs uncapped with STOCK_SQUEEZED=1, the stock sample gets the half-time fallback, and the trial rate, fit and short-cap code never runs in the rehearsal.",
+     "suggested_fix": "Lower full-c2-timeout, or raise pilot-deadline-min (MAXRUN 4500 leaves room), or check that the rehearsal's facts.json has non-null trial_rate_modules_per_second."
+    },
+    {
+     "title": "A failed replay-summary replaces a good text summary with its error output",
+     "severity": "low",
+     "where": "cloud/gcp/full_guest.sh:203-204",
+     "scenario": "If the final replay-summary fails (it hits its 900 s timeout or raises a traceback), c3_summary.txt.new holds the traceback and is non-empty, so it replaces the last good c3_summary.txt. c3_summary.json from the earlier run stays, so the uploaded text and JSON no longer match.",
+     "suggested_fix": "Move the .new file only when python3 exits 0 (capture rc), and write the JSON to a temporary file that is renamed on success."
+    }
+   ],
+   "second_agent": [
+    {
+     "item": "NEW 1",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "s_driver (full_guest.sh:407-411) copies the toolchain with cp -a and compares only manifests. manifest() (:153-157) records a symlink as 'not-a-file:l path -> target', so a link that leads out of the copy matches baseline_tc.txt. The realpath check for links that lead outside exists only at the seal (:628), which runs after root has already built the driver with lake/leanc from /opt/lean-tc. The exposure is narrow. The local v4.33.1 toolchain has no symlinks at all. A planted link would also be in baseline_tc.txt, so the seal's check would still fail the run, but only after the whole build. So the likely outcome is a wasted run or a driver built from pilot-reachable files, not a silently wrong result.",
+     "fix": "In s_driver, right after the cmp of driver_tc.txt, run the same check as :628: [ -z \"$(find /opt/lean-tc -type l -print0 | xargs -0 -r -n 1 realpath -m | grep -v -e '^/opt/lean-tc/' -e '^/opt/lean-tc$' | head -1)\" ] || { echo 'toolchain link leads outside the copy'; return 1; }"
+    },
+    {
+     "item": "NEW 2",
+     "verdict": "partly",
+     "severity": "low",
+     "reason": "The flag is set at planning time (:786-789) whenever t<need, so it says the main pass was allowed the reserved time, not that it used it. The retry passes (:806, timeout left-FINAL_RESERVE) can use up the stock reserve without setting it, and a stock pass skipped for lack of time leaves only a null exit status in facts.json. Two parts are overstated. (1) 'True in almost every rehearsal' rests on a guessed ~1,000 s left after the trials. The recorded rehearsal full-rehearsal-20261120-214914 reached the trials about 690 s after setup began, which leaves roughly 2,200-2,400 s after them. With its measured rate (415 modules per 60 s counted window, 1,792 modules) need is about 590 s and t = left-300-1350 is about 550-750 s, so the flag is borderline, not nearly always set. (2) The flag does not cause the skip. The stock sample falls back to (left-FINAL_RESERVE)/2 (:812), and the stock passes are skipped only when fewer than 120 s remain.",
+     "fix": "Rename the key to main_pass_allowed_into_stock_reserve, or record the seconds the main and retry passes actually used beyond the original t. Add stock_sample_skipped_reason / prefix_pass_skipped_reason (e.g. 'less than 120 s left') to facts.json when C3_STOCK_RC or C3_PREFIX_RC is empty."
+    },
+    {
+     "item": "NEW 3",
+     "verdict": "refuted",
+     "severity": "low",
+     "reason": "The recorded rehearsals contradict the timeline. full-rehearsal-20261120-214914/phases.tsv shows setup->build 124 s (setup.tsv: cache get 93 s, everything else about 30 s), build plus both restart tests 531 s, seal 20 s, c2_plain and c2_deep about 11 s in --probe mode (not up to 900 s), and check_trial starting 689 s after setup. full-rehearsal-20261120-212636 is similar (633 s). The new driver build and driver test add a few minutes at most, far from the 37 min (2,220 s) at which left<=1080 would skip the trials. Both earlier rehearsals did run the trials (check_trial:N=16/32 rows)."
+    },
+    {
+     "item": "NEW 4",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "c3_summary (full_guest.sh:202-204) sends stdout and stderr together to c3_summary.txt.new and moves it over c3_summary.txt whenever it is non-empty, ignoring python's exit status. A traceback, or output cut off by the 900 s timeout, therefore replaces the last good text. cmd_replay_summary prints the text first and writes the JSON last (rhv_tools.py ~924-953). So a failure leaves the old c3_summary.json, and a timeout between the print and the JSON write leaves new text with old JSON. Either way the uploaded summary.txt and summary.json can disagree. The JSON, which c3_left and facts.json use, stays the last good one, so verification results are not corrupted.",
+     "fix": "Capture the exit status and move only on success: timeout 900 python3 ... --json \"$PD/c3_summary.json.new\" > \"$PD/c3_summary.txt.new\" 2>\"$PD/c3_summary.err\"; if [ $? -eq 0 ]; then mv -f \"$PD/c3_summary.json.new\" \"$PD/c3_summary.json\"; mv -f \"$PD/c3_summary.txt.new\" \"$PD/c3_summary.txt\"; fi"
+    }
+   ]
+  },
+  {
+   "area": "docs-honesty",
+   "earlier_findings": [],
+   "new_findings": [
+    {
+     "title": "Controller header still gives the old 31-hour estimate for `launch full`, and does not say the default method cannot fit",
+     "severity": "medium",
+     "where": "cloud/gcp/pilot_local.sh:10-11 (also :44, where the default is GCP_REPLAY_METHOD=leanchecker)",
+     "scenario": "The usage text says `full ... An estimated 31 hours`. With the default method (leanchecker) the documents now estimate about 60 hours, and the run cannot fit the 42-hour deletion limit. Someone who reads only the controller launches with the default. The trials see the replay cannot finish, so it gets one hour (C3_SHORT_CAP=3600) and the run ends without a C3 result after about 18 billed hours, roughly 35 USD. cloud/gcp/README.md was corrected while this review ran (modified 23:19) and now has a per-method table; this header was not.",
+     "evidence": "grep finds 'An estimated 31 hours' at pilot_local.sh:10. cloud-notes 8.5 says the stock tool 'does not fit the 42-hour limit'. full_guest.sh:90 has C3_SHORT_CAP=3600.",
+     "suggested_fix": "Replace the figure with the per-method one (about 60 h, which does not fit, for leanchecker; about 23 h for rhv-replay, which needs an amendment), or have `launch full` print a warning when the method is leanchecker."
+    },
+    {
+     "title": "The facts guide lists `complete` as the C3 test without saying that, with no amendment, the criterion needs `complete_by_leanchecker_alone`",
+     "severity": "medium",
+     "where": "cloud/gcp/README.md:114 (C3 row of the facts table)",
+     "scenario": "After an rhv-replay full run, summary.complete is true when rhv-replay passed every module (rhv_tools.py:922). The row's 'What to look for' starts with '`complete` is true' and describes complete_by_leanchecker_alone only as information. A reader following the table would record C3 as met, but PREREGISTRATION.md C3 names leanchecker and no amendment exists. The paragraph above the table mentions the amendment; the table that people check against does not.",
+     "evidence": "rhv_tools.py:922-923,969-970: `complete` counts a pass by either method; complete_by_leanchecker_alone is computed separately. PREREGISTRATION.md:60.",
+     "suggested_fix": "In the C3 row, say that without a dated amendment C3 as pre-registered needs complete_by_leanchecker_alone true; `complete` is enough only under an amendment that admits rhv-replay."
+    },
+    {
+     "title": "README presents the 23-hour, 44 USD rhv-replay route without saying it is not the pre-registered method",
+     "severity": "medium",
+     "where": "README.md:70 (On Google Cloud); also CLAIMS.md:60 (M9)",
+     "scenario": "The front page gives 'about 60 hours and 113 USD in all, or about 23 hours and 44 USD' as two equal ways to do the full run. Neither place says that the cheaper route needs a dated amendment before it can count towards C3. CLAIMS says so only under 'What has not been checked'; cloud-notes 8.5 and cloud/gcp/README say it. A reader of the README alone can take the 44 USD run as a full verification run.",
+     "evidence": "README.md:70 text; CLAIMS.md:60 M9 row; cloud-notes 8.5 second bullet; PREREGISTRATION.md:60.",
+     "suggested_fix": "Add a clause to both: 'which counts towards criterion C3 only under a dated amendment to the pre-registration'."
+    },
+    {
+     "title": "cloud-notes still says the full run does not check many modules per process",
+     "severity": "low",
+     "where": "docs/cloud-notes.md:374 (also :270, 8.3 row 10 'Open')",
+     "scenario": "The last paragraph of section 9 says the full run does not give the checker 'many modules per process ... because that would change how criterion C3 is carried out'. The driver now offers exactly that as an option (rhv-replay, 25 modules per process, GCP_REPLAY_METHOD). This contradicts section 8.5 and section 9's own 'A kernel replay that fits the run' row.",
+     "evidence": "cloud-notes.md:374; 09_kernel_replay.sh BATCH=25; full_guest.sh METHOD_ARGS.",
+     "suggested_fix": "Say that this is now an option (rhv-replay), off by default and subject to an amendment; mark row 10 as superseded by section 8.5."
+    },
+    {
+     "title": "The two points of the cost fit are different quantities: wall seconds in the rehearsal, CPU seconds in the pilot",
+     "severity": "low",
+     "where": "analysis/replay_cost.py:98-104; CLAIMS.md:59 (M8); docs/performance-notes.md section 10, measurement table",
+     "scenario": "Point 1 is the mean of the per-check wall seconds in the results file (4.37). Point 2 is the pilot's est['windows']['check']['mean_cpu_s'] (8.29 CPU s). The projection is then treated as wall time without the pilot estimate's division by 0.971 useful CPU per thread-second. Taking the pilot's wall-equivalent of about 8.54 s gives a slope of 0.000143 instead of 0.000134 and about 45.7 hours instead of 43.3 for the stock tool. M8 and the performance-notes table present 4.4 and 8.3 as the same 'seconds per check'. The conclusion does not change, but the numbers are not what the text says they are.",
+     "evidence": "Re-ran replay_cost.py; its output matches records/cloud/replay_cost.json apart from made_utc. pilot_estimate.json windows.check has mean_cpu_s 8.29 and useful_cpu_per_thread_second 0.971. Recomputed the rehearsal main pass from c3_results.tsv.gz: 749 rows, mean 4.367 wall s.",
+     "suggested_fix": "Convert the pilot point to wall seconds (or label both quantities), and state the unit in M8 and performance-notes."
+    },
+    {
+     "title": "The rhv-replay replay time is a projection from leanchecker runs, and the documents do not reconcile it with the only direct rhv-replay timing",
+     "severity": "low",
+     "where": "docs/performance-notes.md section 10 (projection table vs the Mac paragraph); CLAIMS.md:59-60; README.md:70",
+     "scenario": "'About 6 hours' for rhv-replay assumes 3.5 s per module: the 2.72 s fixed term from the leanchecker fit plus the closure term. The only measurement of rhv-replay itself is on the Mac: 6.8 s and 7.2 s per module, two at a time, with the build running. The documents give both without saying the 6-hour figure has no rhv-replay measurement behind it. At double the projected cost it still fits (about 11 h of replay), so the effect is limited to the cost figure.",
+     "evidence": "replay_cost.py: direct = fixed + closure, with fixed fitted from leanchecker points; performance-notes Mac paragraph gives 6.8 s and 7.2 s; replay_cost.json has no rhv_replay_measured key.",
+     "suggested_fix": "Say that the rhv-replay figure assumes its per-module cost equals the stock tool's cost minus the listing, and that this has not been measured on the cloud machine."
+    },
+    {
+     "title": "CLAIMS M8 says 'about 6 hours' for the replay without the listing; the source gives 5.4",
+     "severity": "low",
+     "where": "CLAIMS.md:59 (M8)",
+     "scenario": "replay_cost.json gives without_the_listing.hours_at_32 = 5.4. The 6.2 figure is the rhv-replay run including the stock tool's 2,000-module sample and the prefix pass. M8 attaches 'about 6' to 'the same replay without the listing'. performance-notes uses 5.4 for that row, so the two documents disagree.",
+     "evidence": "replay_cost.json whole_tree.without_the_listing.hours_at_32 = 5.4; whole_run rhv-replay expected replay_hours = 6.2.",
+     "suggested_fix": "Use 5.4 for the replay alone, or say 'about 6 with the stock tool's sample and prefix pass'."
+    },
+    {
+     "title": "Rehearsal README and replay_cost.json give different main-pass counts for the same run",
+     "severity": "low",
+     "where": "records/cloud/full-rehearsals/README.md (third rehearsal, Kernel replay row) vs records/cloud/replay_cost.json points[0].checks_counted",
+     "scenario": "The README says 595 checks in the 32-at-a-time trial and 745 in the main pass. replay_cost.py's window is inclusive at both ends, so it counts 749 in the main pass: the 4 rows stamped exactly 1795233865 fall in both windows. A reader recomputing gets 745 or 749 depending on the boundary rule.",
+     "evidence": "From c3_results.tsv.gz: epoch<=1795233775: 452; 1795233775<epoch<=1795233865: 595; epoch>=1795233865: 749 (mean 4.367).",
+     "suggested_fix": "Use one boundary rule (half-open) in replay_cost.py, or note that the 4 boundary rows are counted in both."
+    },
+    {
+     "title": "Three different durations for the full rehearsal",
+     "severity": "low",
+     "where": "cloud/gcp/pilot_local.sh:9 ('about 35 minutes') vs cloud/gcp/README.md:79 ('about 20 minutes') vs records/cloud/full-rehearsals/README.md (1,216 s machine time, 'under 17 minutes')",
+     "scenario": "The controller's usage text and the README disagree on how long `launch full-rehearsal` takes.",
+     "evidence": "status.json of the third rehearsal: elapsed_s 996; the rehearsals README table: 1,216 s machine time.",
+     "suggested_fix": "Use the recorded figure (about 20 minutes of machine time) in pilot_local.sh."
+    },
+    {
+     "title": "Check 3 says the pre-registration requires one process per module, and gives the 43-hour estimate as a fact",
+     "severity": "low",
+     "where": "docs/verification-criteria.md, Check 3, 'How it is run'",
+     "scenario": "It says 'As pre-registered: leanchecker, one process per module', but PREREGISTRATION.md C3 says only 're-checked by leanchecker from the pinned toolchain'. 'One process per module' is how the script does it, not what was pre-registered. It also says the whole tree 'takes about 43 hours', a two-point extrapolation that has never been measured.",
+     "evidence": "PREREGISTRATION.md:60; replay_cost.json note 'a two-point fit'.",
+     "suggested_fix": "'As pre-registered: leanchecker (run here one process per module)'; 'is estimated at about 43 hours'."
+    },
+    {
+     "title": "K3's evidence covers 120 of the 140 rhv-replay modules it claims",
+     "severity": "low",
+     "where": "CLAIMS.md:41 (K3)",
+     "scenario": "K3 claims 140 of 140 modules passed by rhv-replay on the Mac (120, then 20 more after the review changes, per performance-notes). The evidence column gives only `--method rhv-replay --sample 120 --seed 77`, so the further 20 cannot be reproduced from what is cited.",
+     "evidence": "performance-notes section 10, Mac paragraph: 120 plus 'a further 20 random modules'.",
+     "suggested_fix": "Cite the command or record for the second 20, or claim 120 with the 20 noted separately."
+    }
+   ],
+   "second_agent": [
+    {
+     "item": "NEW 1",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "pilot_local.sh:10 still says 'An estimated 31 hours'. :44 defaults to leanchecker, and :154 only echoes the method, with no warning. cloud/gcp/README.md:91 gives about 60 h and says it does not fit. full_guest.sh:90/795 caps a replay that cannot finish at 3600 s. Overstated as waste: the default run still delivers C1 and C2, the cap check already budgets 42 h, and without an amendment neither method can give a pre-registered C3 within 42 h anyway.",
+     "fix": "Replace line 10 with the per-method figures (leanchecker about 60 h, does not fit, replay capped at 1 h; rhv-replay about 23 h, needs a dated amendment). Optionally print that note at :154 when the method is leanchecker."
+    },
+    {
+     "item": "NEW 2",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "cloud/gcp/README.md:114 starts the C3 row with '`complete` is true' and lists complete_by_leanchecker_alone only as information. rhv_tools.py computes complete from a pass by either method and complete_by_leanchecker_alone separately. PREREGISTRATION.md C3 names leanchecker. The amendment caveat is only in the paragraph at :94 and in CLAIMS.md:85, not in the row a reader checks against.",
+     "fix": "In the C3 row: 'without a dated amendment, C3 as pre-registered needs complete_by_leanchecker_alone true; complete suffices only under an amendment admitting rhv-replay'."
+    },
+    {
+     "item": "NEW 3",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "README.md:70 gives 'about 60 hours and 113 USD in all, or about 23 hours and 44 USD' with no amendment caveat, only 'These are extrapolations'. The CLAIMS.md:60 M9 row has no caveat either. The caveat appears only in CLAIMS.md:85 and in cloud-notes 8.5 (:304).",
+     "fix": "Add to both: 'the second counts towards C3 only under a dated amendment to the pre-registration'."
+    },
+    {
+     "item": "NEW 4",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "docs/cloud-notes.md:374 still says the full run does not give the checker many modules per process 'because that would change how criterion C3 is carried out'. Row 10 at :270 is still 'Open'. Both contradict :304/:319 and the GCP_REPLAY_METHOD=rhv-replay option (batches of 25).",
+     "fix": "Reword :374 to say this is now an option (rhv-replay), off by default and subject to an amendment. Mark row 10 as addressed in section 8.5."
+    },
+    {
+     "item": "NEW 5",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "replay_cost.py builds point 1 from the per-check wall seconds in c3_results (4.37). Point 2 uses est['windows']['check']['mean_cpu_s'] (8.29 CPU s; useful_cpu_per_thread_second 0.971 in records/cloud/pilot/pilot_estimate.json). Recomputed with 8.29/0.971 = 8.54: slope 0.000143, about 30.0 s per check, about 45.7 h instead of 43.3. The conclusion (does not fit) is unchanged.",
+     "fix": "Convert the pilot point to wall seconds (divide by useful_cpu_per_thread_second) or label the units, and say 'wall seconds' in M8 and the performance-notes table."
+    },
+    {
+     "item": "NEW 6",
+     "verdict": "partly",
+     "severity": "low",
+     "reason": "The 3.5 s / 5.4 h row is labelled in performance-notes section 10 as 'the same replay without the listing', and it is a fit-derived figure. README.md:70 says 'neither replay figure has been measured on a full tree'. So the projection is not presented as an rhv-replay measurement. Still, no document says that rhv-replay's per-module cost on the cloud machine is unmeasured. The Mac figures (6.8 s and 7.2 s, two at a time, build running) are given without being reconciled with it.",
+     "fix": "One sentence in section 10: the rhv-replay figure assumes its cost equals the fitted fixed plus closure terms; it has not been measured on the cloud machine, and the Mac timings were taken under build load."
+    },
+    {
+     "item": "NEW 7",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "replay_cost.json whole_tree.without_the_listing.hours_at_32 = 5.4, and performance-notes uses 5.4 for that row. CLAIMS.md:59 (M8) attaches 'about 6 hours' to 'the same replay without the listing'. The 6.2 figure is whole_run rhv-replay replay_hours, which includes the stock tool's sample and the prefix pass.",
+     "fix": "In M8 use 'about 5.4 hours', or say 'about 6 with the stock tool's sample and prefix pass'."
+    },
+    {
+     "item": "NEW 8",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "phases.tsv puts check_trial:end and check:N=32 both at 1795233865. replay_cost.py filters a0 <= epoch <= b0, inclusive at both ends. Counted from c3_results.tsv.gz: 4 rows at exactly 1795233865, 749 at or after that stamp, 745 strictly after. 452+595+749=1796, which exceeds the 1,792 compiled files. The rehearsals README (745) uses the half-open rule.",
+     "fix": "Use a half-open window (a0 < epoch <= b0) in replay_cost.py, giving 745, and regenerate replay_cost.json."
+    },
+    {
+     "item": "NEW 9",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "pilot_local.sh:9 says 'about 35 minutes'. cloud/gcp/README.md:79 says 'about 20 minutes'. The rehearsals README gives 1,216 s billed and 'under 17 minutes' of phases; status.json elapsed_s is 996.",
+     "fix": "Change pilot_local.sh:9 to 'about 20 minutes'."
+    },
+    {
+     "item": "NEW 10",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "docs/verification-criteria.md:79 says 'As pre-registered: `leanchecker`, one process per module' and 'that takes about 43 hours'. PREREGISTRATION.md C3 says only 're-checked by `leanchecker` from the pinned toolchain'. The 43 h is a two-point fit (replay_cost.json 'what').",
+     "fix": "'As pre-registered: leanchecker (run here one process per module)'; 'is estimated, from a two-point fit, at about 43 hours'."
+    },
+    {
+     "item": "NEW 11",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "CLAIMS.md:41 claims 140 of 140 by rhv-replay but cites only `--method rhv-replay --sample 120 --seed 77`. The further 20 appear only in prose (performance-notes :252). No record file of either Mac rhv-replay run exists under records/: grep found none, and records/mac-build has no replay results. So not even the 120 can be checked from a cited record, and on a growing build a seeded sample is not reproducible.",
+     "fix": "Cite the command used for the further 20 (or claim 120 and note the 20 separately). Commit the results files of both Mac runs under records/mac-build/ and cite them."
+    }
+   ]
+  }
+ ]
+}

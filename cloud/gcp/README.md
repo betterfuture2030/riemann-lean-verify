@@ -67,7 +67,7 @@ The build targets and probe modules used for the recorded pilot are in [`records
 python3 analysis/pilot_estimate.py PILOT_RESULTS_DIR records/source/import_graph.json.gz
 ```
 
-prints the estimated hours for a full build and a full kernel replay on the same machine type, and prices them. `PILOT_RESULTS_DIR` is the directory `watch` downloaded the results to. The recorded pilot's results are in [`records/cloud/pilot/`](../../records/cloud/pilot/), and [`docs/cloud-notes.md`](../../docs/cloud-notes.md), section 8, explains the method and what three reviews changed in it. Section 9 lists what a full run needs that these scripts do not do.
+prints the estimated hours for a full build and a full kernel replay on the same machine type, and prices them. Its figure for the kernel replay is wrong for the stock tool on a full tree; `python3 analysis/replay_cost.py` corrects it ([`docs/cloud-notes.md`](../../docs/cloud-notes.md), section 8.5). `PILOT_RESULTS_DIR` is the directory `watch` downloaded the results to. The recorded pilot's results are in [`records/cloud/pilot/`](../../records/cloud/pilot/), and [`docs/cloud-notes.md`](../../docs/cloud-notes.md), section 8, explains the method and what three reviews changed in it. Section 9 lists what a full run needs that these scripts do not do.
 
 ## The full run
 
@@ -78,21 +78,30 @@ git status --short scripts cloud                      # must be empty: a full ru
 bash cloud/gcp/pilot_local.sh stage                   # also uploads an archive of scripts/ made from that commit
 bash cloud/gcp/pilot_local.sh launch full-rehearsal   # about 20 minutes (0.68 USD recorded), at most 2.50 USD
 bash cloud/gcp/pilot_local.sh watch
-bash cloud/gcp/pilot_local.sh launch full             # an estimated 31 hours; refused unless the cap allows 84 USD more
+bash cloud/gcp/pilot_local.sh launch full             # refused unless the cap allows 84 USD more; see below for how long it takes
 bash cloud/gcp/pilot_local.sh watch                   # can be interrupted and resumed
 ```
 
-`launch full` is refused until `GCP_SPEND_CAP_USD` in `config.env` covers its worst case, 42 hours of machine time, on top of what the ledger already records. Raising the cap is how you authorise the run. The estimate is about 31 hours and 58 USD ([`docs/cloud-notes.md`](../../docs/cloud-notes.md), section 8). Set `GCP_KEEP_OLEANS=1` to keep an archive of the compiled files in the bucket afterwards, in 2 GB parts under `keep/`; it costs storage until you delete it.
+`launch full` is refused until `GCP_SPEND_CAP_USD` in `config.env` covers its worst case, 42 hours of machine time, on top of what the ledger already records. Raising the cap is how you authorise the run.
+
+How long it takes depends on how the kernel replay covers the tree, which `GCP_REPLAY_METHOD` in `config.env` sets ([`docs/cloud-notes.md`](../../docs/cloud-notes.md), section 8.5):
+
+| `GCP_REPLAY_METHOD` | Kernel replay | Whole run, estimated | Fits the 42-hour limit? |
+|---|---|---|---|
+| `leanchecker` (the default, and the method the pre-registration names) | The stock tool, one process per module, then its prefix pass | About 63 hours, 118 USD | No. The driver measures the replay's rate first; when it sees the tree cannot be covered it gives the replay one hour and finishes the other steps |
+| `rhv-replay` | The program in `scripts/verify/replay`, then the stock tool on `GCP_STOCK_SAMPLE` random modules (default 2,000) and on every prefix module | About 23 hours, 44 USD | Yes |
+
+Using `rhv-replay` for a run that is to count towards criterion C3 needs a dated amendment to `PREREGISTRATION.md` made before the run. Set `GCP_KEEP_OLEANS=1` to keep an archive of the compiled files in the bucket afterwards, in 2 GB parts under `keep/`; it costs storage until you delete it.
 
 What the virtual machine does, in order:
 
 | Phase | What happens | Criterion |
 |---|---|---|
-| Setup | Fetches the proof tarball and this repository's scripts, each checked against a SHA-256; installs the pinned toolchain and Mathlib's cache; records a SHA-256 of every file of the source tree, the toolchain and Mathlib's compiled files; blocks the build user from the metadata server and from opening any connection off the machine; only then compiles two files to confirm the cache is accepted | |
+| Setup | Fetches the proof tarball and this repository's scripts, each checked against a SHA-256; installs the pinned toolchain and Mathlib's cache; records a SHA-256 of every file of the source tree, the toolchain and Mathlib's compiled files; blocks the build user from the metadata server and from opening any connection off the machine; only then compiles two files to confirm the cache is accepted. With `rhv-replay`, root builds that program before anything of the proof is compiled, from its own copy of the toolchain (proved identical to the record just taken), after comparing the program's copy of the replay function with the toolchain's source; it must then replay the two files just compiled | |
 | Build | `lake build` of everything. After 3,000 modules it restarts the build tool twice, once plainly and once after deleting setup files, and stops the run if either restart recompiles a finished module. Then it deletes the setup files of finished modules every ten minutes. A failed build is tried once more with half the jobs | C1 |
 | Seal | Locks the build user's account. Confirms the source tree, the toolchain and Mathlib are byte-for-byte unchanged, symbolic links included. Gives every file to root. Copies the toolchain to a directory only root has written. Recreates the directories the checks write to. Refuses any file beside the compiled modules that the build tool does not write for this project. Records a SHA-256 of every file there. Creates two fresh users | |
-| Axiom check | `scripts/08_check_axioms.sh`, and again with `--deep`, as the user `chk2`. The deep walk runs before the replay if the replay will still fit afterwards, otherwise after it; if no time is left it is skipped, and `facts.json` says so | C2 |
-| Kernel replay | `scripts/09_kernel_replay.sh` on every module, as the user `chk3`: short trials at 16, 24 and 32 at a time, the rest at the fastest, then the prefix pass; then up to two more passes, with fewer at a time, for modules whose checker was killed or cut off | C3 |
+| Axiom check | `scripts/08_check_axioms.sh`, and again with `--deep`, as the user `chk2`. The deep walk runs after the replay's trials: before the main replay if the replay will still fit afterwards, otherwise after it; if no time is left it is skipped, and `facts.json` says so | C2 |
+| Kernel replay | `scripts/09_kernel_replay.sh` on every module, as the user `chk3`, by the method chosen at launch. Short trials at 16, 24 and 32 at a time measure the rate; the rest runs at the fastest. If that rate cannot cover the tree in the time left, the replay gets one hour and the run moves on. Then up to two more passes, with fewer at a time, for modules whose checker was killed or cut off. With `rhv-replay`, the stock tool then checks a random sample and every prefix module again | C3 |
 | End | Hashes the files beside the compiled modules, the toolchain and Mathlib again; any change voids the checks | |
 | Report | Uploads logs, measurements and `facts.json` | |
 
@@ -102,7 +111,7 @@ What the virtual machine does, in order:
 |---|---|---|
 | C1 | `c1_build` | `state` is `built` or `built_on_second_pass`; `source_modules_not_compiled`, `compiled_modules_without_source` and `compiled_modules_named_like_a_library` are 0; `failed_job_lines_in_all_logs` is 0, or every failure in the first pass is explained in the logs; under `restart_tests`, no finished module was recompiled and each test built new modules |
 | C2 | `c2_axioms` | `plain` and `deep` both have `verdict` `PASS` in mode `full`; `compiled_modules` equals the source count; `deep_walk.axioms` lists only the three standard axioms and `missing` is empty; `deep_walk_ran` is `before_replay` or `after_replay` |
-| C3 | `c3_kernel_replay.summary` | `complete` is true; `failed`, `prefix_failed` and `modules_with_unexpected_parts` are 0 |
+| C3 | `c3_kernel_replay` | In `summary`: `failed`, `methods_disagree`, `not_run_or_killed`, `modules_with_unexpected_parts` and `compiled_files_never_finished_by_the_build` are 0, and **`complete_by_leanchecker_alone` is true**: criterion C3 as pre-registered names `leanchecker`, and that field is true only if the stock tool by itself passed every module. `complete`, which is true when every module was passed by either tool and failed by neither, is enough only under a dated amendment to `PREREGISTRATION.md` that admits `rhv-replay`; no such amendment exists. A module still listed under `not_run_or_killed` after the retries, on a finished tree, is a finding to look into (for example a compiled file that names an import with no compiled file), not a pass. Which tool passed what: `passed_by_leanchecker`, `passed_by_rhv_replay`, `passed_by_both`. `method_for_the_whole_tree` says which method the main pass used, and `expected_to_fit` whether the trials found it could cover the tree. With `rhv-replay`, under `replay_program`: `unchanged_since_it_was_built` and `every_recorded_run_used_this_program` are true, `source_check` shows the comparison with the toolchain's source and the hash of the program's source, and both exit statuses of the stock tool's passes are 0 (if one is missing, the field beside it says why it did not run) |
 | All | `seal`, `end`, `inputs` | Every entry under `seal` and `end` that says "unchanged" or "matches" is true; `files_beside_the_compiled_modules_that_the_build_does_not_write` is 0; `build_user_process_seen_after_seal` is false; `inputs.tarball_sha256` is the recorded hash, `inputs.tools_commit` is a commit of this repository and `guest_script_is_the_one_sent` is true |
 
 A build that fails twice ends the run with the state `BUILD_FAILED` and the compiler's output for each failed module. If any of those failures was a compiler process killed from outside, for lack of memory for instance, the run says so: by section 4 of the pre-registration that is not a test of the module. If the build tool itself died without reporting a failed module, the state is `FAIL`, which is a failure of the run and says nothing about the proof.

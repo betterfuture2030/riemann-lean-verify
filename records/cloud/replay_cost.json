@@ -1,0 +1,103 @@
+{
+ "what": "cost of the kernel replay per module, in wall-clock seconds of one check while 32 run at once on n4d-highmem-32, from two recorded runs; a two-point fit",
+ "made_utc": "2026-11-21T05:33:47Z",
+ "points": [
+  {
+   "run": "full-rehearsal-20261120-214914",
+   "compiled_modules": 1792,
+   "checks_counted": 745,
+   "mean_seconds_per_check": 4.36,
+   "mean_closure": 0,
+   "note": "wall seconds of each check while 32 ran at once; whole seconds, so the mean is good to about 0.1. The closure is taken as 0: no module here imports more than 1,791 others, which is under half a second",
+   "files_on_search_path": 12244
+  },
+  {
+   "run": "pilot-20261120-162141",
+   "compiled_modules": 29633,
+   "checks_counted": 2225,
+   "mean_cpu_seconds_per_check": 8.29,
+   "useful_cpu_per_job_second": 0.971,
+   "mean_seconds_per_check": 8.54,
+   "mean_closure": 680,
+   "share_of_cpu_time_spent_in_the_operating_system": 0.609,
+   "files_on_search_path": 40085
+  }
+ ],
+ "fit_seconds_per_check": {
+  "fixed": 2.6,
+  "per_compiled_file_on_the_search_path": 0.000144,
+  "per_module_in_the_import_closure": 0.000271
+ },
+ "whole_tree": {
+  "modules": 175187,
+  "files_on_search_path": 185639,
+  "mean_closure": 3086,
+  "leanchecker_one_process_per_module": {
+   "seconds_per_check": 30.1,
+   "of_which_listing_the_search_path": 26.6,
+   "hours_at_32": 45.7
+  },
+  "without_the_listing": {
+   "seconds_per_check": 3.4,
+   "hours_at_32": 5.2,
+   "note": "a projection from the stock tool's fit (its fixed and closure terms); not a measurement of rhv-replay"
+  }
+ },
+ "earlier_estimate_it_replaces": {
+  "hours": 14.0,
+  "why_it_was_wrong": "it took the cost per check measured with 29,633 modules compiled as the cost at any size"
+ },
+ "whole_run": {
+  "configuration": "n4d-highmem-32 on demand, 440 GB disk, setup files pruned",
+  "usd_per_billed_hour": 1.863,
+  "with_rhv_replay_the_stock_tool_also_checks": "2000 random modules and every prefix module",
+  "by_method_for_the_whole_tree": {
+   "leanchecker": {
+    "low": {
+     "build_hours": 13.7,
+     "replay_hours": 45.7,
+     "other_hours": 0.5,
+     "billed_hours": 59.9,
+     "usd": 112
+    },
+    "expected": {
+     "build_hours": 15.6,
+     "replay_hours": 45.7,
+     "other_hours": 1.5,
+     "billed_hours": 62.8,
+     "usd": 118
+    },
+    "high": {
+     "build_hours": 17.9,
+     "replay_hours": 48.8,
+     "other_hours": 6.0,
+     "billed_hours": 72.7,
+     "usd": 136
+    }
+   },
+   "rhv-replay": {
+    "low": {
+     "build_hours": 13.7,
+     "replay_hours": 6.1,
+     "other_hours": 0.5,
+     "billed_hours": 20.3,
+     "usd": 38
+    },
+    "expected": {
+     "build_hours": 15.6,
+     "replay_hours": 6.1,
+     "other_hours": 1.5,
+     "billed_hours": 23.2,
+     "usd": 44
+    },
+    "high": {
+     "build_hours": 17.9,
+     "replay_hours": 7.0,
+     "other_hours": 6.0,
+     "billed_hours": 30.9,
+     "usd": 58
+    }
+   }
+  }
+ }
+}
