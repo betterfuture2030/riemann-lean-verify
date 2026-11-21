@@ -1,0 +1,88 @@
+{
+ "what": "facts from one run of cloud/gcp/full_guest.sh; not a verdict (see PREREGISTRATION.md, section 5)",
+ "state": "FAIL",
+ "message": "1 files beside the compiled modules are of a kind the build does not write; see unexpected_lib_files.txt",
+ "written_utc": "2026-11-21T05:50:00Z",
+ "elapsed_s": 652,
+ "mode": "full-rehearsal",
+ "time_boxed_build": true,
+ "jobs": 32,
+ "inputs": {
+  "tarball_sha256": "9631b4f020199e580ba86178cb56c6e9b09f690c2369a80dc4334aa93f49c7fc",
+  "tools_commit": "dbdacd43dfb204fff13f301f4aa873ccc825fa2d",
+  "tools_archive_sha256": "52590051ec0603f8e2d58718a3951231fab03cfc16d84bab6f141e6ef464536c",
+  "guest_script_sha256": "49f20ffa75539f058f9d028404e424efc0d62cab25f6ead744b96cd8c4e02ebc",
+  "guest_script_is_the_one_sent": true
+ },
+ "c1_build": {
+  "state": "time_boxed",
+  "source_modules": 175187,
+  "compiled_modules": 1642,
+  "source_modules_not_compiled": 173545,
+  "compiled_modules_without_source": 0,
+  "compiled_modules_named_like_a_library": 0,
+  "failed_job_lines_in_all_logs": 0,
+  "last_lake_exit_status": 124,
+  "retried_after_failure": false,
+  "failed_jobs_in_last_pass": null,
+  "of_which_compiler_killed_from_outside": null,
+  "of_which_compiler_crashed": null,
+  "restart_tests": {
+   "plain_restart": {
+    "finished_modules_recompiled": 0,
+    "new_modules_built": 308
+   },
+   "restart_after_pruning": {
+    "finished_modules_recompiled": 0,
+    "new_modules_built": 306
+   }
+  }
+ },
+ "seal": {
+  "source_tree_unchanged_since_extraction": true,
+  "toolchain_and_mathlib_unchanged_since_before_first_compile": true,
+  "sealed_copy_of_toolchain_matches": true,
+  "files_beside_the_compiled_modules_that_the_build_does_not_write": 1,
+  "compiled_files_manifest_sha256": null
+ },
+ "c2_axioms": {
+  "plain_exit_status": null,
+  "deep_exit_status": null,
+  "deep_walk_ran": "not_run",
+  "plain": null,
+  "deep": null
+ },
+ "c3_kernel_replay": {
+  "method_for_the_whole_tree": "rhv-replay",
+  "last_exit_status": null,
+  "jobs": null,
+  "trial_rate_modules_per_second": null,
+  "expected_seconds": null,
+  "expected_to_fit": null,
+  "replay_program": {
+   "sha256": "6792c5ffda9862c55ac10285ed7f652c471a233d012812f70000a838a41ec852",
+   "unchanged_since_it_was_built": null,
+   "source_check": [
+    "replayFromImports: identical in the driver and in the toolchain's LeanChecker.lean (1131 characters, sha256 4a1a5a15aa9296ca7fa05bc6fae5413962b27b718ab9acf1b50b6c461bbe7464)",
+    "driver source as a whole: RhvReplay.lean sha256 52c1984827f2c461ce4c7db782076a1d47cce8875657722556ae62d26a7bc3ef, the reviewed file"
+   ],
+   "every_recorded_run_used_this_program": null,
+   "stock_sample_requested": 150,
+   "stock_sample_exit_status": null,
+   "stock_sample_not_run_because": null,
+   "stock_prefix_pass_exit_status": null,
+   "stock_prefix_pass_not_run_because": null,
+   "main_pass_was_allowed_time_kept_for_the_stock_tool": false
+  },
+  "summary": null
+ },
+ "end": {
+  "compiled_files_unchanged_since_seal": null,
+  "toolchain_and_mathlib_unchanged_since_seal": null,
+  "build_user_process_seen_after_seal": false
+ },
+ "archive_of_compiled_files": {
+  "state": "not_requested",
+  "objects_uploaded": null
+ }
+}

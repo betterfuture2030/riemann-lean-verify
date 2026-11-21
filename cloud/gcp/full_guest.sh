@@ -17,7 +17,8 @@
 #           tree, the toolchain and Mathlib's compiled files are byte-for-byte what they were before any file of
 #           the proof was compiled, symbolic links included; hands every file to root; copies the toolchain to a
 #           directory only root has ever written; deletes and recreates the directories the checks will write to;
-#           refuses any file beside the compiled modules that the build tool does not write for this project;
+#           removes, and counts, the half-written files that killed compilers leave beside the compiled modules;
+#           refuses any other file there that the build tool does not write for this project;
 #           records a SHA-256 of every file there; and creates two fresh unprivileged users.
 #   c2      scripts/08_check_axioms.sh, without and with --deep (criterion C2), as the user `chk2`. The deep
 #           walk runs before the replay if the replay will still fit afterwards, otherwise after it, and is
@@ -183,7 +184,7 @@ as_chk() { runuser -u "$1" -- env -i HOME="/home/$1" LANG=C.UTF-8 PATH="$TC_BIN:
 
 # ---- facts.json: what happened, as numbers. Written whenever the run reports; fields not yet known are null.
 C1_STATE=not_reached; LAKE_RC=""; RETRIED=0; RESTART_CONTROL=""; RESTART_PRUNE=""; RESTART_CONTROL_NEW=""; RESTART_PRUNE_NEW=""
-FAILED_JOBS=""; KILLED_JOBS=""; CRASHED_JOBS=""; LIB_OTHER=""; KEEP_STATE=not_requested; LAKE_N=0
+FAILED_JOBS=""; KILLED_JOBS=""; CRASHED_JOBS=""; LIB_OTHER=""; KEEP_STATE=not_requested; LAKE_N=0; LEFTOVERS=""
 C1_MISSING=""; C1_EXTRA=""; C1_SHADOW=""; SRC_SAME=""; LIBS_SAME=""; TC_COPY_SAME=""; MANIFEST_SHA=""
 C2_PLAIN_RC=""; C2_DEEP_RC=""; C2_DEEP_WHEN=not_run; C3_RC=""; CHECK_JOBS=""; OLEANS_SAME_END=""; LIBS_SAME_END=""; KEEP_PARTS=""
 C3_STOCK_RC=""; C3_PREFIX_RC=""; C3_FITS=""; C3_EXPECT=""; C3_RATE=""; DRIVER_SAME=""; STOCK_SQUEEZED=0; C3_STOCK_WHY=""; C3_PREFIX_WHY=""
@@ -221,7 +222,7 @@ write_facts() { # write_facts <state> <message>
   F_MISSING=$C1_MISSING F_EXTRA=$C1_EXTRA F_SHADOW=$C1_SHADOW F_SRC_SAME=$SRC_SAME F_LIBS_SAME=$LIBS_SAME F_TC_COPY=$TC_COPY_SAME \
   F_MANIFEST=$MANIFEST_SHA F_C2P=$C2_PLAIN_RC F_C2D=$C2_DEEP_RC F_C2WHEN=$C2_DEEP_WHEN F_C3=$C3_RC F_CJOBS=$CHECK_JOBS \
   F_OLEANS_END=$OLEANS_SAME_END F_LIBS_END=$LIBS_SAME_END F_KEEP=$KEEP_PARTS F_PD=$PD \
-  F_METHOD=$REPLAY_METHOD F_DRIVER_SHA=$DRIVER_SHA F_DRIVER_SAME=$DRIVER_SAME F_C3_STOCK=$C3_STOCK_RC F_C3_PREFIX=$C3_PREFIX_RC \
+  F_LEFTOVERS=$LEFTOVERS F_METHOD=$REPLAY_METHOD F_DRIVER_SHA=$DRIVER_SHA F_DRIVER_SAME=$DRIVER_SAME F_C3_STOCK=$C3_STOCK_RC F_C3_PREFIX=$C3_PREFIX_RC \
   F_C3_FITS=$C3_FITS F_C3_EXPECT=$C3_EXPECT F_C3_RATE=$C3_RATE F_STOCK_SAMPLE=$STOCK_SAMPLE F_SQUEEZED=$STOCK_SQUEEZED \
   F_STOCK_WHY=$C3_STOCK_WHY F_PREFIX_WHY=$C3_PREFIX_WHY \
   python3 -I - "$PD/facts.json" <<'PY'
@@ -263,6 +264,7 @@ json.dump({
     'seal': {'source_tree_unchanged_since_extraction': yes('F_SRC_SAME'),
              'toolchain_and_mathlib_unchanged_since_before_first_compile': yes('F_LIBS_SAME'),
              'sealed_copy_of_toolchain_matches': yes('F_TC_COPY'),
+             'half_written_files_of_killed_compilers_removed': num('F_LEFTOVERS'),
              'files_beside_the_compiled_modules_that_the_build_does_not_write': num('F_LIB_OTHER'),
              'compiled_files_manifest_sha256': E('F_MANIFEST') or None},
     'c2_axioms': {'plain_exit_status': num('F_C2P'), 'deep_exit_status': num('F_C2D'), 'deep_walk_ran': E('F_C2WHEN'),
@@ -656,6 +658,17 @@ chown -R root:root "$WORK" && chmod -R a+rX,go-w "$WORK" || finish FAIL "could n
 [ -z "$(find "$WORK" ! -user root -print -quit)" ] || finish FAIL "a file under the working directory is still not owned by root"
 [ -z "$(find "$WORK/extract" \( -type f ! -perm -o=r -o -type d ! -perm -o=rx \) -print -quit)" ] || finish FAIL "a file or directory of the project is not readable by the checkers"
 [ -z "$(find "$PROJ/.lake" -type f -links +1 -path '*/lib/lean/*' -print -quit)" ] || finish FAIL "a compiled file has more than one hard link"
+# A compiler killed while it was writing leaves the half-written file behind, named <module>.olean.tmp.<pid>
+# (the fourth rehearsal: one such file, from the compile the time box cut off). The restart tests of a full run
+# kill compilers too. The build tool compiles such a module again under its proper name and nothing ever reads
+# the leftover, so these, and only these, are listed, removed and counted here: regular files whose name ends
+# in .olean.tmp.<digits> or .ilean.tmp.<digits>.
+# A rehearsal plants one, so that this step is exercised whether or not a compiler happened to be cut off in mid-write.
+[ "$TIMEBOX" -gt 0 ] && : > "$LIB/RehearsalStandIn.olean.tmp.1"
+find "$LIB" -type f -regextype posix-extended -regex '.*\.(olean|ilean)\.tmp\.[0-9]+' -print -delete > "$PD/compiler_leftovers.txt" 2>/dev/null
+LEFTOVERS=$(wc -l < "$PD/compiler_leftovers.txt")
+if [ "$TIMEBOX" -gt 0 ] && { [ "$LEFTOVERS" -lt 1 ] || [ -e "$LIB/RehearsalStandIn.olean.tmp.1" ]; }; then finish FAIL "the stand-in for a killed compiler's half-written file was not removed"; fi
+[ "$LEFTOVERS" = 0 ] || { say "seal: removed $LEFTOVERS half-written files left by killed compilers"; gcs_put "$PD/compiler_leftovers.txt" "$RES/compiler_leftovers.txt"; }
 # Beside the compiled modules there may be only what the build tool writes for this project: .olean, .ilean,
 # their .hash files and .trace. In particular no .olean.server or .olean.private: the kernel replay would read
 # those in place of the .olean that the axiom check and every importing module read.

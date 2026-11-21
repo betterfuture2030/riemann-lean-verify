@@ -7,6 +7,7 @@ Short runs of [`../../../cloud/gcp/full_guest.sh`](../../../cloud/gcp/full_guest
 | `full-rehearsal-20261120-211809` | Stopped itself during setup, 109 seconds in | 353 seconds | 0.20 USD |
 | `full-rehearsal-20261120-212636` | Ran every phase; both checks failed for a fault of the driver, not of the proof | 1,142 seconds | 0.63 USD |
 | `full-rehearsal-20261120-214914` | Ran every phase; every step it reached did what it should | 1,216 seconds | 0.68 USD |
+| `full-rehearsal-20261120-233826` | First rehearsal of the driver with the second replay method. Stopped itself at the seal, for a fault that a full run could have met too | 872 seconds | 0.48 USD |
 
 ## `full-rehearsal-20261120-211809`
 
@@ -81,3 +82,25 @@ Two things in this run were changed afterwards. The four files the build tool ne
 
 Files: as for the second run, plus `c2_plain.json` and `c2_deep.json` (the axiom check's summaries), `c2_deep.modules.tsv` (which modules the deep walk touched), `c3_summary.json` and `c3_results.tsv.gz` (one line per replayed module: exit status, seconds, the stamp of the compiled file, time).
 
+## `full-rehearsal-20261120-233826`
+
+The fourth rehearsal was the first of the driver as changed to offer a second method for the kernel replay ([`../../../docs/performance-notes.md`](../../../docs/performance-notes.md), section 10), launched with `GCP_REPLAY_METHOD=rhv-replay`. It ended at the seal, eleven minutes in, with the state `FAIL`.
+
+What worked that had not run before:
+
+| Step | Result | Where |
+|---|---|---|
+| Root builds the replay program during setup, before any file of the proof is compiled | 3 seconds, from root's own copy of the toolchain, after that copy was found identical to the record taken just before | `setup.tsv` (`replay_program`), `env.txt` |
+| The program's source is the reviewed file and its replay function is the toolchain's | Both checks passed on the Linux toolchain; the hashes are in the record | `env.txt`, `facts.json` (`replay_program.source_check`) |
+| The program loads nothing but system libraries | `libc`, `libm`, `libpthread`, `libdl`, `librt` and the loader | `env.txt` |
+| The program replays the two modules of the smoke build | Both passed, 1.8 seconds each, one process | `env.txt` |
+
+The restart tests again recompiled nothing (308 and 306 new modules built), and the seal found the source tree, the toolchain and Mathlib unchanged.
+
+What stopped it: the seal refuses any file beside the compiled modules that the build tool does not write for this project, and it found one, `EtaleIntegralityFacts.olean.tmp.66116` (`unexpected_lib_files.txt`). That is a compiler's own half-written output. Lean writes a compiled file under a temporary name ending in `.tmp.` and its process number, and renames it when it is complete; the rehearsal's time box had stopped the build tool while that compiler was writing. Nothing reads such a file, and the build tool compiles the module again under its proper name.
+
+The refusal was the check working as written, and too strict. It matters beyond rehearsals: a full run stops and restarts the build tool twice in its restart tests, killing whatever compilers are running, so the same leftover could have ended a full run at the seal, after the whole build. The earlier rehearsals killed compilers at the same points and happened not to catch one in mid-write.
+
+The seal now lists, removes and counts exactly these files, regular files whose name ends in `.olean.tmp.` or `.ilean.tmp.` and digits, before it applies the rule to everything else, and `facts.json` records how many there were. A rehearsal plants one stand-in, so that the step runs whether or not a compiler happens to be cut off in mid-write.
+
+Files: `setup.tsv`, `pilot.log`, `env.txt`, `facts.json`, `status.json`, `phases.tsv`, `restart_tests.txt`, `progress.tsv`, `disk.txt`, `unexpected_lib_files.txt`. Each was written by `scripts/dev/scrub.py clean`; one home-directory path in `env.txt` was replaced by a placeholder.

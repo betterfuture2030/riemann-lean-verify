@@ -1,0 +1,1 @@
+{"phase": "seal", "state": "FAIL", "message": "1 files beside the compiled modules are of a kind the build does not write; see unexpected_lib_files.txt", "elapsed_s": 654, "deadline_in_s": 2646, "mode": "full-rehearsal", "nmax": 32, "utc": "2026-11-21T05:50:02Z"}
