@@ -1,0 +1,448 @@
+{
+ "what": "First AI review, on 2026-11-21, of the code for a full run on Spot machines that resumes after Google takes a machine back (cloud/gcp/pilot_local.sh, cloud/gcp/full_guest.sh, scripts/spot_checkpoint.sh and their local tests), as first written and before anything had been launched. Five agents, one lens each, read-only; none ran anything in the cloud. Criticism of code, not a result. Line numbers are those of the draft reviewed, which has since changed. The lead agent then read every major finding against the code and judged each one real.",
+ "counts": {
+  "reviewers": 5,
+  "blocker": 0,
+  "major": 13,
+  "minor": 27
+ },
+ "the_findings_that_mattered_most": [
+  "No reviewer graded anything a blocker.",
+  "Replay results were uploaded as they were produced, so results could be carried forward from a machine whose compiled files were never hashed again after the results were made; the end check ran only on the finishing machine.",
+  "Nothing showed that the parts reproduce the sealed compiled files: tracking was by module, and a file the build tool rewrote after its part was cut would have been restored stale.",
+  "The guest's download looked at the server's status and not at curl's own, so a transfer cut short could be taken for a complete file and end the run as a failure.",
+  "No lock: a teardown run while a watch was running was followed at once by the watch starting the next attempt, and two watches could delete each other's machines.",
+  "The ledger was rewritten in place; an interruption could truncate it, and recorded spend would then have read as zero.",
+  "A create that reported an error could still have made a machine, and the next zone was tried at once: two machines were possible.",
+  "The purge at the end of an attempt raced Google's own deletion of a reclaimed machine and could report the attempt as not verified.",
+  "The rehearsal's forced cuts did not test what they claimed: the cut during the build could land before any part was saved, and the cut during the replay could land in the trials.",
+  "The launcher's test passed only with a non-default temporary directory (four cases failed on a default macOS shell), used a pretend guest so that the contract between launcher and guest was untested, and the guest's Spot shell code had no test at all."
+ ],
+ "what_was_changed_in_response": "docs/cloud-notes.md, section 10.5. In short: results and unit records leave a machine only after that machine has hashed the sealed files again and found them unchanged; the parts are tracked file by file and proved against the seal on the sealing machine; every download is checked against a recorded SHA-256 and retried; one Spot command at a time; the ledger is swapped in whole and a shrunken ledger stops every start; no second zone after an unclear create error; the purge waits for Google's own deletion; the rehearsal's cuts wait for what they are meant to interrupt and one is a hard reset; a harness now runs the guest's own Spot code locally. The changes were themselves re-checked: spot_resume_recheck.json.",
+ "reviewers": [
+  {
+   "lens": "money: can anything be spent, or left billing, without a ledger row or past the cap",
+   "summary": "MONEY review of the Spot launcher (cloud/gcp/pilot_local.sh), the cost-bearing parts of the guest, and scripts/dev/test_spot_launcher.sh. I ran the test: 33 passed, 0 failed. I also ran analysis/spot_resume_model.py --help, which works.\n\nSizing is right. I worked it by hand: Decimal arithmetic, floor on seconds, ceiling on XWORST, the 0.01 covering the '%.2f' rounding of the row, and MAXRUN+120 as the cap on recorded seconds. These give spent + row + XWORST <= cap - reserve exactly. Every create has exactly one open ledger row before it. Every VM is Spot with DELETE and --max-run-duration. A new attempt starts only after both project-wide listings succeed and are empty.\n\nThe four claims do not fully hold:\n- (1) Recorded spend never passes the cap: holds by construction, with two holes. An interrupted or crashed rewrite can empty the whole ledger. The transfer bound rests on a parts size that nothing enforces.\n- (2) No VM or disk without an open row: holds except in the async-create case below.\n- (3) Never a second machine, never an unnoticed loop: fails. There is no lock, so a `teardown` (or a second `watch`) run while `watch` is running is undone at once, and a new attempt starts.\n- (4) Every cost in the ledger or the reserve: true in practice, but bucket storage of the parts after the run, or during a long pause, is bounded only in time by the owner, and some small transfer and egress items are not counted.\n\nPrices checked on Google's own pages (copies downloaded 2026-11-21):\n- n4d-highmem-32 Spot in us-central1 is 1.013632 USD/h. With the disks and a Spot IPv4 address that is about 1.10 USD/h, so the 1.20 ledger rate has about a 9% margin.\n- Moving data between a Cloud Storage bucket in North America and a VM in another North American region costs 0.02 USD/GiB. A VM in one region sending to a service in another North American region is also 0.02 USD/GiB. So GCP_XREGION_USD_PER_GIB=0.02 is right for both directions.\n\nNot confirmed:\n- The us-east1 Spot rate for N4D. The pricing page loads regions dynamically and is too large to fetch.\n- Whether this bucket has the default 7-day soft-delete policy.\n- How big the source tarball is (each out-of-region attempt downloads it, and it is not counted).\n- Whether Spot rates change during a 120 h give-up window.\n\nHow well test_spot_launcher.sh guards each claim:\n- (1) Good for the sizing arithmetic and for random reclaim sequences. Nothing tests parts that grow past GCP_SPOT_PARTS_MAX_GIB, or a damaged ledger.\n- (2) Good: the fake fails if a create sees anything other than exactly one open row. Nothing tests a create that errors and only appears in the listing later.\n- (3) Partial: the fake fails on a create while an instance exists. Nothing tests a concurrent watch or a teardown run during a watch.\n- (4) Not tested at all: nothing models storage or egress.",
+   "findings": [
+    {
+     "severity": "major",
+     "file": "cloud/gcp/pilot_local.sh",
+     "line": 444,
+     "title": "teardown run while watch is running is silently undone, and watch starts a new attempt",
+     "detail": "There is no lock between commands. Sequence: `watch` is in spot_poll on attempt N. The owner runs `bash pilot_local.sh teardown` in another terminal to stop the run. spot_teardown deletes the VM, closes the row via spot_account, then writes PAUSED='manual teardown' (line 444). On watch's next poll, vm_state is GONE (line 314), so watch calls spot_account. That rewrites the whole state from watch's in-memory variables (line 394), where PAUSED is empty, which erases the pause and counts NOPROGRESS a second time. Watch then runs the pause rules (469-475) and spot_start (476), and creates attempt N+1. The run the owner stopped is running again, possibly for up to 42 h with nobody watching. A second `watch` in another terminal plays out the same way: when it reaches its stale local deadline or sees GONE, it runs spot_purge and deletes the other watcher's fresh VM. The two watchers then delete each other's VMs, reuse attempt numbers and overwrite the state, until the pause rules stop it. Recorded spend stays under the cap (every create is still sized and has a row), but whole attempts are wasted and the owner's stop does not hold. At HEAD a teardown during a full-run watch was harmless: watch just exec'd teardown.",
+     "fix": "Take an exclusive lock for every Spot command that changes anything (launch full-spot*, watch, teardown, abandon). For example, mkdir \"$STATE.lock\" holding the PID, with a stale-PID check; refuse with \"another watch/teardown is running (pid N)\". At minimum, spot_account should re-read $STATE before writing it, and watch should stop if PAUSED was set by someone else."
+    },
+    {
+     "severity": "major",
+     "file": "cloud/gcp/pilot_local.sh",
+     "line": 85,
+     "title": "Ledger rewrites are not atomic: an interrupt or crash can empty the ledger, and the cap is then re-spent",
+     "detail": "close_run (line 85) and the new spot_ledger_zone (line 184) rewrite the ledger with open(p,'w').write(...). That truncates the file first and writes it afterwards, with no temporary file and no fsync. Ctrl-C or a closed terminal sends SIGINT/HUP to the whole process group, so the python child gets it too. If it lands between the truncation and the write, or the Mac loses power before the data reaches disk (APFS records the truncation before the data), the ledger is left empty or cut short. Then spent() returns 0 or too little, open_run finds nothing, and spot_size sizes the next attempt against the full cap. Recorded spend can then pass the cap by up to a whole cap's worth. The Spot path rewrites the ledger far more often than HEAD did: one zero-cost row closed per 10-minute capacity retry (up to about 720 over 120 h), a zone fill per attempt, a close per attempt. The test never interrupts a ledger write.",
+     "fix": "In both python snippets, write to p+'.tmp', flush, os.fsync, then os.replace(tmp, p). The shell appends with printf >> are only a single short write and are acceptable. spot_size could also refuse to start when the ledger has fewer rows than the last seen count stored in the state file."
+    },
+    {
+     "severity": "major",
+     "file": "cloud/gcp/pilot_local.sh",
+     "line": 232,
+     "title": "A create that errors but completes server-side can give two VMs under one ledger row",
+     "detail": "In spot_start, when `instances create` returns non-zero, vm_state lists the instance in that zone. If it comes back GONE, the loop moves to the next zone (lines 230-232). This happens for any error, not just a capacity refusal. Sequence: the create in us-central1-a hits a transport or polling error after Google has accepted the insert, and the instance is not yet visible to `list`. The listing says GONE, and the next zone's create succeeds with the same name (names are unique only within a zone). Two Spot VMs now run under one open row. spot_poll watches only $ZONE. The VM in the first zone bills up to its own max-run-duration (at most m, about 32 h, roughly 39 USD at 9.86 spent) and is only deleted by the project-wide spot_purge when the attempt ends. Recorded spend under-counts by up to one whole attempt. The same pattern exists at HEAD in `launch`, but the Spot path runs it on every attempt and every 10-minute capacity retry. The create_reports_error_but_vm_exists case covers only an instance that is visible at once.",
+     "fix": "Go on to the next zone only when the error text shows a known refusal that means nothing was created (ZONE_RESOURCE_POOL_EXHAUSTED, QUOTA, \"does not have enough resources\"), and even then confirm with a project-wide `instances list`. For any other error, stop with the row open, as the UNKNOWN branch does."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/pilot_local.sh",
+     "line": 385,
+     "title": "Transfer is bounded by XWORST only if the parts stay under GCP_SPOT_PARTS_MAX_GIB, which nothing enforces during an attempt",
+     "detail": "spot_size (line 164) refuses an out-of-region attempt only if the parts are already over PARTS_MAX_GIB when it starts. The transfer row (line 387) charges XREGION x max(restored, final) GiB. Example: an attempt starts out of region with 50 GiB of parts and ends with 80 GiB. The row is 1.60 USD against an XWORST of 1.20, so recorded spend ends 0.40 USD above cap - reserve. It passes the cap itself only above about 110 GiB of parts. The expected total is about 37 GiB (keep archives at 0.23 MB/module x 175k modules), so this is unlikely in practice. The guest does not know the bound.",
+     "fix": "Pass the remaining parts budget (PARTS_MAX_GIB x 2^30 - PARTS_BYTES) to the guest as metadata and have it stop cutting parts at that size; or size XWORST on the whole compiled tree (about 0.13 TB, about 2.4 USD)."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/pilot_local.sh",
+     "line": 367,
+     "title": "While the Mac is offline, a reclaimed attempt is charged as if it ran to its maximum, which can use up the cap",
+     "detail": "spot_account closes the row at the time the attempt is accounted, capped at MAXRUN+120. Example: attempt 1 is sized to 117270 s with 9.86 spent. Google reclaims it after 1 h while the Mac is asleep or offline overnight. The watcher, coming back, records min(elapsed, MAXRUN+120). That is up to 39.13 USD, against a real cost of about 1.10 USD. The next spot_size then finds no room and the run pauses on the cap. This direction is money-safe, but it can waste the run, and reclaims are expected with Spot, unlike at HEAD. The same happens after an ambiguous create (UNKNOWN, line 233) if the watcher is only re-run much later.",
+     "fix": "Record the last time a poll positively saw the VM present (LAST_SEEN in the state). In the pause message, say that the row may over-count, and add a documented `ledger correct` step using the instance's deletion time from Google's activity log or the bill. Do not lower the bound automatically."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/pilot_local.sh",
+     "line": 212,
+     "title": "A crash between ledger and state writes leaves a phantom attempt that is charged and counted",
+     "detail": "(a) Power is lost after the row append (212) and before spot_save (214). The state still holds attempt N-1, already accounted, while row N is open. The next `watch` polls attempt N-1's zone, sees GONE, and spot_account closes row N with seconds = now - rownow, capped at the OLD MAXRUN+120. No VM ever existed, but this can be many hours of recorded spend, and NOPROGRESS goes up by one. (b) Power is lost between close_run zero (238) and the state restore (239). ATTEMPT is now N with ACCOUNTED N-1, and ZONE is the last zone tried. `watch` accounts a phantom attempt N: NOPROGRESS+1, and if that zone was outside the region, a transfer row of XREGION x PARTS_BYTES is written. Both are money-safe over-counts, but they burn cap and attempts.",
+     "fix": "(a) Write the state (with a PENDING_ROW marker) before appending the row, and have spot_account close a row opened with no VM at zero seconds when the marker shows the create was never reached. (b) Restore and save the state before close_run zero, or make the zero close and the restore one state transition keyed on the row's mode `#N`."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/pilot_local.sh",
+     "line": 153,
+     "title": "The bucket's region is assumed to be GCP_REGION rather than read from the bucket",
+     "detail": "spot_size and spot_account treat every zone in $REGION as free of transfer cost. `stage` creates the bucket in $REGION only if it is missing (line 491). If the bucket already existed elsewhere, or the owner later changes GCP_REGION, zones in the new region get XWORST=0 and no transfer row, while every part restore and upload is really cross-region (about 0.02 USD/GiB, about 0.74 USD or more per attempt). That is uncounted spend which the reserve was not meant for.",
+     "fix": "At launch, read the location with `storage buckets describe --format='value(location)'`, store it in the state file (BUCKET_REGION), and compare zones against that; refuse a multi-region or unexpected location."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/pilot_local.sh",
+     "line": 415,
+     "title": "Costs outside the ledger are bounded in time only by the owner",
+     "detail": "GCP_SPOT_RESERVE_USD=1.00 is described as covering storage of the parts. At 0.020 USD per GiB per month, about 37 GiB of parts uses up the reserve in about 1.3 months. A paused run, or a finished or abandoned run whose ckpt/RUNTAG/ is not deleted (spot_finish, abandon, spot_ckpt_note only print the command), keeps billing with no end. spot_pause says \"nothing in Compute Engine bills\", which is accurate but silent on storage. Other costs are not in the ledger: spot_account re-downloads all of results/RUNTAG/* to the Mac after every attempt (line 368, internet egress, growing with attempts); the guest's out-of-region uploads of logs, status, heartbeat and results.tsv.gz every 120 s; part uploads that were retried or never reached the manifest; the source tarball; soft-deleted copies (7 days by default on new buckets) of every rewritten object. Each is small next to 1 USD over a normal run.",
+     "fix": "In spot_pause and spot_finish, print the size of ckpt/RUNTAG/ and its cost per month. Copy only the current attempt-N and the top-level files at each attempt end, rather than the whole results tree. Optionally add GCP_SPOT_CKPT_KEEP_DAYS and a bucket lifecycle rule on ckpt/."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/pilot_local.sh",
+     "line": 145,
+     "title": "GCP_SPOT_MIN_ATTEMPT_SECONDS has no lower bound",
+     "detail": "With GCP_SPOT_MIN_ATTEMPT_SECONDS below DMARGIN (900 or 600), an attempt can start with a negative guest deadline, DL=(m-DMARGIN)/60 at line 215. With m=0 the result is --max-run-duration=0s, which the API refuses; that is treated as a zone failure and retried every 10 minutes until the give-up time. Nothing bills, but the attempt is wasted and the behaviour differs from the rehearsed one.",
+     "fix": "In spot_params, require SPOT_MIN >= DMARGIN + 600 (or at least > DMARGIN)."
+    }
+   ],
+   "checked_and_found_sound": [
+    "Sizing (spot_size): Decimal arithmetic; seconds rounded DOWN; XWORST rounded UP to a cent; -120; min with the mode limit and the give-up time. Hand check: 9.86 spent, cap 50 -> 117270 s, and 9.86 + 1.2*117390/3600 + 0.01 = 49.00 = cap - reserve. The row's '%.2f' rounding (at most +0.005) is covered by the 0.01. Negative and zero results are refused by m < SPOT_MIN, and the case pattern allows negatives without error. A non-numeric cap or rate makes python print nothing, and the script dies with 'could not size'.",
+    "spent() sums closed rows exactly, since every row has 2 decimals. Transfer rows are closed rows counted by spent and invisible to open_run. close_run only touches the open row of this tag. Sizing per zone inside the loop accounts for XWORST correctly while the open row adds nothing to spent.",
+    "Every create is preceded by exactly one open row, and the state (ATTEMPT, ZONE, MAXRUN) is saved before each zone's create, so an interrupted create is found again by `watch` in the right zone. The fake verifies the one-open-row rule on every create.",
+    "VM flags: --provisioning-model=SPOT, --instance-termination-action=DELETE, --max-run-duration=${m}s, both disks auto-delete=yes. The guest never powers off: the only shutdown-related path, a reboot, reports RECLAIMED and idles until deleted. So Google deletes every VM at m whatever the Mac does.",
+    "spot_start refuses if any row is open, any instance exists or any disk exists (all project-wide), or the listing calls fail. spot_purge requires both listings to succeed and be empty before the row is closed; otherwise it exits with the row open.",
+    "spot_poll ignores status.json from earlier attempts (the attempt field must match) and heartbeats older than CREATED. Its local deadline, the 25-minute silence rule and the 3-poll stale-heartbeat rule all end the attempt without starting anything new. Ctrl-C or HUP in watch never deletes anything.",
+    "spot_account can be re-run safely after an interrupt in its delete, close, fetch and transfer steps: the transfer row is deduplicated by mode '#N-transfer', and the state file (progress, ACCOUNTED) is written last and atomically (tmp + mv). A failed checkpoint fetch leaves nothing running and is counted exactly once on the next watch, which the account_reentry case tests.",
+    "Loop bounds: GCP_SPOT_MAX_ATTEMPTS, NOPROGRESS>=3 and the give-up time pause the run. A `watch` run by hand after a pause gives exactly one more attempt (force is reset on rc=0), still sized against the cap and the give-up time. Capacity waits create only closed zero-cost rows.",
+    "abandon requires a Spot state, no open row, no instance, no disk and the last attempt accounted. launch full-spot refuses when a state file, an open row or an instance exists. The old `launch` refuses while a Spot state exists. The old teardown and watch dispatch to the Spot code only when the state has SPOT='1'.",
+    "Prices from Google's pages (2026-11-21 copies): n4d-highmem-32 Spot in us-central1 is 1.013632 USD/h; about 1.10 all-in with the data disk (about 0.0775/h), boot disk and Spot IPv4 (0.0025/h), so the ledger's 1.20 has about a 9% margin. A North American bucket read by a VM in another North American region is 0.02/GiB, and a VM sending to a Google service in another North American region is 0.02/GiB, so XREGION=0.02 is right both ways. Not confirmed: the us-east1 N4D Spot rate.",
+    "scripts/dev/test_spot_launcher.sh: 33 passed, 0 failed under macOS bash 3.2, including the byte-for-byte HEAD comparisons for the four old modes. analysis/spot_resume_model.py --help works."
+   ]
+  },
+  {
+   "lens": "integrity of the evidence: can a result be carried between machines, or reported, that an uninterrupted run would not have produced",
+   "summary": "Integrity review of the Spot path (full_guest.sh, spot_checkpoint.sh, and the launcher's checkpoint accounting). Nothing was run against the cloud. I ran test_spot_checkpoint.sh (41 cases, 0 failed) and one experiment on a made-up tree in my scratch directory, sweep.sh in work-integrity. The core chain holds:\n- the state and manifest are pinned by checksum;\n- every part's checksum is verified before it is extracted;\n- tar members are confined to lib/ and ir/;\n- attempt 1's baselines are compared before any restore or build;\n- after the seal, the build user is locked and guarded before any compiled file arrives, and the restored lib manifest must equal the first seal's before C2 or C3 runs.\n\nThere are four integrity gaps:\n1. The end check only covers the last machine. Results produced on earlier machines are never re-hashed after their checks ran, yet they are carried forward.\n2. A sighting of the build user after the seal is uploaded only when a unit is recorded. It can be lost while that machine's replay results are kept.\n3. Root's copy of the build user's archive is a check-then-copy race. The build user can swap in a symbolic link, and root then reads, hashes and uploads whatever the link points to.\n4. The final sweep and the 'saved module changed' check look at the module name and two mtimes only. A rewritten or new file of a saved module is silently left out of the parts. I confirmed this by experiment. Every later attempt after the seal would then fail on the manifest comparison.\n\nSmaller points: the C2 JSON files are not pinned, facts.json counts some figures per attempt, and the claim in CLAIMS.md about the rehearsed driver goes stale.",
+   "findings": [
+    {
+     "severity": "major",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 606,
+     "title": "Replay and axiom results from a machine whose end check never ran are carried forward",
+     "detail": "At HEAD the end check (lines 1401-1407) re-hashes lib, the toolchain and the packages after the checks, so a pass counts only if nothing changed while it was produced. The replay script itself relies on this (09_kernel_replay.sh header: \"the cloud driver enforces that by hashing every compiled file before the checks and again after them\"). In Spot mode, spot_results_put uploads results.tsv every 120 s during the replay, and spot_c2_save records C2 results. Neither is preceded by any check that the sealed files are unchanged. Sequence: attempt N passes its seal comparison. During the replay a sealed .olean changes, by a fault or anything with root. Passes are uploaded. Attempt N is reclaimed or pauses before line 1401, or its end-check FAIL is turned into PAUSED or RECLAIMED by spot_not_final (line 456) because the deadline or preempt marker exists. Attempt N+1 restores the byte-identical parts, passes its own seal and end checks, takes over N's passes (spot_results_restore) and finishes DONE. The guarantee that results come from unchanged files now holds only for the last machine's share of the work. This is arguably a blocker by the brief's definition. I rate it major because the change needs root-level access or a fault.",
+     "fix": "Before each spot_results_put upload and each spot_record of c2_plain, c2_deep, main or second, verify cheaply that lib is unchanged, and refuse to save if not. For example, record `find \"$LIB\" -printf '%i %s %C@ %p\\n'` (ctime cannot be set by a non-root user) right after the seal. Snapshot the results first, compare the listing again, and upload the snapshot only if the listing is the same. In spot_not_final, keep FAIL final when the end check itself failed: test that before the deadline and preempt checks."
+    },
+    {
+     "severity": "major",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 422,
+     "title": "A sighting of the build user after the seal can be lost while that machine's results are kept",
+     "detail": "The per-attempt flag and SEEN_ATTEMPTS are written only inside spot_record, that is, when a unit completes. spot_results_put (line 606), spot_reclaimed (line 493), spot_watch_preempted (line 512) and spot_pause (line 477) upload the state without them. Sequence: on attempt N after the seal, the guard writes build_user_seen_after_seal during the main replay. The results loop uploads more passes, and the machine is reclaimed before `spot_record main`. Attempt N+1 trusts N's passes (spot_results_restore). Its SEEN_ATTEMPTS lacks N, so the end-check line 1409 does not fail. At HEAD any sighting is a final FAIL. A related gap: when `end` is already recorded, line 1398 skips the whole block on the last attempt. A sighting on that attempt is then neither checked nor reported as FAIL.",
+     "fix": "In spot_state, whenever $PD/build_user_seen_after_seal exists, always add `--var SEEN_ATTEMPTS=<list with $ATTEMPT>` and `--attempt-set-json build_user_process_seen_after_seal=true`, so every state upload carries it. Alternatively, make spot_results_put refuse to upload while that file exists. Run the two sighting checks (lines 1407 and 1409) even when `end` is recorded."
+    },
+    {
+     "severity": "major",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 537,
+     "title": "Root copies the build user's archive and list through a check-then-copy race (a symbolic link can be substituted)",
+     "detail": "spot_ckpt_round runs `plain \"$SPOUT/part\" && cp --no-dereference \"$SPOUT/part\" \"$SPD/part\"`, and safe_cp for the list does the same. $SPOUT is owned by pilot (line 532). During loop rounds, pilot's processes, including code run at compile time, are still alive. In spot_pause (line 475), kill_users comes only after the cut. Sequence: pilot replaces $SPOUT/part with a symbolic link after `plain` succeeds. cp -P copies the link into $SPD. `sha256sum \"$SPD/part\"` and `curl -T` then follow it as root. Root reads and uploads any root-readable file to the bucket and lists it in the manifest, or hangs on /dev/zero or a FIFO and stalls checkpointing. The same applies to $SPD/list (grep, awk, cat into done.txt). This breaks the script's own rule (line 190) that root reads files another user could write only if they are plain files, and never waits on them. A later restore of such an 'archive' fails, which is a final FAIL of the run.",
+     "fix": "Let root own the output. The helper already supports `--out -`, so run `runuser -u pilot -- bash \"$SPK\" cut ... --out - > \"$SPD/part.tmp\"` (and `--list /dev/fd/3 3> \"$SPD/list\"`, or a second dry-run call with stdout captured by root). Alternatively, copy with O_NOFOLLOW|O_NONBLOCK and an fstat S_ISREG check on the open descriptor. Call kill_users before the pause cut."
+    },
+    {
+     "severity": "minor",
+     "file": "scripts/spot_checkpoint.sh",
+     "line": 181,
+     "title": "A rewritten or new file of a saved module is never saved again or detected, so the first seal's lib differs from the parts",
+     "detail": "The exit-4 check (lines 140-147) looks only at the .trace and .olean mtimes of saved modules. The --all sweep skips every file whose module name is already in the done list (`if m and m[0] in done: continue`). Experiment (work-integrity/sweep.sh): I saved A.M, then rewrote A/M.ilean and added A/M.ilean.hash. `cut --all` returned 3 ('nothing due'), and neither file went into a part. If the build tool ever rewrites or adds a .ilean or .hash file of a finished module (facts_lake/pkgs_manifest notes it does so for some Mathlib .hash files), the first seal fingerprints the new bytes while the parts hold the old ones. Every attempt after the seal then FAILs, final, at spot_seal_manifest with 'not byte for byte'. The fault surfaces only after a reclaim, when the run cannot be repaired.",
+     "fix": "Track saved entries per file, not per module: done-list lines for every path saved. Treat any change of size or mtime in any saved file as exit 4, and let the --all sweep include every regular file not saved under its current size and mtime. Better still, at the first seal compare lib_sha256 with a manifest built from the parts' member lists and checksums, so a mismatch is caught on the sealing machine while it can still be fixed by one more part."
+    },
+    {
+     "severity": "minor",
+     "file": "scripts/spot_checkpoint.sh",
+     "line": 178,
+     "title": "An incomplete or garbled .trace swept up by --all as a 'file:' entry makes the restore count fail",
+     "detail": "The --all sweep adds the .trace of a module skipped as incomplete (trace_ok false, or a needed file missing) as a 'file:' entry. The guest counts it as 0 modules (grep -vc '^file:'). After restore, spot_restore_all compares n_finished (every .trace file) with the manifest total (line 717). Experiment: a truncated B/N.trace went into the part as file:lib/lean/B/N.trace, and `list` reports B.N as a module. Sequence (rehearsal): the time box kills lake while it writes a trace. The final cut sweeps it, and the attempt is cut before the seal is recorded. The next restore then FAILs, final, with 'there are X+1 finished modules; the manifest lists X'.",
+     "fix": "In the --all sweep, leave out .trace files of modules the selection judged incomplete (Lake rebuilds those anyway), or have restore and the guest count only the modules from the part's own module list rather than n_finished."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 775,
+     "title": "The axiom-check summaries reloaded from the bucket are not pinned and can belong to a different run of the check than the recorded exit status",
+     "detail": "spot_c2_save records the unit even when no $PD/c2/<label>.json was produced, and then uploads nothing. spot_c2_reload fetches $CK/c2/<label>.json, ignores a failed fetch, and does not check the file against anything in the pinned state. Sequence: attempt N completes the plain check and uploads plain.json, but spot_record is refused because a preempt arrived just after. Attempt N+1's rerun writes no JSON (it crashed, status 99) and is recorded. Attempt N+2 reloads N's plain.json, so facts.json shows N's verdict and theorem axioms beside N+1's exit status. Also, a failed fetch silently leaves 'plain': null.",
+     "fix": "Record the JSON's sha256 in the state with the unit (an empty value when there is none). On reload, fetch only when a sha is recorded, verify it, and pause if the fetch fails."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 244,
+     "title": "facts.json reports some figures for this attempt only, under names that mean the whole run",
+     "detail": "F_NFAIL (failed_job_lines_in_all_logs) counts only this attempt's lake logs (LAKE_N restarts at 0 on each attempt). On the final attempt, which usually skips the build, it reads 0 even when earlier attempts had failed job lines, for example compilers killed for lack of memory. Similarly, LEFTOVERS and LIB_OTHER are loaded from the state and then recomputed at lines 1158 and 1165 on every attempt after the seal. So 'half_written_files_of_killed_compilers_removed' reads 0 (1 in the rehearsal) instead of the first seal's count. C1 reads 'zero module errors' (PREREGISTRATION.md section 3), so the run-wide count matters.",
+     "fix": "Store the failed-line count of each attempt in its state entry (spot_record build ... FAILED_LINES) and report the sum, or add the per-attempt figures under facts['spot']. Do not overwrite LEFTOVERS and LIB_OTHER when SEAL_DONE=1: compute them into separate variables for this machine."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 420,
+     "title": "A check killed by a shutdown without notice can be recorded as complete if the main script's own TERM arrives later",
+     "detail": "spot_record refuses only when PREEMPTED or DEADLINE exists. On a reclaim without notice, PREEMPTED is created only by on_signal, in the main script. If the checker's process is ended by the shutdown before the main shell's TERM is handled, run_c2 returns 143 or 99. deadline_check and spot_record then find no marker and record c2_plain or c2_deep as done with that status. The spec says a unit cut short by a reclaim is NOT recorded. The window is small and depends on the order in which systemd signals processes (not checked).",
+     "fix": "In Spot mode, treat a check status of 129, 130, 137 or 143 (and an empty status) as 'not run'. Do not record the unit: call spot_reclaimed or spot_pause instead. Optionally wait one second and re-test the markers before recording."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 609,
+     "title": "A rejection or crash can be lost if the machine goes without notice within 120 s of it",
+     "detail": "Replay results go up only every 120 s. A non-deterministic crash recorded in results.tsv in that window, on a machine then cut without notice, never reaches the bucket. The next attempt checks the module afresh, and if it passes, the module counts as passed. At HEAD a crash 'is never afterwards counted as passed'. The implementer lists this as a known limit.",
+     "fix": "In the results loop, poll every few seconds for a new row whose status is not 0 and not a not-run status, and upload at once when one appears."
+    },
+    {
+     "severity": "minor",
+     "file": "CLAIMS.md",
+     "line": 86,
+     "title": "A registered claim about the rehearsed driver becomes untrue with this change, and two related statements need care",
+     "detail": "CLAIMS.md line 86 says the driver was rehearsed \"the sixth time as it now stands\". full_guest.sh is now substantially changed, and the Spot path has never been rehearsed. In 09_kernel_replay.sh, \"hashing every compiled file before the checks and again after them\" no longer holds for passes made on earlier machines (finding 1). PREREGISTRATION.md C1 (\"`lake build` of the default targets completes with exit status 0 and zero module errors\") and section 4 (\"What may vary. The machine ... and where files are stored\") permit a build carried over machines. However, the report must say that no single lake build compiled the tree, and the evidence for 'zero module errors' must cover every attempt (finding 7). I found no registered sentence that forbids checksummed archives.",
+     "fix": "Before any Spot run counts, update CLAIMS.md line 86 to say that the Spot path is unrehearsed. Either close finding 1 or qualify the comment in 09_kernel_replay.sh. State in the run's report how C1's single exit status and zero-error count were assembled across attempts."
+    }
+   ],
+   "checked_and_found_sound": [
+    "Settle rule for loop cuts: settle = root's clock minus 5 s, taken before the cut starts; the .trace must be older than that and parse with depHash; the .olean, .ilean and ir .c must exist. Lake writes the trace last, so no half-written module is archived. A module whose trace is mid-write is skipped. A pause cut after stop_build (no margin) is also sound for the same reason.",
+    "Part contents: lib/lean olean/ilean/trace plus .hash files, and ir .c/.bc plus .hash files; never *.tmp.* or setup.json. A zstd or python failure never leaves a part under its real name (tmp file, then fsync, then os.replace; a nonzero zstd exit is refused).",
+    "restore: the sha256 is checked before extraction (twice: guest and helper). Absolute paths, '..', empty components, backslashes, members outside lib/ and ir/, links, devices and FIFOs are refused. Every directory component is lstat-checked. Existing files are unlinked and recreated with O_EXCL|O_NOFOLLOW, so root never writes through a link. After the seal the parent chain WORK/extract/PROJ/.lake is checked not to be links, chowned to root, and the build directory removed before root extracts.",
+    "Pinning: the guest refuses a state or manifest whose sha256 differs from the metadata, a state with another runtag, a manifest present when the controller saw none, and malformed manifest rows (object names derived from the row number, strictly increasing seq, hex sha). STATE_READY is set only after verification, so a mismatched state is never overwritten. The launcher fetches only after the VM is confirmed gone and distinguishes 'absent' from 'fetch failed'.",
+    "Upload order: part, then manifest, then state. The done-list advances only after a successful manifest upload. A retried manifest upload uses the same manifest. Sequence numbers are never reused. An unlisted orphan part is never restored.",
+    "Baselines: they are uploaded and their sha256 recorded before any part can exist (parts present without baselines is refused). On attempt N>1, attempt 1's files are verified against the pinned state's sha, then compared byte for byte with this machine's, before the restore, the smoke build or the build.",
+    "Order after the seal: lock, crontab removal, linger off and guard all happen before the build directory is removed and the parts are restored as root. The smoke build and the driver test are skipped. The seal steps are rerun on the machine. MANIFEST_SHA is compared with the pinned SEAL_LIB_SHA before results are restored and before any C2 or C3 unit runs. Only the seal's environment tests (lean and leanchecker on Statements) run earlier, as at HEAD.",
+    "Skip logic: units are recorded only after deadline_check, and spot_record is refused once PREEMPTED or DEADLINE exists. A deadline or preempt turns any finish into PAUSED or RECLAIMED (except DONE). Replay passes are tied to Lake's .hash, which the byte-identical lib preserves. Results are only ever appended, and a count is recorded only after that many lines are in the bucket. Restored results are trimmed and must hold at least that many lines. A results file with no recorded count is ignored.",
+    "state-export: only names matching [A-Z][A-Z0-9_]* are accepted, values are shlex-quoted and must be strings, and the guest asks only for names in SPOT_VARS. Progress never decreases.",
+    "With SPOT=0, facts.json gains no 'spot' key; the other added lines are guarded by SPOT."
+   ]
+  },
+  {
+   "lens": "the on-demand path: do the four older modes and the guest with the Spot code switched off behave as the committed version does",
+   "summary": "I found nothing that moves the old path, in either file. With metadata full-spot absent, cloud/gcp/full_guest.sh runs the same commands in the same order with the same effects as at HEAD, with one exception: a single extra metadata GET (`md full-spot 0`, line 104). It also uploads to the same objects and writes the same status.json and facts.json. The four old modes of cloud/gcp/pilot_local.sh behave as at HEAD. I read every hunk of `git diff HEAD` for full_guest.sh, pilot_local.sh and config.example.env. scripts/lib.sh and scripts/09_kernel_replay.sh are unchanged. Each added line is either inside `if [ \"$SPOT\" = 1 ]` (guest) or behind the two new modes or a state file holding `SPOT='1'` (launcher), or it is equivalent when SPOT=0. The only deleted line in the launcher is the usage text. All five scripts pass `bash -n` under /bin/bash 3.2; shellcheck is not installed. Both test scripts pass when I run them: test_spot_launcher.sh 33/33, including the comparison of old_mode x4 and old_full_edges against HEAD, and test_spot_checkpoint.sh 41/41. `spot_resume_model.py --help` works. Two minor findings: one is a latent change of exit status on the old path, the other is a Spot-only slip I noticed while reading. Neither is a blocker or major for the old path.",
+   "findings": [
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 1325,
+     "title": "Spot: c3_progress_start/c3_progress_stop are defined only inside the 'main replay not done yet' branch",
+     "detail": "The two function definitions now sit inside the `else` of `if [ \"$SPOT\" = 1 ] && spot_done main` (line 1320). Sequence: attempt N completes the main leanchecker replay and records `main`, then is reclaimed. Attempt N+1 takes the `spot_done main` branch, so the functions are never defined. In the second replay (line 1376) `c3_progress_start` fails with 'command not found'. For the whole rhv-replay (about 6 h) there are then no progress.tsv lines and no RUNNING status refreshes, only the heartbeat. `c3_progress_stop` at lines 1378 and 1390 also fails. The run continues, but the 5-minute status no longer tells the watcher anything. With SPOT=0 the else branch is always taken, so the old path is not affected.",
+     "fix": "Move the two definitions (lines 1324-1326) to just above line 1319 (`# Spot: the main replay, if an earlier attempt completed it...`), so they are defined unconditionally, as they effectively were at HEAD."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 983,
+     "title": "Old path: restart_test and c2_deep now return status 1 instead of 0",
+     "detail": "A guarded `[ \"$SPOT\" = 1 ] && ...` line was appended as the LAST statement of restart_test (line 983) and of c2_deep (line 1248). With SPOT=0 the test fails, so both functions now return 1 where at HEAD they returned the status of an assignment (0). I checked every caller (lines 994-995, 1318, 1363): none reads the status, and the script has no `set -e`, so today nothing behaves differently. It is the one place where an old-path observable (a function's exit status) differs from HEAD, and a future `restart_test ... || finish FAIL` or `if c2_deep ...` would silently take the failure branch in every non-Spot run.",
+     "fix": "Write the two lines as `if [ \"$SPOT\" = 1 ]; then ...; fi` (status 0 when false), or append `; return 0`."
+    }
+   ],
+   "checked_and_found_sound": [
+    "Guest, set -u: every Spot-only variable (ATTEMPT, CK, SPD, SPS, SEAL_DONE, SKIP_BUILD, SPOT_LOCKED, TIMEBOX_USED, SEEN_ATTEMPTS, ZONE, SPOT_*_PID, ...) is used outside the Spot block (lines 385-785) only behind a short-circuited `[ \"$SPOT\" = 1 ] &&`. F_ATTEMPT and F_SPOT_STATE use the `${:-}` form. SPOT is always set, defaulting to 0 when the metadata key is missing.",
+    "Guest, paths: RT=$RES is set before the Spot block, and RES is reassigned only inside it. The status, facts, heartbeat and watchdog uploads that moved to $RT go to the same objects as at HEAD when SPOT=0.",
+    "Guest, status.json: the HEAD status() at line 149 is unchanged. The Spot redefinition, and those of sync_small, on_signal and deadline_check, exist only when SPOT=1. These are the only duplicate function names.",
+    "Guest, facts.json: changing `json.dump({...})` to `facts={...}; json.dump(facts)` evaluates the dict before open(), as before. The heredoc has no other `facts` name, and the 'spot' key is added only when F_SPOT=1, so the output is identical on the old path.",
+    "Guest, order and traps: finish() gains three guarded lines, which are false when SPOT=0. trap on_signal is unchanged. The preemption watcher and the part and results loops start only when SPOT=1, so no new background loop runs in both modes. The watchdog's if/else keeps HEAD's DEADLINE branch verbatim. The final_state regex adds PAUSED|RECLAIMED, which the old path never writes in the state field.",
+    "Guest, wrapped blocks: smoke build and driver test, build, lock and guard, main replay, end check, second replay (if gains an elif), trial condition `{ SPOT || old; }`, and c2_deep's if gains an elif. All are equivalent when SPOT=0. No caller of a changed function reads `$?`, beyond the finding at line 983.",
+    "Guest: the only new command on the old path is one metadata GET (`md full-spot 0`, line 104). It returns 404 and echoes 0, costing at most 20 s if the metadata server hangs. All other new commands are Spot-only.",
+    "Launcher: the top-level additions are plain `${GCP_*:-default}` assignments and function definitions, with no command run at load time. No new function name collides with HEAD or with lib.sh.",
+    "Launcher dispatch: `launch` dispatches the two new modes, and spot_state_exists greps for `^SPOT='1'$`, a line HEAD's printf state never writes. `watch` matches MODE full-spot|full-spot-rehearsal only. The `teardown` guard is false for old states. `ledger` is textually unchanged. The usage line is the only deletion.",
+    "Launcher, bash 3.2 and BSD: no `[[ =~ ]]`, associative arrays, mapfile, `${x,,}`, `date -d`, `stat -c`, timeout, sha256sum or GNU sed -i in pilot_local.sh. date uses only +%s, +%H:%M:%S and +%Y%m%d-%H%M%S. Arithmetic uses python3 -I with Decimal, plus bc.",
+    "Ran scripts/dev/test_spot_launcher.sh: 33 passed, 0 failed, including old_mode_{rehearsal,pilot,full-rehearsal,full}. Each of these compares create arguments, the full gcloud call list, ledger, state file and output against HEAD's script and lib.sh run under the same stub, plus no-capacity and cap-refusal edge cases in full mode.",
+    "Ran scripts/dev/test_spot_checkpoint.sh: 41 cases, 0 failed. `python3 analysis/spot_resume_model.py --help` works.",
+    "config.example.env: every new line is a comment. Nothing parses that file; only AGENTS.md and the docs mention it, for copying. scripts/lib.sh and scripts/09_kernel_replay.sh show no diff.",
+    "Tools archive: once committed, scripts/spot_checkpoint.sh and scripts/dev/test_spot_*.sh go into the old modes' git-archive of scripts/ too, so the archive's sha changes. Nothing on the old path reads those files or walks scripts/, so this is inert.",
+    "Not covered by me or by the test, though the code is textually unchanged at HEAD: old-mode `watch` ending in FAIL, DEADLINE or BUILD_FAILED; an interrupted old watch (trap); a standalone `teardown`; and the `ledger` command. I also did not run the guest itself: no bash 5 stub run of full_guest.sh with SPOT=0, so that equivalence comes from reading every hunk, not from execution."
+   ]
+  },
+  {
+   "lens": "a walk through every way an attempt can end, and what the next attempt and the launcher then do",
+   "summary": "I reviewed the reclaim-at-every-moment lens across cloud/gcp/full_guest.sh, scripts/spot_checkpoint.sh and cloud/gcp/pilot_local.sh. Both new test scripts pass in scratch: the checkpoint test 41/41, the launcher test 33/33, exit 0. `--help` of the model works.\n\nFor almost every moment, the bucket is left consistent and the next attempt reads it correctly. Upload order is part, then manifest, then state. The done-list advances only after the manifest upload. Sequence numbers are re-derived from the manifest, so a part the manifest does not list is simply overwritten. Every unit is recorded only after deadline_check and while no PREEMPTED or DEADLINE marker exists. RECLAIMED never becomes FAIL. The launcher's metadata keys, object names, status fields, state.json fields, sha pinning and attempt numbers all match the guest. Its attempt-over sequence can be re-entered after an interruption at every step I traced.\n\nI found no blocker that loses money without bound or lets a wrong result be accepted. I found:\n- one major false-FAIL path: spot_fetch accepts truncated downloads. I confirmed this with curl locally.\n- two major gaps in what the rehearsal actually exercises: the c3 cut lands in the trials, and the build cut races the first part.\n- one major ledger-integrity risk: the ledger is rewritten in place, not atomically.\n- several minor issues: a stuck pending state, a no-progress count that can be added twice, `delete` not being a no-notice cut, a misread fetch error that silently restarts the run, an unbounded out-of-region transfer, a CHANGED build continuing for hours before it FAILs, and an ignored reload failure for the axiom summary.",
+   "findings": [
+    {
+     "severity": "major",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 436,
+     "title": "spot_fetch treats a truncated download as success, so a network stall becomes a final FAIL",
+     "detail": "spot_fetch runs `code=$(curl -s ... -w '%{http_code}' -o FILE)` and looks only at the HTTP code, never curl's exit status. If the transfer is cut off after the headers arrive, curl exits non-zero but still prints 200. Here that happens when --speed-limit 1024/--speed-time 120 aborts, the connection resets, or the 4 retries run out. I reproduced it in scratch: curl rc=18, code=200, 10 of 100000 bytes, so spot_fetch returns 0 with a short file. Consequences:\n- spot_restore_all (line 708): a part of several GB fails its sha check and the run ends with `finish FAIL \"... does not match the checksum in the manifest\"`, which is final for the run.\n- s_spot_resume (lines 641 and 646): a truncated state.json or manifest.tsv gives a sha mismatch, `return 1`, and t_step FAIL.\n- s_spot_baselines (lines 686 and 688): gunzip fails or the sha differs, `return 1`, and FAIL.\nEach of these ends the whole Spot run on a transient network fault, and all the money spent on it is wasted. The failure is most likely on part downloads, which are the largest objects and are fetched on every later attempt.",
+     "fix": "In spot_fetch, capture curl's own status: `code=$(curl ...); rc=$?; [ \"$rc\" = 0 ] && [ \"$code\" = 200 ] && return 0`. Keep 404 as 4 and treat everything else as 1. In spot_restore_all, treat a sha mismatch as retryable: fetch again once or twice, then spot_pause rather than finish FAIL. FAIL only if the same mismatch comes back on fresh downloads."
+    },
+    {
+     "severity": "major",
+     "file": "cloud/gcp/pilot_local.sh",
+     "line": 324,
+     "title": "Rehearsal cut `c3:delete` lands in the replay trials, so restoring saved replay results is never exercised",
+     "detail": "The guest first reports phase c3 for the trials (full_guest.sh:1292, `status c3 RUNNING \"kernel replay, trial at ...\"`). Two trials of 90 s each come before the deep axiom check (phase c2) and the main replay. The watcher cuts at the first poll that shows phase c3 RUNNING, and with polls about 20-25 s apart that is almost always inside the trials. The trials are not recorded (spot_record trials comes after them), and with `delete` no results are uploaded: results_saved stays 0. On the next attempt, spot_results_restore (full_guest.sh:615) returns at once. The trials then run again, and the main replay runs from nothing. So the rehearsal never exercises these paths: the 120 s results loop, fetching, trimming and placing results.tsv.gz, the replay script skipping modules restored as passed, and the `spot_done main` skip.",
+     "fix": "Make the cut land in the main replay. Either have the Spot guest report a distinct phase for the trials (Spot-only branch, e.g. `c3trial`), or have the watcher cut `c3` only once status.json's phase is c3 and its message starts with \"kernel replay by leanchecker\" (line 1323), or once ckpt state.json shows results_saved > 0."
+    },
+    {
+     "severity": "major",
+     "file": "cloud/gcp/pilot_local.sh",
+     "line": 330,
+     "title": "Rehearsal `build:simulate` cut races the first part, so resuming a build mid-way may never be exercised",
+     "detail": "The cut fires 120 s after the watcher first sees phase build RUNNING. The guest's part loop starts at the same moment (full_guest.sh:1027-1031) and also waits CKPT_EVERY=120 s before its first round. The round still has to cut, copy, hash and upload the part, manifest and state. So the notice can arrive before the first manifest upload. After that, spot_ckpt_round refuses to start (it checks PREEMPTED), and spot_reclaimed kills the round in flight.\n\nIf no part was saved, attempt 2 builds from scratch. Attempt 3 (after the seal cut) restores a COMPLETE tree with the build skipped, where only the two smoke modules show that Lake accepts restored files. The core of the design would then go untested by the rehearsal: Lake continuing a partial build from restored parts, the compiled-again count over real lake logs, CHANGED detection, and the restart tests resuming over restored modules.",
+     "fix": "For `build`, wait at least 2*CKPT_EVERY + 60 s (e.g. 300 s in the rehearsal), or better, cut only once ckpt/RUNTAG/manifest.tsv has at least one row (or state.json parts_modules > 0)."
+    },
+    {
+     "severity": "major",
+     "file": "cloud/gcp/pilot_local.sh",
+     "line": 184,
+     "title": "Ledger rewritten in place (truncate, then write): an interruption can erase recorded spend and defeat the cap",
+     "detail": "spot_ledger_zone (new, once per attempt) and close_run (line 85, which Spot calls at every attempt-over) both do `open(p,'w').write(...)`. The file is truncated on open and refilled afterwards.\n\nIf `watch` is interrupted in that window, the ledger can be left empty or partial. A Ctrl-C reaches the python child too, and a closed terminal sends HUP. A crash or power loss of the Mac also counts, because nothing is fsynced.\n\nspent() then reads 0, or a smaller sum. spot_size sizes the next attempt against the whole cap again, so recorded spend can pass GCP_SPEND_CAP_USD by up to another cap.\n\nThe window is small, but a Spot run performs these rewrites 2-3 times per attempt over up to 12 attempts, unattended.",
+     "fix": "In spot_ledger_zone, write a temporary file in the same directory, fsync it and os.replace it. For close_run (shared with the old modes), either add a Spot-only atomic variant or accept the one-line change. As a backstop, store the spend at the last accounting in the Spot state file, and refuse to start if spent() is now lower."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 554,
+     "title": "An interruption between `mv manifest.new` and `rm pending.*` wedges every later part round",
+     "detail": "If the loop is killed after the mv but before the rm, pending.sha remains while manifest.new is gone. spot_stop_loops can kill it there after its 120 s gentle wait, and so can the watchdog's pkill. On the next call, gcs_put returns 0 for the missing file without uploading anything. `mv -f manifest.new` then fails, and the round returns 1. It does so every round after that: spot_ckpt_final retries 5 times and then spot_pause \"the last part could not be saved\", so the final part and the attempt are lost (the build had finished). The window is tiny.",
+     "fix": "In spot_apply_pending, if pending.sha exists but manifest.new does not, and sha256 of manifest.tsv matches pending.sha, just clear the pending files and carry on. Alternatively, do the mv before appending to done.txt and treat a missing manifest.new as already applied."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/pilot_local.sh",
+     "line": 392,
+     "title": "A watch killed between opening attempt N's row and saving ATTEMPT=N adds one to NOPROGRESS twice",
+     "detail": "spot_start appends the open row (line 212) before `ATTEMPT=$N ... spot_save` (line 214). If `watch` dies in between, the next `watch` sees an open row with the state still at attempt N-1. It polls N-1 (the VM is GONE or the last status is RECLAIMED/PAUSED, so it is over at once) and runs spot_account again. That closes N's row (harmless, a few seconds), finds the progress unchanged, and adds one to NOPROGRESS again. Counted twice, the run can pause early on 'no progress' (the owner only has to re-run `watch`). The ledger also gets two rows named MODE#N. Money stays safe.",
+     "fix": "Save the state with the new ATTEMPT and a marker such as STARTING=N before appending the row. Alternatively, in spot_account, skip the progress update when ACCOUNTED already equals ATTEMPT."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/pilot_local.sh",
+     "line": 333,
+     "title": "`delete` is not a cut with no notice: the guest still runs its SIGTERM handler",
+     "detail": "spot_purge's `instances delete` shuts the guest down gracefully. Shutdown sends TERM, on_signal runs spot_reclaimed, and that uploads the results, state ended=RECLAIMED and status RECLAIMED. The rehearsal therefore never exercises instant power loss. In that case only the earlier uploads exist and the next attempt must use `--close-open-attempts`, which nothing exercises.",
+     "fix": "For a true no-notice cut, use `gcloud compute instances reset NAME --zone=ZONE` (a hard reset with no ACPI soft-off). The guest reboots, sees STARTED, and reports RECLAIMED from the reboot branch (line 789) without touching ckpt/. Then the watcher deletes the VM. Alternatively, document that `delete` tests the SIGTERM path."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 631,
+     "title": "An empty STATE_SHA_WANT wipes the manifest even when a state exists, so a misread fetch error restarts the run",
+     "detail": "The launcher's spot_fetch (pilot_local.sh:267) treats any error text matching 'not found|404' as 'absent', and so stores STATE_SHA=\"\". The guest then takes 'nothing to continue' and at once overwrites ckpt/RUNTAG/manifest.tsv with an empty header. All parts are forgotten and the build starts over, which costs a full build's money and attempts with no error shown.",
+     "fix": "In the guest, when STATE_SHA_WANT is empty, spot_fetch state.json first. If it exists (status 0), spot_pause (or FAIL) instead of starting afresh. Only status 4 may start afresh."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/pilot_local.sh",
+     "line": 164,
+     "title": "Transfer bound out of region rests on GCP_SPOT_PARTS_MAX_GIB, but the guest never limits parts to it",
+     "detail": "XWORST = 0.02 x 60 GiB, and the refusal is checked only against the parts size at the attempt's start. During an out-of-region attempt the parts grow without any check. The lib/lean files alone are about 0.8 MB per module and about 130 GB raw for the tree (facts_numbers), and the parts also hold the ir/*.c files, so the compressed total can plausibly pass 60 GiB. The transfer row can then exceed XWORST, eating into the reserve. With the defaults it passes the cap only if parts exceed about 110 GiB. This only applies when non-default zones outside GCP_REGION are configured.",
+     "fix": "Have the guest stop saving parts (pausing instead) once the manifest's bytes would exceed a limit passed in metadata (out-of-region attempts only). Alternatively, size XWORST from a bound on the whole tree's parts."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 566,
+     "title": "A recompile of a saved module (status 4) is noticed in minutes but the build runs on for hours before FAIL",
+     "detail": "On status 4 the loop sets CHANGED and exits. From then on no part is saved, yet the build continues to the end. Only then does spot_ckpt_final FAIL. That is up to about 15 h of paid machine time for a run already known to end in FAIL, and the work is not saved either.",
+     "fix": "When the loop sees status 4, stop the build at once (for example touch a marker that monitor_build checks and then call finish FAIL there), as the restart tests do."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 782,
+     "title": "spot_c2_reload ignores a failed fetch of the saved axiom-check summary",
+     "detail": "`spot_fetch \"$CK/c2/$l.json\" ...` has its status ignored. A failed or truncated fetch (see the spot_fetch finding) leaves facts.json with 'plain' or 'deep' null, while the recorded exit status says the check completed. The final evidence is then incomplete with no warning.",
+     "fix": "`spot_fetch ... || spot_pause \"could not fetch the saved axiom-check summary\"`, and check that the JSON parses."
+    }
+   ],
+   "checked_and_found_sound": [
+    "Setup of attempt 1 before any state exists: the manifest header is uploaded before the state, so the state never exists without a manifest. A cut leaves either nothing or only the header, and the next attempt (STATE_SHA empty) starts afresh with the same attempt number.",
+    "Cut before the baselines are recorded: the next attempt re-uploads them (BASE_SRC_SHA empty, manifest has only the header). Parts can never exist without baselines, because spot_state failure leads to spot_pause.",
+    "First minutes of the build, before the first part: no parts, the build restarts, TESTS_DONE comes from the state. The restart tests rerun if they were not recorded.",
+    "Cut mid-upload of a part: media upload is atomic, the manifest is unchanged, the next attempt re-derives seq from the manifest and overwrites the unlisted object. Cut after a part and before the manifest: the part is ignored. Cut after the manifest and before the state: the part is restored, and progress lags (which is safe).",
+    "Retry of a failed manifest upload: re-uploads the same manifest.new. No duplicate rows, and no module ends up in two parts, in the stop-loop or pause interleavings I traced (only the mv/rm window is not handled).",
+    "Restore before the seal: done as the build user into its own tree, extract checks (absolute paths, '..', links, lib/ and ir/ only, never writing through a file), trace count compared with the manifest's modules (the --all `file:` entries are excluded on both sides), done.txt epochs from the end of the restore, compiled-again check from the smoke log and lake logs.",
+    "Final part after the build ended: the --all sweep plus a round that finds nothing due covers every lib file except *.tmp.*, so the post-seal lib manifest can equal the first seal's. The build is recorded after the final part. A cut before the record makes the next attempt restore and run an up-to-date build.",
+    "First seal: recorded only after the seal/ manifests are uploaded. A cut in the 90 s hold makes the next attempt seal afresh.",
+    "Post-seal attempt: the pilot lock, the guard and the root-owned build directory all come before any compiled file arrives. LEAN_VERSION is read as pilot before the lock, and as_pilot is not used afterwards. The seal steps run again, and the lib manifest sha must equal SEAL_LIB_SHA. Smoke and driver tests are skipped.",
+    "Axiom checks, trials, main replay, second replay and end checks: each is recorded only after deadline_check, so a deadline-cut check is never recorded as timed out. PREEMPTED makes status() suppress everything but RECLAIMED. The watcher sends TERM to the main script before killing the checkers, and bash (tested on 3.2 here) runs the TERM trap before the `||` branch of the command the signal interrupted, so a child killed by the shutdown does not produce a false FAIL.",
+    "Results upload: under flock, and the count is recorded only after the gz upload. The restore checks the line count against results_saved and pauses on a bad file.",
+    "After the final status, before the watcher reads it: spot_final writes final=true before the DONE status, and spot_account reads final from state.json (a JSON true), so a VM deleted by max-run still ends the run.",
+    "Watcher re-entry at delete, verify, close row, copy, fetch state and manifest, transfer row (idempotent by mode name), progress and save (written once, last), and decide or create: each step is re-entrant. A purge failure exits with the row open. A checkpoint fetch failure exits with the row closed, and the next watch re-accounts.",
+    "Launcher/guest contract: metadata keys full-spot, full-attempt, full-ckpt-every, full-state-sha, full-manifest-sha, full-spot-hold and pilot-runtag; objects results/RUNTAG/{status.json,heartbeat}, attempt-N logs, ckpt/RUNTAG/{state.json,manifest.tsv}; status attempt sent as int and compared as a string; manifest header 'bytes' column; the state's progress and final fields.",
+    "Sizing: Decimal, transfer worst case rounded up, 0.01 margin, MAXRUN+120 cap on the row, row opened before create, the open row excluded from spent(); no-capacity rows closed at zero and the attempt number restored.",
+    "Old modes: launch, watch and teardown dispatch only on Spot state or modes. The guest's non-Spot lines are value-identical (RT=RES), and facts.json is unchanged when SPOT=0.",
+    "Rehearsal: seal:delete lands within the 90 s hold before the seal is recorded. The attempt after it exercises pre-seal restore with the build skipped. The attempt after the c3 cut exercises post-seal root restore and the reload of c2_plain. build:simulate exercises a forced reclaim with notice, if Google honours it for Spot (not verified, per facts_spot).",
+    "Not checked: Lake source behaviour beyond the facts files, whether rhv-replay builds reproducibly (the implementer's known limit), the cost model's numbers, and systemd KillMode ordering on the real image."
+   ]
+  },
+  {
+   "lens": "Google's documented behaviour: Spot reclaims, the metadata server, gcloud's errors, storage semantics",
+   "summary": "I checked the code against Google's documentation and read and ran both test scripts. I also ran the cost model and checked part of its table by hand.\n\nThe checkpoint test passes: 41 cases, 0 failed, toy Lake project included. The launcher test FAILS as shipped on a default macOS shell: 29 passed, 4 failed. The four failures are the old-mode identity cases. The only differences in them are temporary-directory paths: TMPDIR ends in \"/\", so the test's path normalisation misses. The old modes themselves are unchanged.\n\nThe documentation supports the main assumptions:\n- Spot with DELETE deletes the VM and its auto-delete disks (\"Compute Engine deletes the VM\"; auto-delete disks \"are deleted when you delete Spot VMs\", docs.cloud.google.com/compute/docs/instances/spot).\n- Time limits apply to Spot VMs. The limit runs from RUNNING, between 30 s and 120 days, and cannot be used with legacy preemptible VMs (limit-vm-runtime).\n- The preemption key is instance/preempted, TRUE or FALSE, and supports wait_for_change (create-use-spot).\n- An overwrite in Cloud Storage is atomic, and reads after a write are strongly consistent (\"only becomes visible ... once the entire upload has successfully completed\", storage/docs/consistency).\n- Objects can be up to 5 TiB. The docs give no fixed size cap for single-request uploads, but advise resumable uploads for large files (storage/docs/uploads-downloads).\n- simulate-maintenance-event \"force[s]\" a Spot VM to preempt and is rate-limited. The docs do not say what the VM's state reads during or after it (simulating-host-maintenance).\n\nNot documented anywhere I read: how a VM deleted by preemption reads in `instances list` between the preemption and its removal. Two findings (1 and 3) depend on that.\n\nThe model's arithmetic checks by hand:\n- Never-reclaimed row: 25.6 h x 1.10 = 28.16 USD at list, 30.72 at ledger. Savings: 47.87 - 28.16 = 19.71 (list), 51.20 - 30.72 = 20.48 (ledger).\n- M = 2 h row: mean reclaims 15.0 matches about 30 billed hours / 2.\n- Break-even: 19.71 / (1.10 x 0.317) = 56.5 reclaims, and M* = 0.317 / (1 - 1.10/1.87) = 0.77 h.\n- Unit closed form: (e^2 - 1)(1.35) = 8.625 h.\n- Attempt-limit threshold: 0.317 + 25.6/11 = 2.64 h.\n\nNo blocker found: I found no path where recorded spend can pass the cap. The sizing in Decimal, cent-rounded XWORST, at most one open row, and verify-before-close all hold. But one launcher race is likely to stop the rehearsal at its first cut, and the stub cannot show it.",
+   "findings": [
+    {
+     "severity": "major",
+     "file": "cloud/gcp/pilot_local.sh",
+     "line": 246,
+     "title": "Attempt-over purge races Google's own deletion of a reclaimed VM; the stub hides it",
+     "detail": "The guest uploads RECLAIMED while the VM still exists: preemption sets preempted=TRUE, then Google allows a shutdown of up to 30 s, then a hard power-off, and only then deletes the VM. spot_poll returns 'over' as soon as it reads RECLAIMED (line 313); the rehearsal polls every 20 s. spot_account then calls spot_purge, which lists the instance (still STOPPING or being deleted) and issues its own delete. That delete can fail or come back before Google's deletion finishes, and the verification listing that follows runs once, with no wait. If anything is still listed, it prints NOT VERIFIED and exits 1 with the row open, so the chain of attempts stops until a person runs `watch` again. A cut by simulate-maintenance-event (the rehearsal's build:simulate) runs into this almost by construction. No money is lost (Google deletes the VM anyway, and the row stays open, which is the safe side). But an unattended run stalls, and the rehearsal stops at its first cut. The fake in test_spot_launcher.sh cannot show this: death() removes the instance and its disks in the same instant the RECLAIMED status is written (lines 117-125), and delete on an instance never fails because it is mid-deletion.",
+     "fix": "In spot_purge, when a listing succeeds but is not empty, list again every 15-20 s for up to about 10 minutes before declaring NOT VERIFIED. Treat a failed delete of an instance that is STOPPING or TERMINATED as 'wait'. Optionally, on RECLAIMED, keep polling vm_state until GONE (at most about 5 minutes) before calling spot_account. In the fake, keep a reclaimed instance listed as STOPPING for 30-90 s after the status is written, and fail a delete issued during that window; add a case that expects the attempt to be accounted for without a NOT VERIFIED exit."
+    },
+    {
+     "severity": "major",
+     "file": "scripts/dev/test_spot_launcher.sh",
+     "line": 13,
+     "title": "The old-modes-unchanged proof FAILS on a default macOS shell (path normalisation misses)",
+     "detail": "WORK comes from mktemp -d \"${TMPDIR:-/tmp}/...\". macOS's TMPDIR ends in '/', so WORK contains '//'. The launcher sees its own path through cd && pwd, with a single '/'. norm() (line 717) and the sed commands (lines 726, 741) replace the literal $TR, so the paths are not replaced. Run as shipped here: 29 passed, 4 failed (old_mode_rehearsal, old_mode_pilot, old_mode_full-rehearsal, old_mode_full). Every reported difference is only '.../old_X-HEAD/tree' against '.../old_X-new/tree', so the launcher's old modes are in fact unchanged. But the check the reviewer is told to rely on prints FAIL and exits 1. The implementer's 'all 33 pass' probably came from a run with TEST_SCRATCH set or a different TMPDIR.",
+     "fix": "After mkdir -p \"$WORK\", canonicalise it: WORK=$(cd \"$WORK\" && pwd -P). Alternatively, normalise with os.path.realpath on both sides before the replace."
+    },
+    {
+     "severity": "major",
+     "file": "scripts/dev/test_spot_launcher.sh",
+     "line": 110,
+     "title": "The fake guest writes the checkpoint objects itself, so the launcher-guest contract is untested",
+     "detail": "save_ckpt() writes state.json, manifest.tsv and the parts in the fake's own format, with sha256 '0'*64, at the instant the VM dies. It writes status.json with 'attempt' always present. So three_attempts, random_reclaims and the rehearsal cuts only show that the launcher works against a guest written to match it. Nothing exercises the real full_guest.sh's order (part, manifest, state), its state.json schema (progress, final), its status fields, or the PAUSED/RECLAIMED order against what spot_ckpt_vals and spot_poll parse. For example, a guest that uploads PAUSED before state.json would pass every case, and the watcher would then delete the VM before the state is saved. I checked by reading that the real spot_pause and spot_reclaimed upload the status last. That reading is the only evidence.",
+     "fix": "Add one case that feeds the launcher a state.json and manifest.tsv produced by scripts/spot_checkpoint.sh state/cut (the real helper), and a status.json produced by the guest's own status() (the heredoc can be extracted with sed). Make the fake post RECLAIMED or PAUSED before the checkpoint objects in one case, and assert the attempt is then counted as making no progress."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 505,
+     "title": "Preemption watcher can miss the notice: wait_for_change is issued without last_etag",
+     "detail": "The loop reads preempted without waiting, then issues ?wait_for_change=true&timeout_sec=300 without last_etag. If preempted turns TRUE between the two requests, the hanging request waits for a further change. Google documents 'an inherent race condition between a metadata update and a wait-for-change request being issued' and recommends last_etag. The value only comes back at the 300 s timeout, long after the roughly 30 s shutdown window (querying-metadata page). The URL, the header, the TRUE/FALSE values and the timeouts are otherwise right; MDURL is .../v1/instance, so the path is instance/preempted, as documented. Nothing relies on the notice, so this only loses best-effort saving. The other path, SIGTERM to the main script at shutdown, may also not fire. I believe Google's guest-agent unit google-startup-scripts.service uses KillMode=process, which would send SIGTERM only to the script runner, not to this bash script. I did not verify that in this review; only a rehearsal shows it.",
+     "fix": "Use `curl -sf -D hdr ... /preempted` to take the ETag, then `?wait_for_change=true&last_etag=$ETAG&timeout_sec=300`. Consider creating the VM with --preemption-notice-duration=120s (documented for Spot, 0s by default) so the notice comes before the 30 s shutdown window. Find out in the rehearsal whether SIGTERM reaches the script."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/pilot_local.sh",
+     "line": 334,
+     "title": "simulate-maintenance-event: the 5-minute timer starts before a blocking call, and a failure at the end is treated as 'refused'",
+     "detail": "t is taken before the call. gcloud waits for the operation unless --async is given; the docs say nothing on this (simulating-host-maintenance). If the operation completes only when the preempted VM is deleted, the call may return an error once the instance is gone. The code then takes the 'refused; deleting instead' branch. The outcome is still 'over', so nothing breaks. But CUTS_DONE then records a simulate that the log calls refused, and cut_at is measured from before the call. None of this is in Google's documentation, and the fake's simulate returns at once.",
+     "fix": "Use `simulate-maintenance-event --async`, or set cut_at=$(date +%s) after the call. On a non-zero exit, check vm_state before concluding 'refused'."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/full_guest.sh",
+     "line": 135,
+     "title": "Parts go up as single-request (uploadType=media) uploads with full retries",
+     "detail": "gcs_put streams each part in one request; each of its 5 attempts re-sends the whole file. Google sets no size cap below the 5 TiB object limit for this, so a multi-GB part is allowed. The upload is atomic (an object becomes visible only once the whole upload completes), so a cut mid-upload cannot leave half a part; this part of the design is sound. But Google advises resumable uploads for large files. On the pause path a multi-GB part that stalls once costs a full re-send inside the roughly 15 minutes before Google deletes the VM. curl has no --max-time; the stall guard is --speed-limit 1024 over 120 s.",
+     "fix": "Acceptable for a first rehearsal. Record part upload seconds, and switch parts to resumable uploads if the rehearsal shows retries."
+    },
+    {
+     "severity": "minor",
+     "file": "cloud/gcp/pilot_local.sh",
+     "line": 212,
+     "title": "A watch killed between appending the row and spot_save is charged to the previous attempt and counted as no progress",
+     "detail": "The ledger row for attempt N is appended before spot_save writes ATTEMPT=N. If watch is killed (closed terminal, Ctrl-C, whose trap exits) between the two, the state still says ATTEMPT=N-1 with ACCOUNTED=N-1, and the row is open. The next watch polls attempt N-1's ZONE and finds the VM GONE. It runs spot_account again for N-1: the row closes at real elapsed seconds, capped at N-1's MAXRUN+120, and NOPROGRESS is incremented again for an attempt already counted. Spend stays at or under the cap because the time is real, but one unproductive increment can bring the 3-without-progress pause forward.",
+     "fix": "Write ATTEMPT=N (and ACCOUNTED unchanged) with spot_save before appending the row. Alternatively, in spot_account skip the NOPROGRESS update when ACCOUNTED already equals ATTEMPT."
+    },
+    {
+     "severity": "minor",
+     "file": "scripts/dev/test_spot_checkpoint.sh",
+     "line": 1,
+     "title": "The guest's Spot shell code has no test",
+     "detail": "The checkpoint test covers the helper well, and its toy-Lake cases ran and passed here (the v4.33.1 toolchain is installed). But nothing runs spot_ckpt_round, spot_apply_pending (manifest-before-done-list), the sha and malformed-manifest checks in s_spot_resume, the counting in spot_restore_all, spot_record's refusal after PREEMPTED or DEADLINE, or the state-export eval round trip inside full_guest.sh. The guest implementer's 'local simulation' of spot_record and spot_load is not in the repository. A typo in any of these is found only on a paid machine.",
+     "fix": "Add a harness that sources the Spot block of full_guest.sh with stubbed gcs_put/spot_fetch (a local directory standing in for the bucket) and runuser. Cover a failed manifest upload (the done-list must not advance and the next round re-uploads), a wrong STATE_SHA_WANT, a manifest row with a forged object name, and restore count mismatch."
+    }
+   ],
+   "checked_and_found_sound": [
+    "Create flags: --provisioning-model=SPOT with --instance-termination-action=DELETE and --max-run-duration is valid; time limits apply to Spot VMs and only legacy preemptible VMs are excluded (limit-vm-runtime, create-use-spot). N4D supports Spot and Hyperdisk Balanced (facts_spot.md item 5). spot_vm_matches_on_demand confirms the disks, scopes, image, labels and metadata keys match full / full-rehearsal.",
+    "DELETE on preemption removes the VM and its auto-delete disks (spot page). Each attempt's two disks are auto-delete=yes, and spot_purge uses --delete-disks=all.",
+    "Metadata path and header: $MDURL/preempted resolves to computeMetadata/v1/instance/preempted with Metadata-Flavor: Google; values TRUE/FALSE as documented. The zone read via $MDURL/zone is also correct.",
+    "max-run-duration runs from RUNNING. The guest's deadline (from its own boot) and the launcher's local deadline (CREATED + MAXRUN + 300, with CREATED before the create call) are both on the safe side of it.",
+    "VM name reuse: a new create happens only after both listings succeeded and were empty (spot_start lines 194-198).",
+    "Cloud Storage: atomic overwrite and strong read-after-write (consistency page) support the order part, then manifest, then state. The guest's spot_fetch maps a 404 to 'absent' and is not retried. The launcher's spot_fetch recognises gcloud's 'matched no objects'.",
+    "Archive tools: tar is Python's tarfile (PAX format; streaming 'w|' and 'r|', each member read before the next), not GNU tar. zstd flags -q -T2 -3 -c and -d -c -- all exist in zstd 1.5.x on Ubuntu 24.04, which s_pkgs installs.",
+    "Cap arithmetic in spot_size, checked by reading: ceil-cent XWORST, floor seconds, -120 s, and 0.01 for the rounding of close_run. The random_reclaims cases reached at most 48.96 of 49.",
+    "Checkpoint test cases do what their names say. The restore refusals (absolute path, '..', symlink, hardlink, outside lib/ and ir/, planted link, write-through), bad-checksum-writes-nothing, trim, state monotonicity and state-export quoting all build the bad input explicitly. The toy Lake cases really rebuild and count what was compiled.",
+    "Cost model: runs deterministically from --help with the standard library only. Two rows and four closed forms checked by hand (see summary). The under-the-rules spend column includes the 9.86 already spent."
+   ]
+  }
+ ]
+}

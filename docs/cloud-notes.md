@@ -2,7 +2,7 @@
 
 What was learned on 2026-11-20 while planning a cloud run of the build. Everything here is generic: no account, project or billing details appear, and none are needed to use these notes. Prices are list prices for the Iowa region (`us-central1`), in US dollars, for Linux, before tax and without any commitment discount. They were read from Google's own price pages and SKU catalogue on 2026-11-20 and will change; read them again before relying on them.
 
-Sections 1 to 7 were written before anything had been run in the cloud; their durations and costs are modelled, not measured, except where a line says otherwise. The calibration pilot in [`../cloud/gcp/`](../cloud/gcp/) then ran on the same day. Section 8 gives what it measured and the estimate for a full run that follows from it, and section 9 describes the driver written for a full run and what a review of it changed. Where section 8 and an earlier section disagree, section 8 supersedes it: 8.1 is measured, and 8.2 is an estimate built on 8.1.
+Sections 1 to 7 were written before anything had been run in the cloud; their durations and costs are modelled, not measured, except where a line says otherwise. The calibration pilot in [`../cloud/gcp/`](../cloud/gcp/) then ran on the same day. Section 8 gives what it measured and the estimate for a full run that follows from it, section 9 describes the driver written for a full run and what a review of it changed, and section 10 a way of making that run on Spot machines, which has been built and tested locally and not yet run. Where section 8 and an earlier section disagree, section 8 supersedes it: 8.1 is measured, and 8.2 is an estimate built on 8.1.
 
 ## 1. Summary
 
@@ -16,6 +16,7 @@ Sections 1 to 7 were written before anything had been run in the cloud; their du
 | A billing budget does not stop spending | It sends alerts, and they can arrive hours late |
 | What the pilot's measurements imply | A full build on the 32-vCPU machine: an estimated 16 hours. The kernel replay after it was first put at 14 hours, which was wrong: with the stock tool as first run, about 46 (43 to 56). With the same stock tool shown only what each module imports, about 8.5, which makes a full run about 26 hours and 48 USD (sections 8.2 and 8.5). That last figure is a projection: on a rented machine this way of running the tool has been timed once, on the shallow modules of a rehearsal, where a check cost about what it had cost with the whole library on the path, 4 to 8 percent above what the projection gives for so small a tree (section 8.5) |
 | The cap, and what fits under it | On 2026-11-21 the cap was set at 50 USD in total; 9.86 is now recorded as spent. The full run as designed needs a cap of about 94, because the launcher counts its worst case. Section 8.6 lists what could be done and what each way risks. No choice has been made |
+| A Spot run that resumes | Built, reviewed and tested locally; never run in the cloud. With no reclaim it is modelled at 26 hours and about 29 USD at list prices. Each reclaim costs about 24 minutes. It stays cheaper than on demand unless reclaims average more than one every 50 minutes, and half of simulated runs finish under the cap of 50 when they average one every 2 hours, nine in ten at one every 3 (section 10) |
 
 ## 2. Quota
 
@@ -328,13 +329,15 @@ While the sixth rehearsal was running, before its cost or its timings were known
 
 Each Spot cap assumes the ledger rate in `config.env` (`GCP_RATE_USD_PER_HOUR`) lowered from 2.00 to a little above the Spot rate for the machine and its disks: 1.12 to 1.15 for `n4d-highmem-32`, 0.87 to 0.90 for `n4d-standard-32`. At 2.00 none of them fits a cap of 50.
 
+Way B has since been built, differently from the sketch in the table: every attempt is a fresh machine and nothing is kept in Compute Engine between attempts, so the cap bounds the spend whatever happens, and each attempt is sized to what the cap leaves. Section 10 describes it. It has not been run.
+
 The ninth agent ranked first a way that is a sequence, not a method: spend nothing more for now, let the Mac build finish, and decide about a cloud run once it is known whether the Mac gets through the top of the import graph and compiles everything. Its reasoning was that the wait costs nothing, the Mac build is running in any case, and what is left under the cap is then spent, if at all, with that knowledge. It ranked last but one a combination, building in the cloud and replaying on the Mac: at or over the cap, with the weeks of Mac replay still to come.
 
 Three things in the record apply to any cloud run. The cap is enforced on the launcher's ledger, which counts 2.00 USD an hour where the list price with disks is about 1.87, so the 9.86 recorded is somewhat more than the list price of the machine time; tax, network egress and bucket storage are outside it, and the bill is authoritative. The guest never powers itself off: a run costs its expected amount only if `watch` is still running on the local machine when the guest finishes; otherwise the machine runs to its deletion time and the worst case is what is spent. And for Spot: the rates used are those of `us-central1` read on 2026-11-20 and can change daily; a machine of this type is not always to be had in the zones tried first (on 2026-11-21 four zones of `us-central1` had none, and the rehearsal ran in `us-east1-b`); and preemptible quota must not be requested, because Spot then stops drawing on the standard quota and that cannot be undone.
 
 ## 9. The full run: what was built, and what a review changed
 
-The pilot scripts stop short of a full run by design. After the pilot, a driver for the full run was written: [`../cloud/gcp/full_guest.sh`](../cloud/gcp/full_guest.sh), with two new modes in the controller, and [`../cloud/gcp/README.md`](../cloud/gcp/README.md) describes it. **It has been rehearsed six times, the sixth time as it now stands, and had not been run in full when this was written.** The reviews below are criticism of code; the rehearsals are measurements, of a build of about one module in a hundred.
+The pilot scripts stop short of a full run by design. After the pilot, a driver for the full run was written: [`../cloud/gcp/full_guest.sh`](../cloud/gcp/full_guest.sh), with two new modes in the controller, and [`../cloud/gcp/README.md`](../cloud/gcp/README.md) describes it. **It has been rehearsed six times, the sixth time as it stood before the Spot code of section 10 was added to it, and had not been run in full when this was written.** With that code switched off the script does what it did in the sixth rehearsal, by review and by a local comparison (section 10.6), but it has not been rehearsed since. The reviews below are criticism of code; the rehearsals are measurements, of a build of about one module in a hundred.
 
 | Need, from the pilot | Why | State |
 |---|---|---|
@@ -411,3 +414,152 @@ Neither review had caught the permission fault. A rehearsal is not a full run ei
 Two things were changed after the sixth rehearsal and have been tested only locally. The launcher's cap test now counts the two minutes that the ledger can record past a machine's deletion time. And the replay script hands fewer modules to a worker when a pass is short, so that every job has work: the rehearsal's main pass of 635 modules had made 26 workers where 32 were allowed. The driver's estimate of how long the replay will take is throughput times modules; it leaves out a pass's planning, start and tail, and the margin of an eighth that it keeps before an early deep walk is what absorbs that.
 
 Two optional tests could lower the cost: the kernel checker at 16, 24 and 32 at once, which the full run now does in its first fifteen minutes of replay, and the kernel checker given many modules per process. The second exists as `rhv-replay` (section 8.5), an optional second replay; the criterion's own replay stays with `leanchecker`.
+
+## 10. A full run on Spot machines that survives being taken back
+
+Section 8.6 left a full run without a way to fit under the cap of 50 USD. Its way B, a Spot run that resumes, has since been built, in a different shape from the one sketched there. **It has not been run in the cloud, not even as a rehearsal: everything in this section is design, local tests, review and a cost model.** The model is [`../analysis/spot_resume_model.py`](../analysis/spot_resume_model.py), its output [`../records/cloud/spot_resume_model.json`](../records/cloud/spot_resume_model.json).
+
+### 10.1 The design
+
+A Spot machine costs about six tenths of what the same machine costs on demand, and Google may take it back at any moment, with about thirty seconds' notice or none. The run is therefore a chain of *attempts*. Each attempt is a fresh Spot machine that Google deletes, with its disks, when it takes the machine back or at the attempt's own time limit. Nothing is kept in Compute Engine between attempts, so between attempts nothing there bills, and the difficulty section 8.6 named for way B (a stopped machine whose disks bill outside the cap) does not arise. What carries the work from one attempt to the next is in the project's private bucket, under `ckpt/RUNTAG/`:
+
+| Object | What it is | When it is written |
+|---|---|---|
+| `part-NNNNNN.tar.zst` | An archive of the compiled files of modules that have finished since the last part | Every ten minutes during the build, and when the build ends |
+| `manifest.tsv` | One row per part: its number, SHA-256, size, how many modules it holds, and which attempt cut it | After each part is in the bucket |
+| `state.json` | Every decision and result so far: which units of the run are complete, the values a later machine needs, one entry per attempt | After the manifest, and after each completed unit |
+| `baseline_*.txt.gz`, `seal/*.txt.gz` | The first attempt's fingerprints of the source tree, the toolchain and Mathlib's compiled files, and the seal's fingerprints | Once |
+| `c2/*.json`, `results/NNNNNNNNN.tsv.gz` | The axiom check's summaries and the kernel replay's result lines so far (one object per save, named by its count of lines) | Only after a confirming hash (10.2) |
+
+The order is always part, then manifest, then state. Whatever is in the bucket after a cut is then consistent: a part the manifest does not list is ignored, and a unit the state does not record as complete is run again in full. A later attempt installs everything again on its fresh machine, proves that its source tree, toolchain and Mathlib files are identical to the first attempt's, fetches and checks the parts, extracts them, and carries on from the stage the state records: the rest of the build, the seal, the axiom checks, or the replay from the results already saved.
+
+On the local machine, `watch` accounts for each attempt that ends and starts the next, checking the cap again every time. It pauses the run, with nothing running and nothing lost, when the cap, a give-up time (120 hours after the first launch), a limit of 24 attempts, or three attempts in a row without progress says so. `watch` run again continues from the state file, the ledger, the Compute API and the bucket.
+
+**Where Google Drive fits.** The request was for results streamed to the owner's Google Drive. The checkpoints go to the project's bucket instead, and the reasons are these. A machine's own service account cannot own files in a personal Drive; to write there the machine would have to hold the owner's personal sign-in token, on a machine that runs the proof's code at compile time and whose design goes to some length to keep credentials away from that code. The checkpoints come to an estimated 40 GB in hundreds of objects, which a bucket in the machine's own region takes at disk speed and without transfer charges, and which the Drive interface rate-limits. And the next attempt must read exactly what the last one wrote, checked against a SHA-256 the launcher recorded; a bucket gives that directly. What does go to Drive is the part a person wants to see: with `GCP_RESULTS_MIRROR_DIR` set to a folder that Google Drive for desktop syncs, `watch` copies the status, the facts file, the logs and each attempt's small results there every ten minutes and at the end of every attempt. The Drive credential stays on the owner's machine. The parts themselves are not mirrored; copying them out of Google's network would cost about 0.12 USD per GiB at list price, and they are only needed until the run ends.
+
+### 10.2 What crosses from one machine to the next
+
+An uninterrupted run rests on one machine: the same disk from the build to the end check, with the compiled files fingerprinted at the seal and again at the end. A chain of machines has to earn the same statement. The rules:
+
+| What crosses | How the next machine knows it is what was written |
+|---|---|
+| The state and the manifest | After every attempt, once the Compute API has confirmed the machine gone, the launcher downloads both and records their SHA-256. The next machine is created with those two values and refuses any other state or manifest |
+| A part | Its SHA-256 and size are in the manifest. The build user makes the archive, on its own tree; root reads the archive from a file root opened, lists and hashes what it holds, and uploads it. A restore refuses anything but regular files under the two build directories and never writes through an existing file or a link |
+| The compiled files as a whole | At the first seal, on the sealing machine, the parts taken in order must reproduce exactly the files the seal has just fingerprinted, path by path and hash by hash. Files they lack or hold differently go into one repair part, cut by root; then they must match, or the run ends. Every later attempt seals what it restored and must arrive at the first seal's fingerprint, or the run ends |
+| A result of a check | Results leave a machine only after a *confirming hash* on that machine: the compiled files, Mathlib's and the sealed toolchain hashed again and found identical to the seal's, with no process of the build user seen since the seal. The copy of the results that is uploaded is taken before the hash starts, so every line in it was produced before a moment at which the inputs were shown unchanged. Each saved copy goes up under its own name, and the state records that name and the copy's SHA-256, which the next machine checks. A unit of the run (each axiom check, the replay's trials, the main replay) is recorded as complete only after such a hash. When a machine is taken back, nothing unconfirmed is carried over: about a quarter of an hour of replay is done again on average, half an hour at most |
+| The source tree, toolchain and Mathlib | Fingerprinted on every machine before anything is compiled or restored, and compared with the first attempt's; any difference ends the run |
+
+So everything a later machine takes from the bucket is checked against a SHA-256 that the state or the manifest records, and those two against the values the launcher recorded on the owner's machine. The end check of an uninterrupted run is kept as it is, on whichever attempt finishes: everything hashed once more, and any change, or any sighting of the build user on any attempt, voids the checks. A failure found by a confirming hash or by the end check is final whatever else is happening; it is never turned into a pause.
+
+What remains different from an uninterrupted run, and should be said wherever a Spot run's result is reported: the compiled files were produced on several machines and the result lines on several more; the statement that they are one consistent set rests on SHA-256 comparisons made by root's script on each machine and by the launcher between them, and on the bucket returning what was stored. The files under each attempt's own `attempt-N/` prefix are that machine's logs and working copies, uploaded as they stood; only what the state records, saved after a confirming hash, is carried between machines.
+
+### 10.3 What a reclaim costs, and where thrashing begins
+
+Each reclaim costs a fresh machine's setup, the restore of what was saved, and the work since the last save. In the model:
+
+| Where the reclaim falls | Setup and restore, hours | Work done again, hours | Lost per reclaim, hours |
+|---|---|---|---|
+| The build (15.2 hours) | 0.17 | 0.10 | 0.27 |
+| The top of the import graph (0.4 hours, taken as one unit that cannot be split) | 0.25 | 0.20 | 0.45 |
+| The seal | 0.25 | 0.13 | 0.38 |
+| The axiom check, plain | 0.35 | 0.09 | 0.44 |
+| The replay's trials | 0.35 | 0.13 | 0.48 |
+| The axiom check, deep | 0.35 | 0.29 | 0.64 |
+| The main replay (9.1 hours) | 0.35 | 0.25 | 0.60 |
+| Weighted by the time each stage takes | | | 0.40 |
+
+So a reclaim costs about 24 minutes on average: about 16 during the build, about 36 during the replay. Google publishes no rate of reclaims for any machine type or zone, so the mean time between reclaims, M, is a free variable here and not an estimate. The run was simulated attempt by attempt, 4,000 times for each value of M, with reclaims arriving at random at that mean rate:
+
+| M, hours | Machine hours to finish, median (nine in ten under) | Attempts, median | Cost at list prices, USD, median | Share of runs that finish under the launcher's rules and the cap of 50 |
+|---|---|---|---|---|
+| 0.5 | 61.7 (71.2) | 124 | 67.86 | 0 |
+| 1 | 39.3 (43.6) | 40 | 43.22 | 0.2 percent |
+| 2 | 31.9 (34.4) | 17 | 35.04 | 47 percent |
+| 3 | 29.7 (31.7) | 11 | 32.66 | 89 percent |
+| 4 | 28.7 (30.5) | 8 | 31.52 | 97 percent |
+| 6 | 27.7 (29.1) | 5 | 30.48 | 99.7 percent |
+| 8 | 27.3 (28.5) | 4 | 30.00 | 99.8 percent |
+| 12 | 26.8 (27.8) | 3 | 29.49 | all |
+| 24 | 26.4 (27.1) | 2 | 29.00 | all |
+| never | 26.0 | 1 | 28.65 | all |
+
+The same work on demand is 25.6 hours and 47.87 USD at list prices, 51.20 at the ledger's rate, which the cap does not allow at all. There are two cut-offs, and they are far apart:
+
+- **Against the on-demand price.** Spot costs more than on demand only when reclaims come more often than about once every 50 minutes on average (M below 0.81 hours at list prices, 0.88 at the ledger's rates; below 1.0 hours for the unluckiest run in ten). It takes about 44 reclaims in one run to use up the saving.
+- **Against the cap.** With 9.86 USD already recorded, the cap leaves 32.6 hours of machine time at the Spot ledger rate of 1.20 USD an hour, against 26.0 needed with no reclaim: room for about 16 reclaims. Half of the simulated runs finish under the cap when reclaims average one every 2.0 hours, nine in ten at one every 3.1 hours, and 97 percent at one every 4.
+
+A run that meets more reclaims than that is stopped by the launcher's rules, not by a lost run. It pauses with its checkpoints in the bucket and what it has spent recorded; `watch` continues it later, at another hour or in another zone, at the price of the bucket storage in between (about 0.80 USD a month for 40 GB, for which 1.00 USD is held back from the cap). A paused run is not a result of any kind.
+
+How the cut-offs move if the guesses are wrong (hours; the three columns are the M below which Spot costs more than on demand, at which half of the runs finish under the cap, and at which nine in ten do):
+
+| Variant | Dearer than on demand below | Half finish above | Nine in ten finish above |
+|---|---|---|---|
+| As above | 0.81 | 2.03 | 3.10 |
+| Restore twice as slow | 1.11 | 2.61 | 4.26 |
+| The deep axiom check takes 2 hours, not 0.5 | 1.06 | 3.03 | 5.25 |
+| A confirming hash takes 15 minutes, not 5 | 1.03 | 2.71 | 4.44 |
+| Parts every 5 minutes, or every 20 | 0.77, 0.88 | 1.91, 2.22 | 2.99, 3.38 |
+| Replay results saved every 10 minutes, or every 40 | 0.76, 0.94 | 2.00, 2.22 | 2.95, 3.58 |
+| Reclaims bunched early in an attempt | 0.63 | 2.10 | 4.09 |
+| A limit of 12 attempts, not 24 | 0.81 | 2.60 | 3.94 |
+
+The limits of this model are those of its inputs. No restore of parts, no seal at full scale, no confirming hash at full scale, no deep axiom check on the whole tree, and nothing at the top of the import graph has ever been timed; the build and replay hours are the projections of section 8. Reclaims are unlikely to arrive at a steady random rate: they vary by day, zone and hour and may come in bursts when a zone runs short, and on 2026-11-21 four zones of `us-central1` had no machine of this type at all. The model leaves out waits for capacity between attempts, which bill nothing but count towards the give-up time; attempts outside the bucket's region, which pay to move the checkpoints (0.02 USD a GiB each way, counted in the cap's worst case and recorded in the ledger); and the rehearsal of the Spot path, which comes out of the same cap.
+
+### 10.4 The launcher's money rules for a Spot run
+
+The rules of the on-demand modes hold, attempt by attempt, with these added:
+
+- Every attempt has an open ledger row before its machine is created, at most one row is open, and the row and the launcher's own state are forced to disk before the request is sent, so that a power cut on the local machine cannot leave a machine with no record.
+- An attempt is over only when the Compute API has confirmed that no instance and no disk remains; until then its row stays open and nothing starts.
+- Each attempt's time limit is sized so that recorded spend, with the attempt run to its limit and the worst transfer charge, stays under the cap less the reserve. When what is left would buy less than a minimum attempt (90 minutes), the run pauses.
+- A request to create a machine that fails in a way that does not show nothing was created is never followed by a request in another zone: there can be one machine at most.
+- One Spot command runs at a time, so that a `teardown` cannot be undone by a running `watch`. The lock is one the operating system holds on a file and releases when the command ends, however it ends, so there is never a stale lock to clear.
+- The ledger is rewritten by swapping in a whole new file, never in place, and a ledger found with fewer rows or less spend than the run last saw stops every start.
+- A machine reports why it paused: its own deadline, trouble a fresh machine may not have (the next attempt starts), the checkpoints reaching the size the cap's worst case allows outside the bucket's region (no further attempt starts outside it), or a condition that another attempt would meet again (the run pauses and says why).
+
+The ledger records machine time at 1.20 USD an hour for a Spot attempt, a little above the list price of the machine with its disks at Spot rates (about 1.10 on 2026-11-20), and the bill is authoritative.
+
+### 10.5 What was reviewed, and what the reviews changed
+
+The code was written by AI agents to a written design and looked at by others five times before anything was launched; the records are [`../records/cloud/spot_resume_review.json`](../records/cloud/spot_resume_review.json) and [`../records/cloud/spot_resume_recheck.json`](../records/cloud/spot_resume_recheck.json). These are criticism of code, not results.
+
+The first round, five reviewers (money, the integrity of the evidence, the unchanged on-demand path, a walk through every way an attempt can end, and Google's documented behaviour), graded nothing a blocker and thirteen findings major. Those that shaped the design:
+
+| Finding | What was wrong | What the scripts do now |
+|---|---|---|
+| Results could cross from a machine whose inputs were never re-checked | The replay's results were uploaded as they were produced; the end check, which proves the compiled files unchanged, ran only on the last machine | The confirming hash of 10.2: nothing that is evidence leaves a machine until that machine has shown its inputs unchanged after the evidence was produced |
+| The parts were never shown to reproduce the sealed files | A module the build tool rewrote after its part was cut would have been restored stale, and found only by a later machine | Tracking is file by file; a saved output that changes ends the run; and the cover check of 10.2 proves the parts against the seal on the sealing machine |
+| A truncated download could end a run for good | The guest's fetch looked at the server's answer, not at whether the transfer completed | Every fetch is checked against a recorded SHA-256 and tried three times; only three complete downloads with the wrong checksum are final |
+| Two commands could undo each other | A `teardown` during a `watch` was followed at once by the next attempt | One Spot command at a time |
+| The ledger could be left empty | It was rewritten in place; an interruption could truncate it, and recorded spend would have read as zero | Written to a new file and swapped in; a ledger that has shrunk stops every start |
+| A create that reported an error could still have made a machine | The next zone was tried at once | No second zone after an unclear error; the machine is looked for in every zone |
+| The rehearsal's forced cuts did not test what they claimed | A cut during the build could land before anything was saved, and the cut during the replay could land in the trials | Each cut waits for what it is meant to interrupt, and one of the three is a hard reset with no notice at all |
+| The launcher's test passed only on its author's settings | Four cases failed with the default temporary directory of macOS | Fixed, and the test now includes one case that runs the guest's own code against the launcher |
+
+The changed code was checked again four times, each time by fresh agents who were told to refute the fixes, and each time what they found was fixed before the next look:
+
+| Look | By | Major findings | Among them |
+|---|---|---|---|
+| Second | Three verifiers | 5, with about 15 minor | A setup step that needs the network would have ended a whole run on one bad minute of a package mirror; the count of failed compile jobs of a machine cut without notice was lost; a power cut on the owner's machine just after a create could leave a machine with no ledger row; a rehearsal could finish without one of its cuts and say nothing |
+| Third | Two verifiers | 2, in the launcher; none in the guest | The lock, then a directory holding a process number, could end with two holders if two commands found a stale lock in the same instant; a simulated reclaim that Google accepted but never carried out counted as done |
+| Fourth | Two verifiers | 3, in the launcher; none in the guest | Two more ways for a rehearsal's cut to be reported as done when a restarted `watch` had lost track of it; `teardown` could act without the lock in the first seconds of a launch |
+| Fifth | Two verifiers | None | One minor point in the launcher, since fixed: the very first time a Spot run is launched in a work directory, an old-mode command started in the same instant could still act without the lock. Nothing in the guest |
+
+No look graded anything a blocker. After the third look the lock was replaced by one the operating system holds, which has no stale state to mishandle. After the fourth, the saved replay results, the one thing that had crossed between machines without a recorded checksum, were given one. The fixes that only concern the rehearsal's own reporting matter because the rehearsal is the test of everything else: it now ends with a warning status unless each of its forced cuts was seen to take effect.
+
+### 10.6 What is tested, and what only a rehearsal can show
+
+Three test scripts run on a Mac with no cloud access: [`../scripts/dev/test_spot_checkpoint.sh`](../scripts/dev/test_spot_checkpoint.sh) (the helper that cuts, lists, restores and compares parts), [`../scripts/dev/test_spot_guest.sh`](../scripts/dev/test_spot_guest.sh) (the guest's own Spot code, extracted from the script and run against a pretend bucket and metadata server), and [`../scripts/dev/test_spot_launcher.sh`](../scripts/dev/test_spot_launcher.sh) (the launcher against a pretend `gcloud`, with reclaims, refusals, errors and interruptions injected). In the first of them a small Lake project on this toolchain, with a module that compiles with a warning and one that fails to compile, is built, cut into parts, wiped, restored from the parts and built on: the build tool compiled nothing again and changed no restored file's time, size or bytes. That is the behaviour the whole design rests on, seen on five modules.
+
+The tests check logic. They cannot show any of the following, each of which a paid rehearsal with forced reclaims (`launch full-spot-rehearsal`, four attempts on the seven-minute build, an estimated 1.50 to 2.00 USD) would be the first to exercise:
+
+- that Google's notice reaches the guest, and that the guest's last uploads fit in the seconds it leaves;
+- a hard reset with no notice, and the bucket found consistent after it;
+- the restore on a real machine as the build user and, after the seal, as root, and the build tool accepting restored files there;
+- how long a part, a restore and a confirming hash take, and how big the parts are;
+- that the parts reproduce the sealed files on a real tree;
+- the Linux tools the Mac tests stand in for (`flock`, `runuser`, the metadata server).
+
+A rehearsal builds about one module in a hundred. It does not show a restore of the whole tree, a confirming hash of 140 GB while the replay runs, or a reclaim at the top of the import graph.
+
+The on-demand modes run the same guest script with the Spot code switched off. Reviewers compared that path with the committed version line by line and found it unchanged, and the launcher's test compares what the four older modes send and write; but the script as it now stands has not been rehearsed in the cloud in either mode, and the sixth rehearsal of section 9 was of the version before this change.

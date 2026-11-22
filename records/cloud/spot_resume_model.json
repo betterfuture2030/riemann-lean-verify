@@ -1,0 +1,1614 @@
+{
+ "what": "cost of a resumable Spot run of the full check (full-spot) as a function of the mean time between reclaims M, by simulation of the design attempt by attempt, with closed forms beside it",
+ "how_to_reproduce": "python3 analysis/spot_resume_model.py --out records/cloud/spot_resume_model.json",
+ "inputs_as_of": "2026-11-21",
+ "seed": 20261121,
+ "runs_per_point": 4000,
+ "runs_per_point_in_thresholds_and_sensitivity": 1000,
+ "inputs": {
+  "setup_h": {
+   "value": 0.1,
+   "label": "estimated",
+   "source": "setup.tsv of the pilot and six rehearsals: 76-137 s from guest start to first compile (measured); plus about 236 s of boot and teardown, from rehearsal 6's 1,487 s billed against 1,251 s elapsed in the guest (derived)",
+   "meaning": "boot, setup and teardown of one attempt's fresh machine, hours"
+  },
+  "restore_before_seal_h": {
+   "value": 0.15,
+   "label": "guess",
+   "source": "no restore has been timed; about 140 GB of compiled files, about 41 GB as zstd parts (0.23 MB a module in the rehearsals' keep archives, measured small)",
+   "meaning": "restore of the whole tree's parts before the seal, hours; scaled by the share of the build saved"
+  },
+  "restore_after_seal_h": {
+   "value": 0.25,
+   "label": "guess",
+   "source": "restore of every part plus the seal's steps again on the new machine; the seal took 28 s on 1,663 modules (rehearsal 6 phases.tsv) and has not been timed at full scale",
+   "meaning": "restore plus the seal's steps again, on an attempt that starts after the seal, hours"
+  },
+  "build_h": {
+   "value": 15.6,
+   "label": "estimated",
+   "source": "records/cloud/replay_cost.json whole_run, expected (low 13.7, high 17.9)",
+   "meaning": "the build, hours, including the top of the import graph"
+  },
+  "top_h": {
+   "value": 0.4,
+   "label": "estimated",
+   "source": "allowance for the top of the import graph in records/cloud/replay_cost.json (0.2 / 0.4 / 1.0); nothing with an import closure above 17,860 has been compiled",
+   "meaning": "the part of the build at the top of the import graph that is treated as units that cannot be split, hours"
+  },
+  "top_units": {
+   "value": 1,
+   "label": "guess",
+   "source": "modelling choice: one unit is the harshest reading (a reclaim anywhere in it loses all of it)",
+   "meaning": "how many equal units the top of the import graph is split into"
+  },
+  "ckpt_min": {
+   "value": 10.0,
+   "label": "setting",
+   "source": "GCP_SPOT_CKPT_EVERY = 600 s",
+   "meaning": "minutes between parts during the build"
+  },
+  "ckpt_lag_min": {
+   "value": 1.0,
+   "label": "guess",
+   "source": "settle margin 5 s, then compressing and uploading about 10 minutes of compiled output (about 1.4 GB, about 0.4 GB as a part); upload throughput to the bucket has not been measured",
+   "meaning": "minutes from a part's cut to its manifest upload finishing, during which its work is not yet saved"
+  },
+  "seal_h": {
+   "value": 0.25,
+   "label": "guess",
+   "source": "28 s on 1,663 modules in rehearsal 6 (measured small); not timed at full scale",
+   "meaning": "the seal, hours (cannot be split)"
+  },
+  "c2_plain_h": {
+   "value": 0.1,
+   "label": "guess",
+   "source": "the plain and deep axiom checks together have an allowance of 0.2 / 0.5 / 2.0 h (analysis/pilot_estimate.py); 5 s in rehearsal probe mode; the split between them is a guess",
+   "meaning": "the plain axiom check, hours (cannot be split)"
+  },
+  "trials_h": {
+   "value": 0.25,
+   "label": "estimated",
+   "source": "the full run spends the first 15 minutes of its replay on trials (docs/cloud-notes.md); about 90 s each in the rehearsals",
+   "meaning": "the replay trials and the choice of job count, hours (cannot be split)"
+  },
+  "c2_deep_h": {
+   "value": 0.5,
+   "label": "estimated",
+   "source": "allowance 0.5 h expected, 2 h high (time box 7,200 s); never run on the full tree",
+   "meaning": "the deep axiom check, hours (cannot be split)"
+  },
+  "replay_h": {
+   "value": 8.8,
+   "label": "estimated",
+   "source": "8.5 h from the fit in records/cloud/replay_cost.json, plus the rehearsal's 4-8 % excess",
+   "meaning": "the main replay, hours"
+  },
+  "replay_save_min": {
+   "value": 20.0,
+   "label": "setting",
+   "source": "GCP_SPOT_CONFIRM_EVERY = 1200 s: the replay's results are saved only after a full hash of the compiled files, the toolchain copy and the library files on the same machine confirms that nothing changed (docs/cloud-notes.md section 10)",
+   "meaning": "minutes between saves of the replay's results"
+  },
+  "confirm_min": {
+   "value": 5.0,
+   "label": "guess",
+   "source": "a full hash of about 0.13 TB of compiled files with four processes while the replay runs; never timed at full scale (the end check's hash took 3 s on 1,663 modules in rehearsal 6)",
+   "meaning": "minutes one confirming hash takes: results written during it wait for the next save, and each axiom check ends with one"
+  },
+  "confirm_share": {
+   "value": 0.125,
+   "label": "setting",
+   "source": "four hashing processes on a machine of 32 threads",
+   "meaning": "share of the machine a confirming hash takes from the replay while it runs"
+  },
+  "deadline_margin_h": {
+   "value": 0.25,
+   "label": "setting",
+   "source": "the guest's deadline is 900 s before the attempt's maximum run time (cloud/gcp/pilot_local.sh)",
+   "meaning": "the guest's own deadline comes this long before Google deletes the machine, hours"
+  },
+  "pause_winddown_h": {
+   "value": 0.1,
+   "label": "guess",
+   "source": "last part, uploads, status PAUSED, and the watcher's delete after the guest's deadline",
+   "meaning": "billed time after the guest's deadline in an attempt that pauses, hours"
+  },
+  "detect_lag_h": {
+   "value": 0.02,
+   "label": "guess",
+   "source": "watch polls every 45 s (facts on the launcher), then deletes and verifies",
+   "meaning": "time after a reclaim that the ledger still counts (Google bills nothing for it), hours"
+  },
+  "gap_h": {
+   "value": 0.1,
+   "label": "guess",
+   "source": "the watcher notices, closes the row and creates the next machine; capacity waits are not modelled",
+   "meaning": "wall-clock time between attempts (counts towards the give-up time; bills nothing), hours"
+  },
+  "max_attempts": {
+   "value": 24,
+   "label": "setting",
+   "source": "GCP_SPOT_MAX_ATTEMPTS",
+   "meaning": "the run pauses when this many attempts have been started"
+  },
+  "noprogress_limit": {
+   "value": 3,
+   "label": "setting",
+   "source": "the pause rules of `watch` (cloud/gcp/pilot_local.sh)",
+   "meaning": "the run pauses after this many attempts in a row that saved nothing"
+  },
+  "min_attempt_h": {
+   "value": 1.5,
+   "label": "setting",
+   "source": "GCP_SPOT_MIN_ATTEMPT_SECONDS = 5400",
+   "meaning": "no attempt shorter than this is started, hours"
+  },
+  "giveup_h": {
+   "value": 120.0,
+   "label": "setting",
+   "source": "GCP_SPOT_GIVEUP_HOURS",
+   "meaning": "no attempt starts later than this after the first launch, hours"
+  },
+  "mode_limit_h": {
+   "value": 42.0,
+   "label": "setting",
+   "source": "151200 s for full-spot (cloud/gcp/pilot_local.sh)",
+   "meaning": "the longest attempt, hours"
+  },
+  "cap_usd": {
+   "value": 50.0,
+   "label": "setting",
+   "source": "docs/cloud-notes.md section 8.6",
+   "meaning": "the spending cap, USD"
+  },
+  "spent_usd": {
+   "value": 9.86,
+   "label": "measured",
+   "source": "the launcher's ledger after the sixth rehearsal (docs/cloud-notes.md section 8.6)",
+   "meaning": "recorded spend before the run, USD"
+  },
+  "reserve_usd": {
+   "value": 1.0,
+   "label": "setting",
+   "source": "GCP_SPOT_RESERVE_USD: held back for bucket storage of the parts",
+   "meaning": "held back from the cap, USD"
+  },
+  "spot_list_usd_h": {
+   "value": 1.1,
+   "label": "estimated",
+   "source": "us-central1 list prices read 2026-11-20/21: machine 1.0136 Spot, disks 0.083, address 0.0025 (1.097-1.105 all-in); Spot prices can change daily",
+   "meaning": "what Google charges for an hour of a Spot attempt, all in, USD"
+  },
+  "spot_ledger_usd_h": {
+   "value": 1.2,
+   "label": "setting",
+   "source": "GCP_SPOT_RATE_USD_PER_HOUR",
+   "meaning": "what the ledger and the cap count for an hour of a Spot attempt, USD"
+  },
+  "od_list_usd_h": {
+   "value": 1.87,
+   "label": "estimated",
+   "source": "us-central1 list prices: 1.862-1.868 all-in on demand (docs/cloud-notes.md)",
+   "meaning": "on demand, list, all in, USD an hour"
+  },
+  "od_ledger_usd_h": {
+   "value": 2.0,
+   "label": "setting",
+   "source": "GCP_RATE_USD_PER_HOUR default (docs/cloud-notes.md section 8.6)",
+   "meaning": "on demand, as the ledger counts it, USD an hour"
+  },
+  "shape": {
+   "value": 1.0,
+   "label": "guess",
+   "source": "1 is a Poisson process; Google publishes nothing on how reclaims are spread over a machine's life",
+   "meaning": "shape of the Weibull time to reclaim of one attempt (1 = exponential); the mean is M whatever the shape"
+  }
+ },
+ "derived": {
+  "hours_with_no_reclaim": 26.04,
+  "hours_on_demand_for_the_same_work": 25.6,
+  "stages": [
+   {
+    "stage": "build",
+    "hours": 15.2,
+    "can_be_split": true
+   },
+   {
+    "stage": "top of the import graph",
+    "hours": 0.4,
+    "can_be_split": false
+   },
+   {
+    "stage": "seal",
+    "hours": 0.25,
+    "can_be_split": false
+   },
+   {
+    "stage": "axiom check, plain",
+    "hours": 0.183,
+    "can_be_split": false
+   },
+   {
+    "stage": "replay trials",
+    "hours": 0.25,
+    "can_be_split": false
+   },
+   {
+    "stage": "axiom check, deep",
+    "hours": 0.583,
+    "can_be_split": false
+   },
+   {
+    "stage": "main replay",
+    "hours": 9.075,
+    "can_be_split": true
+   }
+  ],
+  "ledger_hours_the_cap_allows": 32.62,
+  "on_demand_usd_list": 47.87,
+  "on_demand_usd_ledger": 51.2,
+  "spot_usd_list_with_no_reclaim": 28.65,
+  "spot_usd_ledger_with_no_reclaim": 31.25,
+  "note_on_demand": "on demand is the same stages with no reclaim and without the confirming hashes a Spot run adds; at the ledger's 2.00 it would record 51.20 USD, more than the 40.14 the cap leaves, so on demand does not fit the cap of 50 at all (docs/cloud-notes.md section 8.6)"
+ },
+ "by_mean_hours_between_reclaims": [
+  {
+   "M_hours": 0.5,
+   "to_finish": {
+    "runs_that_hit_the_safety_stop": 0,
+    "billed_hours": {
+     "median": 61.7,
+     "p90": 71.2,
+     "mean": 62.04
+    },
+    "attempts": {
+     "median": 124.0,
+     "p90": 156,
+     "mean": 125.06
+    },
+    "usd_at_list_rate": {
+     "median": 67.86,
+     "p90": 78.37,
+     "mean": 68.25
+    },
+    "usd_at_ledger_rate": {
+     "median": 76.99,
+     "p90": 89.22,
+     "mean": 77.43
+    },
+    "saving_against_on_demand_usd": {
+     "list": {
+      "median": -19.99,
+      "p10_worst": -30.5
+     },
+     "ledger": {
+      "median": -25.79,
+      "p10_worst": -38.02
+     }
+    },
+    "share_whose_ledger_hours_fit_under_the_cap": 0.0,
+    "mean_hours_lost_to_reclaims": {
+     "setup_and_restore": 25.5,
+     "redone_work": 10.5,
+     "pause_wind_down": 0.0,
+     "total": 36.0,
+     "ledger_only_detection_lag": 2.481
+    }
+   },
+   "under_the_launchers_rules": {
+    "share_by_outcome": {
+     "finished": 0.0,
+     "attempt limit": 0.218,
+     "no progress": 0.782,
+     "cap": 0.0,
+     "give-up time": 0.0
+    },
+    "billed_hours_all_runs": {
+     "median": 6.3,
+     "p90": 13.7
+    },
+    "attempts_all_runs": {
+     "median": 13.0,
+     "p90": 24
+    },
+    "recorded_spend_after_the_run_usd": {
+     "median": 17.75,
+     "p90": 26.83,
+     "max": 37.33
+    }
+   }
+  },
+  {
+   "M_hours": 1,
+   "to_finish": {
+    "runs_that_hit_the_safety_stop": 0,
+    "billed_hours": {
+     "median": 39.3,
+     "p90": 43.6,
+     "mean": 39.43
+    },
+    "attempts": {
+     "median": 40.0,
+     "p90": 52,
+     "mean": 40.36
+    },
+    "usd_at_list_rate": {
+     "median": 43.22,
+     "p90": 47.93,
+     "mean": 43.37
+    },
+    "usd_at_ledger_rate": {
+     "median": 48.08,
+     "p90": 53.48,
+     "mean": 48.26
+    },
+    "saving_against_on_demand_usd": {
+     "list": {
+      "median": 4.66,
+      "p10_worst": -0.06
+     },
+     "ledger": {
+      "median": 3.12,
+      "p10_worst": -2.28
+     }
+    },
+    "share_whose_ledger_hours_fit_under_the_cap": 0.004,
+    "mean_hours_lost_to_reclaims": {
+     "setup_and_restore": 8.8,
+     "redone_work": 4.58,
+     "pause_wind_down": 0.0,
+     "total": 13.39,
+     "ledger_only_detection_lag": 0.787
+    }
+   },
+   "under_the_launchers_rules": {
+    "share_by_outcome": {
+     "finished": 0.002,
+     "attempt limit": 0.497,
+     "no progress": 0.457,
+     "cap": 0.043,
+     "give-up time": 0.0
+    },
+    "billed_hours_all_runs": {
+     "median": 21.4,
+     "p90": 28.7
+    },
+    "attempts_all_runs": {
+     "median": 23.0,
+     "p90": 24
+    },
+    "recorded_spend_after_the_run_usd": {
+     "median": 36.04,
+     "p90": 44.9,
+     "max": 48.77
+    }
+   }
+  },
+  {
+   "M_hours": 2,
+   "to_finish": {
+    "runs_that_hit_the_safety_stop": 0,
+    "billed_hours": {
+     "median": 31.9,
+     "p90": 34.4,
+     "mean": 31.94
+    },
+    "attempts": {
+     "median": 17.0,
+     "p90": 23,
+     "mean": 16.93
+    },
+    "usd_at_list_rate": {
+     "median": 35.04,
+     "p90": 37.84,
+     "mean": 35.13
+    },
+    "usd_at_ledger_rate": {
+     "median": 38.61,
+     "p90": 41.8,
+     "mean": 38.71
+    },
+    "saving_against_on_demand_usd": {
+     "list": {
+      "median": 12.84,
+      "p10_worst": 10.03
+     },
+     "ledger": {
+      "median": 12.59,
+      "p10_worst": 9.4
+     }
+    },
+    "share_whose_ledger_hours_fit_under_the_cap": 0.594,
+    "mean_hours_lost_to_reclaims": {
+     "setup_and_restore": 3.72,
+     "redone_work": 2.17,
+     "pause_wind_down": 0.0,
+     "total": 5.89,
+     "ledger_only_detection_lag": 0.319
+    }
+   },
+   "under_the_launchers_rules": {
+    "share_by_outcome": {
+     "finished": 0.471,
+     "attempt limit": 0.022,
+     "no progress": 0.16,
+     "cap": 0.348,
+     "give-up time": 0.0
+    },
+    "billed_hours_all_runs": {
+     "median": 30.9,
+     "p90": 32.0
+    },
+    "attempts_all_runs": {
+     "median": 15.0,
+     "p90": 21
+    },
+    "recorded_spend_after_the_run_usd": {
+     "median": 47.31,
+     "p90": 48.77,
+     "max": 48.77
+    }
+   }
+  },
+  {
+   "M_hours": 3,
+   "to_finish": {
+    "runs_that_hit_the_safety_stop": 0,
+    "billed_hours": {
+     "median": 29.7,
+     "p90": 31.7,
+     "mean": 29.8
+    },
+    "attempts": {
+     "median": 11.0,
+     "p90": 16,
+     "mean": 10.88
+    },
+    "usd_at_list_rate": {
+     "median": 32.66,
+     "p90": 34.88,
+     "mean": 32.79
+    },
+    "usd_at_ledger_rate": {
+     "median": 35.86,
+     "p90": 38.4,
+     "mean": 36.0
+    },
+    "saving_against_on_demand_usd": {
+     "list": {
+      "median": 15.21,
+      "p10_worst": 12.99
+     },
+     "ledger": {
+      "median": 15.34,
+      "p10_worst": 12.8
+     }
+    },
+    "share_whose_ledger_hours_fit_under_the_cap": 0.947,
+    "mean_hours_lost_to_reclaims": {
+     "setup_and_restore": 2.34,
+     "redone_work": 1.42,
+     "pause_wind_down": 0.0,
+     "total": 3.76,
+     "ledger_only_detection_lag": 0.198
+    }
+   },
+   "under_the_launchers_rules": {
+    "share_by_outcome": {
+     "finished": 0.885,
+     "attempt limit": 0.0,
+     "no progress": 0.048,
+     "cap": 0.067,
+     "give-up time": 0.0
+    },
+    "billed_hours_all_runs": {
+     "median": 29.5,
+     "p90": 31.3
+    },
+    "attempts_all_runs": {
+     "median": 10.0,
+     "p90": 15
+    },
+    "recorded_spend_after_the_run_usd": {
+     "median": 45.54,
+     "p90": 47.77,
+     "max": 48.77
+    }
+   }
+  },
+  {
+   "M_hours": 4,
+   "to_finish": {
+    "runs_that_hit_the_safety_stop": 0,
+    "billed_hours": {
+     "median": 28.7,
+     "p90": 30.5,
+     "mean": 28.78
+    },
+    "attempts": {
+     "median": 8.0,
+     "p90": 12,
+     "mean": 8.13
+    },
+    "usd_at_list_rate": {
+     "median": 31.52,
+     "p90": 33.52,
+     "mean": 31.66
+    },
+    "usd_at_ledger_rate": {
+     "median": 34.55,
+     "p90": 36.83,
+     "mean": 34.71
+    },
+    "saving_against_on_demand_usd": {
+     "list": {
+      "median": 16.35,
+      "p10_worst": 14.35
+     },
+     "ledger": {
+      "median": 16.65,
+      "p10_worst": 14.37
+     }
+    },
+    "share_whose_ledger_hours_fit_under_the_cap": 0.993,
+    "mean_hours_lost_to_reclaims": {
+     "setup_and_restore": 1.69,
+     "redone_work": 1.05,
+     "pause_wind_down": 0.0,
+     "total": 2.74,
+     "ledger_only_detection_lag": 0.143
+    }
+   },
+   "under_the_launchers_rules": {
+    "share_by_outcome": {
+     "finished": 0.969,
+     "attempt limit": 0.0,
+     "no progress": 0.018,
+     "cap": 0.013,
+     "give-up time": 0.0
+    },
+    "billed_hours_all_runs": {
+     "median": 28.6,
+     "p90": 30.4
+    },
+    "attempts_all_runs": {
+     "median": 8.0,
+     "p90": 12
+    },
+    "recorded_spend_after_the_run_usd": {
+     "median": 44.35,
+     "p90": 46.6,
+     "max": 48.77
+    }
+   }
+  },
+  {
+   "M_hours": 6,
+   "to_finish": {
+    "runs_that_hit_the_safety_stop": 0,
+    "billed_hours": {
+     "median": 27.7,
+     "p90": 29.1,
+     "mean": 27.82
+    },
+    "attempts": {
+     "median": 5.0,
+     "p90": 9,
+     "mean": 5.6
+    },
+    "usd_at_list_rate": {
+     "median": 30.48,
+     "p90": 31.97,
+     "mean": 30.61
+    },
+    "usd_at_ledger_rate": {
+     "median": 33.36,
+     "p90": 35.05,
+     "mean": 33.5
+    },
+    "saving_against_on_demand_usd": {
+     "list": {
+      "median": 17.39,
+      "p10_worst": 15.9
+     },
+     "ledger": {
+      "median": 17.84,
+      "p10_worst": 16.15
+     }
+    },
+    "share_whose_ledger_hours_fit_under_the_cap": 1.0,
+    "mean_hours_lost_to_reclaims": {
+     "setup_and_restore": 1.1,
+     "redone_work": 0.68,
+     "pause_wind_down": 0.0,
+     "total": 1.78,
+     "ledger_only_detection_lag": 0.092
+    }
+   },
+   "under_the_launchers_rules": {
+    "share_by_outcome": {
+     "finished": 0.997,
+     "attempt limit": 0.0,
+     "no progress": 0.003,
+     "cap": 0.0,
+     "give-up time": 0.0
+    },
+    "billed_hours_all_runs": {
+     "median": 27.7,
+     "p90": 29.1
+    },
+    "attempts_all_runs": {
+     "median": 5.0,
+     "p90": 9
+    },
+    "recorded_spend_after_the_run_usd": {
+     "median": 43.22,
+     "p90": 44.91,
+     "max": 48.47
+    }
+   }
+  },
+  {
+   "M_hours": 8,
+   "to_finish": {
+    "runs_that_hit_the_safety_stop": 0,
+    "billed_hours": {
+     "median": 27.3,
+     "p90": 28.5,
+     "mean": 27.37
+    },
+    "attempts": {
+     "median": 4.0,
+     "p90": 7,
+     "mean": 4.4
+    },
+    "usd_at_list_rate": {
+     "median": 30.0,
+     "p90": 31.32,
+     "mean": 30.11
+    },
+    "usd_at_ledger_rate": {
+     "median": 32.8,
+     "p90": 34.31,
+     "mean": 32.93
+    },
+    "saving_against_on_demand_usd": {
+     "list": {
+      "median": 17.87,
+      "p10_worst": 16.55
+     },
+     "ledger": {
+      "median": 18.4,
+      "p10_worst": 16.89
+     }
+    },
+    "share_whose_ledger_hours_fit_under_the_cap": 1.0,
+    "mean_hours_lost_to_reclaims": {
+     "setup_and_restore": 0.81,
+     "redone_work": 0.52,
+     "pause_wind_down": 0.0,
+     "total": 1.33,
+     "ledger_only_detection_lag": 0.068
+    }
+   },
+   "under_the_launchers_rules": {
+    "share_by_outcome": {
+     "finished": 0.998,
+     "attempt limit": 0.0,
+     "no progress": 0.002,
+     "cap": 0.0,
+     "give-up time": 0.0
+    },
+    "billed_hours_all_runs": {
+     "median": 27.3,
+     "p90": 28.5
+    },
+    "attempts_all_runs": {
+     "median": 4.0,
+     "p90": 7
+    },
+    "recorded_spend_after_the_run_usd": {
+     "median": 42.66,
+     "p90": 44.16,
+     "max": 47.84
+    }
+   }
+  },
+  {
+   "M_hours": 12,
+   "to_finish": {
+    "runs_that_hit_the_safety_stop": 0,
+    "billed_hours": {
+     "median": 26.8,
+     "p90": 27.8,
+     "mean": 26.92
+    },
+    "attempts": {
+     "median": 3.0,
+     "p90": 5,
+     "mean": 3.24
+    },
+    "usd_at_list_rate": {
+     "median": 29.49,
+     "p90": 30.57,
+     "mean": 29.61
+    },
+    "usd_at_ledger_rate": {
+     "median": 32.24,
+     "p90": 33.45,
+     "mean": 32.36
+    },
+    "saving_against_on_demand_usd": {
+     "list": {
+      "median": 18.38,
+      "p10_worst": 17.3
+     },
+     "ledger": {
+      "median": 18.96,
+      "p10_worst": 17.75
+     }
+    },
+    "share_whose_ledger_hours_fit_under_the_cap": 1.0,
+    "mean_hours_lost_to_reclaims": {
+     "setup_and_restore": 0.54,
+     "redone_work": 0.34,
+     "pause_wind_down": 0.0,
+     "total": 0.88,
+     "ledger_only_detection_lag": 0.045
+    }
+   },
+   "under_the_launchers_rules": {
+    "share_by_outcome": {
+     "finished": 1.0,
+     "attempt limit": 0.0,
+     "no progress": 0.001,
+     "cap": 0.0,
+     "give-up time": 0.0
+    },
+    "billed_hours_all_runs": {
+     "median": 26.8,
+     "p90": 27.8
+    },
+    "attempts_all_runs": {
+     "median": 3.0,
+     "p90": 5
+    },
+    "recorded_spend_after_the_run_usd": {
+     "median": 42.1,
+     "p90": 43.31,
+     "max": 46.81
+    }
+   }
+  },
+  {
+   "M_hours": 24,
+   "to_finish": {
+    "runs_that_hit_the_safety_stop": 0,
+    "billed_hours": {
+     "median": 26.4,
+     "p90": 27.1,
+     "mean": 26.48
+    },
+    "attempts": {
+     "median": 2.0,
+     "p90": 4,
+     "mean": 2.11
+    },
+    "usd_at_list_rate": {
+     "median": 29.0,
+     "p90": 29.83,
+     "mean": 29.13
+    },
+    "usd_at_ledger_rate": {
+     "median": 31.66,
+     "p90": 32.6,
+     "mean": 31.8
+    },
+    "saving_against_on_demand_usd": {
+     "list": {
+      "median": 18.87,
+      "p10_worst": 18.04
+     },
+     "ledger": {
+      "median": 19.54,
+      "p10_worst": 18.6
+     }
+    },
+    "share_whose_ledger_hours_fit_under_the_cap": 1.0,
+    "mean_hours_lost_to_reclaims": {
+     "setup_and_restore": 0.27,
+     "redone_work": 0.17,
+     "pause_wind_down": 0.0,
+     "total": 0.44,
+     "ledger_only_detection_lag": 0.022
+    }
+   },
+   "under_the_launchers_rules": {
+    "share_by_outcome": {
+     "finished": 1.0,
+     "attempt limit": 0.0,
+     "no progress": 0.0,
+     "cap": 0.0,
+     "give-up time": 0.0
+    },
+    "billed_hours_all_runs": {
+     "median": 26.4,
+     "p90": 27.1
+    },
+    "attempts_all_runs": {
+     "median": 2.0,
+     "p90": 4
+    },
+    "recorded_spend_after_the_run_usd": {
+     "median": 41.52,
+     "p90": 42.46,
+     "max": 44.74
+    }
+   }
+  },
+  {
+   "M_hours": 48,
+   "to_finish": {
+    "runs_that_hit_the_safety_stop": 0,
+    "billed_hours": {
+     "median": 26.0,
+     "p90": 26.7,
+     "mean": 26.26
+    },
+    "attempts": {
+     "median": 1.0,
+     "p90": 3,
+     "mean": 1.55
+    },
+    "usd_at_list_rate": {
+     "median": 28.65,
+     "p90": 29.41,
+     "mean": 28.89
+    },
+    "usd_at_ledger_rate": {
+     "median": 31.25,
+     "p90": 32.11,
+     "mean": 31.53
+    },
+    "saving_against_on_demand_usd": {
+     "list": {
+      "median": 19.23,
+      "p10_worst": 18.46
+     },
+     "ledger": {
+      "median": 19.95,
+      "p10_worst": 19.09
+     }
+    },
+    "share_whose_ledger_hours_fit_under_the_cap": 1.0,
+    "mean_hours_lost_to_reclaims": {
+     "setup_and_restore": 0.13,
+     "redone_work": 0.09,
+     "pause_wind_down": 0.0,
+     "total": 0.22,
+     "ledger_only_detection_lag": 0.011
+    }
+   },
+   "under_the_launchers_rules": {
+    "share_by_outcome": {
+     "finished": 1.0,
+     "attempt limit": 0.0,
+     "no progress": 0.0,
+     "cap": 0.0,
+     "give-up time": 0.0
+    },
+    "billed_hours_all_runs": {
+     "median": 26.0,
+     "p90": 26.7
+    },
+    "attempts_all_runs": {
+     "median": 1.0,
+     "p90": 3
+    },
+    "recorded_spend_after_the_run_usd": {
+     "median": 41.11,
+     "p90": 41.97,
+     "max": 43.74
+    }
+   }
+  },
+  {
+   "M_hours": "never",
+   "to_finish": {
+    "runs_that_hit_the_safety_stop": 0,
+    "billed_hours": {
+     "median": 26.0,
+     "p90": 26.0,
+     "mean": 26.04
+    },
+    "attempts": {
+     "median": 1.0,
+     "p90": 1,
+     "mean": 1
+    },
+    "usd_at_list_rate": {
+     "median": 28.65,
+     "p90": 28.65,
+     "mean": 28.65
+    },
+    "usd_at_ledger_rate": {
+     "median": 31.25,
+     "p90": 31.25,
+     "mean": 31.25
+    },
+    "saving_against_on_demand_usd": {
+     "list": {
+      "median": 19.23,
+      "p10_worst": 19.23
+     },
+     "ledger": {
+      "median": 19.95,
+      "p10_worst": 19.95
+     }
+    },
+    "share_whose_ledger_hours_fit_under_the_cap": 1.0,
+    "mean_hours_lost_to_reclaims": {
+     "setup_and_restore": 0.0,
+     "redone_work": 0.0,
+     "pause_wind_down": 0.0,
+     "total": -0.0,
+     "ledger_only_detection_lag": 0.0
+    }
+   },
+   "under_the_launchers_rules": {
+    "share_by_outcome": {
+     "finished": 1.0,
+     "attempt limit": 0.0,
+     "no progress": 0.0,
+     "cap": 0.0,
+     "give-up time": 0.0
+    },
+    "billed_hours_all_runs": {
+     "median": 26.0,
+     "p90": 26.0
+    },
+    "attempts_all_runs": {
+     "median": 1.0,
+     "p90": 1
+    },
+    "recorded_spend_after_the_run_usd": {
+     "median": 41.11,
+     "p90": 41.11,
+     "max": 41.11
+    }
+   }
+  }
+ ],
+ "thresholds": {
+  "spot_costs_more_than_on_demand_below_M_hours": {
+   "expected_cost_at_list_rates": 0.81,
+   "expected_cost_at_ledger_rates": 0.88,
+   "in_one_run_in_ten_at_list_rates": 1.01,
+   "notes": []
+  },
+  "run_usually_cannot_finish_under_the_cap_below_M_hours": {
+   "half_of_runs_finish": 2.03,
+   "nine_runs_in_ten_finish": 3.1,
+   "notes": []
+  }
+ },
+ "closed_forms": {
+  "hours_lost_per_reclaim_by_stage": [
+   {
+    "stage": "setup of attempt 1",
+    "hours": 0.1,
+    "can_be_split": false,
+    "setup_and_restore_after_a_reclaim": 0.05,
+    "redone_work": 0.0,
+    "hours_lost_per_reclaim": 0.05
+   },
+   {
+    "stage": "build",
+    "hours": 15.2,
+    "can_be_split": true,
+    "setup_and_restore_after_a_reclaim": 0.173,
+    "redone_work": 0.1,
+    "hours_lost_per_reclaim": 0.273
+   },
+   {
+    "stage": "top of the import graph",
+    "hours": 0.4,
+    "can_be_split": false,
+    "setup_and_restore_after_a_reclaim": 0.246,
+    "redone_work": 0.2,
+    "hours_lost_per_reclaim": 0.446
+   },
+   {
+    "stage": "seal",
+    "hours": 0.25,
+    "can_be_split": false,
+    "setup_and_restore_after_a_reclaim": 0.25,
+    "redone_work": 0.125,
+    "hours_lost_per_reclaim": 0.375
+   },
+   {
+    "stage": "axiom check, plain",
+    "hours": 0.18333333333333335,
+    "can_be_split": false,
+    "setup_and_restore_after_a_reclaim": 0.35,
+    "redone_work": 0.092,
+    "hours_lost_per_reclaim": 0.442
+   },
+   {
+    "stage": "replay trials",
+    "hours": 0.25,
+    "can_be_split": false,
+    "setup_and_restore_after_a_reclaim": 0.35,
+    "redone_work": 0.125,
+    "hours_lost_per_reclaim": 0.475
+   },
+   {
+    "stage": "axiom check, deep",
+    "hours": 0.5833333333333334,
+    "can_be_split": false,
+    "setup_and_restore_after_a_reclaim": 0.35,
+    "redone_work": 0.292,
+    "hours_lost_per_reclaim": 0.642
+   },
+   {
+    "stage": "main replay",
+    "hours": 9.075000000000001,
+    "can_be_split": true,
+    "setup_and_restore_after_a_reclaim": 0.35,
+    "redone_work": 0.25,
+    "hours_lost_per_reclaim": 0.6
+   }
+  ],
+  "mean_hours_lost_per_reclaim_weighted_by_time": 0.401,
+  "how": "each reclaim costs setup + restore + the work since the last save; billed = base + N x loss and, for a Poisson process, N = billed / M, so billed = base / (1 - loss / M)",
+  "break_even_reclaims_at_list_rates": 43.6,
+  "break_even_M_hours_at_list_rates_first_order": 1.0,
+  "break_even_reclaims_at_ledger_rates": 41.4,
+  "break_even_M_hours_at_ledger_rates_first_order": 1.03,
+  "reclaims_the_cap_hours_absorb": 16.4,
+  "M_hours_at_which_the_cap_hours_are_used_on_average_first_order": 1.99,
+  "reclaims_the_attempt_limit_allows": 23,
+  "M_hours_at_which_the_attempt_limit_is_reached_on_average_first_order": 1.53,
+  "unit_that_cannot_be_split": {
+   "formula": "(e^(U/M) - 1)(M + R): expected hours to get the unit done, counting failed tries and recoveries, if the recovery itself is never cut",
+   "rows": [
+    {
+     "unit_hours": 0.5,
+     "recovery_hours": 0.35,
+     "expected_hours_by_M": {
+      "0.5": 1.46,
+      "1": 0.88,
+      "2": 0.67,
+      "3": 0.61,
+      "4": 0.58,
+      "6": 0.55,
+      "8": 0.54,
+      "12": 0.53,
+      "24": 0.51,
+      "48": 0.51
+     }
+    },
+    {
+     "unit_hours": 2.0,
+     "recovery_hours": 0.35,
+     "expected_hours_by_M": {
+      "0.5": 45.56,
+      "1": 8.63,
+      "2": 4.04,
+      "3": 3.17,
+      "4": 2.82,
+      "6": 2.51,
+      "8": 2.37,
+      "12": 2.24,
+      "24": 2.12,
+      "48": 2.06
+     }
+    },
+    {
+     "unit_hours": 0.4,
+     "recovery_hours": 0.35,
+     "expected_hours_by_M": {
+      "0.5": 1.04,
+      "1": 0.66,
+      "2": 0.52,
+      "3": 0.48,
+      "4": 0.46,
+      "6": 0.44,
+      "8": 0.43,
+      "12": 0.42,
+      "24": 0.41,
+      "48": 0.4
+     }
+    },
+    {
+     "unit_hours": 1.0,
+     "recovery_hours": 0.35,
+     "expected_hours_by_M": {
+      "0.5": 5.43,
+      "1": 2.32,
+      "2": 1.52,
+      "3": 1.33,
+      "4": 1.24,
+      "6": 1.15,
+      "8": 1.11,
+      "12": 1.07,
+      "24": 1.04,
+      "48": 1.02
+     }
+    }
+   ]
+  }
+ },
+ "checks_against_closed_forms": [
+  {
+   "case": "unit of 2.0 h that cannot be split, recovery 0.35 h never cut",
+   "M": 1.0,
+   "simulated": 8.611,
+   "closed_form": 8.625,
+   "difference_percent": -0.17,
+   "unit": "hours"
+  },
+  {
+   "case": "unit of 2.0 h that cannot be split, recovery 0.35 h never cut",
+   "M": 2.0,
+   "simulated": 3.991,
+   "closed_form": 4.038,
+   "difference_percent": -1.17,
+   "unit": "hours"
+  },
+  {
+   "case": "unit of 2.0 h that cannot be split, recovery 0.35 h never cut",
+   "M": 4.0,
+   "simulated": 2.821,
+   "closed_form": 2.822,
+   "difference_percent": -0.05,
+   "unit": "hours"
+  },
+  {
+   "case": "unit of 2.0 h that cannot be split, recovery 0.35 h never cut",
+   "M": 8.0,
+   "simulated": 2.363,
+   "closed_form": 2.372,
+   "difference_percent": -0.37,
+   "unit": "hours"
+  },
+  {
+   "case": "4 h that can be split, saved every 0.5 h, no setup",
+   "M": 0.5,
+   "simulated": 6.879,
+   "closed_form": 6.873,
+   "difference_percent": 0.08,
+   "unit": "hours"
+  },
+  {
+   "case": "4 h that can be split, saved every 0.5 h, no setup",
+   "M": 1.0,
+   "simulated": 5.167,
+   "closed_form": 5.19,
+   "difference_percent": -0.43,
+   "unit": "hours"
+  },
+  {
+   "case": "4 h that can be split, saved every 0.5 h, no setup",
+   "M": 2.0,
+   "simulated": 4.54,
+   "closed_form": 4.544,
+   "difference_percent": -0.1,
+   "unit": "hours"
+  },
+  {
+   "case": "4 h that can be split, saved every 0.5 h, no setup",
+   "M": 4.0,
+   "simulated": 4.261,
+   "closed_form": 4.261,
+   "difference_percent": 0.02,
+   "unit": "hours"
+  },
+  {
+   "case": "the full design: mean reclaims against mean billed hours / M",
+   "M": 2.0,
+   "simulated": 15.932,
+   "closed_form": 15.968,
+   "difference_percent": -0.22,
+   "unit": "reclaims"
+  },
+  {
+   "case": "the full design: mean reclaims against mean billed hours / M",
+   "M": 6.0,
+   "simulated": 4.599,
+   "closed_form": 4.637,
+   "difference_percent": -0.81,
+   "unit": "reclaims"
+  },
+  {
+   "case": "the full design, never reclaimed: billed hours against the sum of the stages",
+   "M": "never",
+   "simulated": 26.042,
+   "closed_form": 26.042,
+   "difference_percent": -0.0,
+   "unit": "hours"
+  }
+ ],
+ "sensitivity": [
+  {
+   "variant": "defaults",
+   "changes": {},
+   "base_hours": 26.04,
+   "spot_dearer_than_on_demand_below_M_list_expected": 0.81,
+   "half_of_runs_finish_under_the_cap_above_M": 2.03,
+   "nine_in_ten_finish_above_M": 3.1,
+   "at_M": {
+    "2": {
+     "share_finished_under_rules": 0.473,
+     "median_usd_list_to_finish": 34.99
+    },
+    "4": {
+     "share_finished_under_rules": 0.967,
+     "median_usd_list_to_finish": 31.49
+    },
+    "8": {
+     "share_finished_under_rules": 0.999,
+     "median_usd_list_to_finish": 29.99
+    },
+    "24": {
+     "share_finished_under_rules": 1.0,
+     "median_usd_list_to_finish": 28.98
+    }
+   }
+  },
+  {
+   "variant": "restore twice as slow",
+   "changes": {
+    "restore_before_seal_h": 0.3,
+    "restore_after_seal_h": 0.5
+   },
+   "base_hours": 26.04,
+   "spot_dearer_than_on_demand_below_M_list_expected": 1.11,
+   "half_of_runs_finish_under_the_cap_above_M": 2.61,
+   "nine_in_ten_finish_above_M": 4.26,
+   "at_M": {
+    "2": {
+     "share_finished_under_rules": 0.202,
+     "median_usd_list_to_finish": 37.71
+    },
+    "4": {
+     "share_finished_under_rules": 0.872,
+     "median_usd_list_to_finish": 32.51
+    },
+    "8": {
+     "share_finished_under_rules": 0.994,
+     "median_usd_list_to_finish": 30.45
+    },
+    "24": {
+     "share_finished_under_rules": 1.0,
+     "median_usd_list_to_finish": 29.08
+    }
+   }
+  },
+  {
+   "variant": "deep axiom check 2 h",
+   "changes": {
+    "c2_deep_h": 2.0
+   },
+   "base_hours": 27.54,
+   "spot_dearer_than_on_demand_below_M_list_expected": 1.06,
+   "half_of_runs_finish_under_the_cap_above_M": 3.03,
+   "nine_in_ten_finish_above_M": 5.25,
+   "at_M": {
+    "2": {
+     "share_finished_under_rules": 0.124,
+     "median_usd_list_to_finish": 38.48
+    },
+    "4": {
+     "share_finished_under_rules": 0.755,
+     "median_usd_list_to_finish": 33.69
+    },
+    "8": {
+     "share_finished_under_rules": 0.964,
+     "median_usd_list_to_finish": 31.84
+    },
+    "24": {
+     "share_finished_under_rules": 0.999,
+     "median_usd_list_to_finish": 30.67
+    }
+   }
+  },
+  {
+   "variant": "checkpoint every 5 min",
+   "changes": {
+    "ckpt_min": 5.0
+   },
+   "base_hours": 26.04,
+   "spot_dearer_than_on_demand_below_M_list_expected": 0.77,
+   "half_of_runs_finish_under_the_cap_above_M": 1.91,
+   "nine_in_ten_finish_above_M": 2.99,
+   "at_M": {
+    "2": {
+     "share_finished_under_rules": 0.551,
+     "median_usd_list_to_finish": 34.61
+    },
+    "4": {
+     "share_finished_under_rules": 0.973,
+     "median_usd_list_to_finish": 31.31
+    },
+    "8": {
+     "share_finished_under_rules": 0.999,
+     "median_usd_list_to_finish": 29.9
+    },
+    "24": {
+     "share_finished_under_rules": 1.0,
+     "median_usd_list_to_finish": 28.92
+    }
+   }
+  },
+  {
+   "variant": "checkpoint every 10 min",
+   "changes": {
+    "ckpt_min": 10.0
+   },
+   "base_hours": 26.04,
+   "spot_dearer_than_on_demand_below_M_list_expected": 0.81,
+   "half_of_runs_finish_under_the_cap_above_M": 2.03,
+   "nine_in_ten_finish_above_M": 3.1,
+   "at_M": {
+    "2": {
+     "share_finished_under_rules": 0.473,
+     "median_usd_list_to_finish": 34.99
+    },
+    "4": {
+     "share_finished_under_rules": 0.967,
+     "median_usd_list_to_finish": 31.49
+    },
+    "8": {
+     "share_finished_under_rules": 0.999,
+     "median_usd_list_to_finish": 29.99
+    },
+    "24": {
+     "share_finished_under_rules": 1.0,
+     "median_usd_list_to_finish": 28.98
+    }
+   }
+  },
+  {
+   "variant": "checkpoint every 20 min",
+   "changes": {
+    "ckpt_min": 20.0
+   },
+   "base_hours": 26.04,
+   "spot_dearer_than_on_demand_below_M_list_expected": 0.88,
+   "half_of_runs_finish_under_the_cap_above_M": 2.22,
+   "nine_in_ten_finish_above_M": 3.38,
+   "at_M": {
+    "2": {
+     "share_finished_under_rules": 0.359,
+     "median_usd_list_to_finish": 35.78
+    },
+    "4": {
+     "share_finished_under_rules": 0.959,
+     "median_usd_list_to_finish": 31.84
+    },
+    "8": {
+     "share_finished_under_rules": 0.998,
+     "median_usd_list_to_finish": 30.15
+    },
+    "24": {
+     "share_finished_under_rules": 1.0,
+     "median_usd_list_to_finish": 29.07
+    }
+   }
+  },
+  {
+   "variant": "top of the import graph 1.0 h, one unit",
+   "changes": {
+    "top_h": 1.0
+   },
+   "base_hours": 26.04,
+   "spot_dearer_than_on_demand_below_M_list_expected": 0.84,
+   "half_of_runs_finish_under_the_cap_above_M": 2.1,
+   "nine_in_ten_finish_above_M": 3.2,
+   "at_M": {
+    "2": {
+     "share_finished_under_rules": 0.43,
+     "median_usd_list_to_finish": 35.27
+    },
+    "4": {
+     "share_finished_under_rules": 0.958,
+     "median_usd_list_to_finish": 31.59
+    },
+    "8": {
+     "share_finished_under_rules": 0.998,
+     "median_usd_list_to_finish": 30.02
+    },
+    "24": {
+     "share_finished_under_rules": 1.0,
+     "median_usd_list_to_finish": 28.98
+    }
+   }
+  },
+  {
+   "variant": "reclaims bunched early (Weibull shape 0.7)",
+   "changes": {
+    "shape": 0.7
+   },
+   "base_hours": 26.04,
+   "spot_dearer_than_on_demand_below_M_list_expected": 0.63,
+   "half_of_runs_finish_under_the_cap_above_M": 2.1,
+   "nine_in_ten_finish_above_M": 4.09,
+   "at_M": {
+    "2": {
+     "share_finished_under_rules": 0.463,
+     "median_usd_list_to_finish": 34.1
+    },
+    "4": {
+     "share_finished_under_rules": 0.895,
+     "median_usd_list_to_finish": 31.29
+    },
+    "8": {
+     "share_finished_under_rules": 0.99,
+     "median_usd_list_to_finish": 29.98
+    },
+    "24": {
+     "share_finished_under_rules": 1.0,
+     "median_usd_list_to_finish": 29.03
+    }
+   }
+  },
+  {
+   "variant": "attempt limit 12",
+   "changes": {
+    "max_attempts": 12
+   },
+   "base_hours": 26.04,
+   "spot_dearer_than_on_demand_below_M_list_expected": 0.81,
+   "half_of_runs_finish_under_the_cap_above_M": 2.6,
+   "nine_in_ten_finish_above_M": 3.94,
+   "at_M": {
+    "2": {
+     "share_finished_under_rules": 0.198,
+     "median_usd_list_to_finish": 34.99
+    },
+    "4": {
+     "share_finished_under_rules": 0.907,
+     "median_usd_list_to_finish": 31.49
+    },
+    "8": {
+     "share_finished_under_rules": 0.999,
+     "median_usd_list_to_finish": 29.99
+    },
+    "24": {
+     "share_finished_under_rules": 1.0,
+     "median_usd_list_to_finish": 28.98
+    }
+   }
+  },
+  {
+   "variant": "attempt limit 48",
+   "changes": {
+    "max_attempts": 48
+   },
+   "base_hours": 26.04,
+   "spot_dearer_than_on_demand_below_M_list_expected": 0.81,
+   "half_of_runs_finish_under_the_cap_above_M": 2.03,
+   "nine_in_ten_finish_above_M": 3.1,
+   "at_M": {
+    "2": {
+     "share_finished_under_rules": 0.473,
+     "median_usd_list_to_finish": 34.99
+    },
+    "4": {
+     "share_finished_under_rules": 0.967,
+     "median_usd_list_to_finish": 31.49
+    },
+    "8": {
+     "share_finished_under_rules": 0.999,
+     "median_usd_list_to_finish": 29.99
+    },
+    "24": {
+     "share_finished_under_rules": 1.0,
+     "median_usd_list_to_finish": 28.98
+    }
+   }
+  },
+  {
+   "variant": "replay results saved every 10 min",
+   "changes": {
+    "replay_save_min": 10.0
+   },
+   "base_hours": 26.32,
+   "spot_dearer_than_on_demand_below_M_list_expected": 0.76,
+   "half_of_runs_finish_under_the_cap_above_M": 2.0,
+   "nine_in_ten_finish_above_M": 2.95,
+   "at_M": {
+    "2": {
+     "share_finished_under_rules": 0.505,
+     "median_usd_list_to_finish": 34.88
+    },
+    "4": {
+     "share_finished_under_rules": 0.977,
+     "median_usd_list_to_finish": 31.6
+    },
+    "8": {
+     "share_finished_under_rules": 1.0,
+     "median_usd_list_to_finish": 30.2
+    },
+    "24": {
+     "share_finished_under_rules": 1.0,
+     "median_usd_list_to_finish": 29.29
+    }
+   }
+  },
+  {
+   "variant": "replay results saved every 40 min",
+   "changes": {
+    "replay_save_min": 40.0
+   },
+   "base_hours": 25.9,
+   "spot_dearer_than_on_demand_below_M_list_expected": 0.94,
+   "half_of_runs_finish_under_the_cap_above_M": 2.22,
+   "nine_in_ten_finish_above_M": 3.58,
+   "at_M": {
+    "2": {
+     "share_finished_under_rules": 0.357,
+     "median_usd_list_to_finish": 35.92
+    },
+    "4": {
+     "share_finished_under_rules": 0.931,
+     "median_usd_list_to_finish": 31.69
+    },
+    "8": {
+     "share_finished_under_rules": 0.997,
+     "median_usd_list_to_finish": 29.95
+    },
+    "24": {
+     "share_finished_under_rules": 1.0,
+     "median_usd_list_to_finish": 28.83
+    }
+   }
+  },
+  {
+   "variant": "a confirming hash takes 15 min",
+   "changes": {
+    "confirm_min": 15.0
+   },
+   "base_hours": 26.93,
+   "spot_dearer_than_on_demand_below_M_list_expected": 1.03,
+   "half_of_runs_finish_under_the_cap_above_M": 2.71,
+   "nine_in_ten_finish_above_M": 4.44,
+   "at_M": {
+    "2": {
+     "share_finished_under_rules": 0.193,
+     "median_usd_list_to_finish": 37.48
+    },
+    "4": {
+     "share_finished_under_rules": 0.862,
+     "median_usd_list_to_finish": 33.07
+    },
+    "8": {
+     "share_finished_under_rules": 0.992,
+     "median_usd_list_to_finish": 31.2
+    },
+    "24": {
+     "share_finished_under_rules": 1.0,
+     "median_usd_list_to_finish": 29.97
+    }
+   }
+  }
+ ],
+ "limits": [
+  "Google publishes no reclaim rate for any machine type or zone; M is a free variable, not an estimate. Its capacity advisor gives only 'estimated uptime' of 60, 10 or 1 minute, and nothing official supports planning on many hours without a reclaim.",
+  "Reclaims are unlikely to be a steady Poisson process: they vary by day, zone and time of day and may come in bursts when a zone runs short. Each attempt draws a fresh time to reclaim; the Weibull row of the sensitivity table is one departure, not the real one.",
+  "Several inputs are guesses (labelled): no restore of parts, no seal at full scale, no confirming hash at full scale, no deep axiom check on the full tree and nothing at the top of the import graph has ever been timed. The build and replay hours are projections.",
+  "Losing 'the work since the last part' assumes the build runs at a steady rate; at the top of the import graph few modules run at once.",
+  "The top of the import graph is saved when its unit finishes; with more than one unit, a unit's files actually wait for the next part."
+ ],
+ "what_this_does_not_cover": [
+  "waits for capacity between attempts (they bill nothing but count towards the give-up time and the owner's patience)",
+  "attempts outside the bucket's region: their transfer rows and the cap's worst case for them (1.20 USD held back per attempt for the parts at the default limit of 60 GiB, plus the inputs each attempt downloads)",
+  "bucket storage of the parts (the 1.00 USD reserve is meant to cover it) and the deletion of the parts afterwards",
+  "a machine preempted within its first minute, which Google does not bill",
+  "a build or check that fails for its own reasons, and any fault of the resume path itself (a checksum or baseline mismatch is final)",
+  "changes to Spot prices, which can change daily",
+  "the cost of a rehearsal of the Spot path, which has to come out of the same cap"
+ ]
+}

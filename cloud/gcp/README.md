@@ -3,7 +3,7 @@
 Two things live here, driven by one controller, `pilot_local.sh`.
 
 - **The calibration pilot** (`pilot_guest.sh`). One rented virtual machine compiles a time-boxed sample of the proof, measures what each module costs, uploads its measurements to a private bucket, and is deleted. The point is to estimate the cost of a full run before committing to one. It was run on 2026-11-20; its results are in [`records/cloud/pilot/`](../../records/cloud/pilot/).
-- **The full run** (`full_guest.sh`). One virtual machine builds the whole tree and runs the pre-registered checks. It is described at the end of this page. **It has been rehearsed on a seven-minute build; the full run had not been made when this was written.**
+- **The full run** (`full_guest.sh`). One virtual machine builds the whole tree and runs the pre-registered checks. It is described at the end of this page. **It has been rehearsed on a seven-minute build; the full run had not been made when this was written.** The same script can make the run on Spot machines, as a chain of machines that each carry on from what the last one saved; that is the last section of this page, and it has never been run in the cloud.
 
 ## What you need
 
@@ -71,7 +71,7 @@ prints the estimated hours for a full build and a full kernel replay on the same
 
 ## The full run
 
-**Rehearsed, not yet run in full.** Six rehearsals found three faults, which were fixed. The third ran every phase with the stock tool for the replay and the whole library on its search path, the fifth with `rhv-replay`, and the sixth with the stock tool shown only what each module imports, which is how the driver now runs (one line of the replay script has changed since, for short passes, and has been tested on a small project only); in each of those every step did what it should ([`records/cloud/full-rehearsals/`](../../records/cloud/full-rehearsals/)). A rehearsal builds about one module in a hundred, all of them shallow, on shortened settings; the paths no rehearsal reaches are listed at the end of that directory's README. Section 9 of [`docs/cloud-notes.md`](../../docs/cloud-notes.md) lists what four reviews of the scripts found and changed.
+**Rehearsed, not yet run in full.** Six rehearsals found three faults, which were fixed. The third ran every phase with the stock tool for the replay and the whole library on its search path, the fifth with `rhv-replay`, and the sixth with the stock tool shown only what each module imports, which is how the driver now runs (two things have changed since and have been tested only locally: one line of the replay script, for short passes, and the code for Spot runs described at the end of this page, which is switched off here); in each of those every step did what it should ([`records/cloud/full-rehearsals/`](../../records/cloud/full-rehearsals/)). A rehearsal builds about one module in a hundred, all of them shallow, on shortened settings; the paths no rehearsal reaches are listed at the end of that directory's README. Section 9 of [`docs/cloud-notes.md`](../../docs/cloud-notes.md) lists what four reviews of the scripts found and changed.
 
 ```bash
 git status --short scripts cloud                      # must be empty: a full run is tied to one commit
@@ -117,3 +117,30 @@ What the virtual machine does, in order:
 A build that fails twice ends the run with the state `BUILD_FAILED` and the compiler's output for each failed module. If any of those failures was a compiler process killed from outside, for lack of memory for instance, the run says so: by section 4 of the pre-registration that is not a test of the module. If the build tool itself died without reporting a failed module, the state is `FAIL`, which is a failure of the run and says nothing about the proof.
 
 The full rehearsal builds for seven minutes, not counting the two restart tests, and then runs every later phase on what was built, with the axiom check in `--probe` mode. It exercises the build loop, both restart tests, pruning, the seal, both checks, the trials that measure the replay's rate, the archive of compiled files and the reports; and, since a rehearsal always asks for the second replay, the building and testing of that program. It does not exercise a failed build, the second build pass, the completeness check, or a replay that cannot cover the tree, and it verifies nothing. The full list is at the end of [`records/cloud/full-rehearsals/README.md`](../../records/cloud/full-rehearsals/README.md).
+
+## The full run on Spot machines
+
+**Written, reviewed and tested locally; never run in the cloud.** A Spot machine costs about six tenths of the on-demand price and Google may take it back at any moment. `launch full-spot` makes the full run as a chain of *attempts*: each is a fresh Spot machine that Google deletes, with its disks, when it takes it back or at the attempt's own time limit. The guest saves its work to the bucket under `ckpt/RUNTAG/` (the compiled files of finished modules every ten minutes during the build; the replay's results about every twenty minutes, after hashing the sealed files again), and the next attempt carries on from there. Nothing is kept in Compute Engine between attempts. The design, what crosses from one machine to the next and how it is checked, the cost model and what the reviews changed are in [`docs/cloud-notes.md`](../../docs/cloud-notes.md), section 10.
+
+```bash
+git status --short scripts cloud                          # must be empty: every attempt of a run comes from one commit
+bash cloud/gcp/pilot_local.sh stage
+bash cloud/gcp/pilot_local.sh launch full-spot-rehearsal  # the seven-minute build as four attempts, three of them cut on purpose
+bash cloud/gcp/pilot_local.sh watch                       # follows each attempt, accounts for it and starts the next
+bash cloud/gcp/pilot_local.sh launch full-spot            # the whole tree
+bash cloud/gcp/pilot_local.sh watch                       # can be interrupted and run again at any time
+```
+
+`watch` ends with status 0 when the run is over, 3 when it has paused, and 4 when a rehearsal finished without making every cut it was configured to make. A pause means that nothing is running and nothing in Compute Engine bills: the cap leaves too little for another attempt, 120 hours have passed since the first launch, 24 attempts have been started, three attempts in a row saved no progress, or a machine reported a condition another attempt would meet again. `watch` run again continues a paused run; `abandon` ends it. `teardown` ends the current attempt at once and keeps the run.
+
+| What | Detail |
+|---|---|
+| The cap | Each attempt is sized so that recorded spend, with the attempt run to its time limit, stays under `GCP_SPEND_CAP_USD` less a reserve of 1.00 USD for the checkpoints' storage. The ledger counts a Spot attempt at 1.20 USD an hour. No cap of 94 USD is needed, as it is for `launch full`: a run that the cap cannot carry to its end pauses, with its work kept |
+| Expected cost | With no reclaim about 26 hours and 29 USD at list prices; about 24 minutes more for each reclaim. These are a model's figures ([`records/cloud/spot_resume_model.json`](../../records/cloud/spot_resume_model.json)); Google publishes no rate of reclaims |
+| The rehearsal | By default it ends an attempt during the build with Google's own simulated reclaim, a second at the seal by deleting the machine, and a third during the replay with a hard reset that gives no notice (`GCP_SPOT_REHEARSAL_CUTS`). An estimated 1.50 to 2.00 USD in all; each attempt can cost at most about 1.55 |
+| A copy for you | With `GCP_RESULTS_MIRROR_DIR` set to a local folder, for example one that Google Drive for desktop syncs, `watch` copies the status, `facts.json`, the logs and each attempt's small results there every ten minutes and when each attempt ends. The checkpoints themselves stay in the bucket |
+| The checkpoints | An estimated 40 GB for the whole tree. They bill as bucket storage, about 0.80 USD a month, until you delete them; `watch` prints their size and the command to delete them whenever a run pauses or ends |
+| Zones | Attempts are tried in the order of `GCP_ZONES`. An attempt outside the bucket's region pays to move the checkpoints, which the cap test counts and the ledger records |
+| Settings | All optional, in `config.example.env` under "Spot runs" |
+
+What a Spot run's `facts.json` adds is a `spot` block: one entry per attempt (when it started, in which zone, how it ended, what it restored), the units of the run completed so far, how many confirming hashes were made, and whether the checkpoints were shown at the seal to reproduce the sealed files exactly. The criteria are read from the same fields as for an on-demand run. A paused run is not a result.

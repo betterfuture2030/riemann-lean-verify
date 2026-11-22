@@ -98,6 +98,32 @@ DEADLINE=$(( T0 + DEADLINE_MIN * 60 ))
 WORK=/mnt/work; PROJ=$WORK/extract/lean; LOGS=$WORK/logs; AN=$WORK/analysis; RES="results/$RUNTAG"; TOOLS=/opt/rhv
 LIB=$PROJ/.lake/build/lib/lean
 TC_BIN=""; TC_DIR=""                              # the pinned toolchain's bin directory and its parent, found during setup
+# A Spot run (full-spot=1): this machine is one attempt of a run that Google may cut off at any moment, and that
+# continues on a fresh machine from what is saved in the bucket under ckpt/RUNTAG (scripts/spot_checkpoint.sh).
+# Without it, nothing below the "Spot" lines runs, and every value here is what it always was.
+SPOT=$(md full-spot 0)
+RT=$RES                                           # the latest status, heartbeat and facts.json
+if [ "$SPOT" = 1 ]; then
+  ATTEMPT=$(md full-attempt 1); CKPT_EVERY=$(md full-ckpt-every 600); HOLD=$(md full-spot-hold "")
+  STATE_SHA_WANT=$(md full-state-sha ""); MANIFEST_SHA_WANT=$(md full-manifest-sha "")   # what the controller downloaded after the last attempt
+  case "$ATTEMPT" in ''|*[!0-9]*|0) ATTEMPT=1 ;; esac; case "$CKPT_EVERY" in ''|*[!0-9]*|0) CKPT_EVERY=600 ;; esac
+  # The most bytes all the parts together may hold (sent only for a zone outside the bucket's region; 0 = no
+  # limit), and the seconds between confirmed uploads of the replay's results (see spot_confirm).
+  PARTS_MAX=$(md full-parts-max-bytes 0); CONFIRM_EVERY=$(md full-confirm-every 1200)
+  case "$PARTS_MAX" in ''|*[!0-9]*) PARTS_MAX=0 ;; esac; case "$CONFIRM_EVERY" in ''|*[!0-9]*|0) CONFIRM_EVERY=1200 ;; esac
+  CK="ckpt/$RUNTAG"; RES="$RT/attempt-$ATTEMPT"   # no attempt may overwrite another attempt's logs
+  KEEP_OLEANS=0                                   # the parts are the archive of the compiled files
+  SPK=$TOOLS/scripts/spot_checkpoint.sh; SPS=$PD/state.json; SPD=$WORK/spot; SPOUT=$WORK/spot-out; SPIN=$WORK/spot-in
+  SEAL_DONE=0; SKIP_BUILD=0; SPOT_LOCKED=0; TIMEBOX_USED=0; SEAL_LIB_SHA=""; BASE_SRC_SHA=""; BASE_TC_SHA=""; BASE_PKGS_SHA=""; SEEN_ATTEMPTS=""
+  SPOT_CKPT_PID=""; SPOT_RES_PID=""; ZONE=""; C2_PLAIN_JSON_SHA=""; C2_DEEP_JSON_SHA=""; SPOT_END=0
+  SPOT_LEFTOVERS_HERE=""; SPOT_LIB_OTHER_HERE=""     # this machine's own seal figures, on an attempt after the first seal
+  # What a later attempt takes back from the state: the decisions and results that otherwise live only in this
+  # script's variables (state-export accepts nothing else, and quotes what it prints).
+  SPOT_VARS="TESTS_DONE RESTART_CONTROL RESTART_PRUNE RESTART_CONTROL_NEW RESTART_PRUNE_NEW TIMEBOX_USED C1_STATE LAKE_RC RETRIED
+    SRC_SAME LIBS_SAME TC_COPY_SAME LEFTOVERS LIB_OTHER MANIFEST_SHA SEAL_LIB_SHA C2_PLAIN_RC C2_DEEP_RC C2_DEEP_WHEN
+    CHECK_JOBS C3_RATE C3_NEED C3_EXPECT C3_FITS C3_RC C3_MAIN_T C3_PASSES SECOND_RC SECOND_WHY OLEANS_SAME_END LIBS_SAME_END
+    BASE_SRC_SHA BASE_TC_SHA BASE_PKGS_SHA SEEN_ATTEMPTS C2_PLAIN_JSON_SHA C2_DEEP_JSON_SHA"
+fi
 
 now() { date +%s; }
 left() { echo $(( DEADLINE - $(now) )); }
@@ -150,7 +176,7 @@ stop_build() {
 kill_users() { local u; for u in pilot chk2 chk3; do id "$u" >/dev/null 2>&1 && pkill -KILL -u "$u" 2>/dev/null; done; return 0; }
 idle_until_deleted() { # stay RUNNING so the scheduled deletion remains armed; keep the final status visible
   trap '' TERM INT
-  while true; do kill_users; gcs_put "$PD/status.json" "$RES/status.json" 2>/dev/null; sleep 60; done
+  while true; do kill_users; gcs_put "$PD/status.json" "$RT/status.json" 2>/dev/null; sleep 60; done
 }
 # manifest <find arguments>: "sha256  path" for every regular file found, and one line for anything that is
 # neither a regular file nor a directory (a symbolic link, with its target; a pipe; a device), sorted by path.
@@ -228,6 +254,8 @@ write_facts() { # write_facts <state> <message>
   F_OLEANS_END=$OLEANS_SAME_END F_LIBS_END=$LIBS_SAME_END F_KEEP=$KEEP_PARTS F_PD=$PD \
   F_LEFTOVERS=$LEFTOVERS F_SECOND=$SECOND_REPLAY F_DRIVER_SHA=$DRIVER_SHA F_DRIVER_SAME=$DRIVER_SAME F_SECOND_RC=$SECOND_RC F_SECOND_WHY=$SECOND_WHY \
   F_C3_FITS=$C3_FITS F_C3_EXPECT=$C3_EXPECT F_C3_RATE=$C3_RATE F_C3_MAIN_T=$C3_MAIN_T F_C3_PASSES=$C3_PASSES \
+  F_SPOT=$SPOT F_ATTEMPT=${ATTEMPT:-} F_SPOT_STATE=${SPS:-} F_SPD=${SPD:-} F_CONFIRM_EVERY=${CONFIRM_EVERY:-} \
+  F_LEFTOVERS_HERE=${SPOT_LEFTOVERS_HERE:-} F_LIB_OTHER_HERE=${SPOT_LIB_OTHER_HERE:-} \
   python3 -I - "$PD/facts.json" <<'PY'
 import json, os, sys, time
 E = os.environ.get
@@ -250,7 +278,7 @@ c3 = load(os.path.join(E('F_PD'), 'c3_summary.json'))
 if c3:      # lists are cut to 50 names here; the summary itself, uploaded beside this file, has them in full
     c3 = {k: (v[:50] + ['... %d more' % (len(v) - 50)] if isinstance(v, list) and len(v) > 50 else v) for k, v in c3.items() if k != 'prefix_modules'}
 seen = os.path.join(E('F_PD'), 'build_user_seen_after_seal')
-json.dump({
+facts = {
     'what': 'facts from one run of cloud/gcp/full_guest.sh; not a verdict (see PREREGISTRATION.md, section 5)',
     'state': E('F_STATE'), 'message': E('F_MSG'), 'written_utc': time.strftime('%FT%TZ', time.gmtime()),
     'elapsed_s': int(time.time()) - int(E('F_T0')), 'mode': E('F_MODE'), 'time_boxed_build': (num('F_TIMEBOX') or 0) > 0, 'jobs': num('F_NMAX'),
@@ -300,7 +328,42 @@ json.dump({
     'end': {'compiled_files_unchanged_since_seal': yes('F_OLEANS_END'), 'toolchain_and_mathlib_unchanged_since_seal': yes('F_LIBS_END'),
             'build_user_process_seen_after_seal': os.path.exists(seen)},
     'archive_of_compiled_files': {'state': E('F_KEEP_STATE'), 'objects_uploaded': num('F_KEEP')},
-}, open(sys.argv[1], 'w'), indent=1)
+}
+if E('F_SPOT') == '1':
+    # A Spot run: this attempt, the run's attempts as the state records them (when each booted, where, how it
+    # ended, the stage it reached, what it restored, whether its baselines matched the first attempt's), and
+    # whether a process of the build user was seen after the seal, attempt by attempt.
+    st = load(E('F_SPOT_STATE')) or {}
+    att = st.get('attempts') or []
+    for a in att:
+        if str(a.get('n')) == E('F_ATTEMPT'): a['build_user_process_seen_after_seal'] = os.path.exists(seen)
+    def spd(name):    # a number this attempt keeps in a file (the confirms run in a loop of their own)
+        try: return int(open(os.path.join(E('F_SPD'), name)).read().split()[0])
+        except Exception: return None
+    # The run's count of failed job lines: every other attempt's, as its state entry records it, and this one's.
+    if num('F_NFAIL') is not None:
+        facts['c1_build']['failed_job_lines_in_all_logs'] = num('F_NFAIL') + sum(
+            int(a.get('failed_job_lines') or 0) for a in att if str(a.get('n')) != E('F_ATTEMPT'))
+    here = lambda k: num(k + '_HERE') if E(k + '_HERE') else num(k)
+    facts['spot'] = {'attempt': num('F_ATTEMPT'), 'attempts': att, 'units_done': st.get('done'), 'progress': st.get('progress'),
+                     'build_user_process_seen_after_seal': {str(a.get('n')): a.get('build_user_process_seen_after_seal') for a in att},
+                     # the end check's comparison, made on this machine before any result left it (G1)
+                     'confirm_every_s': num('F_CONFIRM_EVERY'), 'confirms': spd('confirms') or 0, 'last_confirm_seconds': spd('last_confirm_s'),
+                     # at the first seal: whether the parts reproduce the sealed compiled files exactly, and how
+                     # many files a repair part had to add for that
+                     'parts_cover_seal': st.get('parts_cover_seal'), 'parts_cover_repair_files': st.get('parts_cover_repair_files'),
+                     # saved compiled files the build tool wrote again with the very bytes saved (a new time only),
+                     # and so saved again in a later part; any other change to a saved file ends the run
+                     'files_rewritten_same_bytes': st.get('files_rewritten_same_bytes', 0),
+                     # the saved replay results a later attempt restores: the object and the SHA-256 it must have
+                     'results_object': st.get('results_object'), 'results_sha256': st.get('results_sha256'),
+                     'per_attempt_files': 'files under attempt-N/ are that machine\'s logs and working copies; only what the state '
+                                          'records, saved after a confirm, is carried between machines',
+                     # this machine's own figures, where the ones above are the run's
+                     'this_machine': {'failed_job_lines': num('F_NFAIL'),
+                                      'half_written_files_of_killed_compilers_removed': here('F_LEFTOVERS'),
+                                      'files_beside_the_compiled_modules_that_the_build_does_not_write': here('F_LIB_OTHER')}}
+json.dump(facts, open(sys.argv[1], 'w'), indent=1)
 PY
 }
 report() { # report <state> <message>   -- logs and facts.json. Safe to call more than once. Status of the facts upload.
@@ -308,29 +371,35 @@ report() { # report <state> <message>   -- logs and facts.json. Safe to call mor
   disk_facts; gcs_put "$PD/disk.txt" "$RES/disk.txt"
   c3_summary
   write_facts "$1" "$2"
-  gcs_put "$PD/facts.json" "$RES/facts.json"
+  gcs_put "$PD/facts.json" "$RT/facts.json"
 }
 # checkpoint <message>: facts as they stand, so that a run cut short still leaves an account of how far it got.
-checkpoint() { write_facts RUNNING "$1"; gcs_put "$PD/facts.json" "$RES/facts.json"; return 0; }
+checkpoint() { write_facts RUNNING "$1"; gcs_put "$PD/facts.json" "$RT/facts.json"; return 0; }
 finish() { # finish <state> <message>   -- the final status is uploaded LAST: it is the watcher's signal to delete this VM
   trap '' TERM INT
+  [ "$SPOT" = 1 ] && spot_not_final "$1" "$2"  # Spot: a deadline or a reclaim ends only this attempt (does not return then)
   touch "$PD/FINISHING"                      # tells the watchdog that the report is under way
   say "FINISH $1: $2"
   stop_build
   local p i
   for p in "${SAMPLER_PID:-}" "${SYNC_PID:-}" "${PROG_PID:-}" "${GUARD_PID:-}"; do [ -n "$p" ] && kill "$p" 2>/dev/null; done
+  [ "$SPOT" = 1 ] && spot_stop_loops
   [ -n "${SYNC_PID:-}" ] && wait "$SYNC_PID" 2>/dev/null       # no RUNNING status or half-made upload may follow the final one
   [ -n "${PROG_PID:-}" ] && wait "$PROG_PID" 2>/dev/null
   kill_users
   for i in 1 2 3; do report "$1" "$2" && break; sleep 20; done
   sync_big; sync_small
+  [ "$SPOT" = 1 ] && spot_final "$1" "$2"      # the state says the run is over before the status does
   status "$PHASE" "$1" "$2"
   say "idle: waiting to be deleted"; sync
   idle_until_deleted
 }
 t_step() { # t_step <name> <function>  -- time a setup step; a failed step ends the run
+  # (Spot: a failed step that needs the network ends only this attempt; a fresh machine tries it again.)
   local name=$1; shift; local s; s=$(now); say "setup: $name"
   if "$@"; then printf '%s\t%s\tok\n' "$name" "$(( $(now) - s ))" >> "$PD/setup.tsv"
+  elif [ "$SPOT" = 1 ] && case " packages elan source mathlib_cache " in *" $name "*) true ;; *) false ;; esac; then
+    printf '%s\t%s\tFAILED\n' "$name" "$(( $(now) - s ))" >> "$PD/setup.tsv"; spot_pause "setup step failed: $name; a fresh machine tries again" retry
   else printf '%s\t%s\tFAILED\n' "$name" "$(( $(now) - s ))" >> "$PD/setup.tsv"; finish FAIL "setup step failed: $name"; fi
 }
 on_signal() { if [ -e "$PD/DEADLINE" ]; then finish DEADLINE "guest deadline reached during phase $PHASE"; else finish FAIL "unexpected signal"; fi; }
@@ -338,13 +407,835 @@ on_signal() { if [ -e "$PD/DEADLINE" ]; then finish DEADLINE "guest deadline rea
 # concluded from such a file: call this before judging any result that took time to produce.
 deadline_check() { [ -e "$PD/DEADLINE" ] && finish DEADLINE "guest deadline reached during phase $PHASE"; return 0; }
 
+# ---------------------------------------------------------------- Spot (full-spot=1) only
+# Google may take a Spot machine back at any moment, with at most about thirty seconds' notice and possibly none.
+# The run therefore keeps, in the bucket under ckpt/RUNTAG, everything a fresh machine needs to carry on: archives
+# of finished modules ("parts") with a manifest of their checksums, and a state file of every decision and result
+# so far. Upload order is always part, then manifest, then state, so that whatever is in the bucket after a cut
+# is consistent: a part the manifest does not list is ignored, and a unit the state does not record as complete
+# is run again in full. Two non-final states end only this attempt: RECLAIMED (the machine is being taken back)
+# and PAUSED (this attempt's own deadline, or trouble a fresh machine may not have; the status says which kind,
+# see spot_pause). The controller then starts the next attempt, unless the kind says another would end the same way.
+if [ "$SPOT" = 1 ]; then
+SPOT_WATCH_PID=""
+status() { # status <phase> <state> <message> [pause kind]   -- as above, plus the attempt and, for PAUSED, the kind
+  # of pause (deadline, retry, parts-limit or stop; see spot_pause). Once Google has said it is taking the machine
+  # back, only RECLAIMED goes out (and a failure that ends the run whatever else happens: see spot_confirm).
+  PHASE=$1
+  [ -e "$PD/PREEMPTED" ] && [ "$2" != RECLAIMED ] && ! { [ "$2" = FAIL ] && [ -e "$PD/FAIL_IS_FINAL" ]; } && return 0
+  python3 - "$PD/status.json" "$1" "$2" "${3:-}" "$T0" "$DEADLINE" "$MODE" "$NMAX" "$ATTEMPT" "${4:-}" <<'PY'
+import json, os, sys, time
+p, phase, state, msg, t0, dl, mode, nmax, att, kind = sys.argv[1:11]
+d = {"phase": phase, "state": state, "message": msg, "elapsed_s": int(time.time()) - int(t0),
+     "deadline_in_s": int(dl) - int(time.time()), "mode": mode, "nmax": int(nmax), "utc": time.strftime("%FT%TZ", time.gmtime()),
+     "attempt": int(att), "spot": 1}
+if state == "PAUSED": d["pause"] = kind or "deadline"
+json.dump(d, open(p + ".tmp", "w"))
+os.replace(p + ".tmp", p)
+PY
+  gcs_put "$PD/status.json" "$RT/status.json"
+}
+# The heartbeat is the run's (the controller watches one); the logs are this attempt's.
+sync_small() { local f; date +%s > "$PD/heartbeat"; gcs_put "$PD/heartbeat" "$RT/heartbeat"; for f in pilot.log setup.tsv phases.tsv env.txt progress.tsv restart_tests.txt spot.log; do gcs_put "$PD/$f" "$RES/$f"; done; }
+# Root reads the build tool's logs only as copies of its own: spot_lake_copies makes, afresh, a copy of each log
+# lake_logs names (safe_cp: a plain file, never through a link, in limited time) in $SPD/lakelogs, and prints the
+# copies' paths; a log that cannot be copied is skipped, with a line in spot.log. The count of failed job lines is
+# taken from those copies (0 before $SPD exists), so that a log the build user swaps for a pipe never blocks root.
+spot_lake_copies() {
+  local f c t d=$SPD/lakelogs
+  [ -d "$SPD" ] || return 0
+  mkdir -p "$d" || return 0
+  for f in $(lake_logs); do
+    c="$d/$(basename "$f")"; t=$(mktemp "$c.XXXXXX") || continue
+    if safe_cp "$f" "$t" && plain "$t"; then mv -f "$t" "$c" && echo "$c"
+    else rm -f "$t"; spot_log "the build log $(basename "$f") could not be copied as a plain file; not read"; fi
+  done
+  return 0
+}
+failed_lines() { local f k c=0; [ -d "$SPD" ] || { echo 0; return 0; }; for f in $(spot_lake_copies); do k=$(grep -c '^✖ ' "$f"); c=$((c + k)); done; echo "$c"; }
+# A terminate signal without the deadline marker is the operating system shutting down: Google is taking the
+# machine back (with or without the notice the watcher below waits for).
+on_signal() { if [ -e "$PD/DEADLINE" ]; then finish DEADLINE "guest deadline reached during phase $PHASE"; else spot_reclaimed "the operating system is shutting down"; fi; }
+deadline_check() {
+  [ -e "$PD/HARD_FAIL_MSG" ] && finish FAIL "$(cat "$PD/HARD_FAIL_MSG")"     # a confirm found a change (final)
+  [ -e "$PD/PREEMPTED" ] && spot_reclaimed "Google is taking the machine back"
+  [ -e "$PD/DEADLINE" ] && finish DEADLINE "guest deadline reached during phase $PHASE"; return 0
+}
+# spot_state <arguments for "spot_checkpoint.sh state">: change the local state file, then upload it whole. One
+# writer at a time (the main script, the loops and the watcher all write it). Status 1 if either step failed;
+# the local file then still holds the change, and the next upload carries it.
+spot_state() {
+  [ -e "$PD/STATE_READY" ] || return 1
+  ( flock -w "${SPOT_LOCK_WAIT:-600}" 9 || exit 1
+    bash "$SPK" state --file "$SPS" --attempt "$ATTEMPT" "$@" 2>> "$PD/spot.log" && gcs_put "$SPS" "$CK/state.json" ) 9> "$PD/state.lock"
+}
+# spot_record <unit or -> <stage or -> NAME...: remember these variables and, if a unit is named, that it is
+# complete. Refused once the deadline or a reclaim has begun: what was running then may have been cut short.
+spot_record() {
+  { [ -e "$PD/PREEMPTED" ] || [ -e "$PD/DEADLINE" ]; } && return 1
+  local u=$1 st=$2 n seen=false a=(); shift 2
+  if [ -e "$PD/build_user_seen_after_seal" ]; then
+    seen=true; case " $SEEN_ATTEMPTS " in *" $ATTEMPT "*) ;; *) SEEN_ATTEMPTS="${SEEN_ATTEMPTS:+$SEEN_ATTEMPTS }$ATTEMPT" ;; esac
+  fi
+  for n in "$@" SEEN_ATTEMPTS; do a+=(--var "$n=${!n-}"); done
+  [ "$u" = - ] || a+=(--done "$u")
+  [ "$st" = - ] || a+=(--set "stage=$st" --attempt-set "stage_reached=$st")
+  spot_state "${a[@]}" --attempt-set-json "build_user_process_seen_after_seal=$seen" --attempt-set-json "failed_job_lines=$(failed_lines)" && return 0
+  say "WARNING: the state was not saved (unit ${u}); it is uploaded again with the next change"; return 1
+}
+# spot_load [NAME...]: set these variables (by default every name the state may hold) from the state. Only
+# names from that list are asked for, and the helper prints each value quoted for the shell.
+spot_load() { local s; s=$(bash "$SPK" state-export --file "$SPS" ${*:-$SPOT_VARS} 2>> "$PD/spot.log") || return 1; eval "$s"; }
+spot_done() { bash "$SPK" state-get --file "$SPS" --done "$1" 2>/dev/null; }
+spot_saved() { local v; v=$(bash "$SPK" state-get --file "$SPS" --key "$1" 2>/dev/null); case "$v" in ''|*[!0-9]*) echo 0 ;; *) echo "$v" ;; esac; }
+# spot_fetch <object> <file>: status 0 fetched whole, 4 there is no such object, 1 any other failure. curl's own
+# status counts as well as the server's: a transfer cut off after the headers has code 200 and a short file.
+spot_fetch() {
+  local code rc
+  code=$(curl -s --connect-timeout 20 --speed-limit 1024 --speed-time 120 --retry 4 --retry-delay 3 -w '%{http_code}' -H "Authorization: Bearer $(tok)" \
+    "https://storage.googleapis.com/storage/v1/b/$BUCKET/o/$(enc "$1")?alt=media" -o "$2"); rc=$?
+  [ "$rc" = 0 ] && [ "$code" = 200 ] && return 0
+  rm -f "$2"
+  [ "$rc" = 0 ] && [ "$code" = 404 ] && return 4
+  return 1
+}
+# spot_fetch_checked <object> <file> <sha256> [bytes] [gz]: up to three downloads, each checked against the
+# SHA-256 (of the file, or with "gz" of its uncompressed content) and, if given, the size. Status 0 one matched;
+# 4 the object is not there; 1 the downloads failed or had the wrong size (trouble on the way: worth trying again
+# on another machine); 2 three complete downloads of the right size, every one with the wrong checksum (the
+# object really is not the one recorded).
+spot_fetch_checked() {
+  local i rc got trouble=0
+  for i in 1 2 3; do
+    spot_fetch "$1" "$2"; rc=$?
+    [ "$rc" = 4 ] && return 4
+    if [ "$rc" != 0 ]; then trouble=1
+    elif [ -n "${4:-}" ] && [ "$(stat -c %s "$2")" != "$4" ]; then trouble=1
+    else
+      if [ "${5:-}" = gz ]; then got=$(gunzip -c "$2" 2>/dev/null | sha256sum | cut -d' ' -f1); else got=$(sha256sum < "$2" | cut -d' ' -f1); fi
+      [ "$got" = "$3" ] && return 0
+      echo "$(date -u +%FT%TZ) $1: download $i has sha256 $got, expected $3" >> "$PD/spot.log"
+    fi
+    [ "$i" = 3 ] || sleep $(( i * 5 ))
+  done
+  rm -f "$2"
+  [ "$trouble" = 0 ] && return 2
+  return 1
+}
+spot_stop_loops() { # spot_stop_loops [gently]: the part loop (allowed to finish the round it is in) and the results loop
+  local p w=0
+  if [ "${1:-}" = gently ] && [ -n "$SPOT_CKPT_PID" ]; then
+    touch "$SPD/STOP"; while kill -0 "$SPOT_CKPT_PID" 2>/dev/null && [ "$w" -lt 120 ]; do sleep 2; w=$((w + 2)); done
+  fi
+  touch "$SPD/STOP" 2>/dev/null
+  for p in "$SPOT_CKPT_PID" "$SPOT_RES_PID"; do [ -n "$p" ] && { pkill -TERM -P "$p" 2>/dev/null; kill "$p" 2>/dev/null; wait "$p" 2>/dev/null; }; done
+  SPOT_CKPT_PID=""; SPOT_RES_PID=""
+  return 0
+}
+# A cut (reclaim or deadline) ends only this attempt; any other outcome is the run's. A failure a confirm or the
+# end check found (FAIL_IS_FINAL) is the run's whatever markers exist: it is never turned into PAUSED or RECLAIMED.
+spot_not_final() { # spot_not_final <state> <message>   -- does not return if this attempt is to pause or is being reclaimed
+  if [ "$1" = FAIL ] && [ -e "$PD/FAIL_IS_FINAL" ]; then
+    [ -n "$SPOT_WATCH_PID" ] && kill "$SPOT_WATCH_PID" 2>/dev/null
+    touch "$PD/STOPPING"
+    SPOT_LOCK_WAIT=60 spot_state --set-json final=true --set outcome=FAIL --attempt-set ended=FAIL || say "WARNING: the final state was not uploaded"
+    return 0
+  fi
+  [ -e "$PD/PREEMPTED" ] && spot_reclaimed "$2"
+  [ "$1" = DONE ] && { touch "$PD/STOPPING"; return 0; }
+  { [ "$1" = DEADLINE ] || [ -e "$PD/DEADLINE" ]; } && spot_pause "$2" deadline
+  touch "$PD/STOPPING"; return 0              # the run is ending: a confirm still running proves nothing now
+}
+spot_final() { # the run is over: the state says so before the final status does
+  [ -n "$SPOT_WATCH_PID" ] && kill "$SPOT_WATCH_PID" 2>/dev/null
+  spot_state --set-json final=true --set "outcome=$1" --attempt-set "ended=$1" --attempt-set-json "failed_job_lines=$(failed_lines)" \
+    || say "WARNING: the final state was not uploaded"
+  return 0
+}
+# This attempt ends here, the run does not: save what can be saved, then stop. The status and this attempt's
+# entry in the state say what kind of pause it is, so that the controller knows whether another attempt helps:
+#   deadline     this attempt ran out of its own time (the default when the deadline marker exists)
+#   retry        trouble a fresh machine may not have: a fetch or an upload that failed, results that could not
+#                be confirmed and saved, a check ended by a signal, a setup step that needs the network (the
+#                default otherwise)
+#   parts-limit  the parts would pass full-parts-max-bytes (spot_too_big_msg)
+#   stop         another attempt would end the same way (a state exists that the controller did not see)
+spot_pause() { # spot_pause <message> [kind]   -- does not return
+  trap '' TERM INT
+  [ -e "$PD/PREEMPTED" ] && spot_reclaimed "$1"
+  local kind=${2:-}
+  [ -n "$kind" ] || { if [ -e "$PD/DEADLINE" ]; then kind=deadline; else kind=retry; fi; }
+  touch "$PD/FINISHING"; say "PAUSE ($kind): $1"
+  local p cutting=0
+  [ -n "$SPOT_CKPT_PID" ] && cutting=1
+  spot_stop_loops gently                    # the part loop may finish the round it is in
+  stop_build
+  for p in "${SAMPLER_PID:-}" "${PROG_PID:-}"; do [ -n "$p" ] && kill "$p" 2>/dev/null; done
+  kill_users                                # nothing of the build user runs while the last part is cut
+  # The build was running: one last part of what finished before it was stopped, in limited time.
+  [ "$cutting" = 1 ] && SPOT_CUT_LIMIT=300 spot_ckpt_round pause >/dev/null
+  # The replay's results, if a confirm can still be completed (not once the deadline or a reclaim has begun).
+  spot_results_round "$NMAX"; [ "$?" = 2 ] && finish FAIL "$(cat "$PD/HARD_FAIL_MSG")"
+  # The state write that ends the attempt also carries the work the manifest lists as saved, so that a part whose
+  # own state write was cut off (the part loop stopped after the manifest went up) still counts as progress.
+  local pm=0
+  [ -f "$SPD/manifest.tsv" ] && pm=$(awk -F'\t' 'NR > 1 {s += $5} END {print s + 0}' "$SPD/manifest.tsv")
+  spot_state --attempt-set ended=PAUSED --attempt-set "pause_kind=$kind" --attempt-set "ended_why=$1" --attempt-set-json "failed_job_lines=$(failed_lines)" \
+    --parts-modules "$pm" --var "TIMEBOX_USED=$(spot_timebox_saved)"
+  kill_users
+  put_logs; write_facts PAUSED "$1"; gcs_put "$PD/facts.json" "$RT/facts.json"; sync_big; sync_small
+  local after="the run continues on the next attempt"
+  case "$kind" in
+    stop) after="the run is paused until you have looked" ;;
+    parts-limit) after="the run continues on an attempt in the bucket's own region" ;;
+  esac
+  status "$PHASE" PAUSED "$1; $after" "$kind"
+  [ -n "$SPOT_WATCH_PID" ] && kill "$SPOT_WATCH_PID" 2>/dev/null
+  say "idle: waiting to be deleted"; sync
+  idle_until_deleted
+}
+# "--parts-modules N", N the modules the local manifest lists (it is moved into place only once uploaded), or
+# nothing when there is no manifest: the RECLAIMED state writes count a part whose own state write was cut off.
+spot_parts_arg() { [ -f "$SPD/manifest.tsv" ] && awk -F'\t' 'NR > 1 {s += $5} END {print "--parts-modules", s + 0}' "$SPD/manifest.tsv" 2>/dev/null; return 0; }
+# Google is taking the machine back: within seconds, and nothing that takes long. The watcher below has usually
+# done this already; the main script repeats only what it has not. No results go up: there is no time to confirm
+# them, and the next attempt checks again whatever was not confirmed.
+spot_reclaimed() { # spot_reclaimed <why>   -- does not return
+  trap '' TERM INT
+  touch "$PD/PREEMPTED" "$PD/FINISHING"; say "RECLAIMED: $1"
+  pkill -KILL -x lean 2>/dev/null; pkill -KILL -x leanchecker 2>/dev/null; pkill -KILL -x rhv-replay 2>/dev/null; pkill -KILL -x lake 2>/dev/null
+  spot_stop_loops
+  if [ ! -e "$PD/RECLAIM_SENT" ]; then
+    # shellcheck disable=SC2046
+    SPOT_LOCK_WAIT=5 spot_state --attempt-set ended=RECLAIMED $(spot_parts_arg)
+    status "$PHASE" RECLAIMED "$1; the run continues on the next attempt"; touch "$PD/RECLAIM_SENT"
+  fi
+  idle_until_deleted
+}
+# Waits on the metadata server for Google's notice. It cannot be relied on (a machine can go with no notice at
+# all), so nothing depends on it: it only stops the work in flight a little sooner. Each answer's ETag is passed
+# back with the next wait, as Google's documentation of the metadata server asks, so that a change between two
+# requests is not missed. Without a usable ETag (or without an answer) there is no wait: it asks again every
+# five seconds instead, so that it never spins.
+spot_watch_preempted() {
+  local v etag="" q told=0
+  while true; do
+    q=""; [ -n "$etag" ] && q="?wait_for_change=true&timeout_sec=300&last_etag=$etag"
+    v=$(curl -sf --connect-timeout 5 --max-time 330 -D "$PD/preempt.hdr" -H "Metadata-Flavor: Google" "$MDURL/preempted$q" 2>/dev/null)
+    [ "$v" = TRUE ] && break
+    etag=$(awk 'tolower($1) == "etag:" {print $2; exit}' "$PD/preempt.hdr" 2>/dev/null | tr -d '\r')
+    case "$etag" in *[!0-9A-Za-z]*) etag="" ;; esac
+    [ -n "$v" ] || etag=""                    # no answer: ask again shortly, from the start
+    if [ -z "$etag" ]; then
+      [ "$told" = 1 ] || { spot_log "preemption watcher: no answer or no usable ETag from the metadata server; wait_for_change is not in use, asking every 5 s"; told=1; }
+      sleep 5
+    fi
+  done
+  touch "$PD/PREEMPTED"; say "Google is taking the machine back"
+  kill -TERM "$$" 2>/dev/null
+  pkill -KILL -x lean 2>/dev/null; pkill -KILL -x leanchecker 2>/dev/null; pkill -KILL -x rhv-replay 2>/dev/null; pkill -TERM -x lake 2>/dev/null
+  # shellcheck disable=SC2046
+  SPOT_LOCK_WAIT=5 spot_state --attempt-set ended=RECLAIMED $(spot_parts_arg)
+  status "$(cat "$PD/phase" 2>/dev/null || echo "$PHASE")" RECLAIMED "Google took the machine back; the run continues on the next attempt"
+  touch "$PD/RECLAIM_SENT"
+}
+spot_log() { echo "$(date -u +%FT%TZ) $*" >> "$PD/spot.log"; }
+
+# ---- confirming: nothing that is evidence leaves this machine unless this machine shows that nothing changed
+# spot_confirm [jobs]: what the end check computes (the fingerprints of the compiled files, of Mathlib's compiled
+# files and of the sealed toolchain), now, compared with the seal's; and no process of the build user seen. With
+# at most <jobs> hashing processes (4 while a check is running). Status 0 all as sealed; 1 abandoned, nothing
+# concluded (a reclaim, the deadline or the end of the run began while it ran: the hashing may have been cut
+# off); 2 a difference or a sighting: that ends the run, whatever else happens. The message is then in
+# $PD/HARD_FAIL_MSG and $PD/FAIL_IS_FINAL exists; this function does not end the run itself (it also runs in the
+# results loop), so the main script's next deadline_check does, or spot_confirmed below.
+spot_confirm() {
+  local j=${1:-4} t0 rc
+  [ -s "$PD/lib_sha256.txt" ] || return 1
+  spot_cut_begun && return 1
+  t0=$(now)
+  ( flock -w 3600 7 || exit 1
+    spot_sighted && exit 2
+    for try in 1 2; do
+      ( NMAX=$j; lib_manifest > "$SPD/confirm_lib.txt"; pkgs_manifest > "$SPD/confirm_pkgs.txt"; tc_manifest /opt/lean-tc > "$SPD/confirm_tc.txt" )
+      spot_cut_begun && exit 1
+      cmp -s "$PD/lib_sha256.txt" "$SPD/confirm_lib.txt" && cmp -s "$PD/baseline_pkgs.txt" "$SPD/confirm_pkgs.txt" && cmp -s "$PD/baseline_tc.txt" "$SPD/confirm_tc.txt" && break
+      # A difference. Something outside may have cut the hashing short: look at the markers again, then hash
+      # once more before concluding anything.
+      sleep 2; spot_cut_begun && exit 1
+      if [ "$try" = 2 ]; then
+        diff "$PD/lib_sha256.txt" "$SPD/confirm_lib.txt" | head -200 > "$PD/changed_confirm_lib.txt"
+        diff "$PD/baseline_pkgs.txt" "$SPD/confirm_pkgs.txt" | head -200 > "$PD/changed_confirm_pkgs.txt"
+        diff "$PD/baseline_tc.txt" "$SPD/confirm_tc.txt" | head -200 > "$PD/changed_confirm_tc.txt"
+        for f in lib pkgs tc; do [ -s "$PD/changed_confirm_$f.txt" ] && gcs_put "$PD/changed_confirm_$f.txt" "$RES/changed_confirm_$f.txt"; done
+        echo "files the checks rely on changed while the checks ran; their results cannot be used" > "$PD/HARD_FAIL_MSG.new"
+        touch "$PD/FAIL_IS_FINAL"; mv -f "$PD/HARD_FAIL_MSG.new" "$PD/HARD_FAIL_MSG"
+        exit 2
+      fi
+    done
+    spot_sighted && exit 2
+    exit 0 ) 7> "$PD/confirm.lock"
+  rc=$?
+  if [ "$rc" = 0 ]; then
+    echo $(( $(cat "$SPD/confirms" 2>/dev/null || echo 0) + 1 )) > "$SPD/confirms"; echo $(( $(now) - t0 )) > "$SPD/last_confirm_s"
+    spot_log "confirm: as sealed, in $(( $(now) - t0 )) s with $j hashing processes"
+  else
+    spot_log "confirm: status $rc after $(( $(now) - t0 )) s"
+  fi
+  return "$rc"
+}
+spot_cut_begun() { [ -e "$PD/PREEMPTED" ] || [ -e "$PD/DEADLINE" ] || [ -e "$PD/STOPPING" ]; }
+spot_sighted() { # a process of the build user seen after the seal: HEAD's end-check message, final
+  [ -e "$PD/build_user_seen_after_seal" ] || return 1
+  echo "a process of the build user appeared after the seal; the checks' results cannot be used" > "$PD/HARD_FAIL_MSG.new"
+  touch "$PD/FAIL_IS_FINAL"; mv -f "$PD/HARD_FAIL_MSG.new" "$PD/HARD_FAIL_MSG"
+}
+spot_confirmed() { # main script only: spot_confirm, and the end of the run on a difference. Status 0 or 1 as spot_confirm.
+  spot_confirm "$@"
+  case "$?" in 0) return 0 ;; 2) finish FAIL "$(cat "$PD/HARD_FAIL_MSG")" ;; esac
+  return 1
+}
+# spot_check_cut <status> <epoch its time limit ends>: a check ended by a signal (129, 130, 137, 143, or no status
+# at all, 99 here) before its own time limit is not a result: wait a moment, look at the markers (a deadline or a
+# reclaim acts), and otherwise stop this attempt without recording the unit; the next attempt runs it again. A
+# check its own time limit stopped is a result like any other (timeout's 124, or 137 after --kill-after).
+spot_check_cut() {
+  case "$1" in 129|130|137|143|99|'') ;; *) return 0 ;; esac
+  [ "$(now)" -ge $(( $2 - 1 )) ] && return 0
+  sleep 2; deadline_check
+  spot_pause "a check was ended by a signal (status $1) before its own time limit; it runs again on the next attempt"
+}
+
+# ---- parts
+# spot_ckpt_round <loop|final|pause|repair>: one part of the finished modules not yet saved, uploaded, then the
+# manifest, then the state. Status 0 a part was saved, 3 nothing was due, 4 a saved module was compiled again,
+# 5 the part would take all the parts past full-parts-max-bytes (not uploaded), 1 a failure (the next round tries
+# again; nothing is lost). The cut runs as the build user, on its own tree, with the archive on its standard
+# output, which root has opened onto a file of its own: root never opens a path the build user can write. Root
+# then reads its own copy for what the part holds (each file with its size, time and SHA-256). A repair part
+# (at the first seal, the build user locked) is cut by root, of exactly the files in $SPD/cover_fix.txt.
+spot_ckpt_round() {
+  [ -e "$PD/PREEMPTED" ] && return 1
+  local t ep args rc seq obj sha bytes mods files sum tc tu same LAKE_N
+  if [ -e "$SPD/pending.sha" ]; then spot_apply_pending || return 1; fi
+  t=$(now)
+  case "$1" in
+    loop) ep=$(( t - 5 )); args=(--settle-before "$ep") ;;    # a trace older than this was written whole
+    pause) ep=$t; args=(--settle-before "$ep") ;;             # the build tool has just been stopped
+    repair) ep=$t; args=(--paths-from "$SPD/cover_fix.txt") ;;
+    *) ep=$t; args=(--all) ;;                                 # the build has ended: everything that is left
+  esac
+  rm -f "$SPD/part" "$SPD/part.done" "$SPD/part.members.gz" "$SPD/cut.err"
+  if [ "$1" = repair ]; then
+    timeout "${SPOT_CUT_LIMIT:-900}" bash "$SPK" cut --build-dir "$PROJ/.lake/build" "${args[@]}" --out - > "$SPD/part" 2> "$SPD/cut.err"; rc=$?
+  else
+    rm -rf "${WORK:?}/spot-out" && mkdir -m 700 "$SPOUT" && cp "$SPD/done.txt" "$SPOUT/done.txt" && chown -R pilot:pilot "$SPOUT" || return 1
+    timeout "${SPOT_CUT_LIMIT:-900}" runuser -u pilot -- bash "$SPK" cut --build-dir "$PROJ/.lake/build" --done "$SPOUT/done.txt" "${args[@]}" --out - > "$SPD/part" 2> "$SPD/cut.err"
+    rc=$?
+    rm -rf "${WORK:?}/spot-out"
+  fi
+  head -c 100000 "$SPD/cut.err" >> "$PD/spot.log"
+  # Saved files the build tool wrote again with the very bytes saved (only their time is new): they go into this
+  # part again. The count, from the cut's own summary line, is added up in the state once the part is saved.
+  same=$(sed -n 's/.*; \([0-9][0-9]*\) files written again with the same bytes.*/\1/p' "$SPD/cut.err" | tail -1); same=${same:-0}
+  case "$rc" in 0) ;; 3|4) rm -f "$SPD/part"; return "$rc" ;; *) rm -f "$SPD/part"; return 1 ;; esac
+  bash "$SPK" list --part "$SPD/part" --members-out "$SPD/part.members.gz" --done-out "$SPD/part.done" 2>> "$PD/spot.log" \
+    || { rm -f "$SPD/part" "$SPD/part.done" "$SPD/part.members.gz"; return 1; }
+  tc=$(( $(now) - t ))
+  sha=$(sha256sum "$SPD/part" | cut -d' ' -f1); bytes=$(stat -c %s "$SPD/part")
+  # Its modules: the .trace files it holds that no earlier part holds (a repair part may hold one again), so that
+  # the manifest's count is the count of distinct modules a restore finds.
+  mods=$(awk -F'\t' 'FILENAME == ARGV[1] { s[$1] = 1; next } $1 ~ /^lib\/lean\/.+\.trace$/ && !($1 in s)' "$SPD/done.txt" "$SPD/part.done" | wc -l)
+  files=$(wc -l < "$SPD/part.done")
+  if [ "$PARTS_MAX" -gt 0 ]; then
+    sum=$(awk -F'\t' 'NR > 1 {s += $4} END {printf "%d", s + 0}' "$SPD/manifest.tsv")
+    if [ $(( sum + bytes )) -gt "$PARTS_MAX" ]; then
+      rm -f "$SPD/part" "$SPD/part.done" "$SPD/part.members.gz"; touch "$SPD/TOO_BIG"
+      spot_log "part not uploaded: $bytes bytes would take the parts from $sum past $PARTS_MAX bytes"; return 5
+    fi
+  fi
+  seq=$(( $(cat "$SPD/seq") + 1 )); echo "$seq" > "$SPD/seq"     # never used twice, even if this round fails
+  obj=$(printf '%s/part-%06d.tar.zst' "$CK" "$seq")
+  t=$(now)
+  gcs_put "$SPD/part" "$obj" || { rm -f "$SPD/part" "$SPD/part.done" "$SPD/part.members.gz"; spot_log "part $seq: upload failed after $(( $(now) - t )) s"; return 1; }
+  tu=$(( $(now) - t ))
+  rm -f "$SPD/part"
+  # What an attempt cut off without notice would otherwise lose: the build tool's logs so far, uploaded with the
+  # part, before the manifest. The part loop runs in a shell started before the build tool, so the logs are
+  # counted here (lake_logs reads this local LAKE_N), not taken from that shell's copy of the count.
+  LAKE_N=$(spot_lake_n)
+  spot_put_lake_logs
+  spot_log "part $seq ($1): $mods modules, $files files, $bytes bytes, $same files written again with the same bytes; cut and listed in $tc s, uploaded in $tu s"
+  { cat "$SPD/manifest.tsv"; printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$seq" "$obj" "$sha" "$bytes" "$mods" "$ep" "$ATTEMPT"; } > "$SPD/manifest.new" || return 1
+  mv -f "$SPD/part.done" "$SPD/pending.list" && mv -f "$SPD/part.members.gz" "$SPD/pending.members.gz" && echo "$seq" > "$SPD/pending.seq" \
+    && echo "$ep" > "$SPD/pending.t" && echo "$same" > "$SPD/pending.same" && sha256sum < "$SPD/manifest.new" | cut -d' ' -f1 > "$SPD/pending.sha" || return 1
+  spot_apply_pending || return 1
+  say "part $seq: $mods modules, $bytes bytes"
+}
+# The new manifest goes up; only once it is there do the part's files count as saved. An upload that failed is
+# tried again the next round, with the same manifest: the part it lists is already in the bucket. A round cut off
+# after the manifest was moved into place leaves only the pending files, which are then cleared.
+spot_apply_pending() {
+  local tu want same LAKE_N
+  want=$(cat "$SPD/pending.sha" 2>/dev/null)
+  if [ ! -e "$SPD/manifest.new" ]; then
+    if [ -n "$want" ] && [ "$(sha256sum < "$SPD/manifest.tsv" | cut -d' ' -f1)" = "$want" ]; then spot_log "pending part already applied; clearing"
+    else spot_log "WARNING: pending files without a new manifest, and the manifest is not the pending one; clearing them (that part is not listed, and is never restored)"; fi
+    rm -f "$SPD/pending.list" "$SPD/pending.members.gz" "$SPD/pending.seq" "$SPD/pending.sha" "$SPD/pending.t" "$SPD/pending.same"
+    return 0
+  fi
+  gcs_put "$SPD/manifest.new" "$CK/manifest.tsv" || return 1
+  if [ -e "$SPD/pending.members.gz" ]; then mv -f "$SPD/pending.members.gz" "$SPD/members/$(cat "$SPD/pending.seq").gz" || return 1; fi
+  cat "$SPD/pending.list" >> "$SPD/done.txt" && mv -f "$SPD/manifest.new" "$SPD/manifest.tsv" || return 1
+  tu=$(( $(cat "$SPD/pending.t") - $(cat "$PD/build_t0" 2>/dev/null || cat "$SPD/pending.t") ))
+  same=$(cat "$SPD/pending.same" 2>/dev/null); case "$same" in ''|*[!0-9]*) same=0 ;; esac
+  rm -f "$SPD/pending.list" "$SPD/pending.seq" "$SPD/pending.sha" "$SPD/pending.t" "$SPD/pending.same"
+  # A rehearsal's time box counts only the build time whose work is saved.
+  [ "$tu" -gt "${TIMEBOX_USED:-0}" ] && TIMEBOX_USED=$tu
+  # The build tool's count of failed job lines so far (its logs went up with the part), from logs counted here, as
+  # in spot_ckpt_round (lake_logs reads this local LAKE_N).
+  LAKE_N=$(spot_lake_n)
+  spot_state --parts-modules "$(awk -F'\t' 'NR > 1 {s += $5} END {print s + 0}' "$SPD/manifest.tsv")" --var "TIMEBOX_USED=$TIMEBOX_USED" \
+    --set-int "files_rewritten_same_bytes=$(( $(spot_saved files_rewritten_same_bytes) + same ))" --attempt-set-json "failed_job_lines=$(failed_lines)" || return 0
+}
+# The number of the build tool's last log on this machine: the count this shell knows, or more if the main script
+# has started the build tool again since (its logs are numbered 1, 2, ... with no gap).
+spot_lake_n() { local n=${LAKE_N:-0}; while [ -e "$LOGS/lake_build_$((n + 1)).log" ] || [ -e "$PD/lake_build_$((n + 1)).log" ]; do n=$((n + 1)); done; echo "$n"; }
+# The build tool's logs so far, from root's own copies (spot_lake_copies), uploaded compressed under the names
+# put_logs gives them. A failed upload is noted and does no harm. Each log gets one try, of at most two minutes
+# in all (not gcs_put's five), so that a stalled upload cannot hold the manifest back for long.
+spot_put_lake_logs() {
+  local c t
+  for c in $(spot_lake_copies); do
+    t=$(mktemp "$PD/.up.XXXXXX") || continue
+    if ! { gzip -c "$c" > "$t" && curl -sf --connect-timeout 20 --max-time 120 -X POST -H "Authorization: Bearer $(tok)" -H "Content-Type: application/octet-stream" \
+             -T "$t" "https://storage.googleapis.com/upload/storage/v1/b/$BUCKET/o?uploadType=media&name=$(enc "$RES/logs/$(basename "$c").gz")" -o /dev/null; }; then
+      spot_log "WARNING: the build log $(basename "$c") was not uploaded with this part (one try, at most 120 s)"
+    fi
+    rm -f "$t"
+  done
+  return 0
+}
+# spot_timebox_saved: a rehearsal's time box counts only the build time whose work is saved. The largest of the
+# value the state holds, this shell's, and that of the parts the manifest lists from this attempt (each part's cut
+# time against the build's start): a pause never lowers it, and counts a part whose own state write was cut off.
+spot_timebox_saved() {
+  local s t0 m=0
+  s=$(bash "$SPK" state-export --file "$SPS" TIMEBOX_USED 2>/dev/null | sed -n "s/^TIMEBOX_USED='\{0,1\}\([0-9][0-9]*\)'\{0,1\}$/\1/p")
+  t0=$(cat "$PD/build_t0" 2>/dev/null); case "$t0" in ''|*[!0-9]*) t0="" ;; esac
+  if [ -n "$t0" ] && [ -f "$SPD/manifest.tsv" ]; then
+    m=$(awk -F'\t' -v a="$ATTEMPT" -v t0="$t0" 'NR > 1 && $7 == a && $6 - t0 > m {m = $6 - t0} END {printf "%d", m + 0}' "$SPD/manifest.tsv")
+  fi
+  case "${TIMEBOX_USED:-0}" in *[!0-9]*) ;; *) [ "${TIMEBOX_USED:-0}" -gt "$m" ] && m=${TIMEBOX_USED:-0} ;; esac
+  [ -n "$s" ] && [ "$s" -gt "$m" ] && m=$s
+  echo "$m"
+}
+spot_ckpt_loop_start() { # every CKPT_EVERY seconds while the build runs; a failed round never stops the build
+  rm -f "$SPD/STOP"
+  ( trap - TERM INT
+    while true; do
+      w=0; while [ "$w" -lt "$CKPT_EVERY" ]; do [ -e "$SPD/STOP" ] && exit 0; sleep 5; w=$((w + 5)); done
+      spot_ckpt_round loop >/dev/null
+      case "$?" in
+        4) touch "$SPD/CHANGED"; spot_log "a module already saved in a part was compiled again"; exit 0 ;;
+        5) exit 0 ;;                                         # TOO_BIG: the main script stops the attempt
+      esac
+    done ) & SPOT_CKPT_PID=$!
+}
+# Called by the build's monitor every twenty seconds: what the part loop found is acted on at once.
+spot_build_check() {
+  [ -e "$SPD/CHANGED" ] && finish FAIL "the build tool compiled again a module that was already saved in a part. This says nothing about the proof"
+  [ -e "$SPD/TOO_BIG" ] && spot_pause "$(spot_too_big_msg)" parts-limit
+  return 0
+}
+spot_too_big_msg() { echo "the parts would pass the size the cap test allows for an attempt outside the bucket's region ($PARTS_MAX bytes)"; }
+# After the build: the restored modules must not have been compiled again, and what is left goes into the last
+# part(s). A failed build is final, so nothing more is saved then.
+spot_ckpt_final() {
+  [ "$SEAL_DONE" = 1 ] && return 0
+  local again=0 tries=0 rc f
+  if [ -s "$SPD/restored.txt" ]; then
+    # The smoke build's log is the build user's: root reads only its own copy (made in limited time, never
+    # through a link); if that cannot be made, there is no smoke log to read, and spot.log says so. The same for
+    # the build tool's logs (spot_lake_copies).
+    rm -f "$SPD/smoke.log"
+    safe_cp /tmp/smoke.log "$SPD/smoke.log" && plain "$SPD/smoke.log" || { rm -f "$SPD/smoke.log"; spot_log "no smoke log: /tmp/smoke.log could not be copied as a plain file"; }
+    { built_in_log "$SPD/smoke.log"; for f in $(spot_lake_copies); do built_in_log "$f"; done; } | LC_ALL=C sort -u | LC_ALL=C comm -12 - "$SPD/restored.txt" > "$PD/restored_compiled_again.txt"
+    again=$(wc -l < "$PD/restored_compiled_again.txt")
+    spot_state --attempt-set-json "restored_modules_compiled_again=$again"
+    [ "$again" = 0 ] || { gcs_put "$PD/restored_compiled_again.txt" "$RES/restored_compiled_again.txt"
+      finish FAIL "the build tool compiled again $again of the modules restored from the parts; see restored_compiled_again.txt. This says nothing about the proof"; }
+  fi
+  [ -e "$SPD/CHANGED" ] && finish FAIL "the build tool compiled again a module that was already saved in a part. This says nothing about the proof"
+  [ -e "$SPD/TOO_BIG" ] && spot_pause "$(spot_too_big_msg)" parts-limit
+  [ "$C1_STATE" = failed ] && return 0
+  status build RUNNING "saving the last compiled modules"
+  while true; do
+    spot_ckpt_round final; rc=$?
+    case "$rc" in
+      0) tries=0 ;;
+      3) return 0 ;;
+      4) finish FAIL "the build tool compiled again a module that was already saved in a part. This says nothing about the proof" ;;
+      5) spot_pause "$(spot_too_big_msg)" parts-limit ;;
+      *) tries=$((tries + 1)); [ "$tries" -ge 5 ] && spot_pause "the last part of the build could not be saved"; sleep 30 ;;
+    esac
+  done
+}
+
+# ---- replay results
+# spot_results_round <jobs> [always]: a copy of the replay's results, trimmed to whole lines, taken FIRST; then a
+# confirm; only then is that copy compressed (into a file of root's own), uploaded as $CK/results/NNNNNNNNN.tsv.gz
+# (NNNNNNNNN its count of result lines; the header is not counted), and, in one state write, the count, the
+# object's name and the SHA-256 of the compressed file recorded. Earlier objects are left where they are; only the
+# one the state names is ever read. Lines written during the confirm wait for the next round. Without "always",
+# nothing is done unless the copy holds more lines than are saved. One round at a time. Status 0 done (or nothing
+# to do), 1 not confirmed or not uploaded (nothing is recorded; the lines are checked again later), 2 as spot_confirm.
+spot_results_round() {
+  plain "$AN/kernel_replay/results.tsv" || return 0
+  [ -e "$PD/STATE_READY" ] || return 0
+  local f="$SPD/results.snap.$BASHPID.tsv" n rc
+  safe_cp "$AN/kernel_replay/results.tsv" "$f" && bash "$SPK" trim --file "$f" || { rm -f "$f"; return 1; }
+  n=$(( $(wc -l < "$f") - 1 )); [ "$n" -ge 0 ] || n=0
+  if [ "$n" -le "$(spot_saved results_saved)" ] && [ "${2:-}" != always ]; then rm -f "$f"; return 0; fi
+  spot_confirm "$1"; rc=$?
+  if [ "$rc" = 0 ] && [ "$n" -gt "$(spot_saved results_saved)" ]; then
+    ( flock -w "${SPOT_LOCK_WAIT:-600}" 8 || exit 1
+      # under the lock, again: a round that saved more lines meanwhile is never followed by an older object
+      [ "$n" -gt "$(spot_saved results_saved)" ] || exit 0
+      z="$f.gz"; obj=$(printf '%s/results/%09d.tsv.gz' "$CK" "$n")
+      gzip -n -c < "$f" > "$z" && sha=$(sha256sum < "$z" | cut -d' ' -f1) && [ -n "$sha" ] && gcs_put "$z" "$obj" \
+        && spot_state --results-saved "$n" --set "results_object=$obj" --set "results_sha256=$sha"; rc=$?
+      rm -f "$z"; exit "$rc" ) 8> "$PD/results.lock"
+    rc=$?; [ "$rc" = 0 ] && spot_log "results: $n lines confirmed and saved"
+  fi
+  rm -f "$f"; return "$rc"
+}
+# The results loop: every CONFIRM_EVERY seconds a round, and at once when a new line is a rejection or a crash
+# (any status but a pass or one of the replay's not-run statuses, 96 97 98 129 130 137 143; or a damaged line):
+# such a line must not wait twenty minutes to be saved. A confirm that finds a change stops the checks at once.
+spot_res_loop_start() {
+  ( trap - TERM INT
+    last=$(now); seen=1
+    while sleep 10; do
+      [ -e "$PD/HARD_FAIL_MSG" ] && exit 0
+      urgent=0
+      if safe_cp "$AN/kernel_replay/results.tsv" "$SPD/results.peek" && bash "$SPK" trim --file "$SPD/results.peek"; then
+        n=$(wc -l < "$SPD/results.peek")
+        if [ "$n" -gt "$seen" ]; then
+          awk -F'\t' -v s="$seen" 'NR > s && NR > 1 { if (NF < 8 || $2 !~ /^[0-9]+$/ || $2 !~ /^(0|96|97|98|129|130|137|143)$/) bad = 1 } END { exit !bad }' "$SPD/results.peek" && urgent=1
+          seen=$n
+        fi
+      fi
+      if [ "$urgent" = 1 ] || [ $(( $(now) - last )) -ge "$CONFIRM_EVERY" ]; then
+        [ "$urgent" = 1 ] && spot_log "results: a rejection, crash or damaged line; confirming now"
+        spot_results_round 4; [ "$?" = 2 ] && { kill_users; exit 0; }     # the main script's deadline_check ends the run
+        last=$(now)
+      fi
+    done ) & SPOT_RES_PID=$!
+}
+spot_res_loop_stop() { # the loop stopped, then one last round, which always confirms. Status 0 confirmed and saved, 1 not.
+  local rc
+  if [ -n "$SPOT_RES_PID" ]; then pkill -TERM -P "$SPOT_RES_PID" 2>/dev/null; kill "$SPOT_RES_PID" 2>/dev/null; wait "$SPOT_RES_PID" 2>/dev/null; fi
+  SPOT_RES_PID=""
+  spot_results_round "$NMAX" always; rc=$?
+  [ "$rc" = 2 ] && finish FAIL "$(cat "$PD/HARD_FAIL_MSG")"
+  return "$rc"
+}
+# After a unit of checks: its results confirmed and saved before the unit is recorded, or this attempt stops and
+# the next one does the unit again.
+spot_unit_confirmed() {
+  spot_res_loop_stop && return 0
+  deadline_check
+  spot_pause "the results of this step could not be confirmed on this machine and saved"
+}
+# On an attempt after the seal: the saved results go where the replay script reads them, so that it skips every
+# module already passed (and keeps every rejection). The object, and the SHA-256 it must have, are the state's.
+spot_results_restore() {
+  local n rc obj sha
+  n=$(spot_saved results_saved); [ "$n" -gt 0 ] || return 0
+  obj=$(bash "$SPK" state-get --file "$SPS" --key results_object 2>/dev/null)
+  sha=$(bash "$SPK" state-get --file "$SPS" --key results_sha256 2>/dev/null)
+  [ -n "$obj" ] && [ -n "$sha" ] || finish FAIL "the state records $n saved replay results but names no object that holds them (or no SHA-256 for it)"
+  spot_fetch_checked "$obj" "$SPD/results.tsv.gz" "$sha"; rc=$?
+  case "$rc" in
+    0) ;;
+    2) finish FAIL "the saved replay results are not the ones the state records (three complete downloads)" ;;
+    4) finish FAIL "the saved replay results the state records ($obj) are not in the bucket" ;;
+    *) spot_pause "could not fetch the saved replay results (status $rc)" ;;
+  esac
+  gunzip -c "$SPD/results.tsv.gz" > "$PD/results_restored.tsv" && bash "$SPK" trim --file "$PD/results_restored.tsv" || spot_pause "the saved replay results could not be read"
+  [ $(( $(wc -l < "$PD/results_restored.tsv") - 1 )) -ge "$n" ] || spot_pause "the saved replay results hold fewer lines than the state records"
+  chmod 644 "$PD/results_restored.tsv"
+  as_chk chk3 "mkdir -p $AN/kernel_replay && cp $PD/results_restored.tsv $AN/kernel_replay/results.tsv" || finish FAIL "could not put the saved replay results where the replay reads them"
+  say "restored $(( $(wc -l < "$PD/results_restored.tsv") - 1 )) replay results"
+}
+
+# ---- setup, on every attempt
+# The run's state and manifest: fresh on the first attempt, or as the controller last saw them.
+s_spot_resume() {
+  local rc
+  [ -f "$SPK" ] || { echo "spot_checkpoint.sh is missing from the tools archive"; return 1; }
+  mkdir -p "$SPD" "$SPD/members" && chmod 700 "$SPD" || return 1
+  ZONE=$(curl -sf --connect-timeout 5 --max-time 20 -H "Metadata-Flavor: Google" "$MDURL/zone" | sed 's|.*/||')
+  echo "spot: full-parts-max-bytes=$PARTS_MAX full-confirm-every=$CONFIRM_EVERY full-ckpt-every=$CKPT_EVERY" >> "$PD/env.txt"
+  if [ -z "$STATE_SHA_WANT" ]; then
+    # The controller saw no state. Only if there is really none may the run start afresh: a state it did not see
+    # is never overwritten, and neither is the manifest beside it.
+    spot_fetch "$CK/state.json" "$SPD/state.json"; rc=$?
+    case "$rc" in
+      4) ;;
+      0) spot_pause "a state exists that the controller did not see" stop ;;
+      *) spot_pause "could not find out whether the run already has a state (status $rc)" ;;
+    esac
+    # Nothing to continue: start afresh (keeping the attempt number). A manifest left from before is replaced at
+    # once, so that no part made on a machine not compared with this one can ever be restored.
+    rm -f "$SPS"; printf 'seq\tobject\tsha256\tbytes\tmodules\tcut_epoch\tattempt\n' > "$SPD/manifest.tsv"
+    gcs_put "$SPD/manifest.tsv" "$CK/manifest.tsv" || spot_pause "could not write the run's manifest"
+    touch "$PD/STATE_READY"
+    spot_state --runtag "$RUNTAG" --set stage=build --attempt-set "boot_utc=$(date -u -d "@$T0" +%FT%TZ)" --attempt-set "zone=$ZONE" || spot_pause "could not write the run's state"
+  else
+    spot_fetch_checked "$CK/state.json" "$SPD/state.json" "$STATE_SHA_WANT"; rc=$?
+    case "$rc" in
+      0) ;;
+      4) echo "the run's state is missing from the bucket"; return 1 ;;
+      2) echo "the run's state is not the one the controller saw"; return 1 ;;
+      *) spot_pause "could not fetch the run's state" ;;
+    esac
+    [ "$(bash "$SPK" state-get --file "$SPD/state.json" --key runtag)" = "$RUNTAG" ] || { echo "the state belongs to another run"; return 1; }
+    if [ -n "$MANIFEST_SHA_WANT" ]; then
+      spot_fetch_checked "$CK/manifest.tsv" "$SPD/manifest.tsv" "$MANIFEST_SHA_WANT"; rc=$?
+      case "$rc" in
+        0) ;;
+        4) echo "the run's manifest is missing from the bucket"; return 1 ;;
+        2) echo "the run's manifest is not the one the controller saw"; return 1 ;;
+        *) spot_pause "could not fetch the run's manifest" ;;
+      esac
+    else
+      spot_fetch "$CK/manifest.tsv" "$SPD/manifest.tsv"; rc=$?
+      [ "$rc" = 4 ] || { [ "$rc" = 0 ] && { echo "a manifest exists that the controller did not see"; return 1; }; spot_pause "could not fetch the run's manifest"; }
+      printf 'seq\tobject\tsha256\tbytes\tmodules\tcut_epoch\tattempt\n' > "$SPD/manifest.tsv"
+    fi
+    # Every row as this script writes it: the object name is made from the row's number, nothing else.
+    awk -F'\t' -v p="$CK/part-" 'NR == 1 { if ($0 != "seq\tobject\tsha256\tbytes\tmodules\tcut_epoch\tattempt") bad = 1; next }
+      { if (NF != 7 || $1 !~ /^[0-9]+$/ || $2 != sprintf("%s%06d.tar.zst", p, $1) || length($3) != 64 || $3 ~ /[^0-9a-f]/ ||
+            $4 !~ /^[0-9]+$/ || $5 !~ /^[0-9]+$/ || $1 + 0 <= last) bad = 1; last = $1 + 0 }
+      END { exit bad }' "$SPD/manifest.tsv" || { echo "the run's manifest is malformed"; return 1; }
+    cp "$SPD/state.json" "$SPS" && touch "$PD/STATE_READY" || return 1
+    spot_state --close-open-attempts "no report: cut without notice" --attempt-set "boot_utc=$(date -u -d "@$T0" +%FT%TZ)" --attempt-set "zone=$ZONE" \
+      || say "WARNING: the state could not be uploaded at the start of this attempt"
+    spot_load || { echo "could not read the variables in the run's state"; return 1; }
+  fi
+  case "$TIMEBOX_USED" in ''|*[!0-9]*) TIMEBOX_USED=0 ;; esac
+  spot_done seal && SEAL_DONE=1
+  if spot_done build || [ "$SEAL_DONE" = 1 ]; then SKIP_BUILD=1
+  elif [ "$TIMEBOX" -gt 0 ] && [ "$TIMEBOX_USED" -ge "$TIMEBOX" ]; then SKIP_BUILD=1; C1_STATE=time_boxed; LAKE_RC=124
+  fi
+  awk -F'\t' 'NR > 1 && $1 + 0 > m {m = $1 + 0} END {print m + 0}' "$SPD/manifest.tsv" > "$SPD/seq"
+  : > "$SPD/done.txt"
+  echo "spot: attempt $ATTEMPT in zone ${ZONE:-unknown}; $(( $(wc -l < "$SPD/manifest.tsv") - 1 )) parts saved; seal done: $SEAL_DONE; build skipped: $SKIP_BUILD" >> "$PD/env.txt"
+}
+s_spot_baselines() { # the first attempt's records are the run's; every later machine must match them exactly
+  local f s rc same=1
+  if [ -z "$BASE_SRC_SHA" ]; then
+    [ "$(wc -l < "$SPD/manifest.tsv")" -le 1 ] || { echo "the manifest lists parts but the state holds no baselines"; return 1; }
+    for f in src tc pkgs; do gz_put "$PD/baseline_$f.txt" "$CK/baseline_$f.txt.gz" || spot_pause "could not save the baselines"; done
+    BASE_SRC_SHA=$(sha256sum < "$PD/baseline_src.txt" | cut -d' ' -f1); BASE_TC_SHA=$(sha256sum < "$PD/baseline_tc.txt" | cut -d' ' -f1)
+    BASE_PKGS_SHA=$(sha256sum < "$PD/baseline_pkgs.txt" | cut -d' ' -f1)
+    # No part may be saved before the baselines it rests on are recorded.
+    spot_state --var "BASE_SRC_SHA=$BASE_SRC_SHA" --var "BASE_TC_SHA=$BASE_TC_SHA" --var "BASE_PKGS_SHA=$BASE_PKGS_SHA" --attempt-set baselines_same=first \
+      || spot_pause "could not record the baselines in the state"
+    return 0
+  fi
+  for f in src tc pkgs; do
+    case "$f" in src) s=$BASE_SRC_SHA ;; tc) s=$BASE_TC_SHA ;; *) s=$BASE_PKGS_SHA ;; esac
+    spot_fetch_checked "$CK/baseline_$f.txt.gz" "$SPD/first_$f.txt.gz" "$s" "" gz; rc=$?
+    case "$rc" in
+      0) ;;
+      4) echo "the first attempt's baseline_$f is missing from the bucket"; return 1 ;;
+      2) echo "the first attempt's baseline_$f is not the one the state records"; return 1 ;;
+      *) spot_pause "could not fetch the first attempt's baselines" ;;
+    esac
+    gunzip -c "$SPD/first_$f.txt.gz" > "$SPD/first_$f.txt" || return 1
+    if ! cmp -s "$SPD/first_$f.txt" "$PD/baseline_$f.txt"; then
+      same=0; diff "$SPD/first_$f.txt" "$PD/baseline_$f.txt" | head -200 > "$PD/changed_baseline_$f.txt"; gcs_put "$PD/changed_baseline_$f.txt" "$RES/changed_baseline_$f.txt"
+    fi
+  done
+  spot_state --attempt-set-json "baselines_same=$([ "$same" = 1 ] && echo true || echo false)"
+  [ "$same" = 1 ] || finish FAIL "this machine's source tree, toolchain or library files differ from the first attempt's; see changed_baseline_*.txt. This says nothing about the proof"
+}
+# spot_restore_all <pilot|root>: every part the manifest lists, in order, fetched, checked and extracted into the
+# build directory. Before the seal as the build user, into its own tree; after it as root, into a tree root made.
+# Root keeps, for each part, what it holds (the files with sizes and times, and with their SHA-256): before the
+# seal read by root from its own copy of the part, after it written by root's own restore. The count of modules
+# is taken from those lists, not from what is on disk; then the tree is checked against them, file by file.
+spot_restore_all() {
+  local seq obj sha bytes mods ep att rc t0 n=0 b=0 got want
+  t0=$(now)
+  rm -rf "${WORK:?}/spot-in" && mkdir -m 755 "$SPIN" || return 1
+  : > "$SPD/restored_done.txt"
+  while IFS=$'\t' read -r seq obj sha bytes mods ep att; do
+    [ "$seq" = seq ] && continue
+    spot_fetch_checked "$obj" "$SPIN/part" "$sha" "$bytes"; rc=$?
+    case "$rc" in
+      0) ;;
+      4) finish FAIL "a part the manifest lists is missing from the bucket: $obj" ;;
+      2) finish FAIL "$obj does not match the checksum in the manifest (three complete downloads)" ;;
+      *) spot_pause "could not fetch $obj" ;;
+    esac
+    chmod 644 "$SPIN/part"
+    if [ "$1" = pilot ]; then
+      bash "$SPK" list --part "$SPIN/part" --members-out "$SPD/members/$seq.gz" --done-out "$SPD/part.done" 2>> "$PD/spot.log" \
+        && runuser -u pilot -- bash "$SPK" restore --build-dir "$PROJ/.lake/build" --part "$SPIN/part" --sha256 "$sha" >> "$PD/spot.log" 2>&1
+    else
+      bash "$SPK" restore --build-dir "$PROJ/.lake/build" --part "$SPIN/part" --sha256 "$sha" --members-out "$SPD/members/$seq.gz" --done-out "$SPD/part.done" >> "$PD/spot.log" 2>&1
+    fi || finish FAIL "could not restore $obj; see spot.log"
+    cat "$SPD/part.done" >> "$SPD/restored_done.txt"; rm -f "$SPIN/part" "$SPD/part.done"; n=$((n + 1)); b=$((b + bytes))
+  done < "$SPD/manifest.tsv"
+  rm -rf "${WORK:?}/spot-in"
+  # The modules the parts hold, by their .trace files: one per module.
+  cut -f1 "$SPD/restored_done.txt" | grep -E '^lib/lean/.+\.trace$' | sed -e 's|^lib/lean/||' -e 's|\.trace$||' -e 's|/|.|g' | LC_ALL=C sort -u > "$SPD/restored.txt"
+  want=$(awk -F'\t' 'NR > 1 {s += $5} END {print s + 0}' "$SPD/manifest.tsv"); got=$(wc -l < "$SPD/restored.txt")
+  spot_state --attempt-set-json "restore={\"parts\": $n, \"modules\": $got, \"bytes\": $b, \"seconds\": $(( $(now) - t0 ))}"
+  [ "$got" = "$want" ] || finish FAIL "the $n restored parts hold $got modules; the manifest lists $want"
+  # Every restored file must now be on disk exactly as the parts say (size and time): checked by the cut's own
+  # rule, writing nothing. From here on a change to any of them is a module compiled again.
+  cp "$SPD/restored_done.txt" "$SPD/done.txt" || return 1
+  if [ "$1" = pilot ]; then
+    rm -rf "${WORK:?}/spot-out" && mkdir -m 700 "$SPOUT" && cp "$SPD/done.txt" "$SPOUT/done.txt" && chown -R pilot:pilot "$SPOUT" || return 1
+    runuser -u pilot -- bash "$SPK" cut --build-dir "$PROJ/.lake/build" --done "$SPOUT/done.txt" --dry-run --all > "$SPD/restore_check.txt" 2>> "$PD/spot.log"; rc=$?
+    rm -rf "${WORK:?}/spot-out"
+  else
+    bash "$SPK" cut --build-dir "$PROJ/.lake/build" --done "$SPD/done.txt" --dry-run --all > "$SPD/restore_check.txt" 2>> "$PD/spot.log"; rc=$?
+  fi
+  case "$rc" in
+    3) ;;
+    0) spot_log "after the restore, $(wc -l < "$SPD/restore_check.txt") files on disk that no part holds; the next part saves them" ;;
+    4) finish FAIL "a file restored from the parts is not on disk as the parts hold it; see spot.log. This says nothing about the proof" ;;
+    *) finish FAIL "could not check the restored files (status $rc); see spot.log" ;;
+  esac
+  say "restored $n parts: $got modules, $b bytes, in $(( $(now) - t0 )) s"
+}
+s_spot_restore() { # before the seal: the parts, into the build user's tree, before the build tool first runs
+  [ "$SEAL_DONE" = 0 ] && [ "$(wc -l < "$SPD/manifest.tsv")" -gt 1 ] || return 0
+  spot_restore_all pilot
+}
+# An attempt that starts after the seal: the build user is locked out, exactly as the seal does it, before any
+# compiled file of the proof is on this machine; then root restores the parts into a tree only root has written.
+spot_after_seal_restore() {
+  local d
+  status setup RUNNING "the seal was done by an earlier attempt: locking the build user, then restoring the compiled files"
+  stop_build; kill_users
+  crontab -r -u pilot 2>/dev/null; usermod -L -s /usr/sbin/nologin pilot || finish FAIL "could not lock the build user's account"
+  loginctl disable-linger pilot 2>/dev/null; kill_users
+  ( while true; do if pgrep -u pilot >/dev/null 2>&1; then date -u +%FT%TZ >> "$PD/build_user_seen_after_seal"; pkill -KILL -u pilot; fi; sleep 5; done ) & GUARD_PID=$!
+  SPOT_LOCKED=1
+  rm -rf "${PROJ:?}/.lake/build"
+  for d in "$WORK" "$WORK/extract" "$PROJ" "$PROJ/.lake"; do
+    [ -d "$d" ] && [ ! -L "$d" ] && chown root:root "$d" || finish FAIL "$d is not a plain directory"
+  done
+  [ ! -e "$PROJ/.lake/build" ] || finish FAIL "could not clear the build directory"
+  spot_restore_all root || finish FAIL "could not restore the compiled files"
+}
+
+# ---- after the build
+spot_hold() { # full-spot-hold=seal:N: a rehearsal's watcher cuts the attempt here
+  local n
+  case "$HOLD" in seal:*) n=${HOLD#seal:}; case "$n" in ''|*[!0-9]*) return 0 ;; esac; say "holding $n s for the rehearsal"; sleep "$n" & wait $! ;; esac
+  return 0
+}
+# The first seal only: the parts, restored in order (a later part's copy of a file wins), must reproduce exactly
+# the compiled files the seal has just fingerprinted. What they lack or hold differently goes into one repair
+# part, cut by root (the build user is locked); then they must match. Proved here, on the sealing machine, and
+# not discovered after the next reclaim.
+spot_cover() {
+  local seq m=() rc tries=0 fix
+  for seq in $(awk -F'\t' 'NR > 1 {print $1}' "$SPD/manifest.tsv"); do
+    [ -s "$SPD/members/$seq.gz" ] || finish FAIL "this machine has no list of what part $seq holds, so the parts cannot be shown to reproduce the sealed files. This says nothing about the proof"
+    m+=(--members "$SPD/members/$seq.gz")
+  done
+  bash "$SPK" cover --lib-manifest "$PD/lib_sha256.txt" --prefix lib/lean "${m[@]}" > "$PD/parts_cover.txt" 2>> "$PD/spot.log"; rc=$?
+  fix=0
+  if [ "$rc" = 3 ]; then
+    grep -q '^extra' "$PD/parts_cover.txt" && { gcs_put "$PD/parts_cover.txt" "$RES/parts_cover.txt"
+      finish FAIL "the parts hold compiled files the seal did not find; they do not reproduce the sealed files (see parts_cover.txt). This says nothing about the proof"; }
+    cut -f2 "$PD/parts_cover.txt" > "$SPD/cover_fix.txt"; fix=$(wc -l < "$SPD/cover_fix.txt")
+    say "seal: $fix compiled files are not in the parts as sealed; saving them in a repair part"
+    while true; do
+      spot_ckpt_round repair; rc=$?
+      case "$rc" in
+        0) break ;;
+        5) spot_pause "$(spot_too_big_msg)" parts-limit ;;
+        *) tries=$((tries + 1)); [ "$tries" -ge 5 ] && spot_pause "the repair part could not be saved"; sleep 30 ;;
+      esac
+    done
+    m+=(--members "$SPD/members/$(awk -F'\t' 'NR > 1 {s = $1} END {print s}' "$SPD/manifest.tsv").gz")
+    bash "$SPK" cover --lib-manifest "$PD/lib_sha256.txt" --prefix lib/lean "${m[@]}" > "$PD/parts_cover.txt" 2>> "$PD/spot.log"; rc=$?
+  fi
+  [ "$rc" = 0 ] || { gcs_put "$PD/parts_cover.txt" "$RES/parts_cover.txt"
+    finish FAIL "the parts do not reproduce the sealed files (status $rc; see parts_cover.txt). This says nothing about the proof"; }
+  spot_state --set-json parts_cover_seal=true --set-int "parts_cover_repair_files=$fix" || spot_pause "could not record in the state that the parts reproduce the sealed files"
+}
+spot_seal_manifest() { # the first seal's manifests are kept; every later seal must reproduce the compiled files' exactly
+  local f
+  if [ "$SEAL_DONE" = 1 ]; then
+    [ "$MANIFEST_SHA" = "$SEAL_LIB_SHA" ] && return 0
+    spot_fetch "$CK/seal/lib_sha256.txt.gz" "$SPD/first_lib.txt.gz" && gunzip -c "$SPD/first_lib.txt.gz" > "$SPD/first_lib.txt" \
+      && { diff "$SPD/first_lib.txt" "$PD/lib_sha256.txt" | head -200 > "$PD/changed_lib_restored.txt"; gcs_put "$PD/changed_lib_restored.txt" "$RES/changed_lib_restored.txt"; }
+    finish FAIL "the compiled files restored from the parts are not byte for byte those the first seal recorded (manifest sha256 $MANIFEST_SHA, first seal $SEAL_LIB_SHA). This says nothing about the proof"
+  fi
+  spot_cover
+  for f in lib_sha256 seal_src seal_tc seal_pkgs seal_tc_copy; do gz_put "$PD/$f.txt" "$CK/seal/$f.txt.gz" || spot_pause "could not save the seal's manifests"; done
+}
+spot_after_seal() {
+  if [ "$SEAL_DONE" = 0 ]; then
+    # Only once the seal's manifests are in the bucket is the seal recorded; until then a later attempt seals afresh.
+    SEAL_LIB_SHA=$MANIFEST_SHA
+    spot_record seal c2 SRC_SAME LIBS_SAME TC_COPY_SAME LEFTOVERS LIB_OTHER MANIFEST_SHA SEAL_LIB_SHA || spot_pause "could not record the seal in the state"
+    SEAL_DONE=1
+  else
+    spot_results_restore
+  fi
+}
+# spot_c2_save <label> <unit> <stage> NAME...: once the check has ended, a confirm; then the check's summary goes
+# up, with its SHA-256 recorded beside the unit. If the confirm cannot be completed, or the summary not uploaded,
+# the unit is not recorded (the next attempt, if there is one, runs it again).
+spot_c2_save() {
+  local l=$1 u=$2 st=$3 sha="" v; shift 3
+  spot_confirmed || { deadline_check; say "WARNING: the axiom check ($l) could not be confirmed; it is not recorded"; return 0; }
+  if [ -f "$PD/c2/$l.json" ]; then
+    sha=$(sha256sum < "$PD/c2/$l.json" | cut -d' ' -f1)
+    gcs_put "$PD/c2/$l.json" "$CK/c2/$l.json" || { say "WARNING: the axiom check's summary ($l) was not saved; the check is not recorded"; return 0; }
+  fi
+  case "$l" in plain) C2_PLAIN_JSON_SHA=$sha; v=C2_PLAIN_JSON_SHA ;; *) C2_DEEP_JSON_SHA=$sha; v=C2_DEEP_JSON_SHA ;; esac
+  spot_record "$u" "$st" "$@" "$v"
+  return 0
+}
+spot_c2_reload() { # spot_c2_reload <label> NAME...: a check an earlier attempt completed, with its recorded result
+  local l=$1 sha rc; shift
+  spot_load "$@" C2_PLAIN_JSON_SHA C2_DEEP_JSON_SHA
+  case "$l" in plain) sha=$C2_PLAIN_JSON_SHA ;; *) sha=$C2_DEEP_JSON_SHA ;; esac
+  rm -f "$PD/c2/$l.json"
+  if [ -n "$sha" ]; then
+    spot_fetch_checked "$CK/c2/$l.json" "$PD/c2/$l.json" "$sha"; rc=$?
+    case "$rc" in
+      0) ;;
+      2) finish FAIL "the saved summary of the axiom check ($l) is not the one recorded with it" ;;
+      *) spot_pause "could not fetch the saved summary of the axiom check ($l, status $rc)" ;;
+    esac
+  fi
+  say "axiom check ($l): completed by an earlier attempt"
+}
+fi
+
 [ -n "$BUCKET" ] || { echo "no bucket in metadata; idling until deleted"; idle_until_deleted; }
-# A startup script runs on every boot. Never run twice on one VM.
+# A startup script runs on every boot. Never run twice on one VM. (In a Spot run that ends only this attempt.)
+if [ -e "$PD/STARTED" ] && [ "$SPOT" = 1 ]; then status reboot RECLAIMED "VM restarted; this attempt is over"; idle_until_deleted; fi
 if [ -e "$PD/STARTED" ]; then status reboot FAIL "VM restarted; the run does not start twice"; idle_until_deleted; fi
 date -u +%FT%TZ > "$PD/STARTED"
 trap on_signal TERM INT
 # If the bucket cannot be written to, nothing this run does could ever be collected: do no work at all.
 status boot RUNNING "booted" || { echo "cannot write to the bucket; idling until deleted"; idle_until_deleted; }
+[ "$SPOT" = 1 ] && { spot_watch_preempted & SPOT_WATCH_PID=$!; }
 ( n=0; while true; do sleep 60; sync_small; n=$((n+1)); [ $((n % 10)) -eq 0 ] && sync_big; done ) & SYNC_PID=$!
 # Deadline watchdog, independent of the phase logic. It signals the main script first, then unblocks whatever the
 # main script is waiting on; if the main script still has not finished, it takes over and reports.
@@ -356,7 +1247,7 @@ MAIN=$$
   # time-limited command of its own that must not be cut off).
   if [ ! -e "$PD/FINISHING" ]; then pkill -TERM -x lake; pkill -TERM -x xargs; pkill -TERM -x timeout; pkill -TERM -x tar; pkill -TERM -x zstd; fi
   sleep "$WATCHDOG_WAIT"
-  final_state() { grep -qE '"state": "(DONE|FAIL|DEADLINE|BUILD_FAILED)"' "$PD/status.json" 2>/dev/null; }
+  final_state() { grep -qE '"state": "(DONE|FAIL|DEADLINE|BUILD_FAILED|PAUSED|RECLAIMED)"' "$PD/status.json" 2>/dev/null; }   # the last two: Spot only
   # A main script that has begun its report is given longer: on the whole tree the report alone (hashing done,
   # but summaries to recompute and logs to upload) can take more than the first wait.
   w=0; while ! final_state && [ -e "$PD/FINISHING" ] && [ "$w" -lt "$FINISH_WAIT" ]; do sleep 20; w=$((w + 20)); done
@@ -365,9 +1256,15 @@ MAIN=$$
     kill_users
     for f in "$PD"/lake_build_*.log "$PD"/c2_*.out "$PD"/c3_*.out; do plain "$f" && gz_put "$f" "$RES/logs/$(basename "$f").gz"; done
     if [ ! -e "$PD/SEALED" ]; then for f in "$LOGS"/lake_build_*.log; do plain "$f" && gz_put "$f" "$RES/logs/$(basename "$f").gz"; done; fi
-    gcs_put "$PD/facts.json" "$RES/facts.json"; sync_big; sync_small
+    gcs_put "$PD/facts.json" "$RT/facts.json"; sync_big; sync_small
+    if [ "$SPOT" = 1 ] && [ -e "$PD/FAIL_IS_FINAL" ] && [ -e "$PD/HARD_FAIL_MSG" ]; then   # Spot: a confirm found a change; that ends the run
+      status watchdog FAIL "$(cat "$PD/HARD_FAIL_MSG") (the main script was stuck; the watchdog stopped the run)"
+    elif [ "$SPOT" = 1 ]; then   # in a Spot run the deadline ends only this attempt: the run goes on from what is saved
+      status watchdog PAUSED "main script stuck at the attempt's deadline; the watchdog stopped this attempt (facts.json is from the last checkpoint)" deadline
+    else
     status watchdog DEADLINE "main script stuck at the deadline; the watchdog stopped the run (facts.json is from the last checkpoint)"
-    while true; do kill_users; gcs_put "$PD/status.json" "$RES/status.json" 2>/dev/null; sleep 60; done
+    fi
+    while true; do kill_users; gcs_put "$PD/status.json" "$RT/status.json" 2>/dev/null; sleep 60; done
   fi ) &
 
 # ---------------------------------------------------------------- setup
@@ -480,18 +1377,26 @@ t_step disk s_disk
 t_step user s_user
 t_step elan s_elan
 t_step source s_source
+[ "$SPOT" = 1 ] && t_step spot_state s_spot_resume
 t_step mathlib_cache s_cache
 t_step baseline s_baseline
+[ "$SPOT" = 1 ] && t_step spot_baselines s_spot_baselines
 t_step replay_program s_driver
 t_step lockdown s_lockdown
+[ "$SPOT" = 1 ] && t_step restore_parts s_spot_restore
+if [ "$SPOT" = 1 ] && [ "$SEAL_DONE" = 1 ]; then
+  say "setup: no smoke build: the seal was done by an earlier attempt, and nothing of the proof is compiled after it"
+else
 t_step smoke_build s_smoke
 t_step replay_program_test s_driver_test
+fi
 LEAN_VERSION=$(as_pilot 'lean --version' | tail -1)
 echo "ulimit_n_pilot=$(as_pilot 'ulimit -n' | tail -1) max_map_count=$(cat /proc/sys/vm/max_map_count) lean=$LEAN_VERSION" >> "$PD/env.txt"
 [ "$GUEST_SHA" = "$GUEST_SHA_WANT" ] || say "NOTE: this script's sha256 ($GUEST_SHA) is not the one the controller announced ($GUEST_SHA_WANT)"
 NSRC=$(find "$PROJ/src" -name '*.lean' | wc -l)
 python3 "$PD/sampler.py" "$PD" & SAMPLER_PID=$!
 sync_small
+[ "$SPOT" = 1 ] && [ "$SEAL_DONE" = 1 ] && spot_after_seal_restore
 
 # ---------------------------------------------------------------- build (criterion C1)
 finished_modules() { ( cd "$LIB" 2>/dev/null && find . -name '*.trace' | sed -e 's|^\./||' -e 's|\.trace$||' -e 's|/|.|g' | LC_ALL=C sort ); }
@@ -499,6 +1404,7 @@ n_finished() { find "$LIB" -name '*.trace' 2>/dev/null | wc -l; }
 built_in_log() { plain "$1" || return 0; grep -E '^[^ ]+ \[[0-9]+/[0-9]+\] Built ' "$1" 2>/dev/null | sed -E 's/^[^ ]+ \[[0-9]+\/[0-9]+\] Built ([^ ]+).*/\1/' | LC_ALL=C sort -u; }
 prune() { RH_WORKDIR=$WORK bash "$TOOLS/scripts/prune_setup_files.sh" --delete --min-age "$1" --project "$PROJ" 2>&1 | tr '\n' ' '; echo; }
 LAKELOG=""; LAKE_JOB=""; BUILD_JOBS=$NMAX; BUILD_T0=$(now); TESTS_DONE=0; RESTART_RESULT=""; RESTART_NEW=""
+[ "$SPOT" = 1 ] && spot_load TESTS_DONE            # the restart tests run once a run, not once an attempt
 start_lake() { # starts the build tool in the background with BUILD_JOBS jobs; time-boxed in a rehearsal
   LAKE_N=$((LAKE_N + 1)); LAKELOG="$LOGS/lake_build_$LAKE_N.log"
   local pre="" rest
@@ -519,6 +1425,7 @@ restart_test() { # restart_test <label> <prune: 0|1>  -- sets RESTART_RESULT to 
   built_in_log "$LAKELOG" | LC_ALL=C comm -12 - "$before" > "$PD/restart_${label}_recompiled.txt"
   RESTART_RESULT=$(wc -l < "$PD/restart_${label}_recompiled.txt"); RESTART_NEW=$(( $(n_finished) - n0 ))
   BUILD_T0=$(( BUILD_T0 + $(now) - t_in ))        # a rehearsal's time box does not count the time a test takes
+  if [ "$SPOT" = 1 ]; then echo "$BUILD_T0" > "$PD/build_t0"; fi
 }
 monitor_build() { # watches the running build tool until it exits: the restart tests (once), pruning, disk space, progress
   local n free_gb nf last_prune last_status=0
@@ -526,6 +1433,7 @@ monitor_build() { # watches the running build tool until it exits: the restart t
   while kill -0 "$LAKE_JOB" 2>/dev/null; do
     sleep 20
     [ -e "$PD/DEADLINE" ] && break
+    [ "$SPOT" = 1 ] && spot_build_check        # Spot: a saved module compiled again, or parts too big, stops the build now
     n=$(n_finished); free_gb=$(( $(df -B1 --output=avail "$WORK" | tail -1) / 1000000000 ))
     if [ "$TESTS_DONE" = 0 ] && [ "$n" -ge "$PRUNE_AFTER" ]; then
       status build RUNNING "restart tests at $n modules"
@@ -544,6 +1452,7 @@ monitor_build() { # watches the running build tool until it exits: the restart t
         finish FAIL "a restart test was inconclusive: the build tool built only $RESTART_CONTROL_NEW and $RESTART_PRUNE_NEW new modules after its restarts. This says nothing about the proof"
       fi
       TESTS_DONE=1; last_prune=$(now)
+      if [ "$SPOT" = 1 ]; then spot_record tests - TESTS_DONE RESTART_CONTROL RESTART_PRUNE RESTART_CONTROL_NEW RESTART_PRUNE_NEW; fi
     fi
     if [ "$TESTS_DONE" = 1 ] && [ $(( $(now) - last_prune )) -ge "$PRUNE_EVERY" ]; then say "prune: $(prune 5)"; last_prune=$(now); fi
     if [ "$free_gb" -lt 25 ]; then C1_STATE=stopped_disk_full; finish FAIL "only $free_gb GB of disk left at $n modules. This says nothing about the proof"; fi
@@ -557,9 +1466,15 @@ monitor_build() { # watches the running build tool until it exits: the restart t
   deadline_check
 }
 
+# Spot: a build an earlier attempt completed (or whose time box it used up) is not run again.
+if [ "$SPOT" = 1 ] && [ "$SKIP_BUILD" = 1 ]; then
+  say "build: not run on this attempt (state: $C1_STATE); $(n_finished) modules restored"
+else
 phase_mark "build:N=$NMAX"; status build RUNNING "starting the build of $NSRC modules"
 printf 't\tphase\tfinished\tfailed_lines\tdisk_free_gb\n' > "$PD/progress.tsv"
 BUILD_T0=$(now)
+[ "$SPOT" = 1 ] && { BUILD_T0=$(( BUILD_T0 - TIMEBOX_USED )); echo "$BUILD_T0" > "$PD/build_t0"; }   # the time box spans the attempts
+[ "$SPOT" = 1 ] && spot_ckpt_loop_start
 start_lake; monitor_build
 say "build tool exited with status $LAKE_RC; $(n_finished) modules finished"
 if [ "$TIMEBOX" -gt 0 ]; then
@@ -577,12 +1492,20 @@ else
   start_lake; monitor_build
   if [ "$LAKE_RC" = 0 ]; then C1_STATE=built_on_second_pass; else C1_STATE=failed; fi
 fi
+fi
+[ "$SPOT" = 1 ] && spot_stop_loops gently
 stop_build; kill_users
+[ "$SPOT" = 1 ] && spot_ckpt_final            # the last parts are cut as the build user, before its account is locked
 # The build user's work is over. Its account is locked now, before anything it left behind is examined, and any
 # process of it that appears from here on is killed and recorded.
+if [ "$SPOT" = 1 ] && [ "$SPOT_LOCKED" = 1 ]; then
+  say "the build user was locked before the compiled files were restored"
+else
 crontab -r -u pilot 2>/dev/null; usermod -L -s /usr/sbin/nologin pilot || finish FAIL "could not lock the build user's account"
 loginctl disable-linger pilot 2>/dev/null; kill_users
 ( while true; do if pgrep -u pilot >/dev/null 2>&1; then date -u +%FT%TZ >> "$PD/build_user_seen_after_seal"; pkill -KILL -u pilot; fi; sleep 5; done ) & GUARD_PID=$!
+fi
+[ "$SPOT" = 1 ] && SPOT_LOCKED=1
 phases_end build "$(n_finished)" "$(failed_lines)"
 put_logs                                   # the evidence for C1, uploaded now
 if [ "$C1_STATE" = failed ]; then
@@ -632,12 +1555,14 @@ if [ "${C1_EXTRA:-1}" != 0 ] || [ "${C1_SHADOW:-1}" != 0 ]; then C1_STATE=unexpe
 if [ "$TIMEBOX" = 0 ] && [ "${C1_MISSING:-1}" != 0 ]; then C1_STATE=incomplete; finish FAIL "the build tool reported success but ${C1_MISSING:-an unknown number} of $NSRC source modules are not compiled"; fi
 say "final prune: $(prune 0)"
 checkpoint "the build has ended; the seal is next"
+[ "$SPOT" = 1 ] && [ "$SEAL_DONE" = 0 ] && spot_record build seal C1_STATE LAKE_RC RETRIED
 
 # ---------------------------------------------------------------- seal
 # From here on nothing runs as the build user. What it could have altered is compared with the records taken
 # before any file of the proof was compiled, then handed to root, and the checks run as two fresh users.
 [ "$(left)" -gt $(( FINAL_RESERVE + 600 )) ] || finish DEADLINE "the build finished too close to the deadline to run any check"
 phase_mark seal; status seal RUNNING "$NCOMP modules compiled; sealing and hashing"
+[ "$SPOT" = 1 ] && spot_hold
 kill_users
 same() { # same <label> <baseline> <current>   -- prints 1 if identical, else 0, and uploads the difference
   if cmp -s "$2" "$3"; then echo 1; else diff "$2" "$3" | head -200 > "$PD/changed_$1.txt"; gcs_put "$PD/changed_$1.txt" "$RES/changed_$1.txt"; echo 0; fi
@@ -685,6 +1610,8 @@ if [ "$TIMEBOX" -gt 0 ] && { [ "$LEFTOVERS" -lt 1 ] || [ -e "$LIB/RehearsalStand
 find "$LIB" ! -type d \( ! -type f -o ! \( -name '*.olean' -o -name '*.olean.hash' -o -name '*.ilean' -o -name '*.ilean.hash' -o -name '*.trace' \) \) -print > "$PD/unexpected_lib_files.txt"
 LIB_OTHER=$(wc -l < "$PD/unexpected_lib_files.txt")
 if [ "$LIB_OTHER" != 0 ]; then gcs_put "$PD/unexpected_lib_files.txt" "$RES/unexpected_lib_files.txt"; finish FAIL "$LIB_OTHER files beside the compiled modules are of a kind the build does not write; see unexpected_lib_files.txt"; fi
+# Spot, an attempt after the first seal: the run's figures are the first seal's; this machine's go under "spot".
+if [ "$SPOT" = 1 ] && [ "$SEAL_DONE" = 1 ]; then SPOT_LEFTOVERS_HERE=$LEFTOVERS; SPOT_LIB_OTHER_HERE=$LIB_OTHER; spot_load LEFTOVERS LIB_OTHER; fi
 for u in chk2 chk3; do
   id "$u" >/dev/null 2>&1 || useradd -m -s /bin/bash "$u" || finish FAIL "could not create the user $u"
   no_network "$u" || finish FAIL "could not cut the user $u off from the network"
@@ -731,10 +1658,12 @@ lib_manifest > "$PD/lib_sha256.txt"; deadline_check
 [ "$(grep -c '\.olean$' "$PD/lib_sha256.txt")" -eq "$NCOMP" ] && [ "$(wc -l < "$PD/lib_sha256.txt")" -eq "$(find "$LIB" -type f | wc -l)" ] \
   || finish FAIL "the hash manifest does not list every file beside the $NCOMP compiled modules"
 MANIFEST_SHA=$(sha256sum "$PD/lib_sha256.txt" | cut -d' ' -f1)
+[ "$SPOT" = 1 ] && spot_seal_manifest
 gz_put "$PD/lib_sha256.txt" "$RES/lib_sha256.txt.gz" || say "WARNING: the manifest of compiled files was not uploaded"
 gz_put "$PD/baseline_tc.txt" "$RES/toolchain_sha256.txt.gz"; gz_put "$PD/baseline_pkgs.txt" "$RES/libraries_sha256.txt.gz"
 disk_facts; gcs_put "$PD/disk.txt" "$RES/disk_after_build.txt"
 sync_small; checkpoint "sealed; the checks are next"
+[ "$SPOT" = 1 ] && spot_after_seal
 
 # ---------------------------------------------------------------- criterion C2: statement and axioms (user chk2)
 mkdir -p "$PD/c2"
@@ -764,13 +1693,19 @@ c2_deep() { # c2_deep <seconds> <when>
   touch "$PD/c2_start"; sleep 1
   C2_DEEP_RC=$(run_c2 deep "$C2_ARGS --deep" "$1"); C2_DEEP_WHEN=$2
   say "deep axiom check exit status: $C2_DEEP_RC"; deadline_check
+  if [ "$SPOT" = 1 ]; then
+    spot_check_cut "$C2_DEEP_RC" $(( $(stat -c %Y "$PD/c2_start") + $1 )); spot_c2_save deep c2_deep c3 C2_DEEP_RC C2_DEEP_WHEN
+  fi
 }
 C2_ARGS=""; [ "$TIMEBOX" -gt 0 ] && C2_ARGS="--probe"
 t=$(( $(left) - FINAL_RESERVE )); [ "$t" -gt "$C2_TIMEOUT" ] && t=$C2_TIMEOUT
+[ "$SPOT" = 1 ] && t=$C2_TIMEOUT                 # Spot: the attempt's time left is no reason for a shorter check
+[ "$SPOT" = 1 ] && spot_done c2_plain && { spot_c2_reload plain C2_PLAIN_RC; t=0; }
 if [ "$t" -ge 300 ]; then
   phase_mark c2_plain; status c2 RUNNING "axiom and statement check"
   touch "$PD/c2_start"; sleep 1
   C2_PLAIN_RC=$(run_c2 plain "$C2_ARGS" "$t"); say "axiom check exit status: $C2_PLAIN_RC"; deadline_check
+  if [ "$SPOT" = 1 ]; then spot_check_cut "$C2_PLAIN_RC" $(( $(stat -c %Y "$PD/c2_start") + t )); spot_c2_save plain c2_plain c2 C2_PLAIN_RC; fi
 fi
 phase_mark idle; sync_small; checkpoint "the plain axiom check has run"
 
@@ -796,15 +1731,18 @@ except Exception: print(-1)' "$PD/c3_summary.json"; }
 CHECK_JOBS=$NMAX
 C3_NEED=$(( NCOMP / 3 ))                  # seconds the replay is taken to need if no trial measures it
 n_trials=$(echo $CHECK_TRIAL | wc -w)
-if [ "$n_trials" -gt 0 ] && [ "$(left)" -gt $(( n_trials * TRIAL_SECS + FINAL_RESERVE + 600 )) ]; then
+[ "$SPOT" = 1 ] && spot_done trials && { spot_load CHECK_JOBS C3_RATE C3_NEED C3_EXPECT C3_FITS; n_trials=0; say "replay trials: completed by an earlier attempt"; }
+if [ "$n_trials" -gt 0 ] && { [ "$SPOT" = 1 ] || [ "$(left)" -gt $(( n_trials * TRIAL_SECS + FINAL_RESERVE + 600 )) ]; }; then
   # A short run at each job count; every result is kept. The rate is counted after a warm-up (a third of the
   # trial, at most 90 seconds), which goes on planning the run and on start-up. The modules arrive in a fixed
   # shuffled order, so each trial sees a similar mix. Only modules that were really checked count.
   best=0; warm=$(( TRIAL_SECS / 3 )); [ "$warm" -gt 90 ] && warm=90
+  [ "$SPOT" = 1 ] && spot_res_loop_start      # Spot: trial results are real results, and are kept like any other
   for j in $CHECK_TRIAL; do
     [ "$j" -le "$NMAX" ] || continue
     phase_mark "check_trial:N=$j"; status c3 RUNNING "kernel replay, trial at $j at a time"
     t=$(now); replay "trial$j" "$j" "$TRIAL_SECS" "--method leanchecker" >/dev/null; deadline_check
+    [ "$SPOT" = 1 ] && spot_check_cut "$(cat "$PD/c3_trial$j.rc" 2>/dev/null || echo 99)" $(( t + TRIAL_SECS ))
     rate=0; plain "$AN/kernel_replay/results.tsv" && rate=$(awk -F'\t' -v a=$((t + warm)) -v b="$(now)" 'NR>1 && $5>=a && $5<=b && ($2==0 || $2==1) {n++} END{print n+0}' "$AN/kernel_replay/results.tsv")
     phases_end "check_trial" "${rate:-0}" "$j"; say "replay trial: $j at a time finished ${rate:-0} modules in the counted window"
     [ "${rate:-0}" -gt "$best" ] && { best=$rate; CHECK_JOBS=$j; }
@@ -820,17 +1758,26 @@ if [ "$n_trials" -gt 0 ] && [ "$(left)" -gt $(( n_trials * TRIAL_SECS + FINAL_RE
   fi
   C3_EXPECT=$C3_NEED
   if [ "$C3_NEED" -le $(( $(left) - FINAL_RESERVE )) ]; then C3_FITS=1; else C3_FITS=0; fi
+  [ "$SPOT" = 1 ] && C3_FITS=1               # Spot: decided as if time were unlimited; the next attempt carries on
   say "replay: $C3_RATE modules a second at $CHECK_JOBS at a time; $togo modules to go need about $C3_NEED s; $(left) s left; fits: $C3_FITS"
 fi
+if [ "$SPOT" = 1 ] && ! spot_done trials; then spot_unit_confirmed; spot_record trials c3 CHECK_JOBS C3_RATE C3_NEED C3_EXPECT C3_FITS; fi
 checkpoint "the replay's rate has been measured"
 # The deep walk of the axiom check runs now if the replay will still fit afterwards; otherwise after it, if time remains.
 t=$(( $(left) - FINAL_RESERVE - C3_NEED - C3_NEED / 8 )); [ "$t" -gt "$C2_TIMEOUT" ] && t=$C2_TIMEOUT
-if [ "$C3_FITS" != 0 ] && [ "$t" -ge 900 ]; then c2_deep "$t" before_replay; else C2_DEEP_WHEN=deferred; fi
-phase_mark "check:N=$CHECK_JOBS"; status c3 RUNNING "kernel replay by leanchecker, $CHECK_JOBS at a time; $(n_checked) results so far"
+[ "$SPOT" = 1 ] && t=$C2_TIMEOUT
+if [ "$SPOT" = 1 ] && spot_done c2_deep; then spot_c2_reload deep C2_DEEP_RC C2_DEEP_WHEN
+elif [ "$C3_FITS" != 0 ] && [ "$t" -ge 900 ]; then c2_deep "$t" before_replay; else C2_DEEP_WHEN=deferred; fi
 # A line of progress every five minutes while a replay runs; stopped while anything else has the machine.
 c3_progress_start() { ( while true; do sleep 300; printf '%s\tcheck\t%s\t\t\n' "$(now)" "$(n_checked)" >> "$PD/progress.tsv"; status c3 RUNNING "kernel replay: $(n_checked) results of $NCOMP modules"; done ) & PROG_PID=$!; }
 c3_progress_stop() { if [ -n "${PROG_PID:-}" ]; then kill "$PROG_PID" 2>/dev/null; wait "$PROG_PID" 2>/dev/null; fi; PROG_PID=""; }
+# Spot: the main replay, if an earlier attempt completed it, is not run again (its results were restored).
+if [ "$SPOT" = 1 ] && spot_done main; then
+  spot_load C3_RC C3_MAIN_T C3_PASSES; c3_summary; say "kernel replay: completed by an earlier attempt"
+else
+phase_mark "check:N=$CHECK_JOBS"; status c3 RUNNING "kernel replay by leanchecker, $CHECK_JOBS at a time; $(n_checked) results so far"
 c3_progress_start
+[ "$SPOT" = 1 ] && spot_res_loop_start
 t=$(( $(left) - FINAL_RESERVE )); [ "$t" -gt 60 ] || t=60
 if [ "$C3_FITS" = 0 ]; then
   # It cannot finish. Hours more of it would not change what can be said about criterion C3, so it is given a
@@ -839,7 +1786,9 @@ if [ "$C3_FITS" = 0 ]; then
   say "kernel replay: it cannot cover the tree in the time left (about $C3_NEED s needed); running it for $t s only"
 fi
 C3_MAIN_T=$t; C3_PASSES=1
+[ "$SPOT" = 1 ] && SPOT_END=$(( $(now) + t ))
 C3_RC=$(replay main "$CHECK_JOBS" "$t" "--method leanchecker"); deadline_check
+[ "$SPOT" = 1 ] && spot_check_cut "$C3_RC" "$SPOT_END"
 c3_summary
 # Modules whose checker was killed, or that a time limit cut off, are tried again with a quarter of the jobs; and
 # a module the tool rejected or crashed on gets the further runs it is owed. A pass that changes nothing is not
@@ -850,29 +1799,48 @@ while [ "$C3_FITS" != 0 ] && [ "$(c3_left)" != 0 ] && [ "$(c3_left)" != "$before
   j=$(( CHECK_JOBS / 4 )); [ "$j" -ge 2 ] || j=2
   say "kernel replay: $before modules still to check; pass $((pass + 1)) at $j at a time"
   C3_RC=$(replay "again$pass" "$j" "$(( $(left) - FINAL_RESERVE ))" "--method leanchecker"); deadline_check
+  [ "$SPOT" = 1 ] && spot_check_cut "$C3_RC" $(( DEADLINE - FINAL_RESERVE ))    # its time limit ends there
   c3_summary; pass=$((pass + 1)); C3_PASSES=$pass
 done
+if [ "$SPOT" = 1 ]; then
+  spot_unit_confirmed                      # the results confirmed and saved before the unit is recorded
+  # Modules still to check and no time to check them: the next attempt carries on from the saved results.
+  if [ "$(c3_left)" != 0 ] && [ "$(left)" -le $(( FINAL_RESERVE + 600 )) ]; then c3_progress_stop; spot_pause "the kernel replay has $(c3_left) modules still to check" deadline; fi
+  spot_record main c3 C3_RC C3_MAIN_T C3_PASSES
+fi
 c3_progress_stop
+fi
 # The deep walk of the axiom check, if it was put off: it is part of criterion C2, so it comes before the
 # optional second replay, which no criterion needs.
 if [ "$C2_DEEP_WHEN" = deferred ]; then
   t=$(( $(left) - FINAL_RESERVE )); [ "$t" -gt "$C2_TIMEOUT" ] && t=$C2_TIMEOUT
+  [ "$SPOT" = 1 ] && t=$C2_TIMEOUT
   if [ "$t" -ge 600 ]; then c2_deep "$t" after_replay; else C2_DEEP_WHEN=skipped_for_lack_of_time; fi
 fi
 # The optional second replay, by a different program. It runs only once leanchecker has had its whole turn, and
 # not at all if leanchecker could not cover the tree: hours of a second opinion would then add nothing.
-if [ -n "$DRIVER" ]; then
+if [ "$SPOT" = 1 ] && spot_done second; then
+  spot_load SECOND_RC SECOND_WHY; c3_summary; say "second replay: completed by an earlier attempt"
+elif [ -n "$DRIVER" ]; then
   t=$(( $(left) - FINAL_RESERVE ))
+  [ "$SPOT" = 1 ] && [ "$t" -lt 300 ] && spot_pause "under five minutes were left for the second replay" deadline
   if [ "$C3_FITS" = 0 ]; then SECOND_WHY="the replay by leanchecker could not cover the tree in the time there was"
   elif [ "$t" -lt 300 ]; then SECOND_WHY="under five minutes were left for it"
   else
     SECOND_WHY=""
     phase_mark "check_second:N=$NMAX"; status c3 RUNNING "second replay, by rhv-replay"; c3_progress_start
+    [ "$SPOT" = 1 ] && { spot_res_loop_start; SPOT_END=$(( $(now) + t )); }
     SECOND_RC=$(replay second "$NMAX" "$t" "--method rhv-replay"); c3_progress_stop; deadline_check
+    if [ "$SPOT" = 1 ]; then
+      spot_check_cut "$SECOND_RC" "$SPOT_END"; spot_unit_confirmed
+      # Cut off by the attempt's time, not finished; the next attempt carries on from the saved results.
+      { [ "$SECOND_RC" = 124 ] || [ "$(left)" -le $(( FINAL_RESERVE + 60 )) ]; } && spot_pause "the second replay ran out of this attempt's time" deadline
+    fi
     phases_end check_second "$(n_checked)" "$SECOND_RC"
     say "second replay, by rhv-replay: exit status $SECOND_RC"
   fi
   c3_summary
+  if [ "$SPOT" = 1 ]; then spot_record second end SECOND_RC SECOND_WHY; fi
 elif [ "$SECOND_REPLAY" = rhv-replay ]; then
   SECOND_WHY="the program was not built"
 fi
@@ -884,13 +1852,18 @@ say "kernel replay: last exit status $C3_RC, $(n_checked) result lines"; cat "$P
 put_logs; checkpoint "the kernel replay has run"
 
 # ---------------------------------------------------------------- end: nothing the checks relied on may have changed
+# Spot: on the finishing attempt always, whatever an earlier attempt recorded; and what it finds ends the run.
 phase_mark end_check; status end RUNNING "hashing the compiled files again"
 kill_users
 lib_manifest > "$PD/end_lib_sha256.txt"; pkgs_manifest > "$PD/end_pkgs.txt"; tc_manifest /opt/lean-tc > "$PD/end_tc.txt"; deadline_check
+[ "$SPOT" = 1 ] && touch "$PD/FAIL_IS_FINAL"
 OLEANS_SAME_END=$(same lib_end "$PD/lib_sha256.txt" "$PD/end_lib_sha256.txt")
 LIBS_SAME_END=1; [ "$(same tc_end "$PD/baseline_tc.txt" "$PD/end_tc.txt")" = 1 ] && [ "$(same pkgs_end "$PD/baseline_pkgs.txt" "$PD/end_pkgs.txt")" = 1 ] || LIBS_SAME_END=0
 [ "$OLEANS_SAME_END" = 1 ] && [ "$LIBS_SAME_END" = 1 ] || finish FAIL "files the checks rely on changed while the checks ran; their results cannot be used"
 [ ! -e "$PD/build_user_seen_after_seal" ] || finish FAIL "a process of the build user appeared after the seal; the checks' results cannot be used"
+# Spot: and on no earlier attempt either.
+[ "$SPOT" = 1 ] && [ -n "$SEEN_ATTEMPTS" ] && finish FAIL "a process of the build user appeared after the seal on attempt(s) $SEEN_ATTEMPTS; the checks' results cannot be used"
+[ "$SPOT" = 1 ] && spot_record end end OLEANS_SAME_END LIBS_SAME_END
 phase_mark idle
 
 # ---------------------------------------------------------------- optional: keep the compiled files

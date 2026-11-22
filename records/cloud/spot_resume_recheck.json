@@ -1,0 +1,1071 @@
+{
+ "what": "The later looks, on 2026-11-21, at the code for a full run on Spot machines that resumes after Google takes a machine back (cloud/gcp/pilot_local.sh, cloud/gcp/full_guest.sh, scripts/spot_checkpoint.sh and the three local tests), each after the changes the look before it had led to; the first review is spot_resume_review.json. Every look was by fresh AI agents told to refute the fixes, read-only on the repository; none ran anything in the cloud, and no run has been made. Criticism of code, not a result. Line numbers are those of the draft each agent read. 'what_was_done' under each finding is the lead agent's one-line account, not the verifier's.",
+ "counts_by_look": [
+  {
+   "look": "second",
+   "blocker": 0,
+   "major": 5,
+   "minor": 15
+  },
+  {
+   "look": "third",
+   "blocker": 0,
+   "major": 2,
+   "minor": 9
+  },
+  {
+   "look": "fourth",
+   "blocker": 0,
+   "major": 3,
+   "minor": 6
+  },
+  {
+   "look": "fifth",
+   "blocker": 0,
+   "major": 0,
+   "minor": 1
+  }
+ ],
+ "the_shape_of_it": "No look graded anything a blocker. The findings narrowed from the design (what may cross between machines, what the ledger must survive) to the edges of the rehearsal's own reporting and of two commands run in the same seconds. The guest and the checkpoint helper had no major finding from the third look on.",
+ "what_no_look_could_show": "docs/cloud-notes.md, section 10.6: everything that needs a real machine, a real reclaim and a real bucket.",
+ "looks": [
+  {
+   "look": "second",
+   "checked": "the code after the changes the first review led to",
+   "verifiers": [
+    {
+     "subject": "the launcher (cloud/gcp/pilot_local.sh) and its test",
+     "summary": "All of A1-A14 and the launcher side of K1-K6 are done as FIXES.md asks. I confirmed each by reading the code at the lines cited. The test passes on a default macOS TMPDIR: I ran `/bin/bash scripts/dev/test_spot_launcher.sh` myself and its last lines were \"PASS old_mode_full-rehearsal / PASS old_mode_full / PASS old_full_edges / PASS spot_vm_matches_on_demand / 47 passed, 0 failed\", exit 0. The four old modes match HEAD. The only change to code they run is the atomic close_run, plus refusals that apply only when a Spot state exists. I found no blocker. Against the five claims: (1) the cap arithmetic holds as long as the guest keeps the parts under the limit, though the inputs downloaded out of region are not counted. (2) and (4) fail in two narrow ways. A power loss of the Mac within seconds of a create can leave a VM with no ledger row, because neither the row append nor the state is flushed to disk. On the all-zones-refused path, the row is closed at zero without checking for leftover disks. (3) holds in normal use, but taking over a stale lock has a check-then-act race, which I reproduced with an injected 1 s delay. A pid reused after a reboot gives a refusal that tells the owner to kill an unrelated process. Two new problems come from the fix round. The rehearsal's record of which cuts were actually done (CUTS_DONE) is deleted with the state at the end and never printed, so a rehearsal can finish without one of its cuts and nobody is told. The 5-minute \"not listed yet\" guard is timed from when the row was opened, not from the create that went unclear. Smaller ones: the 90 % parts rule is reported as a cap shortage, and every guest PAUSED (including the new non-deadline pauses) starts another paid attempt.",
+     "tests_run": "`/bin/bash scripts/dev/test_spot_launcher.sh` with the default macOS TMPDIR, in the background; log at <SCRATCH>/spotdesign/rev3A/test.log. Last lines: \"PASS old_mode_full-rehearsal\", \"PASS old_mode_full\", \"PASS old_full_edges\", \"PASS spot_vm_matches_on_demand\", \"47 passed, 0 failed\", exit 0, finishing within the 15-minute budget. In scratch I also ran: (a) a bash 3.2 check that the EXIT trap runs on INT, TERM and HUP (it does, so the lock is released); (b) a stale-lock takeover race using spot_lock pulled from the script: 0 doubled holders in 40 trials of three concurrent takers, but 2 holders once a 1 s delay is put after the pid read (rev3A/lockt2.sh), which confirms the check-then-act window. No gcloud, no lake, no state-changing git; config.env was not read.",
+     "findings": [
+      {
+       "severity": "major",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "321-329 (row append and state saves before create), 136-139 (spot_save), 85-90 (close_run)",
+       "title": "A power loss of the Mac just after a create can leave a VM with no ledger row and no state naming it",
+       "detail": "Sequence: (1) spot_start appends attempt N's row with `printf >> $LEDGER` (line 321). (2) It saves the state with ATTEMPT=N (lines 322 and 325, write a temp file then mv). (3) It sends the create (line 329). Neither the row nor the state is fsynced. On macOS the writes stay in the buffer cache for up to tens of seconds, and os.fsync alone does not flush the drive's cache (F_FULLFSYNC does). If the Mac loses power in that window, both files can come back as they were before the start: no row, ATTEMPT=N-1, ACCOUNTED=N-1, LEDGER_ROWS at the old count. The LEDGER_ROWS backstop then sees nothing wrong. The next `watch` finds no open row and ACCOUNTED equal to ATTEMPT, and goes to spot_start. If the VM is still listed, spot_start dies and teardown purges it with no row. If Google has meanwhile reclaimed and deleted it, a new attempt starts. Either way that VM's time, up to MAXRUN (151200 s, about $50 at 1.20/h), is never recorded, so actual spend can pass the cap by one attempt. This breaks claims (2) and (4) for power loss; the window is small but real.",
+       "fix": "Make the row append durable before the create: append through python (open 'a', write, flush, os.fsync, and fcntl(F_FULLFSYNC) on Darwin), and fsync the directory. Write spot_save's temp file through a python helper that does the same before the rename. Apply F_FULLFSYNC in close_run and spot_ledger_zone too. Order: ledger durable, then state durable, then create.",
+       "what_was_done": "Fixed: the ledger row and the state naming the attempt are forced to disk (F_FULLFSYNC on macOS) before any create is sent; later also the state that announces the row."
+      },
+      {
+       "severity": "major",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "501-519 (CUTS_DONE written), 629-637 (spot_finish removes the state)",
+       "title": "What the rehearsal actually cut is deleted at the end and never reported, so a missed or fallen-back cut goes unnoticed",
+       "detail": "A7 records in CUTS_DONE what each cut really did (for example `c3:reset>delete`). Nothing ever prints CUTS_DONE or saves it outside the state file. spot_finish runs `rm -f \"$STATE\"` first. The only trace is the transient line \"rehearsal cut X in attempt N\" in the watch terminal. Sequence: in full-spot-rehearsal the c3 gate needs state.json results_saved above RESULTS_SAVED. If the guest never saves a confirmed result while c3 is RUNNING (short c3, or confirms failing), the c3:reset cut never fires. Or a reset is refused and falls back to delete. The run ends DONE, the state is deleted, and the summary looks like a full rehearsal. Restoring saved replay results after a cut with no notice was never exercised, and nobody is told. Per the brief, a rehearsal that does not exercise what it claims is major.",
+       "fix": "In spot_finish (and spot_pause/abandon in rehearsal mode), before removing the state, print CUTS against CUTS_DONE, one line per configured cut: done / done by fallback / NOT DONE. Also write that list to $OUT/$RUNTAG/cuts.txt so the mirror and the results folder carry it. Consider ending a rehearsal with a non-zero status when a configured cut was not done.",
+       "what_was_done": "Fixed: every configured cut is reported (done as configured, done by fallback, NOT DONE), the report is kept in cuts.txt, and a rehearsal that missed a cut ends with exit status 4."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "484 (spot_poll 5-minute guard), 318-319 (CREATED=rownow), 276-290",
+       "title": "The 'not listed yet' guard is timed from when the row was opened, not from the create that went unclear",
+       "detail": "CREATED is the time the row was opened, before the first zone's create. Zone refusals can each take a minute or more, and spot_create_unclear adds 30 s. So the unclear create in zone 3 or 4 is sent 3 to 5 minutes after CREATED. When the owner runs `watch` \"in a few minutes\" as told, t - CREATED is already at least 300. The first poll that shows GONE ends the attempt, the purge and close follow, and spot_start creates in zone 1. This is the exact case the implementer's guard was added for: a late-appearing VM gives two VMs, one of them unrecorded and bounded only by its max-run-duration. It is likely rare, because GCE normally lists an accepted insert at once, but the guard does not cover the case it claims to.",
+       "fix": "Save the time of the last create sent (for example CREATE_SENT, written just before each create at line 325). Time the 5-minute rule in spot_poll from that, and also require two empty listings at least 5 minutes after it.",
+       "what_was_done": "Fixed: the guard is timed from when the create was sent (CREATE_SENT) and needs two empty listings after that."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "342 (refusal check lists instances only), 347-353 (row closed at zero)",
+       "title": "After a refused create, only instances are listed: a leftover disk is not seen and the row is closed at zero",
+       "detail": "A refusal goes on to the next zone, and the all-zones-refused path closes the row at zero, after an empty INSTANCE listing only. If a refused insert leaves the data or boot disk behind (each `--create-disk` is part of the request), the disk bills while no ledger row is open. That breaks claim (2), 'no VM or disk without an open ledger row'. The next spot_start, 10 minutes later, lists disks and dies with 'a disk exists... run teardown', so the watch stalls until the owner acts. The money involved is small.",
+       "fix": "In the refusal test on line 342 also require `compute disks list` to succeed and be empty. Before close_run ... zero on the no-capacity path, call spot_purge (it verifies both listings); if it is not verified, keep the row open and stop.",
+       "what_was_done": "Fixed: after a refused create both the instance and the disk listing must succeed and be empty before another zone is tried."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "145-158 (spot_lock)",
+       "title": "Taking over a stale lock is check-then-act: two commands can both end up holding it",
+       "detail": "Sequence: a stale lock is left by a dead pid (for example after a power loss). Command A reads the pid, finds it dead, and is delayed before line 154. Command B reads the dead pid, moves the old lock away, mkdirs a new one and writes its pid. A then runs `mv $SPOT_LOCK $SPOT_LOCK.stale.$$`, which moves B's live lock away, removes it, and mkdirs its own; both now act. I reproduced this in scratch with an instrumented copy of spot_lock that adds a 1 s sleep after the read: both processes printed GOT (rev3A/lockt2.sh). Without the delay, 40 trials of three concurrent takers never doubled up. Once both owners hit an empty pid file (owner killed between mkdir and echo), they sit in the same 3 x 1 s retry loop and reach the takeover together. That widens the window.",
+       "fix": "Take over by atomic rename and re-check: `mv lock lock.stale.$$`, then confirm that the moved directory's pid file still holds the dead pid you read. If it does not, put it back or refuse. Simpler: create the lock with a unique temp dir and `mv -n` / `ln -s` of the pid as the lock, so the stale check and the claim are one atomic step.",
+       "what_was_done": "Superseded: after a further finding the directory lock was replaced by a lock the kernel holds on a file (flock), which has no stale state and no take-over."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "148-150",
+       "title": "After the Mac restarts, a reused pid makes every Spot command refuse and tells the owner to kill an unrelated process",
+       "detail": "The lock directory lives in the work dir and survives a power loss or a reboot. kill -0 only tests that some process with that pid exists and belongs to the user. After a reboot the pid can belong to any of the user's processes. watch/teardown then refuse with \"stop that command first (... kill PID)\", inviting the owner to kill an unrelated process, and the run stalls until the lock is removed by hand.",
+       "fix": "Store the command and the process start time (`ps -o lstart= -p PID`) in the lock. Treat the lock as live only if `ps -o command= -p PID` contains pilot_local.sh and the start time matches. Otherwise take it over.",
+       "what_was_done": "Superseded by the same change: nothing is decided from a process number any more."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "235-236 (spot_size), 311, 355",
+       "title": "When the 90 % parts rule blocks every zone, the pause says the cap is too small",
+       "detail": "spot_size returns -1 for an out-of-region zone once PARTS_BYTES passes 90 % of the limit. spot_start then prints \"the cap leaves room for an attempt of only -1 s\". If no zone in GCP_ZONES is in the bucket's region, it pauses with SPOT_WHY \"the cap leaves room for an attempt of only -1 s in the best zone\". The owner is pointed at raising the cap, which adds spending authority without fixing anything. The real fix is an in-region zone or a larger GCP_SPOT_PARTS_MAX_GIB.",
+       "fix": "Have spot_size print a reason word (cap / parts / giveup) with m, and make the per-zone line and SPOT_WHY say \"the checkpoint parts (N GiB) are above 90 % of GCP_SPOT_PARTS_MAX_GIB; no attempt may start outside the bucket's region $BUCKET_REGION\".",
+       "what_was_done": "Fixed: sizing gives the reason (cap, give-up time, parts), and the pause for the parts limit names the two remedies and says that raising the cap does not help."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "481 (PAUSED handled as attempt over), 703-717",
+       "title": "Every guest PAUSED starts another paid attempt, including the new pauses that are not deadlines",
+       "detail": "The SPEC's guest PAUSED meant 'this attempt's deadline'. The fix round added guest pauses for other reasons: transport trouble on restore (G3), 'a state exists that the controller did not see' (G5.2), a failed axiom-summary fetch (G5.6), a killed check (G5.7), and the K1 parts limit. spot_poll treats them all as 'attempt over' and the watch loop starts the next attempt at once. For G5.2 and K1 the next attempt hits the same condition. Each one pays startup and restore (and transfer out of region) until NOPROGRESS reaches 3. That is up to three wasted attempts and a pause whose message ('3 attempts in a row saved no progress') hides the guest's reason.",
+       "fix": "Have the guest's pause carry a kind (for example `\"pause\": \"deadline\"` in status.json or state.json). In spot_poll, only a deadline pause goes on to the next attempt; any other kind ends with spot_pause and the guest's message.",
+       "what_was_done": "Fixed: the guest says what kind of pause it is (deadline, retry, parts-limit, stop); only the first two start another attempt unconditionally."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "223-238 (spot_size), 591-598 (transfer row)",
+       "title": "The cap test leaves out the inputs each out-of-region attempt downloads",
+       "detail": "Every attempt fetches inputs/lean.tar.gz, rhv_tools.tar.gz and sampler.py from the bucket (full_guest.sh about lines 1177-1184). Out of region that is a cross-region transfer every attempt (the tarball is the 14-part source archive). Neither XWORST nor the transfer row counts it, and GCP_SPOT_RESERVE_USD is documented as being for checkpoint storage. With 24 attempts out of region the unrecorded transfer adds up to multiples of the tarball size x 0.02 USD/GiB.",
+       "fix": "Measure the inputs' size at launch (`storage du`), add it to XWORST and to the transfer row of every out-of-region attempt. Or say in config.example.env that the reserve must cover it, and size the default from the measured size.",
+       "what_was_done": "Fixed: the size of the inputs is measured at launch and counted in the worst-case transfer and in each transfer row."
+      }
+     ],
+     "items_checked": [
+      {
+       "item": "A1 lock",
+       "status": "done",
+       "note": "spot_lock/spot_unlock lines 145-159. Taken by spot_launch (649), spot_watch after the caffeinate exec (684), spot_teardown (670) and abandon (830); released by the EXIT trap, which bash 3.2 runs on INT/TERM/HUP (checked in scratch). Old modes take no lock. Stale-lock race and pid-reuse problems listed as findings."
+      },
+      {
+       "item": "A2 atomic ledger and backstop",
+       "status": "done",
+       "note": "close_run 85-90 and spot_ledger_zone 255 write a temp file, fsync it and os.replace it, with the same bytes (old-mode identity cases pass). SPENT_SEEN/LEDGER_ROWS are checked in spot_ledger_seen (219-222) and refused in spot_start (300). The row append itself is not durable (finding)."
+      },
+      {
+       "item": "A3 create errors",
+       "status": "done",
+       "note": "SPOT_NOCREATE (125); the next zone only after a match and an empty project listing (342); otherwise spot_create_unclear (276-290): 30 s wait, look in every zone, else die with the row open. spot_vm lists by name in every zone (260-270). The guard's timing and missing disk listing are findings."
+      },
+      {
+       "item": "A4 purge race",
+       "status": "done",
+       "note": "spot_wait_gone waits up to 300 s (448-455, called at 480); spot_purge retries the listings for 600 s, re-issuing deletes every 4th round (372-391). Tests reclaim_stopping_short and reclaim_stopping_long pass."
+      },
+      {
+       "item": "A5 canonical WORK",
+       "status": "done",
+       "note": "test line 17 `WORK=$(cd \"$WORK\" && pwd -P)`; my run with the default macOS TMPDIR passed all four old_mode cases."
+      },
+      {
+       "item": "A6 contract case",
+       "status": "done",
+       "note": "Uses the real spot_checkpoint.sh state, the guest's header and row printf, and status() pulled out of full_guest.sh (test 900-929). Extracted with awk rather than sed, which is equivalent. A RECLAIMED before the checkpoints change is counted as no progress."
+      },
+      {
+       "item": "A7 cuts",
+       "status": "done",
+       "note": "Kinds and default at 176/186-189; gates in spot_cut_due (436-445); reset (505-509); simulate with --async and a state check on error (512-519). CUTS_DONE records fallbacks, but it is never reported and is deleted at the end (major finding)."
+      },
+      {
+       "item": "A8 crash-safe start",
+       "status": "done",
+       "note": "STARTING is saved with ATTEMPT before the row (319) and cleared before the first create (325); fast path in spot_account (556-561); progress counters touched only when ACCOUNTED differs (599-601); no-capacity path saves the state first (350-352); spot_settle (609-618). Clearing before the create rather than after is the safer choice and is correct."
+      },
+      {
+       "item": "A9 bucket region",
+       "status": "done",
+       "note": "spot_bucket_region (194-205) requires a single region; BUCKET_REGION is used in spot_size (224), the PMD metadata (327) and the transfer row (591); spot_ready backfills it (206-210)."
+      },
+      {
+       "item": "A10 costs outside the ledger",
+       "status": "done",
+       "note": "spot_ckpt_note (619-628) is used in pause, finish and abandon; the pause message says bucket storage still bills (641); after each attempt only the top-level files and attempt-N are copied (572-573)."
+      },
+      {
+       "item": "A11 LAST_SEEN note",
+       "status": "done",
+       "note": "Saved at every positive sighting (425-431), reset per attempt (319), note printed when the row closes more than 600 s after it (563-566); nothing is lowered."
+      },
+      {
+       "item": "A12 settings checks",
+       "status": "done",
+       "note": "MIN must be at least DMARGIN+600=1500 (184); CONFIRM a whole number of at least 30 (182, 185); unknown cut kinds refused (186-189). The K6 default of 24 is at 114."
+      },
+      {
+       "item": "A13 positive absent",
+       "status": "done",
+       "note": "SPOT_ABSENT='matched no objects|no urls matched' (126), used in spot_fetch (396) and spot_poll (467); the old watch keeps HEAD's regex (864)."
+      },
+      {
+       "item": "A14 config and tests",
+       "status": "done",
+       "note": "config.example.env documents every new setting; the test grew to 47 cases and all pass."
+      },
+      {
+       "item": "K1 launcher side",
+       "status": "done",
+       "note": "full-parts-max-bytes only out of region (327); full-confirm-every in both modes (336); full-spot watchdog waits of 420 and 300 (171); DMARGIN 900 in both modes (165); rehearsal MIN default 2400 (175); 90 % rule (235-236)."
+      },
+      {
+       "item": "K2 launcher side",
+       "status": "done",
+       "note": "results_saved is read in spot_ckpt_vals (536), stored as RESULTS_SAVED (602) and printed (604)."
+      },
+      {
+       "item": "K3 launcher side",
+       "status": "done",
+       "note": "As A7."
+      },
+      {
+       "item": "K5 launcher side",
+       "status": "done",
+       "note": "A status.json without this attempt's number is ignored (466, 577)."
+      },
+      {
+       "item": "K6",
+       "status": "done",
+       "note": "GCP_SPOT_MAX_ATTEMPTS defaults to 24 (114)."
+      },
+      {
+       "item": "Old modes unchanged",
+       "status": "done",
+       "note": "Deleted lines against HEAD are only close_run's write and the usage line. The new guards (746, 849, 894) act only when a Spot state exists. The old_mode_* and old_full_edges cases pass in my run."
+      }
+     ]
+    },
+    {
+     "subject": "the guest (cloud/gcp/full_guest.sh), the checkpoint helper (scripts/spot_checkpoint.sh) and their tests",
+     "summary": "Review of the Spot path of the guest and helper: cloud/gcp/full_guest.sh, scripts/spot_checkpoint.sh and the two dev tests. Both tests pass. G1-G4 and most of G5, K1, K4 and K5 hold on the guest side: cross-machine records are written only after a confirm, every fetch is checked, cover is sound, and the ordering of parts, manifest and state is safe. I found no blocker. The old (non-Spot) path is not changed by anything I traced. Two problems are major. First, the setup steps that use the network run again on every attempt, so one transient network failure on a later attempt ends the whole run with a final FAIL. Second, the failed-job count and the lake logs of an attempt that is cut without notice are lost, so the build evidence is weaker than an uninterrupted run's. A third major finding is a test gap: no test runs a cut against the restored done list after a real post-restore Lake build, so a Lake rewrite that changes only mtimes (giving exit 4 and a final FAIL) is never exercised. The rest are minor: a busy loop in the watcher, trim following symlinks, c2 time boxes that cannot fit a short attempt, unconfirmed per-attempt copies, rc 99 pausing every attempt, and a racy root read of /tmp/smoke.log.",
+     "tests_run": "bash scripts/dev/test_spot_checkpoint.sh: last lines \"PASS toy: after a source change recompiles saved modules, the next cut says so (status 4)\" / \"69 cases, 0 failed\" (rc 0). TMPDIR=<scratch> bash scripts/dev/test_spot_guest.sh: last lines \"PASS 10. axiom-check summaries saved with a checksum and recorded only after a confirm (4 checks, 12 s)\" / \"13 cases, 0 failed (147 s)\" (rc 0).",
+     "findings": [
+      {
+       "severity": "major",
+       "file": "cloud/gcp/full_guest.sh",
+       "line": "1248-1267",
+       "title": "A transient network failure in setup on any later attempt is a final FAIL for the whole run",
+       "detail": "Every Spot attempt runs the setup t_steps again on a fresh VM: packages (apt), elan (curl from GitHub), source (gcs_get, fetch_checked) and mathlib_cache (lake exe cache get). Any failure calls `finish FAIL`. spot_not_final (lines 507-518) treats an ordinary FAIL as final, and the launcher stops on FAIL status. Sequence: attempt 7 of a run that is 80% done starts; the apt mirror or GitHub returns a 5xx for a minute; t_step elan fails; finish FAIL; the launcher records the run as failed and all the paid-for progress is abandoned. An uninterrupted run is exposed to this only once, but Spot is exposed once per attempt, and that is exactly what Spot was meant to tolerate.",
+       "fix": "In Spot mode, route failures of the network steps (packages, elan, mathlib_cache, and the source fetch when the cause is transport rather than a checksum mismatch) to spot_pause with a reason such as SETUP_NET, so the launcher retries them under the no-progress limit. Keep checksum or seal mismatches final (touch FAIL_IS_FINAL).",
+       "what_was_done": "Fixed: in a Spot run a failure of the packages, elan, source or Mathlib-cache step pauses the attempt (retry) and does not end the run; the no-progress rule bounds repeats."
+      },
+      {
+       "severity": "major",
+       "file": "cloud/gcp/full_guest.sh",
+       "line": "726",
+       "title": "failed_job_lines and lake logs of an attempt cut without notice are lost",
+       "detail": "failed_job_lines is written to state only by spot_record, spot_pause and the final path. spot_apply_pending's state update at line 726 records only parts-modules and TIMEBOX_USED. The lake logs are uploaded only by put_logs on pause or finish. Sequence: attempt 3 builds for 70 minutes, and Lake reports 2 failed jobs that are retried and later succeed; parts are applied every round; the VM is reclaimed with no notice (or the watcher misses the notice), so spot_pause never runs. Attempt 3's failed-job count and logs are gone, c1_build.failed_job_lines_in_all_logs undercounts compared with an uninterrupted run, and the build log evidence for those modules is missing.",
+       "fix": "Add `--attempt-set-json failed_job_lines=$(failed_lines)` to the state update in spot_apply_pending, and in each part round upload a gzip of the current lake logs to the per-attempt RES/ckpt prefix before the state write, so the record follows the same part, manifest, state order.",
+       "what_was_done": "Fixed: the count of failed job lines goes into the state with every part, and the build logs are uploaded with every part."
+      },
+      {
+       "severity": "major",
+       "file": "scripts/dev/test_spot_checkpoint.sh",
+       "line": "255-297",
+       "title": "No test runs a cut with the restored done list after a real post-restore Lake build",
+       "detail": "The toy test checks only that the post-restore lake build left each restored file's sha256 unchanged. cut's done tracking is keyed on (path, size, int mtime), and exit 4 means a saved module was compiled again. If Lake rewrites a restored .olean, .ilean or .trace with identical bytes but a new mtime (for example because it re-hashes a trace or touches outputs), the next cut on the real run exits 4 and the run FAILs final before the seal. The sha-only check cannot see this, and test_spot_guest.sh stubs Lake, so neither test exercises what the restore-resume claim depends on.",
+       "fix": "Add a toy case: cut, restore into a clean tree, run lake build, then cut again with the restored done list. Expect rc 3 (nothing new) and compare size+mtime as well as sha. If Lake does touch mtimes, make cut compare sha for done entries whose mtime changed before reporting status 4.",
+       "what_was_done": "Fixed: the test now builds on a restored tree and cuts again; on this toolchain the build tool changed no restored file. The helper also records each saved file's SHA-256 and treats a file written again with the same bytes as saved again, not as compiled again."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/full_guest.sh",
+       "line": "566-582",
+       "title": "Preemption watcher spins without sleeping when the ETag is unusable",
+       "detail": "spot_watch_preempted clears etag when it contains characters outside [0-9A-Za-z] and sleeps only when the value v is empty. If the metadata server returns a value with a quoted or otherwise unusable ETag, every request returns at once without wait_for_change, and the loop issues requests continuously. That burns a CPU core during the build and floods the metadata server, which can throttle it and delay the real notice.",
+       "fix": "Sleep 5 s whenever etag is empty after a read, regardless of v, and log once that wait_for_change is not in use.",
+       "what_was_done": "Fixed: the watcher sleeps whenever it has no usable ETag."
+      },
+      {
+       "severity": "minor",
+       "file": "scripts/spot_checkpoint.sh",
+       "line": "479-486",
+       "title": "trim opens with rb+ and follows a symbolic link",
+       "detail": "trim uses open(p, 'rb+'), which follows symlinks. Root calls it on files that safe_cp copied out of the build user's tree (full_guest.sh lines 785 and 805). If the build user swaps the file for a symlink between the plain-file check and the cp, root can truncate or upload the link target. The build user is semi-trusted (it runs project code), so this is a privilege-crossing write.",
+       "fix": "In trim, open with os.open(p, os.O_RDWR | os.O_NOFOLLOW) and fstat to reject anything that is not a regular file. In safe_cp, copy from an fd opened with O_NOFOLLOW instead of check-then-cp.",
+       "what_was_done": "Fixed: trim refuses anything but a regular file and never follows a link."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/full_guest.sh",
+       "line": "1576-1584",
+       "title": "In Spot, c2 always uses t=C2_TIMEOUT (7200 s), even when the attempt cannot fit it",
+       "detail": "Spot forces the c2 time box to C2_TIMEOUT=7200. The launcher's minimum attempt length is 5400 s for full-spot (DL about 75 min after DMARGIN). An attempt that starts a c2 unit with less than 7200+FINAL_RESERVE s left is cut at the deadline every time and makes no progress, until NOPROGRESS stops the run, and the money for those attempts is spent with nothing to show.",
+       "fix": "Before starting a c2 unit, pause with reason NO_ROOM when its time box exceeds left-FINAL_RESERVE, and have the launcher grow the next attempt's length (or refuse a SPOT_MIN below C2_TIMEOUT+FINAL_RESERVE+setup).",
+       "what_was_done": "Left by decision: in a Spot run the axiom check keeps its full time box; an attempt too short for it is bounded by the no-progress rule and by the cap."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/full_guest.sh",
+       "line": "1563",
+       "title": "Unconfirmed per-attempt copies of c2 and c3 verdicts are uploaded",
+       "detail": "run_c2 uploads $RES/c2/*.json before any confirm. sync_big uploads c3/results.tsv.gz every 10 minutes, c3_summary writes summary.json before spot_unit_confirmed, and RT/facts.json is written on pause and checkpoint. The cross-machine CK records follow a confirm (G1), but these per-attempt objects can hold verdicts from a machine whose build user was later sighted. A reader of the per-attempt prefix could take them as evidence.",
+       "fix": "Write the unconfirmed copies under an explicit unconfirmed/ prefix, or mark them unconfirmed in facts.json, and promote them only after spot_confirmed.",
+       "what_was_done": "Stated, not changed: files under attempt-N/ are that machine's working copies; facts.json and docs/cloud-notes.md section 10.2 say that only what the state records, saved after a confirming hash, is carried between machines."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/full_guest.sh",
+       "line": "G5.7 handling",
+       "title": "rc 99 (no rc file) pauses every attempt",
+       "detail": "When a step leaves no rc file (for example runuser fails to start), status 99 is treated as pause-worthy. If the cause is deterministic, such as a broken user setup, every attempt pauses at the same point and the run spends attempts until NOPROGRESS stops it.",
+       "fix": "Count consecutive rc-99 pauses at the same step in state and make the second one final with a clear HARD_FAIL_MSG.",
+       "what_was_done": "Left by decision: bounded by the no-progress rule at three attempts."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/full_guest.sh",
+       "line": "753",
+       "title": "Root reads the build user's /tmp/smoke.log with a plain check that can race",
+       "detail": "spot_ckpt_final calls built_in_log /tmp/smoke.log. The file is checked as plain and then read as root. The build user can swap it for a FIFO between the check and the read, so the final checkpoint hangs until the deadline.",
+       "fix": "Open it with O_NOFOLLOW|O_NONBLOCK, fstat to confirm a regular file, and read from that fd. Or copy it with the same safe copy used for parts.",
+       "what_was_done": "Fixed: root reads the smoke log only from a copy of its own, made with a time limit."
+      }
+     ],
+     "items_checked": [
+      {
+       "item": "G1",
+       "status": "done",
+       "note": "The cross-machine CK uploads (results, c2 json, unit records) all follow spot_confirm (lines 593-634; results round lines 781-795; c2_save lines 1077-1087). Only the unconfirmed per-attempt copies remain (line 1563, sync_big, summary.json, RT/facts.json); see the minor finding."
+      },
+      {
+       "item": "G2",
+       "status": "done",
+       "note": "Root no longer reads paths the pilot controls without a check: cut uses --out - (line 658ff) and restore uses check_member/O_NOFOLLOW. One leftover is the racy read of /tmp/smoke.log at line 753 (minor)."
+      },
+      {
+       "item": "G3",
+       "status": "done",
+       "note": "spot_fetch and spot_fetch_checked (lines 463-494) check the size and sha256 against the manifest, and a mismatch is final or refetched."
+      },
+      {
+       "item": "G4",
+       "status": "done",
+       "note": "spot_cover (lines 1025-1052, helper lines 444-477): I found no case where cover passes but a restore differs, and later seals compare the full manifest anyway."
+      },
+      {
+       "item": "G5.1-G5.6",
+       "status": "done",
+       "note": "Pause order (lines 526-547), reclaimed handling (lines 551-561), deadline_check priority (lines 429-433) and spot_record refusals (lines 444-455) behave as described, and the guest test cases 1-6 exercise them."
+      },
+      {
+       "item": "G5.7",
+       "status": "partly",
+       "note": "Statuses outside 0|96|97|98|129|130|137|143 trigger an urgent round as described, but rc 99 pauses forever with no limit (minor finding)."
+      },
+      {
+       "item": "G5.8",
+       "status": "partly",
+       "note": "failed_job_lines is recorded at record, pause and final, but not in apply_pending (line 726), so it is lost on a reclaim without notice (major finding)."
+      },
+      {
+       "item": "G5.9-G5.12",
+       "status": "done",
+       "note": "Part loop and PARTS_MAX check (lines 687-693), the replay's append-only 8-field lines with TERM/INT exits 143/130, the c2 reload and the end check FAIL_IS_FINAL (line 1734) behave as described."
+      },
+      {
+       "item": "K1 (guest side)",
+       "status": "done",
+       "note": "The attempt deadline is enforced by deadline_check and the watchdog (lines 1118-1143), and the guest stops on DEADLINE before the launcher's margin. The one weak spot is the c2 time box that cannot fit a short attempt (minor)."
+      },
+      {
+       "item": "K4",
+       "status": "partly",
+       "note": "The rehearsal and test claims mostly match: the guest harness case names match what they check. But no test covers a cut after a real post-restore Lake build, the watcher alongside a build, or the full flow (major test-gap finding)."
+      },
+      {
+       "item": "K5",
+       "status": "done",
+       "note": "The state helper (lines 506-543) writes atomically and progress is monotonic. The upload order part, manifest, state holds in spot_ckpt_round and apply_pending."
+      }
+     ]
+    },
+    {
+     "subject": "the on-demand path: the guest with the Spot code switched off, and the four older modes of the launcher",
+     "summary": "Old-path regression review after the fix round. Guest (cloud/gcp/full_guest.sh, SPOT=0): I read all 25 hunks. The commands, their order, the uploads (to the same objects, since RT=RES when SPOT=0), status.json and the function exit statuses are the same as at HEAD. One thing is new on the old path: the `md full-spot 0` metadata GET at line 104, which was already accepted in round 1. I checked facts.json by running both heredocs: with F_SPOT=0, HEAD's and the new write_facts python give byte-identical output. G5.5 is done: restart_test and c2_deep now end in the `if` form and return 0. G5.4 is done: c3_progress_start and c3_progress_stop are defined before the `spot_done main` branch. Every new variable used outside the Spot block is behind a short-circuited `[ \"$SPOT\" = 1 ]` or uses `${:-}`. Only four functions are defined twice (status, sync_small, on_signal, deadline_check), and the second definitions sit only inside the SPOT=1 block. No new trap or background loop runs when SPOT=0, and the watchdog's else branch is HEAD's verbatim. Launcher (cloud/gcp/pilot_local.sh): at load time the additions only assign variables and define functions. No new name collides with HEAD or lib.sh. The dispatch changes for old modes are the `launch` pre-checks, one `case` line in `watch` after the state is sourced, one guard in `teardown`, and the usage text. None of them can fire for a non-Spot state. `ledger` is unchanged. The close_run rewrite writes the same bytes. Its permissions are the same in the default case, but they are not preserved: a ledger that was chmod 600 becomes 644, and a symlinked ledger is replaced by a regular file (one minor finding). I found no bash-4 or GNU-only construct in the launcher. scripts/lib.sh and scripts/09_kernel_replay.sh show no diff. `/bin/bash -n` passes on all six touched shell files. Launcher test: when I had to report, it had printed 10 PASS lines and no failure. The old-mode identity cases had not been reached yet, so I cannot report their lines.",
+     "tests_run": "/bin/bash -n passes on cloud/gcp/full_guest.sh, cloud/gcp/pilot_local.sh, scripts/spot_checkpoint.sh and scripts/dev/test_spot_{checkpoint,guest,launcher}.sh. facts.json: HEAD's and the new write_facts heredoc, run with F_SPOT=0, give identical output. close_run, HEAD vs new: cr_test.sh in the rev4reg scratch dir shows identical bytes, but mode 600 becomes 644 and a symlinked ledger is replaced. scripts/dev/test_spot_launcher.sh with TEST_SCRATCH set, run in the background: 10 PASS, 0 FAIL when I reported. It had not reached the old_mode_{rehearsal,pilot,full-rehearsal,full} or old_full_edges cases.",
+     "findings": [
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "75-91 (close_run), also 255 (spot_ledger_zone)",
+       "title": "Atomic ledger rewrite keeps the bytes but not the file's mode or a symlink",
+       "detail": "At HEAD close_run wrote with open(p,'w'), which keeps the existing file's mode and owner and writes through a symlink. Now it writes ledger.tmp.$$ with the umask's default mode and calls os.replace. I ran <SCRATCH>/spotdesign/rev4reg/cr_test.sh. The bytes are identical in every case (sha 8419e0d6e2fc). (a) A ledger that is chmod 600 becomes -rw-r--r-- after one close_run in an old mode. (b) If RH_AN/pilot_ledger.tsv is a symlink, the link is replaced by a regular file and its target stays at the old contents with the row still open. Recorded spend read through LEDGER stays right, so no money is at risk. In the default setup (the file was created by printf under the same umask) the mode is unchanged. Still, it is an old-mode change beyond 'same bytes', in a non-default setup.",
+       "fix": "In both rewrites, before writing: p = os.path.realpath(p); st = os.stat(p). After creating tmp: os.chmod(tmp, stat.S_IMODE(st.st_mode)), plus os.chown if the owner matters. Add a case to test_spot_launcher.sh that compares the ledger's mode after the old-mode runs.",
+       "what_was_done": "Fixed: the ledger is rewritten at its real path and keeps its mode; an old-mode test now checks the mode."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/full_guest.sh",
+       "line": "1717",
+       "title": "Top-level if/elif in the second-replay section now ends with a guarded `&&` line",
+       "detail": "`[ \"$SPOT\" = 1 ] && spot_record second end ...` is the last command of the `elif [ -n \"$DRIVER\" ]` branch. With SPOT=0 the compound statement's status is now 1, where at HEAD it was c3_summary's. This is top-level code, not a function, there is no set -e, and the next line does not read $?, so nothing behaves differently today. It is the same pattern G5.5 removed from functions.",
+       "fix": "Use `if [ \"$SPOT\" = 1 ]; then spot_record second end SECOND_RC SECOND_WHY; fi`.",
+       "what_was_done": "Fixed: written as an if block."
+      }
+     ],
+     "items_checked": [
+      {
+       "item": "G5.5 (restart_test and c2_deep return HEAD's status when SPOT=0)",
+       "status": "done",
+       "note": "restart_test line ~1303 and c2_deep line ~1571 now use if/fi, so both return 0. monitor_build, finish, report, checkpoint, write_facts and idle_until_deleted still end with HEAD's last statement."
+      },
+      {
+       "item": "G5.4 (c3_progress_start/stop defined where both replays can use them)",
+       "status": "done",
+       "note": "They are defined at lines ~1652-1653, before `if [ \"$SPOT\" = 1 ] && spot_done main`. With SPOT=0, defining them before phase_mark has no effect on order."
+      },
+      {
+       "item": "A2 (ledger rewrite atomic, same bytes)",
+       "status": "partly",
+       "note": "The bytes are identical (tested). The file's mode is not kept, and a symlinked ledger is replaced by a regular file (see finding)."
+      },
+      {
+       "item": "Guest hunk: setup variables (SPOT, RT, Spot block at line 104)",
+       "status": "done",
+       "note": "SPOT=$(md full-spot 0) is the one new old-path command; RT=$RES. Every other assignment is inside the SPOT=1 block."
+      },
+      {
+       "item": "Guest hunk: idle_until_deleted, report, checkpoint, watchdog uploads $RES -> $RT",
+       "status": "done",
+       "note": "RT equals RES when SPOT=0, so the objects are the same."
+      },
+      {
+       "item": "Guest hunk: write_facts env and python",
+       "status": "done",
+       "note": "I ran HEAD's and the new heredoc with the same env and F_SPOT=0: the output JSON is identical."
+      },
+      {
+       "item": "Guest hunk: finish() three guarded lines",
+       "status": "done",
+       "note": "None of them is the last statement, and all are false when SPOT=0."
+      },
+      {
+       "item": "Guest hunk: Spot block (lines 142-837) with redefinitions",
+       "status": "done",
+       "note": "Inside if SPOT=1: function definitions plus one assignment. The duplicate names status, sync_small, on_signal and deadline_check exist only there."
+      },
+      {
+       "item": "Guest hunk: reboot check, preempt watcher start, watchdog final_state and if/elif/else",
+       "status": "done",
+       "note": "The SPOT=0 branch is HEAD's verbatim. The regex gains PAUSED|RECLAIMED, which the old path never writes."
+      },
+      {
+       "item": "Guest hunk: t_step additions, smoke if/else, after-seal restore",
+       "status": "done",
+       "note": "All guarded or in an else branch that is HEAD's code."
+      },
+      {
+       "item": "Guest hunk: build if/else wrap, loop start/stop, ckpt_final, lock if/else, SPOT_LOCKED",
+       "status": "done",
+       "note": "I checked the nesting in the file at lines 1345-1372: the else branch holds HEAD's build exactly, and the extra fi closes it."
+      },
+      {
+       "item": "Guest hunk: seal, LEFTOVERS reload, seal_manifest, after_seal",
+       "status": "done",
+       "note": "Guarded, with no status read."
+      },
+      {
+       "item": "Guest hunk: C2 plain and deep, trials condition, C3 main wrap, second replay if/elif, end check",
+       "status": "partly",
+       "note": "Equivalent when SPOT=0. One top-level branch's status changes (minor finding at line 1717)."
+      },
+      {
+       "item": "Guest set -u",
+       "status": "done",
+       "note": "New variables outside the block are short-circuited or use ${:-}, for example ${ATTEMPT:-}, ${SPS:-} and ${SPOT_LEFTOVERS_HERE:-}."
+      },
+      {
+       "item": "Launcher: top-level additions (lines 96-720)",
+       "status": "done",
+       "note": "Scanned mechanically: only assignments and function definitions. No collision with HEAD or lib.sh. STATE is defined before SPOT_LOCK."
+      },
+      {
+       "item": "Launcher: launch/watch/teardown/abandon/ledger dispatch for a non-Spot state",
+       "status": "done",
+       "note": "spot_state_exists needs ^SPOT='1'$, which HEAD's state never writes. The watch case on MODE comes after the state is sourced and before HEAD's traps. ledger is unchanged. Only the usage text differs."
+      },
+      {
+       "item": "Launcher bash 3.2 / BSD tools",
+       "status": "done",
+       "note": "No ${x,,}, declare -A, mapfile, =~, BASHPID, date -d, stat -c, sed -i or timeout. wc output goes through tr -d ' ' wherever it is compared as a string. Arithmetic uses bc and python3 -I."
+      },
+      {
+       "item": "scripts/lib.sh and scripts/09_kernel_replay.sh unchanged",
+       "status": "done",
+       "note": "`git diff HEAD --stat` on both is empty."
+      },
+      {
+       "item": "config.example.env",
+       "status": "done",
+       "note": "Only comments and blank lines added."
+      },
+      {
+       "item": "Launcher test old-mode cases",
+       "status": "not_done",
+       "note": "The run started in the background. When I reported, 10 cases had passed (sizing through random_reclaims_seed2), with no FAIL. The old_mode_* and old_full_edges cases had not run, so I have no lines to report for them. The log is <SCRATCH>/spotdesign/rev4reg/launcher_test.log."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "look": "third",
+   "checked": "the code after the changes the second look led to",
+   "verifiers": [
+    {
+     "subject": "the launcher (cloud/gcp/pilot_local.sh) and its test",
+     "summary": "I checked the launcher (cloud/gcp/pilot_local.sh), its test script and config.example.env against FIXES3.md items A15 to A25 and the launcher side of K7. My own run of the test, with the default TMPDIR, ended with these five lines:\n\"PASS old_mode_full\" / \"PASS old_full_edges\" / \"PASS spot_vm_matches_on_demand\" / \"65 passed, 0 failed\" / \"rc=0\".\n\nWhat holds up:\n- Durable start (A15): I found no path on which a create is sent before the row and the state naming the attempt are on disk. The only create is at line 434. In both the first zone and every later one it is preceded by `spot_sync \"$LEDGER\"` (line 421, once per attempt) and by a state save plus `spot_sync \"$STATE\"` (lines 425-426).\n- Pause kinds: they are read in both spot_poll and spot_account, only from the current attempt's status. They survive a stop between accounting and acting, and they survive a teardown.\n- PARTS_FULL never blocks a zone in the bucket's region.\n- Old modes: every hunk they run is the same as HEAD except close_run, which now writes through a temporary file, syncs it and keeps the file mode. Its output stays byte-identical in the tests.\n- Bash 3.2 and BSD tools: everything new is compatible. F_FULLFSYNC on a directory works on APFS (scratch and <REDACTED> are both APFS).\n\nWhat I refuted:\n1. Lock: two commands can hold it at the same time. I reproduced this with the real lock functions taken out of the file and sleeps added only to widen the windows (rev5a/race/inject.sh); without the sleeps, 30 rounds of 4 takers each showed no overlap.\n2. A rehearsal can exit 0 with a cut that was really done by deleting the VM, not by Google's reclaim.\nBoth are major. I also found several minor issues; they are listed below.",
+     "tests_run": "Ran `cd <REPO> && /bin/bash scripts/dev/test_spot_launcher.sh` with the default TMPDIR. Log: <SCRATCH>/spotdesign/rev5a/test.log. Last five lines, exactly as printed:\nPASS old_mode_full\nPASS old_full_edges\nPASS spot_vm_matches_on_demand\n65 passed, 0 failed\nrc=0\n\nExperiments, all in scratch (no repository file changed):\n(1) rev5a/race/build.sh takes the real spot_lstart, spot_lock_live, spot_lock and spot_unlock out of the file into a script named pilot_local.sh. It ran 30 rounds of 4 concurrent takers of a stale lock (dead pid), with no overlap: 21 rounds had 3 serial acquisitions and 9 had 2, and every other taker died correctly.\n(2) rev5a/race/inject.sh is the same code with sleeps added only to widen its windows (S1 before the rename, S2 after it, S3 after mkdir). It showed A's lstart and pid writes failing while B had the fresh lock moved away, B dying, and C later taking over A's lock while A held it. The result was OVERLAP plus BADPID: two holders.\n(3) F_FULLFSYNC and fsync on a directory file descriptor in the APFS scratch directory: both succeed.",
+     "findings": [
+      {
+       "severity": "major",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "184-211 (writes at 208-209; the check at 197-199)",
+       "title": "Lock takeover can still leave two holders: the new holder never checks that its own writes landed",
+       "detail": "Sequence: a stale lock L0 holds a dead pid P. Commands A and B both read P (line 187), and both find it not live (189). A renames L0 away (195), finds it is the lock it examined, removes it (202) and makes a fresh lock L1 with mkdir (186). B now runs its own rename at 195. That rename succeeds, but it moves A's fresh L1 to $SPOT_LOCK.stale.B. B reads pid2, which is empty or A's pid and so is not P; it moves L1 back (198) and dies, as designed. Meanwhile A runs line 208 (`spot_lstart > $SPOT_LOCK/lstart`) and line 209 (`echo $$ > $SPOT_LOCK/pid.tmp && mv`). These fail with 'No such file or directory' while L1 is moved away, and A carries on with SPOT_LOCKED=1. The lock directory is then back in place, but empty. Any later command, such as a teardown or a second watch, finds an empty pid, waits 3 x 1 s (188), treats the lock as stale (spot_lock_live returns 1 for an empty pid) and takes it over while A, a watch that runs for hours, is still alive. Two Spot commands then run at once, which is what the lock exists to prevent: two watches can each pass spot_start's empty-project check. When A exits, spot_unlock (212) also removes the other command's lock. A third taker can produce the same result directly: C runs mkdir in the moment B has L1 moved away, B then does not move it back (198), and A and C both hold. Reproduced with the real functions and widened windows (rev5a/race/inject.sh). Output: A's errors are 'state.lock/lstart: No such file or directory' and 'state.lock/pid.tmp: No such file or directory'; B dies; C prints 'taking over the lock left by 'unknown''; the overlap file shows 'OVERLAP 1014' and 'BADPID 735 lockpid='. The natural windows are a single ps call and a single rename wide, so this needs near-simultaneous commands. The test case lock_race (two takers, six times) cannot exercise it.",
+       "fix": "Make the lock appear complete in one step. Write pid, lstart and command into a private directory $SPOT_LOCK.new.$$, then publish it with a rename that fails if the target exists (python os.rename onto a missing path; BSD `mv dir existing_dir` nests the directory instead of failing, so do not rely on mv). As a minimum, after line 209 re-read $SPOT_LOCK/pid and $SPOT_LOCK/lstart and go round the loop again unless both are this process's. Make spot_unlock remove the lock only if its pid is still $$.",
+       "what_was_done": "Fixed by replacing the lock: one the kernel holds on a file (flock on a descriptor the command keeps open), released when the command ends however it ends. Tried by the lead and by the next verifier: many takers at once, exactly one holder every time."
+      },
+      {
+       "severity": "major",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "630 (with 637 and 648)",
+       "title": "A simulated reclaim that Google accepted but that never took effect is reported 'done as configured', so the rehearsal can exit 0",
+       "detail": "Sequence for the cut build:simulate. spot_poll records CUTS_DONE=\"build:simulate\" (line 637). `instances simulate-maintenance-event --async` returns 0, so cut_at is set (648). Then nothing happens: the VM stays RUNNING and the guest never reports RECLAIMED. Five minutes later line 630 ends the attempt with 'the VM was still there 5 minutes after the simulated reclaim', and spot_account's spot_purge deletes the VM. The real cut was therefore a delete, but CUTS_DONE never gains '>delete'. spot_cuts_report (779) prints 'build:simulate: done as configured', SPOT_CUTS_MISSED stays 0, and spot_finish leaves SPOT_RC=0. This is the exact case A16 is meant to catch: whether Google's forced reclaim, and the guest's handling of it, really happen on a real machine is only known from a paid rehearsal. No test covers it; rehearsal_simulate_refused covers only a refused simulate.",
+       "fix": "At line 630 add `CUTS_DONE=\"$CUTS_DONE>delete\"; spot_save` before returning (the CUTS_DONE entry for the item made at 637 is the last word). Add a test whose fake accepts the simulate and leaves the VM RUNNING; it must expect 'done by fallback (delete)' and exit 4.",
+       "what_was_done": "Fixed: an accepted simulate whose machine is still there five minutes later is recorded as done by fallback (exit status 4); later made to survive a restarted watch."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "637-648",
+       "title": "A cut is recorded as done before it is sent; an interruption in between makes the report say 'done as configured'",
+       "detail": "Line 637 saves CUTS_DONE and CUT_ATTEMPT before the gcloud reset, simulate or delete is sent (by design, 'never cut twice'). Sequence: Ctrl-C (the INT trap exits 130) or a crash while `gcloud compute instances reset` is running, or for a delete cut before poll returns. The next watch sees CUT_ATTEMPT=ATTEMPT and the item in CUTS_DONE, so it never makes the cut, watches the attempt to its natural end, and the report says 'done as configured'. The run exits 0.",
+       "fix": "Record a marker such as '>pending' at 637, and replace it with the final form only after the call has returned. spot_cuts_report should count a pending item as NOT DONE.",
+       "what_was_done": "Fixed: a cut is recorded as pending before its command is sent and given its final form only afterwards; pending counts as NOT DONE."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "711-715, 743",
+       "title": "A failed read of status.json at accounting time loses the pause kind of an attempt that ended unwatched",
+       "detail": "On the 'found ended' path (line 873), SPOT_PKIND was reset at line 864. If `storage cat status.json` fails transiently at line 711, spot_pause_read is never called, PKIND is saved as empty (743), and the watch loop treats the attempt as a deadline. A 'stop' therefore leads to one more paid attempt that will end the same way. A 'parts-limit' is lost too: PARTS_FULL is not set, so an out-of-region attempt can start whenever the parts are under the 90 % rule, and it will pause again. The money stays within the cap. On the watched path the poll's kind survives a failed re-read, but a successful re-read always overrides it. So if the guest's last write is a later PAUSED with no kind (for example from its watchdog), a 'stop' that the poll saw becomes 'deadline'.",
+       "fix": "In spot_account, treat a failed status fetch as an accounting failure (exit 1, row already closed, rerun watch), as is done for the checkpoints at 719-721. Keep the poll's kind when the re-read gives a less cautious one.",
+       "what_was_done": "Fixed: a failed read of the status at accounting time is an accounting failure (run watch again), and the kind of a pause is never weakened."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "623 (also 592)",
+       "title": "The 25-minute 'reported nothing' rule and the local deadline still count from CREATED, not CREATE_SENT",
+       "detail": "A17 moved only the not-listed guard to CREATE_SENT. Sequence: earlier zones refuse slowly, then the create in a later zone is sent at CREATED+D. The guest of that VM is killed after only 1500-D seconds with no report (three absent polls). spot_account then purges a booting VM and counts an attempt without progress. Likewise ldl=CREATED+MAXRUN+300 makes the watcher delete the VM early when D > 300. No money is lost; work is lost.",
+       "fix": "Use $sent (CREATE_SENT, falling back to CREATED) in both places.",
+       "what_was_done": "Fixed: both clocks count from when the create was sent."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "417-426",
+       "title": "The STARTING=N save is not synced before the row is; a power cut there makes a later watch charge a phantom attempt",
+       "detail": "Line 417's spot_save, a rename, is not synced, while the row at 420 is (421). Sequence: power cut after 421 and before 426. On reboot the ledger durably holds attempt N's open row, but the state may be the old one: ATTEMPT=N-1, STARTING empty, accounted. watch then sees an open row for RUNTAG and 'watches attempt N-1'. Once the VM is GONE (LAST_SEEN of N-1 is set) it accounts and closes attempt N's row with seconds = now - row time, capped at the old MAXRUN+120. No VM ever existed, so that is up to MAXRUN of phantom spend counted against the cap. This errs on the safe side but can pause the run on the cap. The contract's wording requires the sync only at (b), so this is the contract's order, not a deviation from it.",
+       "fix": "Call spot_sync \"$STATE\" after the save at 417 (once per attempt), so that the attempt is named on disk before its row exists.",
+       "what_was_done": "Fixed: the state that names the attempt is forced to disk before its row is appended."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "881",
+       "title": "PARTS_FULL stores the limit in force at handling time, not the limit the attempt was given (the implementer's own note, confirmed)",
+       "detail": "Sequence: an attempt runs with full-parts-max-bytes=60 GiB. The owner raises GCP_SPOT_PARTS_MAX_GIB to 80 while it runs, and the guest pauses with parts-limit. The watch sets PARTS_FULL to 80 GiB in bytes, so the remedy already applied counts for nothing. With no zone in the bucket's region, the run pauses telling the owner to raise the limit, which they already did; they must raise it past 80.",
+       "fix": "Store the PARTS_MAX_BYTES sent in the attempt's metadata in a state key at create time (for example ATT_PMAX, saved with CREATE_SENT), and set PARTS_FULL from it.",
+       "what_was_done": "Fixed: the parts limit actually given to the attempt is stored and used."
+      },
+      {
+       "severity": "minor",
+       "file": "scripts/dev/test_spot_launcher.sh",
+       "line": "1207-1215",
+       "title": "The failure path of the state sync (lines 426-428) is untested",
+       "detail": "durable_sync_fails makes the first sync fail, which is the ledger's (421). The branch that puts STARTING=N back after a failed state sync, both with issued=0 and with issued=1, is never run. The check at 1193-1205 also cannot tell a sync made by spot_sync from one made by close_run or spot_ledger_zone; it works only because it orders by path and by CREATE lines.",
+       "fix": "Add a case where only the state's sync fails (for example, the python wrapper fails when argv names the state file). It must assert no create, STARTING=N in the state, and that the next watch closes the row at zero.",
+       "what_was_done": "Fixed: a test fails the state's own sync and checks that no create is sent."
+      }
+     ],
+     "items_checked": [
+      {
+       "item": "A15 durable before create",
+       "status": "done",
+       "note": "The ledger is synced after the row (421) and the state is synced before every create (425-426), including later zones. close_run and spot_ledger_zone sync the file and its folder; the transfer row is synced (734, warning only). A failed sync dies before the create. The STARTING=N save at 417 is not synced (minor finding)."
+      },
+      {
+       "item": "A16 cuts report and exit 4",
+       "status": "partly",
+       "note": "The report is called from spot_finish (before rm), spot_pause and abandon. cuts.txt is written and mirrored. SPOT_RC=4 reaches the exit through spot_watch and caffeinate's exec. A simulate that was accepted but never took effect is reported as done as configured (major finding), and a cut interrupted right after it was recorded is reported as done (minor)."
+      },
+      {
+       "item": "A17 CREATE_SENT guard",
+       "status": "done",
+       "note": "Lines 589-620 need 300 s since CREATE_SENT (or CREATED) and two GONE listings in a row. The 25-minute rule and the local deadline still use CREATED (minor)."
+      },
+      {
+       "item": "A18 refusal needs both listings",
+       "status": "done",
+       "note": "Line 448 requires the instances and disks listings to succeed and be empty; otherwise spot_create_unclear."
+      },
+      {
+       "item": "A19 lock (lstart, rename takeover, write first)",
+       "status": "partly",
+       "note": "Start time and command liveness checks are correct, and TZ=UTC0 is a sound deviation. The rename takeover is not race-free: the new holder's writes can fail unnoticed, and the lock is then taken over while held. Reproduced (major finding)."
+      },
+      {
+       "item": "A20 sizing reason word",
+       "status": "done",
+       "note": "spot_size prints ok/cap/giveup/parts. The per-zone lines and SPOT_WHY match the contract, and the parts message names both remedies and says raising the cap does not help."
+      },
+      {
+       "item": "A21 INPUT_BYTES",
+       "status": "done",
+       "note": "Measured at launch (a failure there refuses with nothing created), re-measured in spot_ready if missing, added to xworst (rounded up to a cent) and to the transfer row. The row can never exceed xworst."
+      },
+      {
+       "item": "A22 realpath and mode",
+       "status": "done",
+       "note": "Both rewrites resolve realpath, put the temporary file in the target's folder and chmod it to the old mode before os.replace. The old-mode test checks mode 640."
+      },
+      {
+       "item": "A23 / K7 launcher side",
+       "status": "done",
+       "note": "The kind is read in poll and in account, only for this attempt; no kind counts as deadline; it is kept in PKIND/PMSG across a stop and a teardown. stop pauses with the contract's sentence; parts-limit sets PARTS_FULL, which is cleared by a larger limit; an unknown kind pauses. Weak points: a failed status read on the unwatched path, and PARTS_FULL taking the current limit (both minor)."
+      },
+      {
+       "item": "A24 tests",
+       "status": "partly",
+       "note": "65 cases; my run passed (65 passed, 0 failed, rc=0). Gaps: an accepted simulate whose VM stays, a failed state sync, and three-way or interleaved lock races."
+      },
+      {
+       "item": "A25 config.example.env",
+       "status": "done",
+       "note": "Documents exit statuses 0/3/4, the four pause kinds, the inputs in the transfer cost and its worst case, and the parts-limit remedies."
+      },
+      {
+       "item": "Old modes and SPOT=0 behaviour",
+       "status": "done",
+       "note": "The hunks the old modes run are the dispatcher guards (spot_state_exists checks, which are false for an old state) and close_run (same bytes written; now atomic, synced and keeping the mode). Old-mode launch still uses HEAD's in-place zone write at line 997. The top-level Spot block contains only assignments."
+      },
+      {
+       "item": "bash 3.2 / BSD compatibility",
+       "status": "done",
+       "note": "No mapfile, associative arrays, ${,,} or GNU-only options in the new code. ps -o lstart=/command=, head -c, awk, sed and tr are used in BSD-compatible ways. F_FULLFSYNC on a directory works on APFS (checked in scratch)."
+      }
+     ]
+    },
+    {
+     "subject": "the guest (cloud/gcp/full_guest.sh), the checkpoint helper (scripts/spot_checkpoint.sh) and their tests; and the on-demand path",
+     "summary": "I found no blocker and no major. Items B1 to B10 and the guest side of K7 are done, and I confirmed each against the code. I found three minor problems.\n\nTests. I started both with /bin/bash and the default macOS TMPDIR, in the background, with output in <SCRATCH>/spotdesign/rev5b. Both passed.\n- test_spot_checkpoint.sh ended \"PASS  toy: after a source change recompiles saved modules, the next cut says so (status 4)\" / \"77 cases, 0 failed\", exit 0.\n- test_spot_guest.sh ended \"PASS  12. a setup step that needs the network pauses (retry), before and after the state exists; others fail (8 checks, 21 s)\" / \"PASS  13. the smoke log is read from root's own copy; without one, spot.log says so (1 checks, 3 s)\" / \"16 cases, 0 failed (207 s)\", exit 0.\n- /bin/bash -n passes on all four files.\n- I did not run scrub.py, because it reads .private-patterns.\n\nSPOT=0 path. Every hunk of git diff HEAD outside the Spot block is one of these:\n- a `[ \"$SPOT\" = 1 ] && ...` hook that another command follows;\n- an if or elif on SPOT whose else arm holds HEAD's lines;\n- RES changed to RT, which equals RES when SPOT=0;\n- the facts dict built first and then dumped, with the same output;\n- final_state's pattern widened to PAUSED and RECLAIMED, which a SPOT=0 run never writes.\n\nEvery SPOT=0 test of a variable set only in Spot mode is short-circuited. t_step and the other functions end with the same exit status as at HEAD. scripts/lib.sh and every other tracked file under scripts/ show no diff. The only new action at SPOT=0 is the boot-time `md full-spot` metadata request.\n\nThe implementer's report numbers its items differently from FIXES3.md:\n- report B2 is the contract's B3(a-c), and report B3 is B3(d);\n- report B4 is B2, B5 is B4, B8 is B9, B9 is B5;\n- the report's \"K7\" section is B8.\n\nThe report's description of the toy experiment does not match the test committed.\n\nProbes I ran in scratch:\n- Done files mixing 3- and 4-column lines (the later line wins; with no hash, a new time is exit 4), an uppercase hash (exit 1), and a link with the same bytes (exit 4). All behaved as specified.\n- An extended toy Lake project on v4.33.1: one module with a `sorry` warning and an #eval, one that fails to compile, and the sources and lean-toolchain touched before the rebuild. Lake replayed the restored modules and changed no restored file's time, size or bytes. The next cut with restore's done list gave status 3 (nothing due).",
+     "tests_run": "Both tests ran with /bin/bash and the default macOS TMPDIR; output is in <SCRATCH>/spotdesign/rev5b (ckpt.out, guest.out).\n\n- scripts/dev/test_spot_checkpoint.sh, exit 0. Last lines: \"PASS  toy: after a source change recompiles saved modules, the next cut says so (status 4)\" / \"77 cases, 0 failed\". Its INFO line: every kind 0 new time, 0 new size, 0 new bytes, 0 gone.\n- scripts/dev/test_spot_guest.sh, exit 0. Last lines: \"PASS  13. the smoke log is read from root's own copy; without one, spot.log says so (1 checks, 3 s)\" / \"16 cases, 0 failed (207 s)\".\n- /bin/bash -n passes on all four files.\n\nMy own scratch probes:\n- rev5b/mix.sh (mixed 3- and 4-column done lines, an uppercase hash, a same-bytes link): results 4, 0, 1 and 4, as expected.\n- rev5b/toy2/run.sh: a v4.33.1 toy with a sorry warning, an #eval, a module that fails to compile and lean-toolchain touched. After cut, wipe, restore and rebuild, no restored file changed and the next cut gave 3.\n\nI did not run scrub.py (it reads .private-patterns), any cloud command, or lake on the real project.",
+     "findings": [
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/full_guest.sh",
+       "line": "754-763",
+       "title": "The new log upload sits between 'part counted as saved' and the state write, so a stopped part loop can leave the state's progress behind",
+       "detail": "In spot_apply_pending, after the manifest upload (749), the move of pending.list into done.txt and the move of manifest.new into manifest.tsv (751), and the rm of the pending files (754), the round now runs spot_lake_n and spot_put_lake_logs (760-761). Only then does it call spot_state with --parts-modules, TIMEBOX_USED, files_rewritten_same_bytes and failed_job_lines (762-763). Before round 3 that gap was only arithmetic. Now it includes safe_cp, gzip and a gcs_put of every build log, each up to 5 tries with 120 s stall limits.\n\nSequence:\n1. The part loop is in gz_put at 774 when the deadline comes.\n2. The watchdog's TERM leads to on_signal, then finish DEADLINE, then spot_not_final (528), then spot_pause deadline.\n3. spot_stop_loops gently (510) waits at most 120 s, then kills the loop subshell (513). The pending files are already gone and the state was never written.\n4. The pause round at 558 finds no pending.sha. Its cut uses the updated done.txt. The build has just been stopped, so it gives 3 and writes no state.\n5. The state write at 561 carries no --parts-modules.\n\nResult: the bucket's manifest lists the part, but state.json's parts_modules and progress (and the TIMEBOX_USED var) do not count it. If that part was the attempt's only new work, the launcher counts the attempt as no progress (pilot_local.sh: NOPROGRESS+1). A rehearsal also under-counts its time box. The same gap exists for spot_ckpt_final after a gentle stop (1425-1427). It heals only when a later round saves another part.",
+       "fix": "Upload the logs before the manifest. Move spot_put_lake_logs, with its LAKE_N=$(spot_lake_n) line, out of spot_apply_pending into spot_ckpt_round right after the successful part upload (727-729), so the order is part, logs, manifest, state; that still meets 'before the state write'. Or, at least, have spot_pause's state write at 561 also pass --parts-modules from $SPD/manifest.tsv and --var TIMEBOX_USED.",
+       "what_was_done": "Fixed: the build logs go up after the part and before the manifest, and the state write that ends an attempt carries the saved work."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/full_guest.sh",
+       "line": "229, 763, 807",
+       "title": "Root still greps the build user's logs in place, in the part loop and the pause paths, so a swapped FIFO can hang them",
+       "detail": "failed_lines (229) and built_in_log run `plain` and then grep the file itself. Before the seal those files are in $LOGS, which the build user owns (s_user chowns it to pilot). Round 3 adds reads in the background part loop on every saved part (spot_apply_pending 763), and spot_ckpt_final (807) still reads the lake logs this way.\n\nSequence: build code running as pilot replaces $LOGS/lake_build_1.log with a FIFO after the -f test and before grep opens it. The grep then blocks with no time limit, which:\n- in the part loop stops all further parts for the attempt;\n- in main (spot_record, spot_pause or write_facts) stalls until the watchdog's takeover.\n\nThis is the same read model as HEAD's put_logs and failed_lines, and the contract only asked for `plain`, so it meets B2 as written. But the new code already makes a safe copy of each log (spot_put_lake_logs) and could count from that. The implementer also noted this as point 5.",
+       "fix": "In spot_put_lake_logs, keep root's copy of each log and count the '^✖ ' lines from the copies. Use the same copies for built_in_log in spot_ckpt_final, as was done for smoke.log. Alternatively, make failed_lines and built_in_log read through safe_cp into $SPD.",
+       "what_was_done": "Fixed: in a Spot run root counts failed job lines and reads \"Built\" lines only from its own copies of the logs."
+      },
+      {
+       "severity": "minor",
+       "file": "scripts/dev/test_spot_checkpoint.sh",
+       "line": "277-325",
+       "title": "The B3(d) toy case is weaker than the report says",
+       "detail": "The report says the toy had a module with a `sorry` warning and an #eval, and that lean-toolchain was touched. The committed toy has three warning-free modules (Toy/A.lean, Toy/B.lean, Toy.lean) and touches only *.lean files. It has no module that fails to build, which the real run has. I ran an extended toy in scratch (rev5b/toy2/run.sh): Toy.A plain, Toy.W with a sorry warning and an #eval, Toy.F that fails to compile, plus Toy.B and Toy, with every .lean and lean-toolchain touched. After cut, wipe and restore, `lake build` replayed Toy.W and failed on Toy.F. It changed no restored file's time, size or bytes, and the next cut with restore's done list gave status 3. So the conclusion holds, but the committed case does not cover the warning and failed-module paths the real build has.",
+       "fix": "Add to the toy case a module with a warning and one that fails to compile. Build with the failure, cut, wipe, restore, and assert that the post-restore build leaves every restored file unchanged and that the next cut is not status 4. Correct the report's description of the test.",
+       "what_was_done": "Fixed: the toy project of the test now has a module with a warning and one that fails to compile."
+      }
+     ],
+     "items_checked": [
+      {
+       "item": "B1 setup step that needs the network pauses (retry)",
+       "status": "done",
+       "note": "t_step 399-400. SPOT=0 falls through to HEAD's else line. I traced spot_pause before STATE_READY, before $SPD exists and with no loops; nothing fails or ends FAIL:\n- touch $SPD/STOP fails silently;\n- spot_results_round returns 0;\n- spot_state returns 1 with no || clause;\n- put_logs finds nothing;\n- write_facts' load() of a missing state gives {};\n- status PAUSED with kind retry is uploaded, then idle.\n\nA deterministic failure is bounded by the launcher's no-progress rule: progress stays unchanged, so it stops after 3. A deadline during a setup step reaches on_signal first, so the kind is deadline. Harness case 12 runs this (no $SPD dir, no state)."
+      },
+      {
+       "item": "B2 failed_job_lines in apply_pending; logs uploaded with a part",
+       "status": "done",
+       "note": "Line 763 adds failed_job_lines. Logs go up after the manifest and before the state, via safe_cp then plain then gz_put, and a failure is logged and the round still returns 0. Each log is bounded by safe_cp's 60 s and gcs_put's own limits. The ordering widens a gap between manifest and state (finding 1). Harness case 1 checks the order, the link refusal and an upload failure."
+      },
+      {
+       "item": "B3 four-column done lines, same-bytes rule, toy Lake",
+       "status": "done",
+       "note": "cut, list (--done-out alone now hashes) and restore all write 4 columns. read_done accepts 3 or 4 columns, and a 4th column must be lowercase hex. Every reader handles 4 columns: the guest's mods awk, cut -f1 into restored.txt, manifest col5 against the distinct traces, and the restore dry-run check.\n\nSame-bytes is decided only when a recorded SHA-256 matches a fresh O_NOFOLLOW hash of a regular file. Other bytes, a link, a missing file or no hash give 4; I verified this by probe. The toy case asserts byte equality of the restored files and a post-build cut that saves only the new module (rc 0). I extended the toy myself (finding 3)."
+      },
+      {
+       "item": "B4 watcher with no usable ETag",
+       "status": "done",
+       "note": "An empty or invalid ETag, or no answer, means sleep 5 and a single spot.log line. Harness case 7 counts 1 to 5 requests in 3 s."
+      },
+      {
+       "item": "B5 trim refuses link and non-regular",
+       "status": "done",
+       "note": "O_RDWR|O_NOFOLLOW|O_NONBLOCK, then fstat must show a regular file. Tested with a link (target untouched) and a FIFO."
+      },
+      {
+       "item": "B6 smoke.log read as root's own copy",
+       "status": "done",
+       "note": "spot_ckpt_final 805-807 uses safe_cp then plain, otherwise writes 'no smoke log' to spot.log. Case 13 really ran: there is no /tmp/smoke.log on this Mac. The lake logs are still read in place (finding 2)."
+      },
+      {
+       "item": "B7 no trailing [ ] && as last command of a HEAD branch or function",
+       "status": "done",
+       "note": "I checked every hook outside the Spot block. Each is followed by another command or is in if/fi form. restart_test and c2_deep end in if...fi, status 0 as at HEAD."
+      },
+      {
+       "item": "B8 / K7 guest side: pause kinds",
+       "status": "done",
+       "note": "status() adds 'pause' only for PAUSED (default deadline), and the launcher's markers are unchanged. spot_pause's default kind is deadline with the marker, retry without it, and pause_kind is set in the state.\n\nKinds at the call sites:\n- parts-limit at 793, 814, 823 and 1096;\n- stop at 916;\n- deadline at 528, 1737, 1755, 1766 and the watchdog's 1192;\n- the default elsewhere.\n\nThe reboot branch is still RECLAIMED, and RUNNING, RECLAIMED, FAIL and DONE statuses carry no pause field (case 11)."
+      },
+      {
+       "item": "B9 facts per_attempt_files and files_rewritten_same_bytes",
+       "status": "done",
+       "note": "write_facts spot block, checked in case 1."
+      },
+      {
+       "item": "B10 tests updated and passing under /bin/bash 3.2",
+       "status": "done",
+       "note": "Both pass with the default TMPDIR. The guest test's SPOT=0 t_step check runs with the Spot status() loaded, so it is approximate."
+      },
+      {
+       "item": "SPOT=0 path identical to HEAD",
+       "status": "done",
+       "note": "Every hunk outside the Spot block is guarded, an else arm holding HEAD's lines, or the RES-to-RT change (equal when SPOT=0). Exit statuses are as at HEAD. The only new action is the boot-time `md full-spot` curl, which falls back to 0. scripts/lib.sh and the other tracked scripts are unchanged."
+      },
+      {
+       "item": "Linux/GNU assumptions the Mac harness cannot see",
+       "status": "done",
+       "note": "flock (util-linux), stat -c, date -d @, cp --no-dereference, find -printf, runuser -u, head -c, df --output and pkill -P all exist on Ubuntu 24.04. The awk byte sum uses printf %d, so it is safe under mawk. python's O_NOFOLLOW and O_NONBLOCK behave the same on Linux; trim opening a FIFO with O_RDWR returns at once and is refused. $BASHPID needs bash 5 and the guest runs bash 5. I found no new GNU-only risk."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "look": "fourth",
+   "checked": "the code after the changes the third look led to",
+   "verifiers": [
+    {
+     "subject": "the launcher (cloud/gcp/pilot_local.sh) and its test",
+     "summary": "Round 4 launcher check. The kernel lock (A26) holds up under attack. Only Spot commands take it, and none of them runs without it. Two commands never held it at once: 24 takers x 15 rounds gave exactly one holder each round, and 400 overlapping takers never overlapped. A child sleeping under spot_sleep does not keep the lock after a kill -9, while a plain sleep does. A lock path that is a dangling symbolic link, read-only, or a directory is refused with the \"could not open\" message, and the shell does not exit before it under bash 3.2. A symbolic link to /dev/null still locks correctly. Every Spot sleep goes through spot_sleep (`sleep N 9>&-`). The only \"$SELF\" re-run is `ledger`, which takes no lock. The work volume <VOLUME> is APFS, so flock is available there. A29 to A33 are implemented as the contract says and their tests match the code. The part of pilot_local.sh outside the Spot block (the case dispatch and everything above the Spot section) is byte-identical to the round-3 draft in work-a3/draft, so this round changed no old-mode code. Old modes create no lock file. Nothing new breaks bash 3.2 or the BSD tools.\n\nThere are three findings of weight. (1) A delete cut that is recorded but never carried out is reported \"done as configured\" with exit 0. I reproduced this: the implementer's reason for not marking delete cuts as pending is wrong, because a later watch goes back to polling the attempt instead of deleting it. (2) A simulated reclaim that Google accepts but that never takes effect is reported \"done as configured\" with exit 0 if the watch is restarted within 5 minutes. I reproduced this too; the implementer had already named it as a remaining edge. (3) `teardown` and old-mode `launch` decide between the Spot and old paths by checking whether the state file exists, without the lock. During the first seconds of `launch full-spot`, before its state file is written, they take the unlocked old path. Teardown can then delete the new Spot run's state while its VM is being created. The minor findings are about the refusal message's wording.\n\nTHE TEST RUN HAD NOT ENDED when I was required to report, so I cannot quote its last five lines as asked.",
+     "tests_run": "Started `/bin/bash scripts/dev/test_spot_launcher.sh` in the background with the default TMPDIR, writing to <SCRATCH>/spotdesign/rev6a/test.log. IT HAD NOT ENDED when I was required to report. Its last lines at that moment, exactly:\nPASS random_reclaims_seed1\nPASS random_reclaims_seed2\nPASS random_reclaims_seed3\nPASS random_reclaims_seed4\nPASS no_progress_pause\nPASS attempt_limit\nThat is 14 PASS and 0 FAIL so far, with no rc line yet.\n\nLock attacks, using spot_lock and spot_sleep copied from the launcher and run under /bin/bash 3.2.57, in <SCRATCH>/spotdesign/rev6a/lk (take.sh, race.sh):\n- 15 rounds of 24 concurrent takers gave 0 bad rounds.\n- 400 overlapping takers gave 0 overlaps.\n- After a kill -9 while spot_sleep slept, the lock was free at once.\n- After a kill -9 while a plain-sleep child slept, the lock was held until the child exited.\n- A dangling symbolic link, a read-only file and a directory were each refused with 'could not open'.\n- A symbolic link to /dev/null still locked correctly.\n\nHarness experiments: <SCRATCH>/spotdesign/rev6a/exp/exp.sh, which is the real harness setup plus two cases.\n- e1 (delete cut, then the purge cannot list): watch1 exit 1 with CUTS_DONE=seal:delete; watch2 exit 0, 'seal:delete: done as configured', 1 create.\n- e2 (accepted simulate with no effect, watch restarted): watch1 exit 130; watch2 exit 0, 'build:simulate: done as configured'.\n\nAlso: a diff of the non-Spot parts against work-a3/draft (identical), and `mount` showed <VOLUME> is APFS.",
+     "findings": [
+      {
+       "severity": "major",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "639-643 (spot_poll delete cut), 887-891 (spot_watch re-entry)",
+       "title": "A delete cut that never happened is reported 'done as configured', exit 0",
+       "detail": "A delete cut is written to CUTS_DONE in its final form ('seal:delete') and CUT_ATTEMPT=ATTEMPT is saved before anything is deleted. The poll then returns and the delete happens later, in spot_account -> spot_purge. If the watch ends before the delete request is sent, a later watch does NOT delete the VM. Ways it can end there: spot_purge cannot list for 10 minutes and exits 1 (line 489), Ctrl-C lands during the purge's first `instances list`, or a kill -9. The ledger row is still open, so spot_watch (line 887) calls spot_poll again. spot_poll has no memory that a delete was decided, and it makes no further cut because CUT_ATTEMPT==ATTEMPT (line 631). The attempt therefore runs to its natural end, and spot_cuts_report prints 'seal:delete: done as configured'. The run exits 0 although no attempt was ever cut at seal, so a resume after a seal cut was never exercised. The implementer's reason ('its open row makes every later watch or teardown delete the VM') is true for teardown but false for watch. Reproduced in <SCRATCH>/spotdesign/rev6a/exp/exp.sh, case e1, with the real harness. Settings: GCP_SPOT_REHEARSAL_CUTS=seal:delete, and the purge's two listings made to fail 100 times. Result: watch1 exit 1 with CUTS_DONE=[seal:delete] CUT_ATTEMPT=1 and the VM still listed; failures cleared; watch2 exit 0, 'attempt 1 is over: the guest reported DONE', 'seal:delete: done as configured', creates: 1, deaths: [(1,'deleted',3000)].",
+       "fix": "Record delete as '<item>>pending' like the other cuts. Give it its final form '<item>' only after spot_purge has verified the VM gone, in spot_account when CUT_ATTEMPT==ATTEMPT. Alternatively, at the start of spot_poll, end the attempt at once (SPOT_END=over) when a delete cut is recorded for this attempt. Add a test: purge fails after a delete cut, the next watch must not keep polling, and the result is exit 4 or a real delete.",
+       "what_was_done": "Fixed: a delete cut stays pending until the purge has verified that nothing is left, and a watch that starts again with a delete pending ends the attempt at once."
+      },
+      {
+       "severity": "major",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "581, 626-630, 656",
+       "title": "A simulated reclaim with no effect is 'done as configured', exit 0, if the watch restarts within 5 minutes",
+       "detail": "When `simulate-maintenance-event --async` is accepted, spot_cut_set writes '<item>' (final) at once. cut_at and cut_item exist only in local variables of spot_poll. If the watch stops within 300 s (Ctrl-C, terminal closed, kill) and is started again, cut_at is empty, so the A27 fallback never triggers. CUT_ATTEMPT==ATTEMPT also blocks any further cut. If Google never acts on the simulate, the attempt runs to its natural end and the report says 'done as configured' with exit 0. The implementer named this as a remaining edge but did not fix it. A27 asks that an accepted simulate with no effect never count as done as configured. Reproduced in exp.sh, case e2: simulate_noop, with stop_watch_at 560 s after launch (the simulate went out at t+400). Result: watch1 exit 130 with CUTS_DONE=[build:simulate]; watch2 exit 0, 'attempt 1 is over: the guest reported DONE', 'build:simulate: done as configured'.",
+       "fix": "Keep the simulate's send time in the state: either a CUT_AT key, or keep '<item>>pending' until the VM is seen GONE or RECLAIMED. In spot_poll, restore cut_at from the state when CUT_ATTEMPT==ATTEMPT. Without that, record '<item>' only once the VM is seen to go.",
+       "what_was_done": "Fixed: the time a simulate was accepted is kept in the state, and the cut counts as done only when the attempt is then seen to end by a reclaim."
+      },
+      {
+       "severity": "major",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "1105 (teardown dispatch), 956 (old launch), 840-854 (spot_launch before its first spot_save)",
+       "title": "teardown and old-mode launch run unlocked while a Spot launch has not yet written its state",
+       "detail": "`teardown` picks the Spot path only if spot_state_exists (line 1105), and old `launch` refuses only if spot_state_exists (line 956). `launch full-spot` takes the lock at line 840 but writes no state until line 854. In between come several seconds of gcloud and git calls: bucket describe, storage du, commit_ok. Sequence A: terminal 1 runs `launch full-spot`. Terminal 2 runs `teardown` (for example after a refusal message that says to run teardown) in that window. Teardown takes the old path (lines 1106-1136): it finds no state, lists no instances, and 'verifies'. Its `rm -f \"$STATE\"` (line 1128) can land after spot_start's last spot_save (line 414) while the create is in flight. The VM is then created with an open row and no state. Every later `watch` says 'no run state found'. An old teardown deletes the VM but cannot close the row, because RUNTAG is empty (line 1127). The row stays open for good, its cost is never written to the ledger, and every launch is blocked until the ledger is edited by hand. Sequence B: `launch full` in that window passes the check at line 959 and the instance list at line 960, as spot_start's checks at lines 372-382 do. Both create a VM: two VMs at once. Old modes take no lock by decision, and two old launches could already race at HEAD, so I rate this major rather than blocker. It is still a path on which a command acting on a Spot run runs without the lock.",
+       "fix": "Without creating anything, make `teardown` and old-mode `launch` probe the lock before choosing a path, when $SPOT_LOCK exists: open it with `exec 9<` and try flock LOCK_NB in python. If it is held, refuse with the same sentence. When no lock file exists, the old-mode bytes and behaviour stay as now. Another option: write a minimal SPOT='1' state immediately after spot_lock in spot_launch, and remove it on every refusal path.",
+       "what_was_done": "Fixed: a Spot launch writes its state at once after taking the lock, the old-path teardown never removes a Spot run's state, and old-mode launch and teardown take the lock whenever the lock file exists."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "190, 175",
+       "title": "'up to a minute' understates how long an orphaned gcloud child keeps the lock, and the message names a dead process",
+       "detail": "After a kill -9 of a watch or teardown, any gcloud child that inherited descriptor 9 keeps the lock until it exits. That includes `instances delete` (which waits for the operation), `instances create` and `storage cp -r`. Such calls commonly take 1 to 3 minutes and can hang with no timeout when the API stalls. My tests confirmed that a child holding descriptor 9 keeps the lock (take.sh in raw mode) and that spot_sleep does not. Meanwhile the refusal names the dead bash's process number from .info and says to kill it. That process is gone, and its number may have been reused by an unrelated process.",
+       "fix": "Check whether the named process is alive (kill -0). If it is not, say that a child of it (gcloud) still holds the lock and how to find it: `lsof <lock file>`. Drop 'up to a minute', or change it to 'a few minutes'.",
+       "what_was_done": "Fixed: the refusal says when the named command has ended and a child of it still holds the lock, and no longer says \"up to a minute\"."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "180",
+       "title": "A lock directory left by the round-3 design blocks every Spot command, and the message does not say why",
+       "detail": "Round 3 used the same path, $STATE.lock, as a directory. If one is left behind, `exec 9>>` fails with 'Is a directory'. The command dies with 'could not open the lock file ...; nothing has been done' and gives no remedy. This is safe (it refuses), and it matters only if the round-3 code ever ran against the real work folder.",
+       "fix": "Optional: if $SPOT_LOCK is a directory, say that it was left by an earlier version and can be removed once no Spot command runs.",
+       "what_was_done": "Fixed: a lock path that is a directory left by an earlier version is named as such."
+      }
+     ],
+     "items_checked": [
+      {
+       "item": "A26 kernel lock",
+       "status": "partly",
+       "note": "The lock itself works: one holder per round in 15 rounds of 24 takers, no overlap in 400 overlapping takers, free at once after a kill -9 while spot_sleep sleeps, kept by a plain-sleep child, and refusal of a dangling link, a read-only file and a directory. Every Spot sleep goes through spot_sleep, and only `ledger` re-runs $SELF. However, teardown and old launch choose their path without the lock during the pre-state window of a Spot launch (finding 3)."
+      },
+      {
+       "item": "A27 simulate without effect -> fallback delete",
+       "status": "partly",
+       "note": "Done inside one poll run, and tested. A watch restart within 5 minutes reports 'done as configured' with exit 0 (reproduced, e2)."
+      },
+      {
+       "item": "A28 pending cuts",
+       "status": "partly",
+       "note": "Reset and simulate are pending before their command and give NOT DONE (interrupted) with exit 4 (tested). Delete is not pending. A delete that never happened is reported done as configured with exit 0 (reproduced, e1)."
+      },
+      {
+       "item": "A29 three-outcome status read, kind never weakened",
+       "status": "done",
+       "note": "Code at lines 726-736 matches the contract, and the tests account_status_unreadable, account_kind_not_weakened, account_kind_strengthened and kind_rank_order match it. An attempt that wrote no status is positively absent, and the poll's kind is kept."
+      },
+      {
+       "item": "A30 clocks from CREATE_SENT",
+       "status": "done",
+       "note": "Lines 585-586 and 617 use sent=CREATE_SENT, falling back to CREATED."
+      },
+      {
+       "item": "A31 sync state before the row",
+       "status": "done",
+       "note": "Line 404. On failure the command dies with no row. The next watch goes through spot_settle and spot_account's STARTING path and starts attempt 1 again. Tested by durable_first_state_sync_fails."
+      },
+      {
+       "item": "A32 PARTS_SENT",
+       "status": "done",
+       "note": "Set at line 413 and saved with CREATE_SENT at line 414. PARTS_FULL comes from it (line 905), with a cautious fallback to the setting in force."
+      },
+      {
+       "item": "A33 state-sync failure test and an Nth/file hook",
+       "status": "done",
+       "note": "The hook supports empty, n=N and file=<path>. The case durable_state_sync_fails exists."
+      },
+      {
+       "item": "Old modes unchanged, no lock file",
+       "status": "done",
+       "note": "The part outside the Spot block is identical to the round-3 draft. SPOT_LOCK is only assigned, never opened, in old paths. The test lock_old_modes covers this."
+      },
+      {
+       "item": "bash 3.2 / BSD compatibility",
+       "status": "done",
+       "note": "The lock was exercised under /bin/bash 3.2.57. The constructs used (exec 9>>, 9>&-, sed -n, date -u) are portable."
+      },
+      {
+       "item": "Test suite run to the end, last five lines quoted",
+       "status": "not_done",
+       "note": "Started in the background with the default TMPDIR, as instructed. When I was required to report it had not finished: 14 PASS, 0 FAIL so far, and its last line was 'PASS attempt_limit'. I cannot quote the final five lines."
+      }
+     ]
+    },
+    {
+     "subject": "the guest (cloud/gcp/full_guest.sh), the checkpoint helper (scripts/spot_checkpoint.sh) and their tests; and the on-demand path",
+     "summary": "Round 4, role B (guest, helper, both tests). Nothing of weight: no blocker and no major. I could not refute any of B11 to B16. Both tests ran to the end in the repository (/bin/bash, default TMPDIR) and passed. The SPOT=0 path is unchanged.\n\nOld path:\n- Since round 3, the only changes to cloud/gcp/full_guest.sh are inside the Spot block (lines 419 to 1212) and one hunk inside write_facts' `if E('F_SPOT') == '1':` (lines 358-359).\n- The SPOT=0 definitions of lake_logs, failed_lines, put_logs and built_in_log (lines 222-230 and 1388) are HEAD's byte for byte.\n- `git diff HEAD --stat` shows no change to scripts/lib.sh or to any other tracked script.\n- The hooks outside the block are the round-3 hooks. None is the last command of a function or branch.\n\nB15:\n- The order is right: compress into a file of root's own, take its SHA-256, gcs_put to `$CK/results/%09d`, then one state write with --results-saved, results_object and results_sha256 (lines 885-892). There is also a new re-check under the lock.\n- Nothing reads or writes `$CK/results.tsv.gz` any more.\n- pilot_local.sh reads only `results_saved` from state.json (lines 562 and 685), so the launcher is unaffected.\n- I added my own case in a scratch copy of the harness. Round 1 saved object 3. Round 2 uploaded object 5, and its state write was cut (exit 9). The state still named object 3, and object 5 was in the bucket. A restore on a fresh machine fetched only 000000003 and got 3 lines back.\n- The restore outcomes are as specified: corrupt x3 FAIL, truncate x3 PAUSED retry, missing object FAIL, no object named FAIL.\n\nB11:\n- The order is part, logs, manifest, state on every mode, because all of them go through spot_ckpt_round.\n- My second case made all 5 PUTs of the log fail. The round still returned 0, logged one WARNING, and the PUTs ran in this order: part, 5 failed log PUTs, manifest, state.\n- spot_pause's state write carries --parts-modules and the TIMEBOX_USED from spot_timebox_saved. The state keeps the larger of old and new parts_modules, so the pause can only add.\n\nB12:\n- failed_lines and spot_ckpt_final read only root's copies (safe_cp, plain, mktemp, mv).\n- Some HEAD lines still read the build user's logs in place during a Spot run. These are outside the contract's wording (minor finding 1).\n\nB13:\n- The toy really has a module with a sorry warning and an #eval (Toy.W) and a module that fails to compile (Toy.F).\n- Every assertion named in the contract is present. The test ran and printed its INFO line (0 new time, size or bytes, 0 gone, for 7 kinds x 3 files) rather than skipping.\n\nB14:\n- Loop rounds are 600 s apart with a 5 s margin, so a real recompile with a true mtime is judged in the next round.\n- The last cut (`--all`, no `--settle-before`) is strict.\n- A gone file or a non-regular file is still status 4.\n\nThree small weaknesses follow as minor findings, plus one residual reader set.",
+     "tests_run": "Both started in the background first, in the repository, with /bin/bash and the default TMPDIR. Both ended with exit 0.\n\nscripts/dev/test_spot_checkpoint.sh, last lines:\n\"PASS  toy: after a source change recompiles saved modules, the next cut says so (status 4)\"\n\"83 cases, 0 failed\"\n\nscripts/dev/test_spot_guest.sh, last lines:\n\"PASS  14. a part loop stopped between its manifest and its state write: the pause's state counts the part (6 checks, 10 s)\"\n\"PASS  15. failed job lines and Built lines read from root's own copies of the build logs; a pipe or link is skipped (4 checks, 11 s)\"\n\"PASS  16. saved replay results: one object per count with its SHA-256 in the state; restore checks it (11 checks, 28 s)\"\n\"19 cases, 0 failed (272 s)\"\n\nMy own experiments: a scratch copy of the guest harness at <SCRATCH>/spotdesign/rev6b/x, symlinked to the real guest and helper, with two extra cases.\n- M1, results round cut between upload and state write: 3 of 4 checks passed. The one that failed is an artefact of my test: the second machine was not sealed, so its confirm could not run.\n- M2, every log PUT failing in a part round: passed. The order was part, 5 failed log PUTs, manifest, state; the round returned 0 and logged one WARNING.\n\nNo file under the repository was changed. I ran no gcloud, no lake on the real project and no state-changing git, did not run scrub.py, and did not read config.env or .private-patterns.",
+     "findings": [
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/full_guest.sh",
+       "line": "1409 (also 1352, 1242, 1497)",
+       "title": "In a Spot run, root still reads some of the build user's logs in place",
+       "detail": "B12 covers failed_lines and spot_ckpt_final only. Other readers are HEAD lines and are unchanged:\n- restart_test (line 1409) runs `built_in_log \"$LAKELOG\"`, which greps $LOGS/lake_build_N.log in place while lake (the build user) is running.\n- s_smoke (line 1352) greps /tmp/smoke.log.\n- The watchdog (line 1242) runs gz_put on $LOGS/lake_build_*.log in place.\n- The evidence step for a failed build (line 1497) reads $LAKELOG in place, but only after the build user is locked, so the risk there is small.\n\nSequence:\n1. The build reaches PRUNE_AFTER, and monitor_build calls restart_test.\n2. built_in_log runs `plain \"$LAKELOG\"`, which passes.\n3. Code running as the build user (pilot) replaces $LAKELOG with a FIFO.\n4. grep opens the FIFO and blocks with no time limit, so the main script hangs.\n5. The build and the part loop go on, so progress is still saved.\n6. At the attempt's deadline the watchdog writes PAUSED.\n7. TESTS_DONE was never recorded, so the next attempt runs the restart tests again, and the same thing can happen.\n\nThe same applies to SPOT=0 (HEAD), and the contract did not name these lines.",
+       "fix": "Inside the Spot block, give restart_test's read a copy: safe_cp the log into $SPD first, or call spot_lake_copies and read the copy of LAKELOG. Do the same for the smoke grep (copy /tmp/smoke.log first, as spot_ckpt_final already does). Leave the SPOT=0 lines as they are.",
+       "what_was_done": "Left by decision: these are the committed version's own reads; a hang there ends in a pause at the attempt's deadline, and the no-progress rule bounds repeats."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/full_guest.sh",
+       "line": "756-757 (spot_ckpt_round), 136-145 (gcs_put)",
+       "title": "A stalled log upload now delays the manifest by up to about 12 minutes per log",
+       "detail": "The contract asked for the order part, logs, manifest. A log upload that fails costs nothing: I checked that it stays a WARNING and the round goes on. A log upload that stalls is different. gz_put calls gcs_put, which makes 5 tries; each try can take up to 20 s to connect plus 120 s below 1 KB/s, and the waits between tries add 75 s. That is roughly 12 to 13 minutes per log, and every log of the attempt goes up in each round.\n\nSequence:\n1. spot_ckpt_round uploads part-N.\n2. spot_put_lake_logs starts on lake_build_1.log, and the network stalls.\n3. For up to about 12 minutes, part-N is in the bucket but in no manifest.\n4. If Google reclaims the machine in that window, part-N is lost and its modules are compiled again by the next attempt.\n5. In spot_pause after the deadline, the same wait sits before the last manifest. The watchdog's 600 s + 1800 s usually covers it.\n\nNo evidence is wrong; only compute is lost.",
+       "fix": "Bound the log uploads inside a part round, for example with one try, or `timeout 120` around each gz_put in spot_put_lake_logs. Or, in pause mode, upload the logs after the state write (put_logs runs later in spot_pause anyway).",
+       "what_was_done": "Fixed: inside a part round each log gets one upload attempt with a limit of two minutes."
+      },
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/full_guest.sh",
+       "line": "597, 620",
+       "title": "The RECLAIMED state writes do not carry the saved work",
+       "detail": "The contract says \"every state write that ends an attempt carry the saved work\", then names spot_pause. Two writes that end an attempt do not pass --parts-modules or TIMEBOX_USED:\n- spot_reclaimed (line 597): `--attempt-set ended=RECLAIMED`\n- the preemption watcher (line 620): the same write\n\nSequence:\n1. The part loop is in spot_apply_pending: it has uploaded the manifest and moved it into place locally.\n2. Google's notice arrives. spot_reclaimed kills the loop before its spot_state runs.\n3. The watcher's or spot_reclaimed's RECLAIMED write leaves parts_modules and progress at the old values.\n4. The launcher accounts that attempt as making no progress (test_spot_launcher: \"RECLAIMED before any new checkpoint counts as no progress\"), which brings the run one step closer to its no-progress limit.\n5. The next attempt's first state write recounts the manifest and so corrects it.\n\nThe implementer disclosed this.",
+       "fix": "Add `--parts-modules \"$(awk -F'\\t' 'NR > 1 {s += $5} END {print s + 0}' \"$SPD/manifest.tsv\" 2>/dev/null || echo 0)\"` to both RECLAIMED writes. It is one awk, and fast enough for the reclaim path.",
+       "what_was_done": "Fixed: both writes that record a reclaim carry the saved work."
+      },
+      {
+       "severity": "minor",
+       "file": "scripts/spot_checkpoint.sh",
+       "line": "267-268",
+       "title": "A saved file with an mtime in the future is put off at every round until the last cut",
+       "detail": "The deferral test is `lstat(...).st_mtime >= settle`. With true mtimes, a changed file is judged in the next round, 600 s later. But the build user owns these files and can set their times (for example with `touch -d 2100-01-01`), and a clock step can do the same.\n\nSequence:\n1. A saved .olean is rewritten with other bytes and given an mtime in the future.\n2. Every loop cut puts it off: \"1 saved files changed in the last seconds; looked at again next round\".\n3. The pause cut (settle = t) puts it off too.\n4. Only the final cut (`--all`, strict, so status 4) or the next attempt's restored-compiled-again check sees it.\n\nNo wrong result can pass this way. It only delays when the run ends, and loop rounds keep cutting other modules meanwhile.",
+       "fix": "Put a file off only if its mtime is at or after settle and not more than a little ahead of the current time, e.g. `settle <= mtime <= time.time() + 60`. A file whose mtime is further in the future would then be judged at once.",
+       "what_was_done": "Fixed: a saved file whose time is more than a minute in the future is judged at once."
+      }
+     ],
+     "items_checked": [
+      {
+       "item": "B11 order: part, build logs, manifest, state (loop, final, pause, repair)",
+       "status": "done",
+       "note": "All modes go through spot_ckpt_round: gcs_put of the part (line 750), spot_put_lake_logs (757), manifest.new and pending (760-762), then spot_apply_pending: manifest PUT, mv, state (777-790). The logs moved out of spot_apply_pending. In my scratch case M2 all 5 log PUTs failed; the round still returned 0, logged one WARNING, and the PUTs came in this order: part, 5 failed log PUTs, manifest, state. A stall is bounded only by gcs_put's retries (minor finding 2)."
+      },
+      {
+       "item": "B11 spot_pause state write carries --parts-modules and TIMEBOX_USED",
+       "status": "done",
+       "note": "Lines 581-584. pm is the sum of column 5 of the local manifest, which is moved into place only after its upload. The state keeps the larger of old and new parts_modules. spot_timebox_saved takes the largest of the state's value, the shell's value and this attempt's manifest rows (cut time minus build_t0), so a pause never lowers it. The pause cut runs first and applies pending files. The RECLAIMED writes do not carry the saved work (minor finding 3)."
+      },
+      {
+       "item": "B12 failed_lines and spot_ckpt_final read only root's copies; no FIFO block, no link followed",
+       "status": "done",
+       "note": "Spot failed_lines at line 455: prints 0 when $SPD does not exist, and counts only in copies made by spot_lake_copies (plain, safe_cp with timeout 60 and --no-dereference, plain on the temporary file, mv). spot_ckpt_final reads $(spot_lake_copies) at line 847. Case 15 passes. Other in-place readers remain (minor finding 1)."
+      },
+      {
+       "item": "B12 SPOT=0 definitions untouched, byte for byte",
+       "status": "done",
+       "note": "lake_logs, failed_lines and put_logs (lines 222-230) and built_in_log are identical to HEAD (diffed against git show HEAD)."
+      },
+      {
+       "item": "B13 toy Lake case (warning, #eval, failing module, wipe, clean restore, touch, rebuild, assertions)",
+       "status": "done",
+       "note": "Read and run: Toy.W has a `sorry` and an `#eval`, and Toy.F fails. Asserted: rc != 0; Built A, B and W; the sorry warning; the failure on Toy.F; the cut saves exactly A, B and W; byte-for-byte restore; cover passes; touch of sources and toolchain; rebuild builds Toy and fails on F with no Built A, B or W; no new time, size or bytes and none gone (summed, more than 0 files); the next cut with the restore's done list gives rc 0 and only Toy. The INFO line printed."
+      },
+      {
+       "item": "B14 deferral under --settle-before; last cut strict",
+       "status": "done",
+       "note": "The recent set is excluded from same_again and from --all, and a module with a recent file is incomplete. Final mode passes --all with no settle (line 716), so it is strict. A gone or non-regular file is still status 4. With true mtimes a recompile cannot hide for more than one round; a future mtime is put off until the last cut (minor finding 4)."
+      },
+      {
+       "item": "B15 results object and hash: order, cut between, restore cases, old name gone, launcher unaffected",
+       "status": "done",
+       "note": "Upload, then one state write. My scratch case M1: object 5 uploaded with its state write cut; the state still named object 3, and a fresh machine's restore fetched only 000000003 and got 3 lines. Case 16: corrupt x3 FAIL; corrupt x1 recovers; truncate x3 PAUSED retry; missing object FAIL; no object named FAIL with no GET; the line-count check pauses. Nothing uses $CK/results.tsv.gz. The launcher reads only results_saved. facts.json shows both keys."
+      },
+      {
+       "item": "B16 both tests updated and passing",
+       "status": "done",
+       "note": "Checkpoint test: 83 cases, 0 failed. Guest test: 19 cases, 0 failed. The new cases 14, 15 and 16 and the updated cases 1 and 5 assert what the report says."
+      },
+      {
+       "item": "THE OLD PATH (SPOT=0 equals HEAD)",
+       "status": "done",
+       "note": "Since round 3, changes are only inside the Spot block (419-1212) and the F_SPOT==1 hunk of write_facts. The hooks outside the block are the round-3 ones: `[ \"$SPOT\" = 1 ] && ...` at top level or in the middle of a function, if/elif forms, and else arms holding HEAD's lines. None is the last command of a function or branch. `git diff HEAD` shows no tracked script changed other than full_guest.sh and pilot_local.sh, and scripts/lib.sh has no diff."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "look": "fifth",
+   "checked": "the code after the changes the fourth look led to",
+   "verifiers": [
+    {
+     "subject": "the launcher (cloud/gcp/pilot_local.sh) and its test",
+     "summary": "Round 5, launcher (pilot_local.sh, test_spot_launcher.sh, config.example.env): I found nothing of weight. A34, A35 and A36 are done as the contract says. The test suite passes in full: 88 passed, 0 failed, rc=0. I re-ran and adapted the previous verifier's cases e1 and e2, and added seven more cut-interruption cases (e3a to e8). Each one behaves as A34 says and none can be refuted:\n- A delete still pending ends the attempt at once in the next watch. It becomes \"done as configured\" only after spot_purge has verified nothing is left (line 735).\n- A simulate keeps CUT_AT across watches, so the fallback fires 300 s after the request was sent. If the watch stopped while the request was in flight (CUT_AT 0), the simulate is never sent again. It is \"done as configured\" only if RECLAIMED or the VM going is then seen; otherwise it is reported NOT DONE with exit 4.\n- No attempt is cut twice.\n- A pending entry from an earlier attempt can never be finalised later. CUT_ITEM is cleared when the next attempt is named (line 417), and both spot_cut_seen and the finalisation in spot_account need CUT_ATTEMPT=ATTEMPT and CUT_ITEM to name the entry.\n- A pending entry at report time says \"NOT DONE (interrupted, or never seen to take effect)\" and gives exit 4.\n\nA35: the early save happens before any gcloud or git call. Every refusal before the first ledger row removes the state (spot_refuse, plus the rc=3 branch at line 897). Watch and abandon both work from an ATTEMPT=0 state. Old modes with no lock file are unchanged: the old-mode diff only adds guarded lines, and the identity cases pass. With the lock file present, old modes take the lock and send the same commands (case old_rehearsal_lock_free).\n\nA36: both wordings are present and tested. The orphan-lock message does not tell the owner to kill the dead process.\n\nbash 3.2 and BSD tools: /bin/bash -n passes under 3.2.57. I found no bash-4 constructs and no GNU-only tool options.\n\nThe one residual issue is minor and follows from the decided A35(c): old modes do exactly what HEAD does when the lock file does not exist. In a work directory where no Spot command has ever run, the old-path teardown and old-mode launch take no lock. Narrow races with a first-ever Spot launch are therefore still possible (finding 1).",
+     "tests_run": "I ran `cd <REPO> && /bin/bash scripts/dev/test_spot_launcher.sh` with the default TMPDIR. The log is <SCRATCH>/spotdesign/rev7a/test.log. Its last five lines, exactly:\nPASS old_full_edges\nPASS old_rehearsal_lock_free\nPASS spot_vm_matches_on_demand\n88 passed, 0 failed\nrc=0\n\nExperiments are in <SCRATCH>/spotdesign/rev7a/exp/. exp.sh holds cases e1, e2, e3a, e3b and e4 to e8, all behaving as A34 requires. exp2.sh holds case t1, a scratch-copy hook that reproduces the consequence in finding 1. /bin/bash -n passes on pilot_local.sh. No repository file was changed.",
+     "findings": [
+      {
+       "severity": "minor",
+       "file": "cloud/gcp/pilot_local.sh",
+       "line": "1145-1147, 1168; 995-996, 1052; 379",
+       "title": "First-ever Spot launch can still race an old-path teardown or an old-mode launch (no lock file yet)",
+       "detail": "Teardown race. Old-path teardown runs line 1145: spot_state_exists is false. It then runs line 1146: $SPOT_LOCK does not exist yet, so it takes no lock. In the gap before line 1147, the first-ever `launch full-spot` creates the lock file, takes the lock and early-saves its state (line 885). Teardown then sources that Spot state at line 1147, so RUNTAG and MAXRUN are the Spot run's. It lists the instances and verifies the project empty, because the attempt's create is still in flight. At line 1168 it runs close_run on the Spot run's row, which spot_start opened at line 421. Line 1169 keeps the state. The create then succeeds: a Spot VM runs with its ledger row already closed at about 0 s. If nobody watches, that money is not in the ledger until Google deletes the VM at MAXRUN. If watch is run, the purge in spot_account (found-ended path) deletes the VM, but the row is still not re-closed. I reproduced the consequence in a scratch copy of the launcher, with a hook between lines 1146 and 1147 that moves a launched Spot run's state back into place. Teardown deleted lean-full-spot, closed row full-spot#1 at 0 s and printed 'a Spot run was launched meanwhile: its state ... is kept'. The scratch copy is in rev7a/exp/exp2.sh. The window is microseconds wide and exists only before any Spot command has ever run in the work directory.\n\nLaunch race. An old-mode `launch` passes lines 995 and 996 just before the same first Spot launch's early save. It appends its own row and writes STATE at line 1052. The Spot launch then refuses at line 385 (a row is open), and spot_refuse at line 379 runs `rm -f STATE`. That removes the old run's state while its VM is being created. Its watch then says 'no run state found', and teardown cannot close its row.",
+       "fix": "Neither fix changes any case HEAD can meet. In the old-path teardown, after sourcing the state at line 1147: if SPOT is 1, hand over to spot_teardown or die, instead of acting on a Spot run without its lock. In spot_refuse, remove the state only if it is still this launch's own: SPOT is 1 and RUNTAG equals the launch's RUNTAG.",
+       "what_was_done": "Fixed by the lead agent, with two test cases: the old-path teardown hands a state that turns out to be a Spot run's over to the Spot teardown, which takes the lock, and a Spot launch that is refused removes the state file only while it is still its own."
+      }
+     ],
+     "items_checked": [
+      {
+       "item": "A34 delete: recorded pending, nothing sent, attempt over; final form after spot_purge verifies; top-of-poll over at once",
+       "status": "done",
+       "note": "Lines 604-606, 665-670 and 735. e1 (purge fails, then the next watch) and e4/e5/e6 (watch killed at the purge's first listing, after the instance delete, and at the accounting's bucket copy): each gives 'done as configured', exit 0, two attempts."
+      },
+      {
+       "item": "A34 reset: final when the command returns; >delete when refused; pending + RECLAIMED becomes the item",
+       "status": "done",
+       "note": "Lines 674-677 and 702 (reset:reclaimed only). A reset interrupted in flight stays pending; with no RECLAIMED it is NOT DONE, exit 4 (rehearsal_cut_interrupted)."
+      },
+      {
+       "item": "A34 simulate: stays pending with CUT_AT; done on RECLAIMED, GONE, TERMINATED, STOPPED or SUSPENDED; fallback 300 s after CUT_AT, kept across watches; CUT_AT 0 never re-sent",
+       "status": "done",
+       "note": "e2 (watch stopped 290 s after the simulate): the fallback fired at exactly simulate+300; 'done by fallback (delete)', exit 4. e3a (killed in flight, no effect): NOT DONE, exit 4. e3b (killed in flight, took effect): done, exit 0. e7 (manual teardown while pending): NOT DONE, exit 4. e8: a stuck pending simulate blocks a second cut in the same attempt and is reported honestly."
+      },
+      {
+       "item": "A34 pending at report = NOT DONE wording, counted as missed (exit 4); new state keys CUT_ITEM and CUT_AT reset when a new attempt is named",
+       "status": "done",
+       "note": "Line 835, line 417 and SPOT_KEYS. CUT_ATTEMPT keeps the old attempt number, as specified."
+      },
+      {
+       "item": "A34 tests (1)-(5)",
+       "status": "done",
+       "note": "rehearsal_delete_cut_purge_fails, rehearsal_simulate_watch_restarted, rehearsal_cuts (pending tracked through track_cuts), rehearsal_simulate_then_done, and the four existing cases all pass and assert the report line, cuts.txt and the exit status."
+      },
+      {
+       "item": "A35(a) early save before the first cloud or git call; refusals remove the state; a killed launch is continued by watch and ended by abandon",
+       "status": "done",
+       "note": "Line 885; spot_refuse with SPOT_EARLY=1; the rc=3 branch at line 897. Tested by launch_refuses_instance, launch_refuses_commit, launch_killed_early_watch and launch_killed_early_abandon."
+      },
+      {
+       "item": "A35(b) old-path teardown keeps a state that has become a Spot run's",
+       "status": "done",
+       "note": "Line 1169, case old_teardown_keeps_spot_state. The residual first-time race is in finding 1."
+      },
+      {
+       "item": "A35(c) old launch and teardown take the lock only when the lock file exists; otherwise byte-identical to HEAD",
+       "status": "done",
+       "note": "The git diff of the old-mode code only adds guarded lines. The old_mode_* identity cases and lock_old_modes pass. lock_held_old_modes and old_rehearsal_lock_free show the same calls and ledger as HEAD."
+      },
+      {
+       "item": "A36 wordings: orphan holder (ended process, gcloud child, a few minutes, lsof, no kill of the dead number) and a lock path that is a directory",
+       "status": "done",
+       "note": "Lines 182, 195 and 197. Tested by lock_orphan and lock_directory; 'up to a minute' has been replaced."
+      },
+      {
+       "item": "bash 3.2 / BSD compatibility",
+       "status": "done",
+       "note": "/bin/bash 3.2.57 -n is OK. No arrays, mapfile, case-in-$(...), GNU-only date/stat/sed options or similar in the launcher. The test ran to the end under /bin/bash 3.2."
+      },
+      {
+       "item": "config.example.env",
+       "status": "done",
+       "note": "Documents the lock, exit statuses 0, 3 and 4, and the minimum attempt length (at least 1500 = DMARGIN+600). It is consistent with the code."
+      }
+     ]
+    },
+    {
+     "subject": "the guest (cloud/gcp/full_guest.sh), the checkpoint helper (scripts/spot_checkpoint.sh) and their tests; and the on-demand path",
+     "summary": "Round 5, role B (guest, helper, both tests): I found nothing of weight. There is no blocker, no major and no minor worth fixing. I could not refute B17 to B20, and the SPOT=0 path is unchanged.\n\nOld path:\n- I rebuilt the round-4 guest by applying the round-4 verifier's diff (rev6b/guest.diff) to `git show HEAD:cloud/gcp/full_guest.sh`, and diffed that against the working tree.\n- The only differences are inside the Spot block, which runs from line 419 to its `fi` at 1223: the new spot_parts_arg (lines 592-594), the two RECLAIMED writes (604-605 and 632-633), and spot_put_lake_logs (800-810).\n- gcs_put, gz_put, put_logs, tok and enc are HEAD's.\n- git diff HEAD shows no tracked script changed (scripts/lib.sh included).\n\nB17:\n- The single upload is `gzip -c` into a temporary file of root's own, then one `curl -sf --connect-timeout 20 --max-time 120 -X POST` with a fresh token from `$(tok)`, sent to the same name put_logs uses.\n- A failure or timeout (exit 28) logs the WARNING, the temporary file is removed, and the round goes on to the manifest.\n- It is called only from spot_ckpt_round (line 762).\n- The token fetch (at most 20 s) and the gzip come before the 120 s limit starts. That is negligible.\n\nB18:\n- Both RECLAIMED writes keep SPOT_LOCK_WAIT=5 and add `$(spot_parts_arg)`, one awk over the local manifest, so they stay fast. With no manifest they pass nothing.\n- The local manifest.tsv takes the new one only after it has been uploaded (lines 782-784). Its two other sources, the controller-verified download and a header-only fresh one, appear before STATE_READY is touched. spot_state refuses every write before STATE_READY, so an unverified manifest can never feed --parts-modules.\n- The helper keeps the larger value: `max(parts_modules, N)` at line 584, and progress is the max of old and new at 586.\n- Residual (not of weight): a reclaim in the milliseconds between the manifest PUT and the `mv` still counts the old figure. The next attempt recounts it.\n\nB19:\n- The deferral is now `settle <= mtime <= time.time() + 60` (line 271).\n- A file further in the future is judged at once: status 4 if its bytes differ, saved again if they are the same.\n- The final cut (`--all`, no `--settle-before`) is still strict, because with no settle nothing is deferred.\n- If the clock steps back by more than 60 s, the file is judged at once, as the contract asks.\n\nB20:\n- The three new checkpoint checks run real cut calls with times 30 s and an hour ahead (test_spot_checkpoint.sh lines 153-164).\n- The fake curl's `stall` rule sleeps --max-time times the scale and exits 28.\n- Case 17 bounds the extra time at 0.8 to 1 times the scaled limit, plus 2.5 s. The old five-try code would have cost about 13 s scaled, against a limit of about 4.9 s, so the check catches it.\n- Case 18 cuts the round with `spot_state(){ exit 9; }` after the manifest upload, then checks spot_reclaimed, the watcher, and the case with no manifest.",
+     "tests_run": "I started both tests in the background before reading any code, from the repository with /bin/bash and the default TMPDIR. Output is in <SCRATCH>/spotdesign/rev7b/guest.log and <SCRATCH>/spotdesign/rev7b/ckpt.log. Both exited 0, with no FAIL lines.\n\nLast lines, scripts/dev/test_spot_guest.sh:\n\"PASS  17. a stalled build-log upload costs a part round one try of at most 120 s; the manifest and state still go up (6 checks, 6 s)\"\n\"PASS  18. the RECLAIMED state writes (spot_reclaimed, the watcher) count a part whose own state write was cut off (5 checks, 8 s)\"\n\"21 cases, 0 failed (258 s)\"\n\nLast lines, scripts/dev/test_spot_checkpoint.sh:\n\"PASS  toy: the next cut saves that .hash file again, and nothing else\"\n\"PASS  toy: after a source change recompiles saved modules, the next cut says so (status 4)\"\n\"86 cases, 0 failed\"\n\n`/bin/bash -n` is OK on all four files. I ran no gcloud, no lake and no state-changing git, did not read config.env or .private-patterns, and did not run scrub.py.",
+     "findings": [],
+     "items_checked": [
+      {
+       "item": "B17: one bounded upload per build log in spot_put_lake_logs",
+       "status": "done",
+       "note": "Line 802-810: mktemp in $PD, gzip -c, then a single curl -sf --connect-timeout 20 --max-time 120 POST with Bearer $(tok) to the same name put_logs uses. A failure or timeout gives the WARNING '(one try, at most 120 s)', then rm and the round continues to the manifest. It is called only from spot_ckpt_round at line 762, so put_logs, gcs_put and gz_put are HEAD's byte for byte."
+      },
+      {
+       "item": "B18: both RECLAIMED writes pass --parts-modules; still fast; no manifest; helper keeps the max",
+       "status": "done",
+       "note": "Lines 605 and 633: `SPOT_LOCK_WAIT=5 spot_state --attempt-set ended=RECLAIMED $(spot_parts_arg)`. spot_parts_arg (line 594) is one awk and prints nothing when there is no manifest. Helper line 584 takes max(old, new), and progress is a max at line 586. An unverified manifest cannot be counted, because spot_state refuses every write before STATE_READY (lines 468 and 1018)."
+      },
+      {
+       "item": "B19: deferral bounded at now+60; a clock step; the last cut strict",
+       "status": "done",
+       "note": "spot_checkpoint.sh line 271: `settle <= mtime <= time.time() + 60`. A time further ahead goes straight to the same-bytes or status-4 judgment. --all with no --settle-before has settle None, so nothing is deferred and the last cut is strict. The header comment (lines 26-31) matches."
+      },
+      {
+       "item": "B20: tests updated and passing under /bin/bash 3.2",
+       "status": "done",
+       "note": "There are 3 new checks in test_spot_checkpoint.sh. In test_spot_guest.sh there is a fake-curl stall rule and cases 17 and 18, and cases 1 and 0a are updated. Both tests passed in my own run (see tests_run)."
+      },
+      {
+       "item": "Old path: SPOT=0 guest exactly HEAD's; no other tracked script changed",
+       "status": "done",
+       "note": "I rebuilt the round-4 file from rev6b/guest.diff plus HEAD (whose head_guest.sh matches HEAD byte for byte). Its diff against the working tree touches only lines 592-594, 604-605, 632-633 and 800-810, all inside the Spot block (419-1223). git diff HEAD --stat lists no tracked script under scripts/."
+      },
+      {
+       "item": "Fresh end-to-end read of the Spot block",
+       "status": "done",
+       "note": "I re-read the status override, spot_state and its lock, spot_pause, spot_reclaimed, the watcher, spot_ckpt_round and spot_apply_pending, the part loop and its handling of status 4, and the manifest and state fetch in s_spot_resume. Nothing of weight is new. Two residuals are negligible and only affect accounting: a reclaim between the manifest PUT and the local mv under-counts until the next attempt recounts, and a token fetch of up to 20 s comes before each log's 120 s limit."
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
