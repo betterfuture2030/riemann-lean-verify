@@ -1,0 +1,35 @@
+### 2026-11-22T21:02:04Z +1s  PHASE setup
+### 2026-11-22T21:02:04Z +1s  setup: sysctl
+### 2026-11-22T21:02:04Z +1s  setup: packages
+### 2026-11-22T21:02:12Z +9s  setup: disk
+### 2026-11-22T21:02:13Z +10s  setup: user
+### 2026-11-22T21:02:13Z +10s  setup: elan
+elan 4.4.0 (3cc76985a 2026-11-18)
+### 2026-11-22T21:02:14Z +11s  setup: source
+### 2026-11-22T21:02:27Z +24s  setup: spot_state
+### 2026-11-22T21:02:28Z +25s  setup: mathlib_cache
+Decompressed 8690 file(s)
+Already decompressed 8690 file(s)
+### 2026-11-22T21:03:49Z +106s  setup: baseline
+### 2026-11-22T21:03:51Z +108s  setup: spot_baselines
+### 2026-11-22T21:03:53Z +110s  setup: replay_program
+### 2026-11-22T21:03:53Z +110s  setup: lockdown
+### 2026-11-22T21:03:53Z +110s  setup: restore_parts
+### 2026-11-22T21:03:53Z +110s  setup: smoke_build
+✔ [8706/8707] Built Statements (2.3s)
+✔ [8707/8707] Built Formalism.GammaFactorNonvanishing.RhOfRight (2.8s)
+Build completed successfully (8707 jobs).
+### 2026-11-22T21:04:00Z +117s  setup: replay_program_test
+### 2026-11-22T21:04:01Z +118s  PHASE build:N=32
+Terminated
+Terminated
+### 2026-11-22T21:20:30Z +1107s  restart test prune: setup files found:            3411 (19.6 GB) of finished modules:          3380 (19.4 GB) removed:                      3380 
+plain restart: 0 finished modules compiled again, 316 new ones built; after deleting setup files: 0 compiled again, 309 new ones built
+### 2026-11-22T21:32:23Z +1820s  prune: setup files found:            2278 (13.3 GB) of finished modules:          1408 (8.2 GB) removed:                      1408 
+### 2026-11-22T21:42:26Z +2423s  prune: setup files found:            3128 (18.3 GB) of finished modules:          1952 (11.5 GB) removed:                      1952 
+### 2026-11-22T21:52:28Z +3025s  prune: setup files found:            3070 (17.8 GB) of finished modules:          2110 (12.2 GB) removed:                      2110 
+### 2026-11-22T22:02:31Z +3628s  prune: setup files found:            3066 (17.8 GB) of finished modules:          1985 (11.5 GB) removed:                      1985 
+### 2026-11-22T22:12:34Z +4231s  prune: setup files found:            3092 (18.1 GB) of finished modules:          2101 (12.3 GB) removed:                      2101 
+### 2026-11-22T22:15:32Z +4409s  Google is taking the machine back
+Terminated
+### 2026-11-22T22:15:35Z +4412s  RECLAIMED: the operating system is shutting down

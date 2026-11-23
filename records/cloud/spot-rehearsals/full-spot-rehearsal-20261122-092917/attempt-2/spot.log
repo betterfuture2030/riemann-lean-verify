@@ -1,0 +1,9 @@
+restored 393 modules, 2751 files, 166110026 bytes
+part: 339 modules, 2373 files, 252105468 bytes before compression; 0 modules not yet complete
+2026-11-22T15:40:44Z part 2 (loop): 339 modules, 2373 files, 77326914 bytes, 0 files written again with the same bytes; cut and listed in 2 s, uploaded in 1 s
+part: 359 modules, 2513 files, 264896952 bytes before compression; 0 modules not yet complete
+2026-11-22T15:42:47Z part 3 (loop): 359 modules, 2513 files, 80501664 bytes, 0 files written again with the same bytes; cut and listed in 1 s, uploaded in 1 s
+part: 402 modules, 2814 files, 344061742 bytes before compression; 0 modules not yet complete
+2026-11-22T15:44:52Z part 4 (loop): 402 modules, 2814 files, 105695991 bytes, 0 files written again with the same bytes; cut and listed in 2 s, uploaded in 1 s
+part: 143 modules, 1001 files, 130432985 bytes before compression; 0 modules not yet complete
+2026-11-22T15:45:43Z part 5 (final): 143 modules, 1001 files, 40224289 bytes, 0 files written again with the same bytes; cut and listed in 1 s, uploaded in 0 s

@@ -1,0 +1,32 @@
+### 2026-11-22T15:37:09Z +0s  PHASE setup
+### 2026-11-22T15:37:09Z +0s  setup: sysctl
+### 2026-11-22T15:37:09Z +0s  setup: packages
+### 2026-11-22T15:37:16Z +7s  setup: disk
+### 2026-11-22T15:37:17Z +8s  setup: user
+### 2026-11-22T15:37:17Z +8s  setup: elan
+elan 4.4.0 (3cc76985a 2026-11-18)
+### 2026-11-22T15:37:17Z +8s  setup: source
+### 2026-11-22T15:37:30Z +21s  setup: spot_state
+### 2026-11-22T15:37:30Z +21s  setup: mathlib_cache
+Decompressed 8690 file(s)
+Already decompressed 8690 file(s)
+### 2026-11-22T15:38:25Z +76s  setup: baseline
+### 2026-11-22T15:38:27Z +78s  setup: spot_baselines
+### 2026-11-22T15:38:28Z +79s  setup: replay_program
+### 2026-11-22T15:38:31Z +82s  setup: lockdown
+### 2026-11-22T15:38:31Z +82s  setup: restore_parts
+### 2026-11-22T15:38:32Z +83s  restored 1 parts: 393 modules, 49266750 bytes, in 1 s
+### 2026-11-22T15:38:32Z +83s  setup: smoke_build
+Build completed successfully (8707 jobs).
+### 2026-11-22T15:38:37Z +88s  setup: replay_program_test
+### 2026-11-22T15:38:41Z +92s  PHASE build:N=32
+Terminated
+Terminated
+### 2026-11-22T15:40:48Z +219s  restart test prune: setup files found:            402 (2.3 GB) of finished modules:          367 (2.1 GB) removed:                      367 
+plain restart: 0 finished modules compiled again, 313 new ones built; after deleting setup files: 0 compiled again, 313 new ones built
+### 2026-11-22T15:44:35Z +446s  prune: setup files found:            735 (4.2 GB) of finished modules:          0 (0.0 GB) removed:                      0 
+### 2026-11-22T15:45:35Z +506s  build tool exited with status 124; 1636 modules finished
+### 2026-11-22T15:45:43Z +514s  part 5: 143 modules, 40224289 bytes
+### 2026-11-22T15:45:45Z +516s  final prune: setup files found:            907 (5.2 GB) of finished modules:          876 (5.0 GB) removed:                      876 
+### 2026-11-22T15:45:45Z +516s  PHASE seal
+### 2026-11-22T15:45:45Z +516s  holding 90 s for the rehearsal

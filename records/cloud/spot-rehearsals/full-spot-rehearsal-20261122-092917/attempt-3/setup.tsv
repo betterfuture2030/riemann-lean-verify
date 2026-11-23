@@ -1,0 +1,15 @@
+sysctl	0	ok
+packages	6	ok
+disk	1	ok
+user	0	ok
+elan	1	ok
+source	12	ok
+spot_state	0	ok
+mathlib_cache	63	ok
+baseline	2	ok
+spot_baselines	1	ok
+replay_program	3	ok
+lockdown	0	ok
+restore_parts	7	ok
+smoke_build	5	ok
+replay_program_test	3	ok

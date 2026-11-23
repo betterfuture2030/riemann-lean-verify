@@ -1,0 +1,329 @@
+{
+ "what": "facts from one run of cloud/gcp/full_guest.sh; not a verdict (see PREREGISTRATION.md, section 5)",
+ "state": "DONE",
+ "message": "all phases ran; read facts.json against PREREGISTRATION.md section 5",
+ "written_utc": "2026-11-23T18:33:32Z",
+ "elapsed_s": 72954,
+ "mode": "full",
+ "time_boxed_build": false,
+ "jobs": 32,
+ "inputs": {
+  "tarball_sha256": "9631b4f020199e580ba86178cb56c6e9b09f690c2369a80dc4334aa93f49c7fc",
+  "tools_commit": "e8553dd2f4b3ba4bfcdecdd9e1329de6339c551a",
+  "tools_archive_sha256": "0c5f180d64fe446fe091b74d9a303f65fbc109be0f7aa8d323d6abdd23a76dd5",
+  "guest_script_sha256": "6ee2d35f4b41972748a3a55bb961bca42f003b973b630a2f7e763e72ef6b120d",
+  "guest_script_is_the_one_sent": true
+ },
+ "c1_build": {
+  "state": "built",
+  "source_modules": 175187,
+  "compiled_modules": 175187,
+  "source_modules_not_compiled": 0,
+  "compiled_modules_without_source": 0,
+  "compiled_modules_named_like_a_library": 0,
+  "failed_job_lines_in_all_logs": 0,
+  "last_lake_exit_status": 0,
+  "retried_after_failure": false,
+  "failed_jobs_in_last_pass": null,
+  "of_which_compiler_killed_from_outside": null,
+  "of_which_compiler_crashed": null,
+  "restart_tests": {
+   "plain_restart": {
+    "finished_modules_recompiled": 0,
+    "new_modules_built": 316
+   },
+   "restart_after_pruning": {
+    "finished_modules_recompiled": 0,
+    "new_modules_built": 309
+   }
+  }
+ },
+ "seal": {
+  "source_tree_unchanged_since_extraction": true,
+  "toolchain_and_mathlib_unchanged_since_before_first_compile": true,
+  "sealed_copy_of_toolchain_matches": true,
+  "half_written_files_of_killed_compilers_removed": 0,
+  "files_beside_the_compiled_modules_that_the_build_does_not_write": 0,
+  "compiled_files_manifest_sha256": "a770548ccc5a61ed9b5644690f7ae71637fca8bd2463f6597ce7bdfa7603fab3"
+ },
+ "c2_axioms": {
+  "plain_exit_status": 0,
+  "deep_exit_status": 0,
+  "deep_walk_ran": "before_replay",
+  "plain": {
+   "verdict": "PASS",
+   "failures": [],
+   "mode": "full",
+   "compiled_modules": 175187,
+   "theorem_axioms": {
+    "LFunction_eq_zero_re": [
+     "propext",
+     "Classical.choice",
+     "Quot.sound"
+    ],
+    "LFunction_eq_zero_re_of_isPrimitive": [
+     "propext",
+     "Classical.choice",
+     "Quot.sound"
+    ],
+    "LFunction_ne_zero_of_half_lt_re": [
+     "propext",
+     "Classical.choice",
+     "Quot.sound"
+    ],
+    "riemannHypothesis": [
+     "propext",
+     "Classical.choice",
+     "Quot.sound"
+    ],
+    "riemannZeta_eq_zero_re": [
+     "propext",
+     "Classical.choice",
+     "Quot.sound"
+    ]
+   },
+   "checks": {
+    "statement_is_constant_RiemannHypothesis": {
+     "subject": "riemannHypothesis",
+     "value": true
+    }
+   },
+   "deep_walk": {
+    "requested": false,
+    "visited": null,
+    "axiom_count": null,
+    "axioms": [],
+    "missing": [],
+    "modules_listed_completely": null,
+    "project_modules_touched": null,
+    "project_constants_visited": null,
+    "library_modules_touched": null,
+    "library_constants_visited": null
+   }
+  },
+  "deep": {
+   "verdict": "PASS",
+   "failures": [],
+   "mode": "full",
+   "compiled_modules": 175187,
+   "theorem_axioms": {
+    "LFunction_eq_zero_re": [
+     "propext",
+     "Classical.choice",
+     "Quot.sound"
+    ],
+    "LFunction_eq_zero_re_of_isPrimitive": [
+     "propext",
+     "Classical.choice",
+     "Quot.sound"
+    ],
+    "LFunction_ne_zero_of_half_lt_re": [
+     "propext",
+     "Classical.choice",
+     "Quot.sound"
+    ],
+    "riemannHypothesis": [
+     "propext",
+     "Classical.choice",
+     "Quot.sound"
+    ],
+    "riemannZeta_eq_zero_re": [
+     "propext",
+     "Classical.choice",
+     "Quot.sound"
+    ]
+   },
+   "checks": {
+    "statement_is_constant_RiemannHypothesis": {
+     "subject": "riemannHypothesis",
+     "value": true
+    }
+   },
+   "deep_walk": {
+    "requested": true,
+    "visited": 1478243,
+    "axiom_count": 3,
+    "axioms": [
+     {
+      "module": "Init.Core",
+      "name": "propext"
+     },
+     {
+      "module": "Init.Core",
+      "name": "Quot.sound"
+     },
+     {
+      "module": "Init.Prelude",
+      "name": "Classical.choice"
+     }
+    ],
+    "missing": [],
+    "modules_listed_completely": true,
+    "project_modules_touched": 146440,
+    "project_constants_visited": 1265279,
+    "library_modules_touched": 5254,
+    "library_constants_visited": 212964
+   }
+  }
+ },
+ "c3_kernel_replay": {
+  "tool": "leanchecker",
+  "passes_by_how_the_tool_was_run": {
+   "import-closure-directory": 175117,
+   "import-closure-directory-holding-modules-beneath": 70
+  },
+  "conditions": {
+   "every_compiled_module_passed_by_leanchecker": true,
+   "every_source_module_is_compiled_and_nothing_else_is": true,
+   "no_rejection_or_crash_recorded_by_any_tool": true,
+   "the_results_file_has_no_damaged_lines": true
+  },
+  "conditions_all_hold": true,
+  "last_exit_status": 0,
+  "jobs": 32,
+  "trial_rate_modules_per_second": "6.62",
+  "expected_seconds": 25677,
+  "expected_to_fit": true,
+  "main_pass_seconds_allowed": 60986,
+  "passes_after_the_trials": 1,
+  "summary": {
+   "check": "kernel replay of each compiled module from its imports (replayFromImports of the pinned toolchain)",
+   "compiled_files_never_finished_by_the_build": 0,
+   "compiled_modules": 175187,
+   "compiled_modules_without_source": 0,
+   "complete": true,
+   "complete_by_leanchecker_alone": true,
+   "complete_by_rhv_replay_alone": false,
+   "crash_may_belong_to_a_module_beneath": [],
+   "criterion_c3": {
+    "all_hold": true,
+    "conditions": {
+     "every_compiled_module_passed_by_leanchecker": true,
+     "every_source_module_is_compiled_and_nothing_else_is": true,
+     "no_rejection_or_crash_recorded_by_any_tool": true,
+     "the_results_file_has_no_damaged_lines": true
+    }
+   },
+   "damaged_result_lines": 0,
+   "disagreeing_modules": [],
+   "failed": 0,
+   "failed_modules": [],
+   "leanchecker_passes_by_how_it_was_run": {
+    "import-closure-directory": 175117,
+    "import-closure-directory-holding-modules-beneath": 70
+   },
+   "leanchecker_still_to_check": 0,
+   "modules_with_unexpected_parts": 0,
+   "never_finished_sample": [],
+   "not_compiled_sample": [],
+   "not_judged_and_not_run_again_while_that_module_stays_failed": 0,
+   "not_judged_because_a_module_beneath_was_rejected": 0,
+   "not_judged_sample": [],
+   "not_run_or_ended_from_outside": 0,
+   "not_run_sample": [],
+   "passed": 175187,
+   "passed_by_both": 0,
+   "passed_by_leanchecker": 175187,
+   "passed_by_rhv_replay": 0,
+   "programs_that_produced_the_passes": {
+    "leanchecker": [
+     {
+      "passes": 175187,
+      "sha256": "84bc3e7cd6efa5bfecd1e7c37571fed9428fb2b3e16da0ddf62f2163573486d0"
+     }
+    ],
+    "rhv-replay": []
+   },
+   "recompiled_since_checked": 0,
+   "rejected_once": 0,
+   "rejected_once_modules": [],
+   "rejections_and_crashes_recorded_for_the_current_files": 0,
+   "rejections_recorded_for_earlier_files": [],
+   "rejections_sample": [],
+   "remaining": 0,
+   "remaining_that_another_run_could_check": 0,
+   "rhv_replay_still_to_check": 175187,
+   "run_utc": "2026-11-23T18:33:31Z",
+   "second_replay_by_rhv_replay": {
+    "every_compiled_module_passed": false,
+    "every_pass_by_one_recorded_program": false,
+    "program_expected": null
+   },
+   "source_modules": 175187,
+   "source_modules_not_compiled": 0,
+   "still_to_be_run_again_after_a_rejection": 0,
+   "tools_disagree": 0,
+   "unexpected_parts_sample": [],
+   "without_source_sample": []
+  }
+ },
+ "second_replay": null,
+ "end": {
+  "compiled_files_unchanged_since_seal": true,
+  "toolchain_and_mathlib_unchanged_since_seal": true,
+  "build_user_process_seen_after_seal": false
+ },
+ "archive_of_compiled_files": {
+  "state": "not_requested",
+  "objects_uploaded": null
+ },
+ "spot": {
+  "attempt": 2,
+  "attempts": [
+   {
+    "baselines_same": "first",
+    "boot_utc": "2026-11-22T21:02:03Z",
+    "build_user_process_seen_after_seal": false,
+    "ended": "RECLAIMED",
+    "failed_job_lines": 0,
+    "n": 1,
+    "zone": "us-central1-a"
+   },
+   {
+    "baselines_same": true,
+    "boot_utc": "2026-11-22T22:17:38Z",
+    "build_user_process_seen_after_seal": false,
+    "failed_job_lines": 0,
+    "n": 2,
+    "restore": {
+     "bytes": 2918568487,
+     "modules": 12450,
+     "parts": 6,
+     "seconds": 46
+    },
+    "restored_modules_compiled_again": 0,
+    "stage_reached": "end",
+    "zone": "us-central1-a"
+   }
+  ],
+  "units_done": [
+   "tests",
+   "build",
+   "seal",
+   "c2_plain",
+   "trials",
+   "c2_deep",
+   "main",
+   "end"
+  ],
+  "progress": 8350374,
+  "build_user_process_seen_after_seal": {
+   "1": false,
+   "2": false
+  },
+  "confirm_every_s": 1200,
+  "confirms": 22,
+  "last_confirm_seconds": 25,
+  "parts_cover_seal": true,
+  "parts_cover_repair_files": 0,
+  "files_rewritten_same_bytes": 0,
+  "results_object": "ckpt/full-spot-20261122-150121/results/000175187.tsv.gz",
+  "results_sha256": "fbfb64454ec49ec4076c7b629068cb15194bf608421c564a6db55d1cefe5bf3d",
+  "per_attempt_files": "files under attempt-N/ are that machine's logs and working copies; only what the state records, saved after a confirm, is carried between machines",
+  "this_machine": {
+   "failed_job_lines": 0,
+   "half_written_files_of_killed_compilers_removed": 0,
+   "files_beside_the_compiled_modules_that_the_build_does_not_write": 0
+  }
+ }
+}

@@ -1,0 +1,60 @@
+### 2026-11-22T15:54:51Z +0s  PHASE setup
+### 2026-11-22T15:54:51Z +0s  setup: sysctl
+### 2026-11-22T15:54:51Z +0s  setup: packages
+### 2026-11-22T15:54:58Z +7s  setup: disk
+### 2026-11-22T15:54:58Z +7s  setup: user
+### 2026-11-22T15:54:58Z +7s  setup: elan
+elan 4.4.0 (3cc76985a 2026-11-18)
+### 2026-11-22T15:54:59Z +8s  setup: source
+### 2026-11-22T15:55:10Z +19s  setup: spot_state
+### 2026-11-22T15:55:11Z +20s  setup: mathlib_cache
+Decompressed 8690 file(s)
+Already decompressed 8690 file(s)
+### 2026-11-22T15:56:26Z +95s  setup: baseline
+### 2026-11-22T15:56:28Z +97s  setup: spot_baselines
+### 2026-11-22T15:56:29Z +98s  setup: replay_program
+### 2026-11-22T15:56:32Z +101s  setup: lockdown
+### 2026-11-22T15:56:32Z +101s  setup: restore_parts
+### 2026-11-22T15:56:32Z +101s  setup: no smoke build: the seal was done by an earlier attempt, and nothing of the proof is compiled after it
+### 2026-11-22T15:56:40Z +109s  restored 5 parts: 1636 modules, 353015608 bytes, in 5 s
+### 2026-11-22T15:56:40Z +109s  build: not run on this attempt (state: time_boxed); 1636 modules restored
+### 2026-11-22T15:56:42Z +111s  the build user was locked before the compiled files were restored
+### 2026-11-22T15:56:43Z +112s  final prune: setup files found:            0 (0.0 GB) of finished modules:          0 (0.0 GB) removed:                      0 
+### 2026-11-22T15:56:44Z +113s  PHASE seal
+### 2026-11-22T15:56:44Z +113s  holding 90 s for the rehearsal
+### 2026-11-22T15:58:25Z +214s  seal: removed 1 half-written files left by killed compilers
+### 2026-11-22T15:58:39Z +228s  restored 248 replay results
+### 2026-11-22T15:58:39Z +228s  axiom check (plain): completed by an earlier attempt
+### 2026-11-22T15:58:39Z +228s  PHASE idle
+### 2026-11-22T15:58:40Z +229s  PHASE check_trial:N=16
+### 2026-11-22T16:00:11Z +320s  replay trial: 16 at a time finished 317 modules in the counted window
+### 2026-11-22T16:00:11Z +320s  PHASE check_trial:N=32
+### 2026-11-22T16:01:41Z +410s  replay trial: 32 at a time finished 433 modules in the counted window
+### 2026-11-22T16:01:41Z +410s  replay: 7.22 modules a second at 32 at a time; 320 modules to go need about 45 s; 3190 s left; fits: 1
+### 2026-11-22T16:01:46Z +415s  PHASE c2_deep
+### 2026-11-22T16:01:53Z +422s  deep axiom check exit status: 0
+### 2026-11-22T16:01:57Z +426s  PHASE check:N=32
+### 2026-11-22T16:03:33Z +522s  PHASE check_second:N=32
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+### 2026-11-22T16:06:51Z +720s  second replay, by rhv-replay: exit status 3
+### 2026-11-22T16:06:52Z +721s  kernel replay: last exit status 3, 3272 result lines
+== Kernel re-check summary
+  source modules:                         175187
+  compiled modules:                       1636
+    passed (for the file now on disk, and never rejected): 1636
+      by leanchecker: 1636   by rhv-replay: 1636   by both: 1636
+    FAILED (rejected or crashed on, and again when run again): 0
+    rejected or crashed on once (not a pass, whatever followed): 0
+    remaining (never checked, or recompiled since): 0  (of which recompiled since: 0)
+  source modules not compiled: 173551
+  every source module compiled and passing: no
+  criterion C3 (every compiled module re-checked by leanchecker, and every one passes):
+    every source module is compiled and nothing else is:       NO
+    every compiled module passed by leanchecker:               yes
+    no rejection or crash recorded by any tool:                yes
+    the results file has no damaged lines:                     yes
+    all of these hold: NO
+  second replay, by rhv-replay: every compiled module passed: yes; every pass by one recorded program: yes
+### 2026-11-22T16:06:53Z +722s  PHASE end_check
+### 2026-11-22T16:06:56Z +725s  PHASE idle
+### 2026-11-22T16:06:56Z +725s  FINISH DONE: all phases ran; read facts.json against PREREGISTRATION.md section 5

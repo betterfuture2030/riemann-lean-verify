@@ -1,0 +1,281 @@
+watching attempt 1 of full-spot-20261122-150121 (lean-full-spot in us-central1-a)
+15:01:48 attempt 1: no-status none - 0 -
+15:02:38 attempt 1: setup RUNNING 1 1 installing
+15:04:17 attempt 1: build RUNNING 1 118 starting the build of 175187 modules
+15:05:07 attempt 1: build RUNNING 1 138 built 85 of 175187 with 32 jobs; failed job lines 0; 451 GB free
+15:10:03 attempt 1: build RUNNING 1 439 built 1200 of 175187 with 32 jobs; failed job lines 0; 445 GB free
+15:14:31 attempt 1: build RUNNING 1 739 built 2137 of 175187 with 32 jobs; failed job lines 0; 439 GB free
+15:19:29 attempt 1: build RUNNING 1 1000 restart tests at 3062 modules
+15:22:48 attempt 1: build RUNNING 1 1219 built 3062 of 175187 with 32 jobs; failed job lines 0; 433 GB free
+15:28:06 attempt 1: build RUNNING 1 1519 built 4751 of 175187 with 32 jobs; failed job lines 0; 441 GB free
+15:33:03 attempt 1: build RUNNING 1 1821 built 5627 of 175187 with 32 jobs; failed job lines 0; 435 GB free
+15:37:32 attempt 1: build RUNNING 1 2121 built 6705 of 175187 with 32 jobs; failed job lines 0; 436 GB free
+15:42:29 attempt 1: build RUNNING 1 2423 built 7885 of 175187 with 32 jobs; failed job lines 0; 428 GB free
+15:47:46 attempt 1: build RUNNING 1 2724 built 8818 of 175187 with 32 jobs; failed job lines 0; 434 GB free
+15:52:42 attempt 1: build RUNNING 1 3025 built 9780 of 175187 with 32 jobs; failed job lines 0; 427 GB free
+15:58:02 attempt 1: build RUNNING 1 3327 built 10800 of 175187 with 32 jobs; failed job lines 0; 433 GB free
+16:02:59 attempt 1: build RUNNING 1 3628 built 11886 of 175187 with 32 jobs; failed job lines 0; 426 GB free
+16:08:20 attempt 1: build RUNNING 1 3929 built 12901 of 175187 with 32 jobs; failed job lines 0; 430 GB free
+16:13:17 attempt 1: build RUNNING 1 4231 built 13899 of 175187 with 32 jobs; failed job lines 0; 424 GB free
+16:16:04 attempt 1: build:N=32 RECLAIMED 1 4409 Google took the machine back; the run continues on the next attempt
+16:16:06 waiting for Google to finish deleting lean-full-spot (status RUNNING)
+16:16:22 waiting for Google to finish deleting lean-full-spot (status STOPPING)
+attempt 1 is over: the guest reported RECLAIMED
+verified: no instances and no disks remain in the project
+attempt 1 accounted for: progress 1012450 (attempts in a row without progress: 0), parts 2918568487 bytes, replay results saved 0; recorded spend $12.12 of $50
+attempt 2: lean-full-spot (n4d-highmem-32, Spot) in us-central1-a for at most 110490 s; worst case $36.88 plus transfer $0.00; recorded spend so far $12.12 of $50
+NAME            ZONE           MACHINE_TYPE    PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP  STATUS
+lean-full-spot  us-central1-a  n4d-highmem-32  true         10.128.0.10  34.41.9.41   RUNNING
+CREATED attempt 2 of full-spot-20261122-150121: lean-full-spot in us-central1-a
+watching attempt 2 of full-spot-20261122-150121 (lean-full-spot in us-central1-a)
+16:17:18 attempt 2: earlier-attempt-status none 1 0 -
+16:18:08 attempt 2: setup RUNNING 2 0 installing
+16:20:38 attempt 2: build RUNNING 2 179 built 12477 of 175187 with 32 jobs; failed job lines 0; 443 GB free
+16:26:25 attempt 2: build RUNNING 2 480 built 13595 of 175187 with 32 jobs; failed job lines 0; 435 GB free
+16:30:53 attempt 2: build RUNNING 2 781 built 14793 of 175187 with 32 jobs; failed job lines 0; 434 GB free
+16:35:52 attempt 2: build RUNNING 2 1083 built 15955 of 175187 with 32 jobs; failed job lines 0; 426 GB free
+16:41:09 attempt 2: build RUNNING 2 1384 built 17242 of 175187 with 32 jobs; failed job lines 0; 431 GB free
+16:46:06 attempt 2: build RUNNING 2 1686 built 18420 of 175187 with 32 jobs; failed job lines 0; 424 GB free
+16:51:28 attempt 2: build RUNNING 2 1988 built 19472 of 175187 with 32 jobs; failed job lines 0; 431 GB free
+16:56:27 attempt 2: build RUNNING 2 2289 built 20664 of 175187 with 32 jobs; failed job lines 0; 423 GB free
+17:00:56 attempt 2: build RUNNING 2 2591 built 21529 of 175187 with 32 jobs; failed job lines 0; 431 GB free
+17:05:58 attempt 2: build RUNNING 2 2893 built 22632 of 175187 with 32 jobs; failed job lines 0; 423 GB free
+17:11:19 attempt 2: build RUNNING 2 3195 built 23814 of 175187 with 32 jobs; failed job lines 0; 427 GB free
+17:16:16 attempt 2: build RUNNING 2 3497 built 24959 of 175187 with 32 jobs; failed job lines 0; 420 GB free
+17:21:35 attempt 2: build RUNNING 2 3799 built 26075 of 175187 with 32 jobs; failed job lines 0; 426 GB free
+17:26:35 attempt 2: build RUNNING 2 4101 built 27009 of 175187 with 32 jobs; failed job lines 0; 420 GB free
+17:31:47 attempt 2: build RUNNING 2 4404 built 28017 of 175187 with 32 jobs; failed job lines 0; 425 GB free
+17:36:47 attempt 2: build RUNNING 2 4706 built 29159 of 175187 with 32 jobs; failed job lines 0; 417 GB free
+17:41:15 attempt 2: build RUNNING 2 5008 built 30429 of 175187 with 32 jobs; failed job lines 0; 421 GB free
+17:46:14 attempt 2: build RUNNING 2 5311 built 31682 of 175187 with 32 jobs; failed job lines 0; 413 GB free
+17:51:34 attempt 2: build RUNNING 2 5613 built 32845 of 175187 with 32 jobs; failed job lines 0; 420 GB free
+17:56:36 attempt 2: build RUNNING 2 5916 built 33897 of 175187 with 32 jobs; failed job lines 0; 413 GB free
+18:01:56 attempt 2: build RUNNING 2 6218 built 34735 of 175187 with 32 jobs; failed job lines 0; 421 GB free
+18:06:55 attempt 2: build RUNNING 2 6521 built 35630 of 175187 with 32 jobs; failed job lines 0; 415 GB free
+18:11:25 attempt 2: build RUNNING 2 6824 built 36611 of 175187 with 32 jobs; failed job lines 0; 418 GB free
+18:16:28 attempt 2: build RUNNING 2 7126 built 37776 of 175187 with 32 jobs; failed job lines 0; 411 GB free
+18:21:47 attempt 2: build RUNNING 2 7429 built 38950 of 175187 with 32 jobs; failed job lines 0; 416 GB free
+18:26:44 attempt 2: build RUNNING 2 7732 built 40060 of 175187 with 32 jobs; failed job lines 0; 408 GB free
+18:32:01 attempt 2: build RUNNING 2 8035 built 41283 of 175187 with 32 jobs; failed job lines 0; 414 GB free
+18:37:00 attempt 2: build RUNNING 2 8338 built 42515 of 175187 with 32 jobs; failed job lines 0; 405 GB free
+18:42:18 attempt 2: build RUNNING 2 8641 built 43724 of 175187 with 32 jobs; failed job lines 0; 412 GB free
+18:47:17 attempt 2: build RUNNING 2 8944 built 44837 of 175187 with 32 jobs; failed job lines 0; 405 GB free
+18:52:34 attempt 2: build RUNNING 2 9247 built 46199 of 175187 with 32 jobs; failed job lines 0; 410 GB free
+18:57:29 attempt 2: build RUNNING 2 9550 built 47515 of 175187 with 32 jobs; failed job lines 0; 400 GB free
+19:02:47 attempt 2: build RUNNING 2 9854 built 48592 of 175187 with 32 jobs; failed job lines 0; 410 GB free
+19:06:56 attempt 2: fetch-failed unknown - 0 ERROR: (gcloud.storage.cat) gs://<BUCKET>/results%2Ffull-spot-20261122-150121%2Fstatus.json not found: 40
+19:07:46 attempt 2: build RUNNING 2 10157 built 49668 of 175187 with 32 jobs; failed job lines 0; 403 GB free
+19:13:06 attempt 2: build RUNNING 2 10461 built 50768 of 175187 with 32 jobs; failed job lines 0; 410 GB free
+19:17:13 attempt 2: build RUNNING 2 10765 built 51759 of 175187 with 32 jobs; failed job lines 0; 403 GB free
+19:22:11 attempt 2: build RUNNING 2 11069 built 52983 of 175187 with 32 jobs; failed job lines 0; 408 GB free
+19:27:27 attempt 2: build RUNNING 2 11372 built 54211 of 175187 with 32 jobs; failed job lines 0; 399 GB free
+19:32:25 attempt 2: build RUNNING 2 11676 built 55371 of 175187 with 32 jobs; failed job lines 0; 407 GB free
+19:37:39 attempt 2: build RUNNING 2 11981 built 56616 of 175187 with 32 jobs; failed job lines 0; 398 GB free
+19:42:37 attempt 2: build RUNNING 2 12285 built 57898 of 175187 with 32 jobs; failed job lines 0; 404 GB free
+19:47:55 attempt 2: build RUNNING 2 12589 built 59107 of 175187 with 32 jobs; failed job lines 0; 396 GB free
+19:52:55 attempt 2: build RUNNING 2 12894 built 60308 of 175187 with 32 jobs; failed job lines 0; 403 GB free
+19:58:16 attempt 2: build RUNNING 2 13198 built 61452 of 175187 with 32 jobs; failed job lines 0; 395 GB free
+20:03:16 attempt 2: build RUNNING 2 13503 built 62541 of 175187 with 32 jobs; failed job lines 0; 402 GB free
+20:08:34 attempt 2: build RUNNING 2 13807 built 63623 of 175187 with 32 jobs; failed job lines 0; 395 GB free
+20:13:31 attempt 2: build RUNNING 2 14112 built 64746 of 175187 with 32 jobs; failed job lines 0; 401 GB free
+20:18:43 attempt 2: build RUNNING 2 14417 built 65998 of 175187 with 32 jobs; failed job lines 0; 392 GB free
+20:23:42 attempt 2: build RUNNING 2 14722 built 67308 of 175187 with 32 jobs; failed job lines 0; 399 GB free
+20:28:06 attempt 2: build RUNNING 2 15026 built 68500 of 175187 with 32 jobs; failed job lines 0; 390 GB free
+20:33:55 attempt 2: build RUNNING 2 15332 built 69768 of 175187 with 32 jobs; failed job lines 0; 397 GB free
+20:38:28 attempt 2: build RUNNING 2 15637 built 71045 of 175187 with 32 jobs; failed job lines 0; 388 GB free
+20:43:26 attempt 2: build RUNNING 2 15943 built 72347 of 175187 with 32 jobs; failed job lines 0; 396 GB free
+20:48:40 attempt 2: build RUNNING 2 16248 built 73611 of 175187 with 32 jobs; failed job lines 0; 387 GB free
+20:53:39 attempt 2: build RUNNING 2 16554 built 74822 of 175187 with 32 jobs; failed job lines 0; 395 GB free
+20:58:57 attempt 2: build RUNNING 2 16860 built 76114 of 175187 with 32 jobs; failed job lines 0; 386 GB free
+21:03:57 attempt 2: build RUNNING 2 17166 built 77418 of 175187 with 32 jobs; failed job lines 0; 394 GB free
+21:09:18 attempt 2: build RUNNING 2 17471 built 78590 of 175187 with 32 jobs; failed job lines 0; 385 GB free
+21:14:18 attempt 2: build RUNNING 2 17777 built 79653 of 175187 with 32 jobs; failed job lines 0; 394 GB free
+21:19:35 attempt 2: build RUNNING 2 18083 built 80700 of 175187 with 32 jobs; failed job lines 0; 386 GB free
+21:24:36 attempt 2: build RUNNING 2 18390 built 81784 of 175187 with 32 jobs; failed job lines 0; 393 GB free
+21:30:00 attempt 2: build RUNNING 2 18697 built 82754 of 175187 with 32 jobs; failed job lines 0; 385 GB free
+21:35:03 attempt 2: build RUNNING 2 19003 built 83899 of 175187 with 32 jobs; failed job lines 0; 391 GB free
+21:39:40 attempt 2: build RUNNING 2 19309 built 85111 of 175187 with 32 jobs; failed job lines 0; 382 GB free
+21:44:39 attempt 2: build RUNNING 2 19616 built 86264 of 175187 with 32 jobs; failed job lines 0; 390 GB free
+21:50:04 attempt 2: build RUNNING 2 19922 built 87414 of 175187 with 32 jobs; failed job lines 0; 382 GB free
+21:55:06 attempt 2: build RUNNING 2 20229 built 88515 of 175187 with 32 jobs; failed job lines 0; 389 GB free
+22:00:23 attempt 2: build RUNNING 2 20536 built 89640 of 175187 with 32 jobs; failed job lines 0; 381 GB free
+22:05:24 attempt 2: build RUNNING 2 20843 built 90845 of 175187 with 32 jobs; failed job lines 0; 388 GB free
+22:10:48 attempt 2: build RUNNING 2 21150 built 92036 of 175187 with 32 jobs; failed job lines 0; 380 GB free
+22:15:47 attempt 2: build RUNNING 2 21457 built 93336 of 175187 with 32 jobs; failed job lines 0; 386 GB free
+22:21:06 attempt 2: build RUNNING 2 21764 built 94445 of 175187 with 32 jobs; failed job lines 0; 378 GB free
+22:26:04 attempt 2: build RUNNING 2 22071 built 95608 of 175187 with 32 jobs; failed job lines 0; 385 GB free
+22:30:37 attempt 2: fetch-failed unknown - 0 ERROR: (gcloud.storage.cat) gs://<BUCKET>/results%2Ffull-spot-20261122-150121%2Fstatus.json not found: 40
+22:31:28 attempt 2: build RUNNING 2 22379 built 96578 of 175187 with 32 jobs; failed job lines 0; 378 GB free
+22:36:28 attempt 2: build RUNNING 2 22686 built 97722 of 175187 with 32 jobs; failed job lines 0; 384 GB free
+22:40:58 attempt 2: build RUNNING 2 22993 built 98807 of 175187 with 32 jobs; failed job lines 0; 376 GB free
+22:46:44 attempt 2: build RUNNING 2 23301 built 100011 of 175187 with 32 jobs; failed job lines 0; 383 GB free
+22:51:15 attempt 2: build RUNNING 2 23608 built 101288 of 175187 with 32 jobs; failed job lines 0; 374 GB free
+22:56:15 attempt 2: build RUNNING 2 23916 built 102548 of 175187 with 32 jobs; failed job lines 0; 381 GB free
+23:01:42 attempt 2: build RUNNING 2 24223 built 103726 of 175187 with 32 jobs; failed job lines 0; 372 GB free
+23:06:42 attempt 2: build RUNNING 2 24531 built 104895 of 175187 with 32 jobs; failed job lines 0; 381 GB free
+23:12:05 attempt 2: build RUNNING 2 24839 built 105972 of 175187 with 32 jobs; failed job lines 0; 373 GB free
+23:17:03 attempt 2: build RUNNING 2 25147 built 106998 of 175187 with 32 jobs; failed job lines 0; 381 GB free
+23:22:27 attempt 2: build RUNNING 2 25455 built 107775 of 175187 with 32 jobs; failed job lines 0; 375 GB free
+23:27:24 attempt 2: build RUNNING 2 25764 built 108539 of 175187 with 32 jobs; failed job lines 0; 382 GB free
+23:32:48 attempt 2: build RUNNING 2 26072 built 109463 of 175187 with 32 jobs; failed job lines 0; 375 GB free
+23:37:48 attempt 2: build RUNNING 2 26380 built 110425 of 175187 with 32 jobs; failed job lines 0; 379 GB free
+23:43:08 attempt 2: build RUNNING 2 26689 built 111357 of 175187 with 32 jobs; failed job lines 0; 372 GB free
+23:48:08 attempt 2: build RUNNING 2 26997 built 112359 of 175187 with 32 jobs; failed job lines 0; 377 GB free
+23:53:27 attempt 2: build RUNNING 2 27306 built 113409 of 175187 with 32 jobs; failed job lines 0; 370 GB free
+23:58:29 attempt 2: build RUNNING 2 27614 built 114595 of 175187 with 32 jobs; failed job lines 0; 375 GB free
+00:03:46 attempt 2: build RUNNING 2 27923 built 115878 of 175187 with 32 jobs; failed job lines 0; 366 GB free
+00:08:45 attempt 2: build RUNNING 2 28232 built 117112 of 175187 with 32 jobs; failed job lines 0; 373 GB free
+00:14:02 attempt 2: build RUNNING 2 28541 built 118026 of 175187 with 32 jobs; failed job lines 0; 367 GB free
+00:19:00 attempt 2: build RUNNING 2 28851 built 118928 of 175187 with 32 jobs; failed job lines 0; 374 GB free
+00:24:20 attempt 2: build RUNNING 2 29161 built 119582 of 175187 with 32 jobs; failed job lines 0; 370 GB free
+00:29:18 attempt 2: build RUNNING 2 29470 built 120273 of 175187 with 32 jobs; failed job lines 0; 374 GB free
+00:34:34 attempt 2: build RUNNING 2 29779 built 121260 of 175187 with 32 jobs; failed job lines 0; 367 GB free
+00:39:33 attempt 2: build RUNNING 2 30089 built 122544 of 175187 with 32 jobs; failed job lines 0; 369 GB free
+00:44:56 attempt 2: build RUNNING 2 30398 built 123717 of 175187 with 32 jobs; failed job lines 0; 360 GB free
+00:49:57 attempt 2: build RUNNING 2 30708 built 125013 of 175187 with 32 jobs; failed job lines 0; 368 GB free
+00:55:17 attempt 2: build RUNNING 2 31017 built 126272 of 175187 with 32 jobs; failed job lines 0; 359 GB free
+01:00:16 attempt 2: build RUNNING 2 31327 built 127378 of 175187 with 32 jobs; failed job lines 0; 367 GB free
+01:05:40 attempt 2: build RUNNING 2 31637 built 128512 of 175187 with 32 jobs; failed job lines 0; 359 GB free
+01:10:39 attempt 2: build RUNNING 2 31946 built 129613 of 175187 with 32 jobs; failed job lines 0; 367 GB free
+01:16:03 attempt 2: build RUNNING 2 32256 built 130763 of 175187 with 32 jobs; failed job lines 0; 359 GB free
+01:21:02 attempt 2: build RUNNING 2 32566 built 131789 of 175187 with 32 jobs; failed job lines 0; 365 GB free
+01:26:19 attempt 2: build RUNNING 2 32876 built 132900 of 175187 with 32 jobs; failed job lines 0; 357 GB free
+01:31:20 attempt 2: build RUNNING 2 33186 built 133933 of 175187 with 32 jobs; failed job lines 0; 363 GB free
+01:36:36 attempt 2: build RUNNING 2 33496 built 134847 of 175187 with 32 jobs; failed job lines 0; 357 GB free
+01:41:36 attempt 2: build RUNNING 2 33806 built 135885 of 175187 with 32 jobs; failed job lines 0; 362 GB free
+01:46:57 attempt 2: build RUNNING 2 34116 built 136865 of 175187 with 32 jobs; failed job lines 0; 354 GB free
+01:51:52 attempt 2: build RUNNING 2 34427 built 137942 of 175187 with 32 jobs; failed job lines 0; 360 GB free
+01:57:10 attempt 2: build RUNNING 2 34737 built 138956 of 175187 with 32 jobs; failed job lines 0; 353 GB free
+02:02:08 attempt 2: build RUNNING 2 35047 built 140105 of 175187 with 32 jobs; failed job lines 0; 358 GB free
+02:07:26 attempt 2: build RUNNING 2 35357 built 141195 of 175187 with 32 jobs; failed job lines 0; 350 GB free
+02:12:25 attempt 2: build RUNNING 2 35668 built 142263 of 175187 with 32 jobs; failed job lines 0; 356 GB free
+02:17:39 attempt 2: build RUNNING 2 35978 built 143057 of 175187 with 32 jobs; failed job lines 0; 348 GB free
+02:22:39 attempt 2: build RUNNING 2 36289 built 143863 of 175187 with 32 jobs; failed job lines 0; 355 GB free
+02:27:53 attempt 2: build RUNNING 2 36600 built 144763 of 175187 with 32 jobs; failed job lines 0; 348 GB free
+02:33:37 attempt 2: build RUNNING 2 36912 built 145900 of 175187 with 32 jobs; failed job lines 0; 354 GB free
+02:38:06 attempt 2: build RUNNING 2 37222 built 147051 of 175187 with 32 jobs; failed job lines 0; 346 GB free
+02:43:53 attempt 2: build RUNNING 2 37533 built 148158 of 175187 with 32 jobs; failed job lines 0; 352 GB free
+02:48:29 attempt 2: build RUNNING 2 37844 built 149234 of 175187 with 32 jobs; failed job lines 0; 345 GB free
+02:54:19 attempt 2: build RUNNING 2 38156 built 150348 of 175187 with 32 jobs; failed job lines 0; 351 GB free
+02:58:50 attempt 2: build RUNNING 2 38466 built 151587 of 175187 with 32 jobs; failed job lines 0; 344 GB free
+03:04:37 attempt 2: build RUNNING 2 38778 built 152882 of 175187 with 32 jobs; failed job lines 0; 348 GB free
+03:09:56 attempt 2: build RUNNING 2 39089 built 154033 of 175187 with 32 jobs; failed job lines 0; 341 GB free
+03:14:54 attempt 2: build RUNNING 2 39400 built 155333 of 175187 with 32 jobs; failed job lines 0; 347 GB free
+03:20:14 attempt 2: build RUNNING 2 39712 built 156417 of 175187 with 32 jobs; failed job lines 0; 340 GB free
+03:25:11 attempt 2: build RUNNING 2 40023 built 157689 of 175187 with 32 jobs; failed job lines 0; 345 GB free
+03:30:34 attempt 2: build RUNNING 2 40334 built 159156 of 175187 with 32 jobs; failed job lines 0; 336 GB free
+03:35:33 attempt 2: build RUNNING 2 40646 built 160568 of 175187 with 32 jobs; failed job lines 0; 341 GB free
+03:40:56 attempt 2: build RUNNING 2 40957 built 161871 of 175187 with 32 jobs; failed job lines 0; 332 GB free
+03:45:59 attempt 2: build RUNNING 2 41269 built 163226 of 175187 with 32 jobs; failed job lines 0; 340 GB free
+03:51:26 attempt 2: build RUNNING 2 41581 built 164464 of 175187 with 32 jobs; failed job lines 0; 331 GB free
+03:56:25 attempt 2: build RUNNING 2 41893 built 165715 of 175187 with 32 jobs; failed job lines 0; 338 GB free
+04:01:52 attempt 2: build RUNNING 2 42205 built 167013 of 175187 with 32 jobs; failed job lines 0; 329 GB free
+04:06:53 attempt 2: build RUNNING 2 42516 built 168273 of 175187 with 32 jobs; failed job lines 0; 336 GB free
+04:12:11 attempt 2: build RUNNING 2 42829 built 169423 of 175187 with 32 jobs; failed job lines 0; 328 GB free
+04:17:11 attempt 2: build RUNNING 2 43141 built 170410 of 175187 with 32 jobs; failed job lines 0; 336 GB free
+04:22:32 attempt 2: build RUNNING 2 43453 built 171371 of 175187 with 32 jobs; failed job lines 0; 342 GB free
+04:27:31 attempt 2: build RUNNING 2 43765 built 172370 of 175187 with 32 jobs; failed job lines 0; 334 GB free
+04:32:52 attempt 2: build RUNNING 2 44077 built 173148 of 175187 with 32 jobs; failed job lines 0; 342 GB free
+04:37:53 attempt 2: build RUNNING 2 44390 built 173750 of 175187 with 32 jobs; failed job lines 0; 336 GB free
+04:43:15 attempt 2: build RUNNING 2 44702 built 174560 of 175187 with 32 jobs; failed job lines 0; 340 GB free
+04:48:12 attempt 2: build RUNNING 2 45013 built 175128 of 175187 with 32 jobs; failed job lines 0; 334 GB free
+04:53:37 attempt 2: build RUNNING 2 45320 built 175183 of 175187 with 32 jobs; failed job lines 0; 346 GB free
+04:55:18 attempt 2: seal RUNNING 2 45449 175187 modules compiled; sealing and hashing
+04:56:58 attempt 2: c2 RUNNING 2 45532 axiom and statement check
+04:57:48 attempt 2: c3 RUNNING 2 45593 kernel replay, trial at 16 at a time
+05:03:10 attempt 2: c3 RUNNING 2 45894 kernel replay, trial at 24 at a time
+05:08:09 attempt 2: c3 RUNNING 2 46195 kernel replay, trial at 32 at a time
+05:13:28 attempt 2: c2 RUNNING 2 46523 axiom check with the deep walk
+05:22:59 attempt 2: c3 RUNNING 2 47074 kernel replay by leanchecker, 32 at a time; 5108 results so far
+05:27:58 attempt 2: c3 RUNNING 2 47374 kernel replay: 7043 results of 175187 modules
+05:32:34 attempt 2: c3 RUNNING 2 47675 kernel replay: 9028 results of 175187 modules
+05:37:32 attempt 2: c3 RUNNING 2 47975 kernel replay: 11028 results of 175187 modules
+05:43:02 attempt 2: c3 RUNNING 2 48275 kernel replay: 13062 results of 175187 modules
+05:48:04 attempt 2: c3 RUNNING 2 48575 kernel replay: 15009 results of 175187 modules
+05:52:14 attempt 2: fetch-failed unknown - 0 ERROR: (gcloud.storage.cat) gs://<BUCKET>/results%2Ffull-spot-20261122-150121%2Fstatus.json not found: 40
+05:53:25 attempt 2: c3 RUNNING 2 48876 kernel replay: 17070 results of 175187 modules
+05:57:32 attempt 2: c3 RUNNING 2 49176 kernel replay: 19060 results of 175187 modules
+06:02:32 attempt 2: c3 RUNNING 2 49476 kernel replay: 21069 results of 175187 modules
+06:07:56 attempt 2: c3 RUNNING 2 49776 kernel replay: 23047 results of 175187 modules
+06:12:51 attempt 2: c3 RUNNING 2 50077 kernel replay: 25035 results of 175187 modules
+06:17:19 attempt 2: c3 RUNNING 2 50377 kernel replay: 27067 results of 175187 modules
+06:22:19 attempt 2: c3 RUNNING 2 50677 kernel replay: 29036 results of 175187 modules
+06:27:46 attempt 2: c3 RUNNING 2 50977 kernel replay: 30978 results of 175187 modules
+06:32:52 attempt 2: c3 RUNNING 2 51278 kernel replay: 32946 results of 175187 modules
+06:37:23 attempt 2: c3 RUNNING 2 51578 kernel replay: 34931 results of 175187 modules
+06:42:20 attempt 2: c3 RUNNING 2 51878 kernel replay: 36966 results of 175187 modules
+06:47:43 attempt 2: c3 RUNNING 2 52178 kernel replay: 38961 results of 175187 modules
+06:52:41 attempt 2: c3 RUNNING 2 52479 kernel replay: 41001 results of 175187 modules
+06:57:59 attempt 2: c3 RUNNING 2 52779 kernel replay: 42975 results of 175187 modules
+07:02:59 attempt 2: c3 RUNNING 2 53079 kernel replay: 44951 results of 175187 modules
+07:07:32 attempt 2: c3 RUNNING 2 53379 kernel replay: 46907 results of 175187 modules
+07:12:35 attempt 2: c3 RUNNING 2 53680 kernel replay: 48942 results of 175187 modules
+07:18:01 attempt 2: c3 RUNNING 2 53980 kernel replay: 50918 results of 175187 modules
+07:23:02 attempt 2: c3 RUNNING 2 54280 kernel replay: 52929 results of 175187 modules
+07:27:39 attempt 2: c3 RUNNING 2 54581 kernel replay: 54931 results of 175187 modules
+07:32:41 attempt 2: c3 RUNNING 2 54881 kernel replay: 56965 results of 175187 modules
+07:37:58 attempt 2: c3 RUNNING 2 55181 kernel replay: 58976 results of 175187 modules
+07:42:58 attempt 2: c3 RUNNING 2 55481 kernel replay: 60917 results of 175187 modules
+07:47:27 attempt 2: c3 RUNNING 2 55782 kernel replay: 62886 results of 175187 modules
+07:52:28 attempt 2: c3 RUNNING 2 56082 kernel replay: 64884 results of 175187 modules
+07:57:48 attempt 2: c3 RUNNING 2 56382 kernel replay: 66871 results of 175187 modules
+08:02:44 attempt 2: c3 RUNNING 2 56682 kernel replay: 68854 results of 175187 modules
+08:08:01 attempt 2: c3 RUNNING 2 56983 kernel replay: 70832 results of 175187 modules
+08:12:58 attempt 2: c3 RUNNING 2 57283 kernel replay: 72772 results of 175187 modules
+08:18:20 attempt 2: c3 RUNNING 2 57583 kernel replay: 74794 results of 175187 modules
+08:22:30 attempt 2: c3 RUNNING 2 57884 kernel replay: 76805 results of 175187 modules
+08:27:30 attempt 2: c3 RUNNING 2 58184 kernel replay: 78724 results of 175187 modules
+08:32:55 attempt 2: c3 RUNNING 2 58484 kernel replay: 80703 results of 175187 modules
+08:37:57 attempt 2: c3 RUNNING 2 58784 kernel replay: 82726 results of 175187 modules
+08:42:28 attempt 2: c3 RUNNING 2 59085 kernel replay: 84766 results of 175187 modules
+08:47:26 attempt 2: c3 RUNNING 2 59385 kernel replay: 86746 results of 175187 modules
+08:52:46 attempt 2: c3 RUNNING 2 59685 kernel replay: 88695 results of 175187 modules
+08:57:46 attempt 2: c3 RUNNING 2 59986 kernel replay: 90708 results of 175187 modules
+09:02:57 attempt 2: c3 RUNNING 2 60286 kernel replay: 92724 results of 175187 modules
+09:07:54 attempt 2: c3 RUNNING 2 60586 kernel replay: 94738 results of 175187 modules
+09:12:27 attempt 2: c3 RUNNING 2 60886 kernel replay: 96758 results of 175187 modules
+09:18:14 attempt 2: c3 RUNNING 2 61187 kernel replay: 98771 results of 175187 modules
+09:22:45 attempt 2: c3 RUNNING 2 61487 kernel replay: 100783 results of 175187 modules
+09:27:46 attempt 2: c3 RUNNING 2 61787 kernel replay: 102772 results of 175187 modules
+09:33:10 attempt 2: c3 RUNNING 2 62088 kernel replay: 104714 results of 175187 modules
+09:38:10 attempt 2: c3 RUNNING 2 62388 kernel replay: 106699 results of 175187 modules
+09:42:40 attempt 2: c3 RUNNING 2 62688 kernel replay: 108763 results of 175187 modules
+09:47:46 attempt 2: c3 RUNNING 2 62988 kernel replay: 110787 results of 175187 modules
+09:53:42 attempt 2: c3 RUNNING 2 63289 kernel replay: 112818 results of 175187 modules
+09:58:19 attempt 2: c3 RUNNING 2 63589 kernel replay: 114833 results of 175187 modules
+10:03:13 attempt 2: c3 RUNNING 2 63889 kernel replay: 116787 results of 175187 modules
+10:07:57 attempt 2: c3 RUNNING 2 64190 kernel replay: 118729 results of 175187 modules
+10:13:46 attempt 2: c3 RUNNING 2 64490 kernel replay: 120620 results of 175187 modules
+10:17:37 attempt 2: c3 RUNNING 2 64790 kernel replay: 122550 results of 175187 modules
+10:26:11 attempt 2: c3 RUNNING 2 65090 kernel replay: 124372 results of 175187 modules
+10:27:40 attempt 2: c3 RUNNING 2 65391 kernel replay: 126288 results of 175187 modules
+10:32:51 attempt 2: c3 RUNNING 2 65691 kernel replay: 128209 results of 175187 modules
+== watch restarted 2026-11-23 17:01:21 after the Mac rebooted at 10:33
+watching attempt 2 of full-spot-20261122-150121 (lean-full-spot in us-central1-a)
+17:01:23 attempt 2: end DONE 2 72958 all phases ran; read facts.json against PREREGISTRATION.md section 5
+attempt 2 is over: the guest reported DONE
+deleting instance lean-full-spot in us-central1-a
+Deleted [https://www.googleapis.com/compute/v1/projects/<PROJECT_ID>/zones/us-central1-a/instances/lean-full-spot].
+verified: no instances and no disks remain in the project
+attempt 2 accounted for: progress 8350374 (attempts in a row without progress: 0), parts 30567273702 bytes, replay results saved 175187; recorded spend $41.83 of $50
+the Spot run full-spot-20261122-150121 is over after 2 attempt(s); results are in <WORKDIR>/analysis/pilot/full-spot-20261122-150121
+the run's checkpoints in gs://<BUCKET>/ckpt/full-spot-20261122-150121/ hold 28.59 GiB; at 0.020 USD per GiB-month they cost about 0.57 USD a month, and they bill until they are deleted
+to delete them: gcloud --project=<PROJECT_ID> storage rm -r gs://<BUCKET>/ckpt/full-spot-20261122-150121/
+--- other billable compute resources (should be empty):
+runtag                               mode                   machine         usd_per_hour  zone           created_epoch  ended_epoch  seconds  usd
+rehearsal-20261120-160144            rehearsal              n4d-highmem-32  2.00          pending        1795212104     1795212104   0        0.00
+rehearsal-20261120-160322            rehearsal              n4d-highmem-32  2.00          pending        1795212202     1795213223   1021     0.57
+pilot-20261120-162141                pilot                  n4d-highmem-32  2.00          us-east1-b     1795213301     1795223780   10479    5.82
+full-rehearsal-20261120-211809       full-rehearsal         n4d-highmem-32  2.00          us-east1-b     1795231090     1795231443   353      0.20
+full-rehearsal-20261120-212636       full-rehearsal         n4d-highmem-32  2.00          us-east1-b     1795231596     1795232738   1142     0.63
+full-rehearsal-20261120-214914       full-rehearsal         n4d-highmem-32  2.00          us-central1-b  1795232954     1795234170   1216     0.68
+full-rehearsal-20261120-233826       full-rehearsal         n4d-highmem-32  2.00          us-central1-b  1795239506     1795240378   872      0.48
+full-rehearsal-20261120-235539       full-rehearsal         n4d-highmem-32  2.00          us-central1-b  1795240539     1795241714   1175     0.65
+full-rehearsal-20261121-113516       full-rehearsal         n4d-highmem-32  2.00          us-east1-b     1795282516     1795284003   1487     0.83
+full-spot-rehearsal-20261122-092917  full-spot-rehearsal#1  n4d-highmem-32  1.20          us-central1-a  1795361363     1795361771   408      0.14
+full-spot-rehearsal-20261122-092917  full-spot-rehearsal#2  n4d-highmem-32  1.20          us-central1-a  1795361793     1795362416   623      0.21
+full-spot-rehearsal-20261122-092917  full-spot-rehearsal#3  n4d-highmem-32  1.20          us-central1-a  1795362437     1795362833   396      0.13
+full-spot-rehearsal-20261122-092917  full-spot-rehearsal#4  n4d-highmem-32  1.20          us-central1-a  1795362855     1795363703   848      0.28
+full-spot-20261122-150121            full-spot#1            n4d-highmem-32  1.20          us-central1-a  1795381288     1795385803   4515     1.50
+full-spot-20261122-150121            full-spot#2            n4d-highmem-32  1.20          us-central1-a  1795385824     1795474952   89128    29.71
+estimated spend so far: $41.83 of $50 cap (machine-time x 2.00 USD/h, rounded up; the bill is authoritative)

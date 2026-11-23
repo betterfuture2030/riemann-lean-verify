@@ -1,8 +1,8 @@
 # Records
 
-Evidence files from the work done so far. Everything here was recorded on 2026-11-20 or 2026-11-21.
+Evidence files from the work done so far. Everything here was recorded between 2026-11-20 and 2026-11-23.
 
-Status on that date: the full compile was in progress and the proof had not been verified. These records identify the input, document how the local build was run, preserve the research behind the cloud pilot, and hold the pilot's measurements. None of them shows that the proof is correct, and none shows that it is incorrect.
+Status on 2026-11-23: one full run in the cloud had recorded each of the three pre-registered criteria as holding (`cloud/full-run/`), and the build on the Mac was still in progress. These records identify the input, document how the local build was run, preserve the research behind the cloud work, and hold what the pilot, the rehearsals and the full run wrote. Apart from `cloud/full-run/`, none of them bears on whether the criteria hold.
 
 The proof source itself is not here and is not redistributed. Build logs, the archive listing and anything tied to a cloud account are not here either (see "What is left out").
 
@@ -62,6 +62,8 @@ The proof source itself is not here and is not redistributed. Build logs, the ar
 | `cloud/full_run_driver_review.json` | Four reviews of the first draft of the full-run driver, before it had been run |
 | `cloud/full_run_driver_recheck.json` | Two reviews of the driver as rewritten after those |
 | `cloud/full-rehearsals/` | Records of each rehearsal of the full-run driver, with what it found |
+| `cloud/spot-rehearsals/` | Records of the rehearsal of the same driver as a chain of Spot machines |
+| `cloud/full-run/` | Records of the one full run: the facts it recorded for C1, C2 and C3, the per-module replay results, and each machine's logs |
 | `cloud/replay_cost.json` | What a kernel replay of the whole tree is estimated to cost by each of three ways of running it, from `analysis/replay_cost.py` |
 | `cloud/replay_method_review.json`, `cloud/replay_method_recheck.json` | Two rounds of AI review of the second replay program and the scripts around it |
 | `cloud/closure_replay_review.json`, `cloud/closure_replay_recheck.json` | Two rounds of AI review of the kernel replay as it now runs (the stock tool with import-closure search paths) and of the cloud driver's replay phase |

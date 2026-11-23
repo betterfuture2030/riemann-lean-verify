@@ -1,0 +1,27 @@
+### 2026-11-22T15:29:56Z +1s  PHASE setup
+### 2026-11-22T15:29:56Z +1s  setup: sysctl
+### 2026-11-22T15:29:56Z +1s  setup: packages
+### 2026-11-22T15:30:04Z +9s  setup: disk
+### 2026-11-22T15:30:05Z +10s  setup: user
+### 2026-11-22T15:30:05Z +10s  setup: elan
+elan 4.4.0 (3cc76985a 2026-11-18)
+### 2026-11-22T15:30:05Z +10s  setup: source
+### 2026-11-22T15:30:18Z +23s  setup: spot_state
+### 2026-11-22T15:30:18Z +23s  setup: mathlib_cache
+Decompressed 8690 file(s)
+Already decompressed 8690 file(s)
+### 2026-11-22T15:31:52Z +117s  setup: baseline
+### 2026-11-22T15:31:54Z +119s  setup: spot_baselines
+### 2026-11-22T15:31:56Z +121s  setup: replay_program
+### 2026-11-22T15:31:59Z +124s  setup: lockdown
+### 2026-11-22T15:31:59Z +124s  setup: restore_parts
+### 2026-11-22T15:31:59Z +124s  setup: smoke_build
+✔ [8706/8707] Built Statements (2.5s)
+✔ [8707/8707] Built Formalism.GammaFactorNonvanishing.RhOfRight (3.0s)
+Build completed successfully (8707 jobs).
+### 2026-11-22T15:32:06Z +131s  setup: replay_program_test
+### 2026-11-22T15:32:11Z +136s  PHASE build:N=32
+Terminated
+### 2026-11-22T15:34:40Z +285s  Google is taking the machine back
+Terminated
+### 2026-11-22T15:34:45Z +290s  RECLAIMED: the operating system is shutting down

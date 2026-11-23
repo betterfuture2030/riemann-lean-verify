@@ -1,0 +1,30 @@
+### 2026-11-22T15:47:52Z +0s  PHASE setup
+### 2026-11-22T15:47:52Z +0s  setup: sysctl
+### 2026-11-22T15:47:52Z +0s  setup: packages
+### 2026-11-22T15:47:58Z +6s  setup: disk
+### 2026-11-22T15:47:59Z +7s  setup: user
+### 2026-11-22T15:47:59Z +7s  setup: elan
+elan 4.4.0 (3cc76985a 2026-11-18)
+### 2026-11-22T15:48:00Z +8s  setup: source
+### 2026-11-22T15:48:12Z +20s  setup: spot_state
+### 2026-11-22T15:48:12Z +20s  setup: mathlib_cache
+Decompressed 8690 file(s)
+Already decompressed 8690 file(s)
+### 2026-11-22T15:49:15Z +83s  setup: baseline
+### 2026-11-22T15:49:17Z +85s  setup: spot_baselines
+### 2026-11-22T15:49:18Z +86s  setup: replay_program
+### 2026-11-22T15:49:21Z +89s  setup: lockdown
+### 2026-11-22T15:49:21Z +89s  setup: restore_parts
+### 2026-11-22T15:49:28Z +96s  restored 5 parts: 1636 modules, 353015608 bytes, in 7 s
+### 2026-11-22T15:49:28Z +96s  setup: smoke_build
+Build completed successfully (8707 jobs).
+### 2026-11-22T15:49:33Z +101s  setup: replay_program_test
+### 2026-11-22T15:49:37Z +105s  build: not run on this attempt (state: time_boxed); 1636 modules restored
+### 2026-11-22T15:49:41Z +109s  final prune: setup files found:            0 (0.0 GB) of finished modules:          0 (0.0 GB) removed:                      0 
+### 2026-11-22T15:49:41Z +109s  PHASE seal
+### 2026-11-22T15:49:41Z +109s  holding 90 s for the rehearsal
+### 2026-11-22T15:51:22Z +210s  seal: removed 1 half-written files left by killed compilers
+### 2026-11-22T15:51:38Z +226s  PHASE c2_plain
+### 2026-11-22T15:51:42Z +230s  axiom check exit status: 0
+### 2026-11-22T15:51:46Z +234s  PHASE idle
+### 2026-11-22T15:51:47Z +235s  PHASE check_trial:N=16

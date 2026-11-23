@@ -2,7 +2,7 @@
 
 What was learned on 2026-11-20 while planning a cloud run of the build. Everything here is generic: no account, project or billing details appear, and none are needed to use these notes. Prices are list prices for the Iowa region (`us-central1`), in US dollars, for Linux, before tax and without any commitment discount. They were read from Google's own price pages and SKU catalogue on 2026-11-20 and will change; read them again before relying on them.
 
-Sections 1 to 7 were written before anything had been run in the cloud; their durations and costs are modelled, not measured, except where a line says otherwise. The calibration pilot in [`../cloud/gcp/`](../cloud/gcp/) then ran on the same day. Section 8 gives what it measured and the estimate for a full run that follows from it, section 9 describes the driver written for a full run and what a review of it changed, and section 10 a way of making that run on Spot machines, which has been built and tested locally and not yet run. Where section 8 and an earlier section disagree, section 8 supersedes it: 8.1 is measured, and 8.2 is an estimate built on 8.1.
+Sections 1 to 7 were written before anything had been run in the cloud; their durations and costs are modelled, not measured, except where a line says otherwise. The calibration pilot in [`../cloud/gcp/`](../cloud/gcp/) then ran on the same day. Section 8 gives what it measured and the estimate for a full run that follows from it, section 9 describes the driver written for a full run and what a review of it changed, and section 10 a way of making that run on Spot machines, which was built, tested locally, rehearsed once and then used for the full run (10.8). Where section 8 and an earlier section disagree, section 8 supersedes it: 8.1 is measured, and 8.2 is an estimate built on 8.1.
 
 ## 1. Summary
 
@@ -14,9 +14,9 @@ Sections 1 to 7 were written before anything had been run in the cloud; their du
 | One family has a storage trap | On H4D, network disk throughput is capped per VM at 240 MiB/s whatever the disk is provisioned for |
 | The first cost model was optimistic in structure | Three reviewers reproduced its arithmetic and each revised its conclusions; see section 6 |
 | A billing budget does not stop spending | It sends alerts, and they can arrive hours late |
-| What the pilot's measurements imply | A full build on the 32-vCPU machine: an estimated 16 hours. The kernel replay after it was first put at 14 hours, which was wrong: with the stock tool as first run, about 46 (43 to 56). With the same stock tool shown only what each module imports, about 8.5, which makes a full run about 26 hours and 48 USD (sections 8.2 and 8.5). That last figure is a projection: on a rented machine this way of running the tool has been timed once, on the shallow modules of a rehearsal, where a check cost about what it had cost with the whole library on the path, 4 to 8 percent above what the projection gives for so small a tree (section 8.5) |
-| The cap, and what fits under it | On 2026-11-21 the cap was set at 50 USD in total; 9.86 is now recorded as spent. The full run as designed needs a cap of about 94, because the launcher counts its worst case. Section 8.6 lists what could be done and what each way risks. No choice has been made |
-| A Spot run that resumes | Built, reviewed and tested locally; never run in the cloud. With no reclaim it is modelled at 26 hours and about 29 USD at list prices. Each reclaim costs about 24 minutes. It stays cheaper than on demand unless reclaims average more than one every 50 minutes, and half of simulated runs finish under the cap of 50 when they average one every 2 hours, nine in ten at one every 3 (section 10) |
+| What the pilot's measurements imply | A full build on the 32-vCPU machine: an estimated 16 hours. The kernel replay after it was first put at 14 hours, which was wrong: with the stock tool as first run, about 46 (43 to 56). With the same stock tool shown only what each module imports, about 8.5, which makes a full run about 26 hours and 48 USD (sections 8.2 and 8.5). That last figure is a projection: on a rented machine this way of running the tool has been timed twice, each time on the shallow modules of a rehearsal; the first time a check cost about what it had cost with the whole library on the path, 4 to 8 percent above what the projection gives for so small a tree (section 8.5) |
+| The cap, and what fits under it | On 2026-11-21 the cap was set at 50 USD in total, with 9.86 then recorded as spent (10.62 after the Spot rehearsal of 2026-11-22, and 41.83 after the full run that ended on 2026-11-23). The full run as designed needs a cap of about 94, because the launcher counts its worst case. Section 8.6 lists what could be done and what each way risks. The way chosen was the Spot run of section 10 |
+| A Spot run that resumes | Built, reviewed, tested locally and, on 2026-11-22, rehearsed once on rented machines: four attempts, three forced cuts, every phase ran, 0.76 USD. **Run in full on 2026-11-22 and 23**: two attempts, one reclaim by Google, 21.5 hours of machine time at work, recorded at 31.21 USD with 4.5 idle hours that a restart of the owner's computer caused (section 10.8). Before that run, with no reclaim it was modelled at 26 hours and about 29 USD at list prices. Each reclaim costs about 24 minutes. In the model it stays cheaper than on demand unless reclaims average more than one every 50 minutes, and half of simulated runs finish under the cap of 50 when they average one every 2 hours, nine in ten at one every 3 (section 10) |
 
 ## 2. Quota
 
@@ -329,7 +329,7 @@ While the sixth rehearsal was running, before its cost or its timings were known
 
 Each Spot cap assumes the ledger rate in `config.env` (`GCP_RATE_USD_PER_HOUR`) lowered from 2.00 to a little above the Spot rate for the machine and its disks: 1.12 to 1.15 for `n4d-highmem-32`, 0.87 to 0.90 for `n4d-standard-32`. At 2.00 none of them fits a cap of 50.
 
-Way B has since been built, differently from the sketch in the table: every attempt is a fresh machine and nothing is kept in Compute Engine between attempts, so the cap bounds the spend whatever happens, and each attempt is sized to what the cap leaves. Section 10 describes it. It has not been run.
+Way B has since been built, differently from the sketch in the table: every attempt is a fresh machine and nothing is kept in Compute Engine between attempts, so the cap bounds the spend whatever happens, and each attempt is sized to what the cap leaves. Section 10 describes it. It has been rehearsed once and not run in full.
 
 The ninth agent ranked first a way that is a sequence, not a method: spend nothing more for now, let the Mac build finish, and decide about a cloud run once it is known whether the Mac gets through the top of the import graph and compiles everything. Its reasoning was that the wait costs nothing, the Mac build is running in any case, and what is left under the cap is then spent, if at all, with that knowledge. It ranked last but one a combination, building in the cloud and replaying on the Mac: at or over the cap, with the weeks of Mac replay still to come.
 
@@ -337,7 +337,7 @@ Three things in the record apply to any cloud run. The cap is enforced on the la
 
 ## 9. The full run: what was built, and what a review changed
 
-The pilot scripts stop short of a full run by design. After the pilot, a driver for the full run was written: [`../cloud/gcp/full_guest.sh`](../cloud/gcp/full_guest.sh), with two new modes in the controller, and [`../cloud/gcp/README.md`](../cloud/gcp/README.md) describes it. **It has been rehearsed six times, the sixth time as it stood before the Spot code of section 10 was added to it, and had not been run in full when this was written.** With that code switched off the script does what it did in the sixth rehearsal, by review and by a local comparison (section 10.6), but it has not been rehearsed since. The reviews below are criticism of code; the rehearsals are measurements, of a build of about one module in a hundred.
+The pilot scripts stop short of a full run by design. After the pilot, a driver for the full run was written: [`../cloud/gcp/full_guest.sh`](../cloud/gcp/full_guest.sh), with two new modes in the controller, and [`../cloud/gcp/README.md`](../cloud/gcp/README.md) describes it. **It has been rehearsed six times, the sixth time as it stood before the Spot code of section 10 was added to it, and had not been run in full when this was written.** With that code switched off the script does what it did in the sixth rehearsal, by review and by a local comparison (section 10.6), but in the on-demand modes it has not been rehearsed since. With that code switched on, the same phases ran in the Spot rehearsal of section 10.7. The reviews below are criticism of code; the rehearsals are measurements, of a build of about one module in a hundred.
 
 | Need, from the pilot | Why | State |
 |---|---|---|
@@ -417,7 +417,7 @@ Two optional tests could lower the cost: the kernel checker at 16, 24 and 32 at 
 
 ## 10. A full run on Spot machines that survives being taken back
 
-Section 8.6 left a full run without a way to fit under the cap of 50 USD. Its way B, a Spot run that resumes, has since been built, in a different shape from the one sketched there. **It has not been run in the cloud, not even as a rehearsal: everything in this section is design, local tests, review and a cost model.** The model is [`../analysis/spot_resume_model.py`](../analysis/spot_resume_model.py), its output [`../records/cloud/spot_resume_model.json`](../records/cloud/spot_resume_model.json).
+Section 8.6 left a full run without a way to fit under the cap of 50 USD. Its way B, a Spot run that resumes, has since been built, in a different shape from the one sketched there. **It was rehearsed once on rented machines, on 2026-11-22 (section 10.7), and had not been run in full when this was written. Sections 10.1 to 10.6 are design, local tests, review and a cost model, and were written before the rehearsal.** The model is [`../analysis/spot_resume_model.py`](../analysis/spot_resume_model.py), its output [`../records/cloud/spot_resume_model.json`](../records/cloud/spot_resume_model.json).
 
 ### 10.1 The design
 
@@ -486,7 +486,7 @@ So a reclaim costs about 24 minutes on average: about 16 during the build, about
 The same work on demand is 25.6 hours and 47.87 USD at list prices, 51.20 at the ledger's rate, which the cap does not allow at all. There are two cut-offs, and they are far apart:
 
 - **Against the on-demand price.** Spot costs more than on demand only when reclaims come more often than about once every 50 minutes on average (M below 0.81 hours at list prices, 0.88 at the ledger's rates; below 1.0 hours for the unluckiest run in ten). It takes about 44 reclaims in one run to use up the saving.
-- **Against the cap.** With 9.86 USD already recorded, the cap leaves 32.6 hours of machine time at the Spot ledger rate of 1.20 USD an hour, against 26.0 needed with no reclaim: room for about 16 reclaims. Half of the simulated runs finish under the cap when reclaims average one every 2.0 hours, nine in ten at one every 3.1 hours, and 97 percent at one every 4.
+- **Against the cap.** With 9.86 USD already recorded, as it was when the model was run, the cap leaves 32.6 hours of machine time at the Spot ledger rate of 1.20 USD an hour, against 26.0 needed with no reclaim: room for about 16 reclaims. (The rehearsal of 10.7 has since taken recorded spend to 10.62, which leaves 32.0 hours and room for about 15; the model has not been run again.) Half of the simulated runs finish under the cap when reclaims average one every 2.0 hours, nine in ten at one every 3.1 hours, and 97 percent at one every 4.
 
 A run that meets more reclaims than that is stopped by the launcher's rules, not by a lost run. It pauses with its checkpoints in the bucket and what it has spent recorded; `watch` continues it later, at another hour or in another zone, at the price of the bucket storage in between (about 0.80 USD a month for 40 GB, for which 1.00 USD is held back from the cap). A paused run is not a result of any kind.
 
@@ -503,7 +503,7 @@ How the cut-offs move if the guesses are wrong (hours; the three columns are the
 | Reclaims bunched early in an attempt | 0.63 | 2.10 | 4.09 |
 | A limit of 12 attempts, not 24 | 0.81 | 2.60 | 3.94 |
 
-The limits of this model are those of its inputs. No restore of parts, no seal at full scale, no confirming hash at full scale, no deep axiom check on the whole tree, and nothing at the top of the import graph has ever been timed; the build and replay hours are the projections of section 8. Reclaims are unlikely to arrive at a steady random rate: they vary by day, zone and hour and may come in bursts when a zone runs short, and on 2026-11-21 four zones of `us-central1` had no machine of this type at all. The model leaves out waits for capacity between attempts, which bill nothing but count towards the give-up time; attempts outside the bucket's region, which pay to move the checkpoints (0.02 USD a GiB each way, counted in the cap's worst case and recorded in the ledger); and the rehearsal of the Spot path, which comes out of the same cap.
+The limits of this model are those of its inputs. When the model was run no restore of parts had been timed at all, and still no restore, seal or confirming hash at full scale, no deep axiom check on the whole tree, and nothing at the top of the import graph has been (10.7 sets the model's guesses beside what the rehearsal measured on a small tree); the build and replay hours are the projections of section 8. Reclaims are unlikely to arrive at a steady random rate: they vary by day, zone and hour and may come in bursts when a zone runs short, and on 2026-11-21 four zones of `us-central1` had no machine of this type at all. The model leaves out waits for capacity between attempts, which bill nothing but count towards the give-up time; attempts outside the bucket's region, which pay to move the checkpoints (0.02 USD a GiB each way, counted in the cap's worst case and recorded in the ledger); and the rehearsal of the Spot path, which came out of the same cap (0.76 USD).
 
 ### 10.4 The launcher's money rules for a Spot run
 
@@ -551,7 +551,7 @@ No look graded anything a blocker. After the third look the lock was replaced by
 
 Three test scripts run on a Mac with no cloud access: [`../scripts/dev/test_spot_checkpoint.sh`](../scripts/dev/test_spot_checkpoint.sh) (the helper that cuts, lists, restores and compares parts), [`../scripts/dev/test_spot_guest.sh`](../scripts/dev/test_spot_guest.sh) (the guest's own Spot code, extracted from the script and run against a pretend bucket and metadata server), and [`../scripts/dev/test_spot_launcher.sh`](../scripts/dev/test_spot_launcher.sh) (the launcher against a pretend `gcloud`, with reclaims, refusals, errors and interruptions injected). In the first of them a small Lake project on this toolchain, with a module that compiles with a warning and one that fails to compile, is built, cut into parts, wiped, restored from the parts and built on: the build tool compiled nothing again and changed no restored file's time, size or bytes. That is the behaviour the whole design rests on, seen on five modules.
 
-The tests check logic. They cannot show any of the following, each of which a paid rehearsal with forced reclaims (`launch full-spot-rehearsal`, four attempts on the seven-minute build, an estimated 1.50 to 2.00 USD) would be the first to exercise:
+The tests check logic. They cannot show any of the following, each of which a paid rehearsal with forced reclaims (`launch full-spot-rehearsal`, four attempts on the seven-minute build, then estimated at 1.50 to 2.00 USD) would be the first to exercise; section 10.7 says what the one made since did show, and that it cost 0.76:
 
 - that Google's notice reaches the guest, and that the guest's last uploads fit in the seconds it leaves;
 - a hard reset with no notice, and the bucket found consistent after it;
@@ -562,4 +562,70 @@ The tests check logic. They cannot show any of the following, each of which a pa
 
 A rehearsal builds about one module in a hundred. It does not show a restore of the whole tree, a confirming hash of 140 GB while the replay runs, or a reclaim at the top of the import graph.
 
-The on-demand modes run the same guest script with the Spot code switched off. Reviewers compared that path with the committed version line by line and found it unchanged, and the launcher's test compares what the four older modes send and write; but the script as it now stands has not been rehearsed in the cloud in either mode, and the sixth rehearsal of section 9 was of the version before this change.
+The on-demand modes run the same guest script with the Spot code switched off. Reviewers compared that path with the committed version line by line and found it unchanged, and the launcher's test compares what the four older modes send and write; but in the on-demand modes the script as it now stands has not been rehearsed in the cloud: the sixth rehearsal of section 9 was of the version before this change, and the rehearsal of 10.7 ran it with the Spot code switched on.
+
+### 10.7 The rehearsal
+
+On 2026-11-22 the Spot path was rehearsed once, from commit `e8553dd`: `launch full-spot-rehearsal`, four attempts in `us-central1-a`, 2,275 seconds of machine time, 0.76 USD in the ledger. The record is [`../records/cloud/spot-rehearsals/`](../records/cloud/spot-rehearsals/).
+
+| Attempt | What it did | How it ended |
+|---|---|---|
+| 1 | Built 393 modules and saved them as one part | Google's simulated reclaim, asked for by `watch` once the part was in the bucket. The guest logged the notice 20 seconds later and reported it; Google deleted the machine within about a minute and a half |
+| 2 | Restored the 393 modules in 1 second and built on to 1,636, compiling no restored module again; four more parts | Deleted at the seal |
+| 3 | Restored all 1,636 modules in 7 seconds; sealed; the parts reproduced the sealed files exactly, 8,180 of them, with no repair needed; the plain axiom check; the first replay trial, with 248 results saved | A hard reset with no notice |
+| 4 | Locked the build user, restored the parts as root in 5 seconds, arrived at the first seal's fingerprint, took back the 248 results, and ran everything that was left | Every phase ran |
+
+A rehearsal tests the driver and verifies nothing about the proof: it compiled 1,636 of 175,187 modules, so the facts' own reading of criterion C3 is false, as in every rehearsal. On what it did compile, all 1,636 modules passed `leanchecker`, the axiom probe passed plain and deep, and the end check found nothing changed. Every machine's source tree, toolchain and Mathlib matched the first one's. Ten confirming hashes were made on the last attempt: 2 to 4 seconds each on a quiet machine, 16 to 18 while a replay was running. `watch` reported each of the three cuts as done as configured.
+
+Against the list in 10.6, the rehearsal showed: that Google's notice reaches the guest and that the guest's report gets out in time, once (the report was out 5 seconds after the notice was logged; the last part had gone up before the reclaim was asked for, so no part had to fit in the notice); a hard reset, with the bucket found consistent after it; the restore as the build user and, after the seal, as root, and the build tool accepting restored files on a real tree of 1,636 modules; that the parts reproduce the sealed files; and that the Linux tools the local tests stand in for behave as those tests assume. The five parts held 1,158 MB of compiled files in 353 MB, 0.22 MB a module, which puts the whole tree at about 38 GB of parts if deeper modules compress alike.
+
+The model's guesses beside what was measured, on a tree a hundredth of the size:
+
+| Input of the model | Its value | Measured in the rehearsal | Reading |
+|---|---|---|---|
+| Boot, setup and teardown of one attempt | 0.10 hours | 92 to 136 seconds of setup in the guest, and about 2 minutes more billed around it | The model is somewhat high |
+| Size of the parts | 0.23 MB a module, 41 GB in all | 0.22 MB a module, which scales to 38 GB | Close, if deeper modules compress alike |
+| Time from a finished module to its part being in the bucket, beyond the ten-minute interval | 1 minute | 2 to 3 seconds for a part of about 100 MB | The model is high |
+| Restore of everything, before the seal | 0.15 hours | 7 seconds for 353 MB, which scales in a straight line to about 0.15 to 0.23 hours | The model is at the fast end |
+| The seal | 0.25 hours | 25 to 27 seconds; the seal also hashes the source tree, the toolchain twice and Mathlib, none of which grows with the compiled tree | Not settled by this |
+| A confirming hash during the replay | 5 minutes | 16 to 18 seconds, four to six times what it takes on a quiet machine; it too covers Mathlib and the toolchain as well as the compiled tree | Not settled; the slowdown under load is the thing to watch |
+| Ledger time after a reclaim | 72 seconds | 111 seconds after the simulated reclaim, about 60 after a deletion or a reset | The model is a little low |
+
+None of this changes the cut-offs of 10.3 by much, and none of it is a measurement at scale.
+
+It did not show anything at scale, and it did not meet: a reclaim that Google itself decides on; a reclaim during the main replay, the deep axiom check or the end check; an attempt outside the bucket's region; an attempt that ends at its own deadline; a pause on the cap; a repair part; or a failed upload or download. Those remain reviewed and tested locally. The on-demand modes were not rehearsed again.
+
+### 10.8 The full run
+
+The full run was made this way on 2026-11-22 and 23, from commit `e8553dd`, as run `full-spot-20261122-150121` ([`../records/cloud/full-run/`](../records/cloud/full-run/)). This section is about how the driver behaved and what it cost. What the run recorded about the proof is in that record and in [`../CLAIMS.md`](../CLAIMS.md).
+
+| Attempt | Billed | What happened |
+|---|---|---|
+| 1 | 4,515 s | Google took the machine back 73 minutes after boot, during the build. Six parts holding 12,450 modules were in the bucket; the last status line before the notice showed 13,899 built |
+| 2 | 89,128 s | Restored the six parts in 47 seconds, compiled none of them again, and ran everything else without another reclaim: `DONE` 72,954 seconds after boot. About 16,150 of the billed seconds were the finished machine idling |
+
+There was one reclaim in 21.5 hours of machine time at work. That is one observation and says nothing reliable about the rate; Google publishes none.
+
+**What the reclaim cost.** From the guest's `RECLAIMED` report to the next machine starting its build was 4 minutes 41 seconds, of which the new machine's setup took 158 seconds, the restore included. The second machine passed the first one's last reported count between five and ten minutes into its build. That is roughly ten to twelve minutes lost, against the 16 minutes (0.27 hours) the model allows for a reclaim during the build. The ledger closed the first attempt 67 seconds after the report.
+
+**The idle machine.** `watch` runs on the owner's computer, and that computer restarted at 16:33 UTC on 2026-11-23, two hours before the guest finished. Nothing started `watch` again until 23:01 UTC, so the finished machine was billed for about 4.5 idle hours, 5.38 USD of the run's 31.21. The design held in the sense that mattered: the results were in the bucket, nothing was lost, and the machine's own time limit would have deleted it six hours later. But the launcher has no way to notice that `watch` has died, and a finished guest does not delete itself. A run that should not depend on one computer staying up needs either a guest that shuts itself down on `DONE` or a `watch` that is restarted at login; neither exists yet.
+
+**The model against the run.** The model's inputs were the pilot's estimate and several guesses (10.3). With one reclaim where the model's no-reclaim case has none:
+
+| Quantity | Model | The run |
+|---|---|---|
+| Build | 15.6 hours | 13.8 hours over the two machines, the restart tests and the work done twice included |
+| Seal | 0.25 hours | 83 seconds |
+| Axiom check, deep | not separated from its setup | 551 seconds |
+| Main replay | 9.1 hours | 7.2 hours |
+| Machine time at work | 26.0 hours with no reclaim | 21.5 hours with one |
+| Recorded cost at the ledger rate | 31.25 USD with no reclaim | 25.83 USD for the time at work; 31.21 with the idle hours |
+| Size of the parts | 0.23 MB a module, 41 GB | 0.17 MB a module, 30.6 GB; the compiled files are 100.2 GB |
+| Restore before the seal | 0.15 hours for everything | 47 seconds for 2.9 GB; a restore of everything was not needed and so was not timed |
+| A confirming hash during the replay | 5 minutes | 184 to 189 seconds with four hashing processes while the replay ran; 25 to 39 seconds on an idle machine |
+
+The model was cautious on every line that the run tested. The cut-offs of 10.3 were computed from the model's figures and have not been recomputed.
+
+**What the run did not meet:** a reclaim after the seal (during the axiom checks, the replay or the end check), a restore of the whole tree, an attempt outside the bucket's region, an attempt ending at its own deadline, a pause on the cap, a repair part, and a failed upload or download. Those remain reviewed, tested locally and, for some, rehearsed at small scale (10.7).
+
+Recorded spend after the run was 41.83 USD of the cap of 50. The run's checkpoints (28.6 GiB in the bucket, about 0.57 USD a month) were kept.

@@ -1,0 +1,3 @@
+build:simulate: done as configured
+seal:delete: done as configured
+c3:reset: done as configured

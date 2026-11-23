@@ -1,0 +1,254 @@
+### 2026-11-22T22:17:38Z +0s  PHASE setup
+### 2026-11-22T22:17:39Z +1s  setup: sysctl
+### 2026-11-22T22:17:39Z +1s  setup: packages
+### 2026-11-22T22:17:46Z +8s  setup: disk
+### 2026-11-22T22:17:47Z +9s  setup: user
+### 2026-11-22T22:17:48Z +10s  setup: elan
+elan 4.4.0 (3cc76985a 2026-11-18)
+### 2026-11-22T22:17:48Z +10s  setup: source
+### 2026-11-22T22:18:00Z +22s  setup: spot_state
+### 2026-11-22T22:18:01Z +23s  setup: mathlib_cache
+Decompressed 8690 file(s)
+Already decompressed 8690 file(s)
+### 2026-11-22T22:19:20Z +102s  setup: baseline
+### 2026-11-22T22:19:22Z +104s  setup: spot_baselines
+### 2026-11-22T22:19:23Z +105s  setup: replay_program
+### 2026-11-22T22:19:23Z +105s  setup: lockdown
+### 2026-11-22T22:19:23Z +105s  setup: restore_parts
+### 2026-11-22T22:20:10Z +152s  restored 6 parts: 12450 modules, 2918568487 bytes, in 47 s
+### 2026-11-22T22:20:10Z +152s  setup: smoke_build
+Build completed successfully (8707 jobs).
+### 2026-11-22T22:20:15Z +157s  setup: replay_program_test
+### 2026-11-22T22:20:16Z +158s  PHASE build:N=32
+### 2026-11-22T22:30:19Z +761s  prune: setup files found:            2307 (13.5 GB) of finished modules:          1115 (6.6 GB) removed:                      1115 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-22T22:40:22Z +1364s  prune: setup files found:            3618 (21.0 GB) of finished modules:          2341 (13.6 GB) removed:                      2341 
+### 2026-11-22T22:50:25Z +1967s  prune: setup files found:            3528 (20.5 GB) of finished modules:          2484 (14.4 GB) removed:                      2484 
+### 2026-11-22T23:00:29Z +2571s  prune: setup files found:            3110 (18.4 GB) of finished modules:          2220 (13.2 GB) removed:                      2220 
+### 2026-11-22T23:10:33Z +3175s  prune: setup files found:            3143 (18.4 GB) of finished modules:          1977 (11.5 GB) removed:                      1977 
+### 2026-11-22T23:20:37Z +3779s  prune: setup files found:            3426 (20.0 GB) of finished modules:          2338 (13.7 GB) removed:                      2338 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-22T23:30:41Z +4383s  prune: setup files found:            3056 (17.8 GB) of finished modules:          2059 (12.0 GB) removed:                      2059 
+### 2026-11-22T23:40:46Z +4988s  prune: setup files found:            3400 (19.8 GB) of finished modules:          2134 (12.5 GB) removed:                      2134 
+### 2026-11-22T23:50:51Z +5593s  prune: setup files found:            3669 (22.2 GB) of finished modules:          2520 (14.8 GB) removed:                      2520 
+### 2026-11-23T00:00:56Z +6198s  prune: setup files found:            3054 (18.8 GB) of finished modules:          2237 (13.8 GB) removed:                      2237 
+### 2026-11-23T00:11:01Z +6803s  prune: setup files found:            2690 (16.8 GB) of finished modules:          1737 (10.7 GB) removed:                      1737 
+### 2026-11-23T00:21:07Z +7409s  prune: setup files found:            3297 (20.0 GB) of finished modules:          2120 (13.0 GB) removed:                      2120 
+### 2026-11-23T00:31:12Z +8014s  prune: setup files found:            3484 (21.3 GB) of finished modules:          2276 (13.7 GB) removed:                      2276 
+### 2026-11-23T00:41:18Z +8620s  prune: setup files found:            3668 (24.0 GB) of finished modules:          2471 (16.1 GB) removed:                      2471 
+### 2026-11-23T00:51:25Z +9227s  prune: setup files found:            3650 (23.5 GB) of finished modules:          2311 (14.8 GB) removed:                      2311 
+### 2026-11-23T01:01:31Z +9833s  prune: setup files found:            3761 (25.2 GB) of finished modules:          2675 (17.9 GB) removed:                      2675 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T01:11:39Z +10441s  prune: setup files found:            3257 (20.8 GB) of finished modules:          2178 (14.2 GB) removed:                      2178 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T01:21:46Z +11048s  prune: setup files found:            3294 (20.5 GB) of finished modules:          2086 (13.2 GB) removed:                      2086 
+### 2026-11-23T01:31:54Z +11656s  prune: setup files found:            3597 (22.2 GB) of finished modules:          2453 (15.1 GB) removed:                      2453 
+### 2026-11-23T01:42:02Z +12264s  prune: setup files found:            3654 (22.4 GB) of finished modules:          2396 (14.8 GB) removed:                      2396 
+### 2026-11-23T01:52:11Z +12873s  prune: setup files found:            3682 (22.9 GB) of finished modules:          2508 (15.3 GB) removed:                      2508 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T02:02:20Z +13482s  prune: setup files found:            3421 (22.2 GB) of finished modules:          2330 (15.3 GB) removed:                      2330 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T02:12:29Z +14091s  prune: setup files found:            3278 (21.3 GB) of finished modules:          2178 (14.1 GB) removed:                      2178 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T02:22:39Z +14701s  prune: setup files found:            3672 (23.9 GB) of finished modules:          2367 (15.5 GB) removed:                      2367 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T02:32:49Z +15311s  prune: setup files found:            3764 (24.7 GB) of finished modules:          2496 (16.4 GB) removed:                      2496 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T02:43:00Z +15922s  prune: setup files found:            3826 (25.1 GB) of finished modules:          2551 (16.7 GB) removed:                      2551 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T02:53:12Z +16534s  prune: setup files found:            3765 (25.3 GB) of finished modules:          2572 (17.0 GB) removed:                      2572 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T03:03:23Z +17145s  prune: setup files found:            3780 (26.1 GB) of finished modules:          2484 (17.2 GB) removed:                      2484 
+### 2026-11-23T03:13:35Z +17757s  prune: setup files found:            3535 (24.8 GB) of finished modules:          2504 (17.4 GB) removed:                      2504 
+### 2026-11-23T03:23:47Z +18369s  prune: setup files found:            3180 (22.0 GB) of finished modules:          2098 (14.7 GB) removed:                      2098 
+### 2026-11-23T03:34:00Z +18982s  prune: setup files found:            3184 (22.2 GB) of finished modules:          2080 (14.4 GB) removed:                      2080 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T03:44:13Z +19595s  prune: setup files found:            3466 (23.8 GB) of finished modules:          2354 (16.3 GB) removed:                      2354 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T03:54:26Z +20208s  prune: setup files found:            3366 (23.5 GB) of finished modules:          2300 (15.9 GB) removed:                      2300 
+### 2026-11-23T04:04:40Z +20822s  prune: setup files found:            3394 (23.6 GB) of finished modules:          2222 (15.9 GB) removed:                      2222 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T04:14:54Z +21436s  prune: setup files found:            3663 (23.6 GB) of finished modules:          2385 (15.4 GB) removed:                      2385 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T04:25:09Z +22051s  prune: setup files found:            3547 (23.9 GB) of finished modules:          2415 (16.0 GB) removed:                      2415 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T04:35:23Z +22665s  prune: setup files found:            3264 (23.1 GB) of finished modules:          2137 (14.9 GB) removed:                      2137 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T04:45:38Z +23280s  prune: setup files found:            3414 (23.3 GB) of finished modules:          2238 (15.7 GB) removed:                      2238 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T04:55:53Z +23895s  prune: setup files found:            3698 (24.8 GB) of finished modules:          2465 (16.4 GB) removed:                      2465 
+### 2026-11-23T05:06:08Z +24510s  prune: setup files found:            3587 (24.9 GB) of finished modules:          2439 (17.1 GB) removed:                      2439 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T05:16:24Z +25126s  prune: setup files found:            3264 (22.1 GB) of finished modules:          2253 (15.3 GB) removed:                      2253 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T05:26:40Z +25742s  prune: setup files found:            2544 (17.0 GB) of finished modules:          1818 (12.2 GB) removed:                      1818 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T05:36:57Z +26359s  prune: setup files found:            2605 (17.3 GB) of finished modules:          1682 (11.2 GB) removed:                      1682 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T05:47:14Z +26976s  prune: setup files found:            2852 (19.3 GB) of finished modules:          1914 (13.2 GB) removed:                      1914 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T05:57:31Z +27593s  prune: setup files found:            3165 (20.5 GB) of finished modules:          2031 (13.2 GB) removed:                      2031 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T06:07:49Z +28211s  prune: setup files found:            3675 (22.7 GB) of finished modules:          2456 (15.4 GB) removed:                      2456 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T06:18:08Z +28830s  prune: setup files found:            3063 (18.4 GB) of finished modules:          2165 (13.0 GB) removed:                      2165 
+### 2026-11-23T06:28:27Z +29449s  prune: setup files found:            2189 (12.9 GB) of finished modules:          1575 (9.4 GB) removed:                      1575 
+### 2026-11-23T06:38:45Z +30067s  prune: setup files found:            2878 (18.0 GB) of finished modules:          1648 (10.1 GB) removed:                      1648 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T06:49:05Z +30687s  prune: setup files found:            3709 (24.0 GB) of finished modules:          2464 (16.3 GB) removed:                      2464 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T06:59:24Z +31306s  prune: setup files found:            3615 (23.0 GB) of finished modules:          2551 (16.0 GB) removed:                      2551 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T07:09:43Z +31925s  prune: setup files found:            3303 (21.5 GB) of finished modules:          2241 (14.7 GB) removed:                      2241 
+### 2026-11-23T07:20:03Z +32545s  prune: setup files found:            3242 (21.2 GB) of finished modules:          2243 (14.3 GB) removed:                      2243 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T07:30:23Z +33165s  prune: setup files found:            3164 (21.5 GB) of finished modules:          2156 (14.5 GB) removed:                      2156 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T07:40:43Z +33785s  prune: setup files found:            2954 (20.1 GB) of finished modules:          1944 (13.2 GB) removed:                      1944 
+### 2026-11-23T07:51:03Z +34405s  prune: setup files found:            3059 (21.5 GB) of finished modules:          2007 (14.5 GB) removed:                      2007 
+### 2026-11-23T08:01:03Z +35005s  prune: setup files found:            3144 (21.4 GB) of finished modules:          2039 (14.0 GB) removed:                      2039 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T08:11:03Z +35605s  prune: setup files found:            3202 (21.9 GB) of finished modules:          2167 (14.4 GB) removed:                      2167 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T08:21:04Z +36206s  prune: setup files found:            2642 (21.5 GB) of finished modules:          1845 (14.4 GB) removed:                      1845 
+### 2026-11-23T08:31:06Z +36808s  prune: setup files found:            2643 (19.7 GB) of finished modules:          1632 (13.5 GB) removed:                      1632 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T08:41:07Z +37409s  prune: setup files found:            3206 (19.9 GB) of finished modules:          2166 (13.5 GB) removed:                      2166 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T08:51:08Z +38010s  prune: setup files found:            3111 (18.9 GB) of finished modules:          2133 (13.1 GB) removed:                      2133 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T09:01:10Z +38612s  prune: setup files found:            3357 (19.4 GB) of finished modules:          2137 (12.4 GB) removed:                      2137 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T09:11:12Z +39214s  prune: setup files found:            3611 (20.9 GB) of finished modules:          2508 (14.5 GB) removed:                      2508 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T09:21:14Z +39816s  prune: setup files found:            3345 (19.8 GB) of finished modules:          2346 (13.7 GB) removed:                      2346 
+### 2026-11-23T09:31:16Z +40418s  prune: setup files found:            3741 (22.1 GB) of finished modules:          2317 (13.8 GB) removed:                      2317 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T09:41:18Z +41020s  prune: setup files found:            4030 (23.8 GB) of finished modules:          2776 (16.3 GB) removed:                      2776 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T09:51:21Z +41623s  prune: setup files found:            3761 (23.0 GB) of finished modules:          2549 (15.4 GB) removed:                      2549 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T10:01:24Z +42226s  prune: setup files found:            3657 (23.4 GB) of finished modules:          2411 (15.4 GB) removed:                      2411 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T10:11:26Z +42828s  prune: setup files found:            3579 (22.8 GB) of finished modules:          2463 (15.7 GB) removed:                      2463 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T10:21:29Z +43431s  prune: setup files found:            3000 (20.4 GB) of finished modules:          2075 (13.6 GB) removed:                      2075 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T10:31:33Z +44035s  prune: setup files found:            2675 (20.0 GB) of finished modules:          1893 (14.0 GB) removed:                      1893 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T10:41:37Z +44639s  prune: setup files found:            2101 (17.3 GB) of finished modules:          1409 (11.3 GB) removed:                      1409 
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T10:51:56Z +45258s  prune: setup files found:            1466 (13.5 GB) of finished modules:          1393 (12.7 GB) removed:                      1393 
+### 2026-11-23T10:54:20Z +45402s  build tool exited with status 0; 175187 modules finished
+### 2026-11-23T10:54:47Z +45429s  part 77: 48 modules, 11521367 bytes
+### 2026-11-23T10:55:05Z +45447s  final prune: setup files found:            79 (1.1 GB) of finished modules:          79 (1.1 GB) removed:                      79 
+### 2026-11-23T10:55:07Z +45449s  PHASE seal
+### 2026-11-23T10:56:30Z +45532s  PHASE c2_plain
+### 2026-11-23T10:56:50Z +45552s  axiom check exit status: 0
+### 2026-11-23T10:57:29Z +45591s  PHASE idle
+### 2026-11-23T10:57:31Z +45593s  PHASE check_trial:N=16
+### 2026-11-23T11:02:32Z +45894s  replay trial: 16 at a time finished 1028 modules in the counted window
+### 2026-11-23T11:02:32Z +45894s  PHASE check_trial:N=24
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+### 2026-11-23T11:07:33Z +46195s  replay trial: 24 at a time finished 1233 modules in the counted window
+### 2026-11-23T11:07:33Z +46195s  PHASE check_trial:N=32
+### 2026-11-23T11:12:34Z +46496s  replay trial: 32 at a time finished 1391 modules in the counted window
+### 2026-11-23T11:12:34Z +46496s  replay: 6.62 modules a second at 32 at a time; 170079 modules to go need about 25677 s; 63064 s left; fits: 1
+### 2026-11-23T11:13:01Z +46523s  PHASE c2_deep
+### 2026-11-23T11:21:33Z +47035s  deep axiom check exit status: 0
+### 2026-11-23T11:22:12Z +47074s  PHASE check:N=32
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /var/pilot/system.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+gzip: /var/pilot/modules.tsv: file size changed while zipping
+gzip: /mnt/work/analysis/kernel_replay/results.tsv: file size changed while zipping
+### 2026-11-23T18:32:52Z +72914s  kernel replay: last exit status 0, 175187 result lines
+== Kernel re-check summary
+  source modules:                         175187
+  compiled modules:                       175187
+    passed (for the file now on disk, and never rejected): 175187
+      by leanchecker: 175187   by rhv-replay: 0   by both: 0
+    FAILED (rejected or crashed on, and again when run again): 0
+    rejected or crashed on once (not a pass, whatever followed): 0
+    remaining (never checked, or recompiled since): 0  (of which recompiled since: 0)
+  every source module compiled and passing: yes
+  criterion C3 (every compiled module re-checked by leanchecker, and every one passes):
+    every source module is compiled and nothing else is:       yes
+    every compiled module passed by leanchecker:               yes
+    no rejection or crash recorded by any tool:                yes
+    the results file has no damaged lines:                     yes
+    all of these hold: yes
+### 2026-11-23T18:32:55Z +72917s  PHASE end_check
+### 2026-11-23T18:33:21Z +72943s  PHASE idle
+### 2026-11-23T18:33:21Z +72943s  FINISH DONE: all phases ran; read facts.json against PREREGISTRATION.md section 5

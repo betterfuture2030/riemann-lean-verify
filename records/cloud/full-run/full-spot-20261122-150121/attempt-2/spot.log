@@ -1,0 +1,193 @@
+restored 2047 modules, 14329 files, 1762598310 bytes
+restored 1972 modules, 13804 files, 1648824526 bytes
+restored 2039 modules, 14273 files, 1708357339 bytes
+restored 2308 modules, 16156 files, 1407652355 bytes
+restored 1939 modules, 13573 files, 1533241448 bytes
+restored 2145 modules, 15015 files, 1499260344 bytes
+part: 2249 modules, 15743 files, 1753893553 bytes before compression; 0 modules not yet complete
+2026-11-22T22:30:31Z part 7 (loop): 2249 modules, 15743 files, 537150238 bytes, 0 files written again with the same bytes; cut and listed in 11 s, uploaded in 3 s
+part: 2472 modules, 17304 files, 1730953982 bytes before compression; 0 modules not yet complete
+2026-11-22T22:40:49Z part 8 (loop): 2472 modules, 17304 files, 528455280 bytes, 0 files written again with the same bytes; cut and listed in 11 s, uploaded in 5 s
+part: 2293 modules, 16051 files, 1668386062 bytes before compression; 0 modules not yet complete
+2026-11-22T22:51:05Z part 9 (loop): 2293 modules, 16051 files, 512035760 bytes, 0 files written again with the same bytes; cut and listed in 10 s, uploaded in 5 s
+spot_checkpoint.sh: FileNotFoundError: [Errno 2] No such file or directory: '/mnt/work/extract/lean/.lake/build/lib/lean/Formalism/SharpRestriction/GrowthBounds/RootWeights/V2conSumApply.olean.tmp.195117'
+part: 4393 modules, 30751 files, 3052903652 bytes before compression; 0 modules not yet complete
+2026-11-22T23:11:34Z part 10 (loop): 4393 modules, 30751 files, 916192884 bytes, 0 files written again with the same bytes; cut and listed in 18 s, uploaded in 6 s
+part: 2324 modules, 16268 files, 1783789096 bytes before compression; 0 modules not yet complete
+2026-11-22T23:21:53Z part 11 (loop): 2324 modules, 16268 files, 546396195 bytes, 0 files written again with the same bytes; cut and listed in 12 s, uploaded in 5 s
+part: 2022 modules, 14154 files, 1939320878 bytes before compression; 0 modules not yet complete
+2026-11-22T23:32:11Z part 12 (loop): 2022 modules, 14154 files, 597435517 bytes, 0 files written again with the same bytes; cut and listed in 12 s, uploaded in 4 s
+part: 2425 modules, 16975 files, 1589520905 bytes before compression; 0 modules not yet complete
+2026-11-22T23:42:28Z part 13 (loop): 2425 modules, 16975 files, 482239673 bytes, 0 files written again with the same bytes; cut and listed in 12 s, uploaded in 3 s
+part: 2474 modules, 17318 files, 1312598251 bytes before compression; 0 modules not yet complete
+2026-11-22T23:52:44Z part 14 (loop): 2474 modules, 17318 files, 391405960 bytes, 0 files written again with the same bytes; cut and listed in 10 s, uploaded in 4 s
+part: 1918 modules, 13426 files, 1504427470 bytes before compression; 0 modules not yet complete
+2026-11-23T00:03:04Z part 15 (loop): 1918 modules, 13426 files, 462038651 bytes, 0 files written again with the same bytes; cut and listed in 12 s, uploaded in 5 s
+part: 1976 modules, 13832 files, 1333664753 bytes before compression; 0 modules not yet complete
+2026-11-23T00:13:21Z part 16 (loop): 1976 modules, 13832 files, 406545980 bytes, 0 files written again with the same bytes; cut and listed in 10 s, uploaded in 5 s
+part: 2350 modules, 16450 files, 1757333601 bytes before compression; 0 modules not yet complete
+2026-11-23T00:23:41Z part 17 (loop): 2350 modules, 16450 files, 540571619 bytes, 0 files written again with the same bytes; cut and listed in 13 s, uploaded in 5 s
+part: 2468 modules, 17276 files, 1319099151 bytes before compression; 0 modules not yet complete
+2026-11-23T00:33:59Z part 18 (loop): 2468 modules, 17276 files, 400608643 bytes, 0 files written again with the same bytes; cut and listed in 10 s, uploaded in 5 s
+part: 2414 modules, 16898 files, 1186536018 bytes before compression; 0 modules not yet complete
+2026-11-23T00:44:17Z part 19 (loop): 2414 modules, 16898 files, 356206448 bytes, 0 files written again with the same bytes; cut and listed in 11 s, uploaded in 4 s
+part: 2604 modules, 18228 files, 1019785232 bytes before compression; 0 modules not yet complete
+2026-11-23T00:54:33Z part 20 (loop): 2604 modules, 18228 files, 304563249 bytes, 0 files written again with the same bytes; cut and listed in 11 s, uploaded in 2 s
+part: 2347 modules, 16429 files, 1217332191 bytes before compression; 0 modules not yet complete
+2026-11-23T01:04:51Z part 21 (loop): 2347 modules, 16429 files, 366640049 bytes, 0 files written again with the same bytes; cut and listed in 11 s, uploaded in 4 s
+part: 2076 modules, 14532 files, 1382655086 bytes before compression; 0 modules not yet complete
+2026-11-23T01:15:11Z part 22 (loop): 2076 modules, 14532 files, 423754956 bytes, 0 files written again with the same bytes; cut and listed in 12 s, uploaded in 4 s
+part: 2464 modules, 17248 files, 1248512605 bytes before compression; 0 modules not yet complete
+2026-11-23T01:25:29Z part 23 (loop): 2464 modules, 17248 files, 377277159 bytes, 0 files written again with the same bytes; cut and listed in 12 s, uploaded in 3 s
+part: 2434 modules, 17038 files, 1396857954 bytes before compression; 0 modules not yet complete
+2026-11-23T01:35:50Z part 24 (loop): 2434 modules, 17038 files, 422260030 bytes, 0 files written again with the same bytes; cut and listed in 14 s, uploaded in 4 s
+part: 2576 modules, 18032 files, 1476929298 bytes before compression; 0 modules not yet complete
+2026-11-23T01:46:11Z part 25 (loop): 2576 modules, 18032 files, 443452138 bytes, 0 files written again with the same bytes; cut and listed in 14 s, uploaded in 4 s
+spot_checkpoint.sh: FileNotFoundError: [Errno 2] No such file or directory: '/mnt/work/extract/lean/.lake/build/lib/lean/Development/AbelianVarietyTheory/Proofs/DecoratedLatticeProofs/HoweSpanFamiliesOfPlaces.olean.tmp.834576'
+part: 4554 modules, 31878 files, 2679487488 bytes before compression; 0 modules not yet complete
+2026-11-23T02:06:41Z part 26 (loop): 4554 modules, 31878 files, 811000644 bytes, 0 files written again with the same bytes; cut and listed in 20 s, uploaded in 4 s
+part: 2402 modules, 16814 files, 1076570960 bytes before compression; 0 modules not yet complete
+2026-11-23T02:16:59Z part 27 (loop): 2402 modules, 16814 files, 324074611 bytes, 0 files written again with the same bytes; cut and listed in 13 s, uploaded in 2 s
+part: 2536 modules, 17752 files, 1211980433 bytes before compression; 0 modules not yet complete
+2026-11-23T02:27:19Z part 28 (loop): 2536 modules, 17752 files, 363675437 bytes, 0 files written again with the same bytes; cut and listed in 14 s, uploaded in 3 s
+part: 2578 modules, 18046 files, 1057255253 bytes before compression; 0 modules not yet complete
+2026-11-23T02:37:39Z part 29 (loop): 2578 modules, 18046 files, 315560912 bytes, 0 files written again with the same bytes; cut and listed in 14 s, uploaded in 2 s
+part: 2594 modules, 18158 files, 978290120 bytes before compression; 0 modules not yet complete
+2026-11-23T02:47:59Z part 30 (loop): 2594 modules, 18158 files, 289546934 bytes, 0 files written again with the same bytes; cut and listed in 13 s, uploaded in 2 s
+part: 2515 modules, 17605 files, 981950797 bytes before compression; 0 modules not yet complete
+2026-11-23T02:58:20Z part 31 (loop): 2515 modules, 17605 files, 291658297 bytes, 0 files written again with the same bytes; cut and listed in 14 s, uploaded in 4 s
+part: 2566 modules, 17962 files, 1065664886 bytes before compression; 0 modules not yet complete
+2026-11-23T03:08:41Z part 32 (loop): 2566 modules, 17962 files, 319056465 bytes, 0 files written again with the same bytes; cut and listed in 14 s, uploaded in 3 s
+part: 2122 modules, 14854 files, 1219563949 bytes before compression; 0 modules not yet complete
+2026-11-23T03:19:03Z part 33 (loop): 2122 modules, 14854 files, 370723179 bytes, 0 files written again with the same bytes; cut and listed in 16 s, uploaded in 3 s
+part: 2117 modules, 14819 files, 1151399589 bytes before compression; 0 modules not yet complete
+2026-11-23T03:29:26Z part 34 (loop): 2117 modules, 14819 files, 344273449 bytes, 0 files written again with the same bytes; cut and listed in 16 s, uploaded in 3 s
+part: 2386 modules, 16702 files, 966332032 bytes before compression; 0 modules not yet complete
+2026-11-23T03:39:46Z part 35 (loop): 2386 modules, 16702 files, 288984593 bytes, 0 files written again with the same bytes; cut and listed in 15 s, uploaded in 1 s
+part: 2318 modules, 16226 files, 905923692 bytes before compression; 0 modules not yet complete
+2026-11-23T03:50:07Z part 36 (loop): 2318 modules, 16226 files, 271522309 bytes, 0 files written again with the same bytes; cut and listed in 15 s, uploaded in 2 s
+part: 2256 modules, 15792 files, 1036936386 bytes before compression; 0 modules not yet complete
+2026-11-23T04:00:30Z part 37 (loop): 2256 modules, 15792 files, 309569559 bytes, 0 files written again with the same bytes; cut and listed in 16 s, uploaded in 2 s
+part: 2452 modules, 17164 files, 1331126513 bytes before compression; 0 modules not yet complete
+2026-11-23T04:10:54Z part 38 (loop): 2452 modules, 17164 files, 404032830 bytes, 0 files written again with the same bytes; cut and listed in 16 s, uploaded in 3 s
+part: 2445 modules, 17115 files, 1136653757 bytes before compression; 0 modules not yet complete
+2026-11-23T04:21:16Z part 39 (loop): 2445 modules, 17115 files, 341068509 bytes, 0 files written again with the same bytes; cut and listed in 16 s, uploaded in 2 s
+part: 2131 modules, 14917 files, 1102888364 bytes before compression; 0 modules not yet complete
+2026-11-23T04:31:38Z part 40 (loop): 2131 modules, 14917 files, 333227425 bytes, 0 files written again with the same bytes; cut and listed in 16 s, uploaded in 2 s
+part: 2262 modules, 15834 files, 1102136396 bytes before compression; 0 modules not yet complete
+2026-11-23T04:42:03Z part 41 (loop): 2262 modules, 15834 files, 331414731 bytes, 0 files written again with the same bytes; cut and listed in 16 s, uploaded in 3 s
+part: 2555 modules, 17885 files, 1015653963 bytes before compression; 0 modules not yet complete
+2026-11-23T04:52:27Z part 42 (loop): 2555 modules, 17885 files, 301915229 bytes, 0 files written again with the same bytes; cut and listed in 17 s, uploaded in 3 s
+part: 2445 modules, 17115 files, 1115868481 bytes before compression; 0 modules not yet complete
+2026-11-23T05:02:52Z part 43 (loop): 2445 modules, 17115 files, 335928131 bytes, 0 files written again with the same bytes; cut and listed in 17 s, uploaded in 4 s
+part: 2279 modules, 15953 files, 1045853702 bytes before compression; 0 modules not yet complete
+2026-11-23T05:13:16Z part 44 (loop): 2279 modules, 15953 files, 313819646 bytes, 0 files written again with the same bytes; cut and listed in 17 s, uploaded in 3 s
+part: 1737 modules, 12159 files, 1219768336 bytes before compression; 0 modules not yet complete
+2026-11-23T05:23:41Z part 45 (loop): 1737 modules, 12159 files, 370719820 bytes, 0 files written again with the same bytes; cut and listed in 18 s, uploaded in 2 s
+part: 1778 modules, 12446 files, 1218611791 bytes before compression; 0 modules not yet complete
+2026-11-23T05:34:07Z part 46 (loop): 1778 modules, 12446 files, 366563608 bytes, 0 files written again with the same bytes; cut and listed in 18 s, uploaded in 4 s
+part: 1842 modules, 12894 files, 1580963560 bytes before compression; 0 modules not yet complete
+2026-11-23T05:44:36Z part 47 (loop): 1842 modules, 12894 files, 480420311 bytes, 0 files written again with the same bytes; cut and listed in 19 s, uploaded in 3 s
+part: 2199 modules, 15393 files, 1539111306 bytes before compression; 0 modules not yet complete
+2026-11-23T05:55:06Z part 48 (loop): 2199 modules, 15393 files, 467490438 bytes, 0 files written again with the same bytes; cut and listed in 20 s, uploaded in 4 s
+part: 2627 modules, 18389 files, 1277781266 bytes before compression; 0 modules not yet complete
+2026-11-23T06:05:32Z part 49 (loop): 2627 modules, 18389 files, 380739014 bytes, 0 files written again with the same bytes; cut and listed in 19 s, uploaded in 2 s
+part: 2058 modules, 14406 files, 1074849353 bytes before compression; 0 modules not yet complete
+2026-11-23T06:16:01Z part 50 (loop): 2058 modules, 14406 files, 322344334 bytes, 0 files written again with the same bytes; cut and listed in 20 s, uploaded in 3 s
+part: 1316 modules, 9212 files, 1352952058 bytes before compression; 0 modules not yet complete
+2026-11-23T06:26:28Z part 51 (loop): 1316 modules, 9212 files, 409703592 bytes, 0 files written again with the same bytes; cut and listed in 19 s, uploaded in 2 s
+part: 2048 modules, 14336 files, 1444541878 bytes before compression; 0 modules not yet complete
+2026-11-23T06:36:56Z part 52 (loop): 2048 modules, 14336 files, 435723425 bytes, 0 files written again with the same bytes; cut and listed in 21 s, uploaded in 3 s
+part: 2475 modules, 17325 files, 1074984109 bytes before compression; 0 modules not yet complete
+2026-11-23T06:47:25Z part 53 (loop): 2475 modules, 17325 files, 322908413 bytes, 0 files written again with the same bytes; cut and listed in 20 s, uploaded in 3 s
+part: 2529 modules, 17703 files, 1018126193 bytes before compression; 0 modules not yet complete
+2026-11-23T06:57:51Z part 54 (loop): 2529 modules, 17703 files, 301718735 bytes, 0 files written again with the same bytes; cut and listed in 19 s, uploaded in 1 s
+part: 2273 modules, 15911 files, 1116011612 bytes before compression; 0 modules not yet complete
+2026-11-23T07:08:20Z part 55 (loop): 2273 modules, 15911 files, 334436917 bytes, 0 files written again with the same bytes; cut and listed in 20 s, uploaded in 3 s
+part: 2268 modules, 15876 files, 1201454298 bytes before compression; 0 modules not yet complete
+2026-11-23T07:18:50Z part 56 (loop): 2268 modules, 15876 files, 361743019 bytes, 0 files written again with the same bytes; cut and listed in 21 s, uploaded in 3 s
+part: 2162 modules, 15134 files, 1547727027 bytes before compression; 0 modules not yet complete
+2026-11-23T07:29:21Z part 57 (loop): 2162 modules, 15134 files, 473735514 bytes, 0 files written again with the same bytes; cut and listed in 23 s, uploaded in 3 s
+part: 1994 modules, 13958 files, 1648151331 bytes before compression; 0 modules not yet complete
+2026-11-23T07:39:53Z part 58 (loop): 1994 modules, 13958 files, 507969470 bytes, 0 files written again with the same bytes; cut and listed in 23 s, uploaded in 3 s
+part: 2107 modules, 14749 files, 1333312003 bytes before compression; 0 modules not yet complete
+2026-11-23T07:50:24Z part 59 (loop): 2107 modules, 14749 files, 405515834 bytes, 0 files written again with the same bytes; cut and listed in 21 s, uploaded in 5 s
+part: 2137 modules, 14959 files, 1253196474 bytes before compression; 0 modules not yet complete
+2026-11-23T08:00:55Z part 60 (loop): 2137 modules, 14959 files, 375738930 bytes, 0 files written again with the same bytes; cut and listed in 21 s, uploaded in 3 s
+part: 2231 modules, 15617 files, 1302630625 bytes before compression; 0 modules not yet complete
+2026-11-23T08:11:27Z part 61 (loop): 2231 modules, 15617 files, 392426996 bytes, 0 files written again with the same bytes; cut and listed in 23 s, uploaded in 4 s
+part: 1683 modules, 11781 files, 1332503657 bytes before compression; 0 modules not yet complete
+2026-11-23T08:22:01Z part 62 (loop): 1683 modules, 11781 files, 405939869 bytes, 0 files written again with the same bytes; cut and listed in 23 s, uploaded in 5 s
+part: 1992 modules, 13944 files, 1237003099 bytes before compression; 0 modules not yet complete
+2026-11-23T08:32:33Z part 63 (loop): 1992 modules, 13944 files, 370466124 bytes, 0 files written again with the same bytes; cut and listed in 23 s, uploaded in 3 s
+part: 2302 modules, 16114 files, 1179125372 bytes before compression; 0 modules not yet complete
+2026-11-23T08:43:05Z part 64 (loop): 2302 modules, 16114 files, 352717061 bytes, 0 files written again with the same bytes; cut and listed in 22 s, uploaded in 4 s
+part: 2221 modules, 15547 files, 1154929316 bytes before compression; 0 modules not yet complete
+2026-11-23T08:53:37Z part 65 (loop): 2221 modules, 15547 files, 333833355 bytes, 0 files written again with the same bytes; cut and listed in 22 s, uploaded in 3 s
+part: 2578 modules, 18046 files, 984322568 bytes before compression; 0 modules not yet complete
+2026-11-23T09:04:08Z part 66 (loop): 2578 modules, 18046 files, 290956243 bytes, 0 files written again with the same bytes; cut and listed in 22 s, uploaded in 2 s
+part: 2474 modules, 17318 files, 969325042 bytes before compression; 0 modules not yet complete
+2026-11-23T09:14:40Z part 67 (loop): 2474 modules, 17318 files, 287661244 bytes, 0 files written again with the same bytes; cut and listed in 22 s, uploaded in 3 s
+part: 2393 modules, 16751 files, 1567773099 bytes before compression; 0 modules not yet complete
+2026-11-23T09:25:16Z part 68 (loop): 2393 modules, 16751 files, 481009872 bytes, 0 files written again with the same bytes; cut and listed in 25 s, uploaded in 4 s
+part: 2947 modules, 20629 files, 1336828961 bytes before compression; 0 modules not yet complete
+2026-11-23T09:35:50Z part 69 (loop): 2947 modules, 20629 files, 403370098 bytes, 0 files written again with the same bytes; cut and listed in 25 s, uploaded in 2 s
+part: 2689 modules, 18823 files, 1419896488 bytes before compression; 0 modules not yet complete
+2026-11-23T09:46:27Z part 70 (loop): 2689 modules, 18823 files, 427589892 bytes, 0 files written again with the same bytes; cut and listed in 25 s, uploaded in 5 s
+part: 2541 modules, 17787 files, 1214998679 bytes before compression; 0 modules not yet complete
+2026-11-23T09:57:00Z part 71 (loop): 2541 modules, 17787 files, 364402944 bytes, 0 files written again with the same bytes; cut and listed in 24 s, uploaded in 3 s
+part: 2596 modules, 18172 files, 1209884486 bytes before compression; 0 modules not yet complete
+2026-11-23T10:07:34Z part 72 (loop): 2596 modules, 18172 files, 359696259 bytes, 0 files written again with the same bytes; cut and listed in 25 s, uploaded in 3 s
+part: 2143 modules, 15001 files, 1137049409 bytes before compression; 0 modules not yet complete
+2026-11-23T10:18:09Z part 73 (loop): 2143 modules, 15001 files, 339469122 bytes, 0 files written again with the same bytes; cut and listed in 24 s, uploaded in 4 s
+part: 1982 modules, 13874 files, 1114623994 bytes before compression; 0 modules not yet complete
+2026-11-23T10:28:44Z part 74 (loop): 1982 modules, 13874 files, 332942963 bytes, 0 files written again with the same bytes; cut and listed in 25 s, uploaded in 3 s
+part: 1323 modules, 9261 files, 849831654 bytes before compression; 0 modules not yet complete
+2026-11-23T10:39:15Z part 75 (loop): 1323 modules, 9261 files, 251125319 bytes, 0 files written again with the same bytes; cut and listed in 23 s, uploaded in 2 s
+part: 1252 modules, 8764 files, 863850326 bytes before compression; 0 modules not yet complete
+2026-11-23T10:49:38Z part 76 (loop): 1252 modules, 8764 files, 249821794 bytes, 0 files written again with the same bytes; cut and listed in 16 s, uploaded in 2 s
+part: 48 modules, 336 files, 39563183 bytes before compression; 0 modules not yet complete
+2026-11-23T10:54:46Z part 77 (final): 48 modules, 336 files, 11521367 bytes, 0 files written again with the same bytes; cut and listed in 14 s, uploaded in 0 s
+cover: 875935 sealed files, 875935 in the parts; missing 0, different 0, extra 0
+2026-11-23T10:57:29Z confirm: as sealed, in 39 s with 4 hashing processes
+2026-11-23T11:12:59Z confirm: as sealed, in 25 s with 32 hashing processes
+2026-11-23T11:13:00Z results: 5108 lines confirmed and saved
+2026-11-23T11:22:12Z confirm: as sealed, in 39 s with 4 hashing processes
+2026-11-23T11:45:23Z confirm: as sealed, in 187 s with 4 hashing processes
+2026-11-23T11:45:24Z results: 13085 lines confirmed and saved
+2026-11-23T12:08:39Z confirm: as sealed, in 187 s with 4 hashing processes
+2026-11-23T12:08:39Z results: 22399 lines confirmed and saved
+2026-11-23T12:31:45Z confirm: as sealed, in 186 s with 4 hashing processes
+2026-11-23T12:31:45Z results: 31534 lines confirmed and saved
+2026-11-23T12:54:52Z confirm: as sealed, in 185 s with 4 hashing processes
+2026-11-23T12:54:53Z results: 40806 lines confirmed and saved
+2026-11-23T13:18:04Z confirm: as sealed, in 186 s with 4 hashing processes
+2026-11-23T13:18:05Z results: 50012 lines confirmed and saved
+2026-11-23T13:41:21Z confirm: as sealed, in 188 s with 4 hashing processes
+2026-11-23T13:41:22Z results: 59306 lines confirmed and saved
+2026-11-23T14:04:40Z confirm: as sealed, in 188 s with 4 hashing processes
+2026-11-23T14:04:41Z results: 68546 lines confirmed and saved
+2026-11-23T14:27:48Z confirm: as sealed, in 186 s with 4 hashing processes
+2026-11-23T14:27:49Z results: 77711 lines confirmed and saved
+2026-11-23T14:50:59Z confirm: as sealed, in 186 s with 4 hashing processes
+2026-11-23T14:51:00Z results: 86952 lines confirmed and saved
+2026-11-23T15:14:11Z confirm: as sealed, in 186 s with 4 hashing processes
+2026-11-23T15:14:12Z results: 96239 lines confirmed and saved
+2026-11-23T15:37:29Z confirm: as sealed, in 187 s with 4 hashing processes
+2026-11-23T15:37:30Z results: 105506 lines confirmed and saved
+2026-11-23T16:00:39Z confirm: as sealed, in 187 s with 4 hashing processes
+2026-11-23T16:00:41Z results: 114866 lines confirmed and saved
+2026-11-23T16:23:53Z confirm: as sealed, in 189 s with 4 hashing processes
+2026-11-23T16:23:54Z results: 123764 lines confirmed and saved
+2026-11-23T16:47:08Z confirm: as sealed, in 187 s with 4 hashing processes
+2026-11-23T16:47:10Z results: 132464 lines confirmed and saved
+2026-11-23T17:10:23Z confirm: as sealed, in 184 s with 4 hashing processes
+2026-11-23T17:10:24Z results: 141643 lines confirmed and saved
+2026-11-23T17:33:40Z confirm: as sealed, in 186 s with 4 hashing processes
+2026-11-23T17:33:41Z results: 150862 lines confirmed and saved
+2026-11-23T17:56:50Z confirm: as sealed, in 187 s with 4 hashing processes
+2026-11-23T17:56:51Z results: 160198 lines confirmed and saved
+2026-11-23T18:20:04Z confirm: as sealed, in 187 s with 4 hashing processes
+2026-11-23T18:20:06Z results: 169442 lines confirmed and saved
+2026-11-23T18:32:51Z confirm: as sealed, in 25 s with 32 hashing processes
+2026-11-23T18:32:52Z results: 175187 lines confirmed and saved

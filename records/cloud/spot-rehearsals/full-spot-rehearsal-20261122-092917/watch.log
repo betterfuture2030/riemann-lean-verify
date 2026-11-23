@@ -1,0 +1,92 @@
+watching attempt 1 of full-spot-rehearsal-20261122-092917 (lean-full-spot-rehearsal in us-central1-a)
+09:29:45 attempt 1: no-status none - 0 -
+09:30:09 attempt 1: setup RUNNING 1 1 installing
+09:32:35 attempt 1: build RUNNING 1 156 built 76 of 175187 with 32 jobs; failed job lines 0; 94 GB free
+09:33:51 attempt 1: build RUNNING 1 217 restart tests at 325 modules
+09:34:20 rehearsal cut build:simulate in attempt 1
+Update in progress for gce instance [lean-full-spot-rehearsal] [https://www.googleapis.com/compute/v1/projects/<PROJECT_ID>/zones/us-central1-a/operations/operation-1795361661000-660df360c1bd9-5c1d3072-5a7fa035] Use [gcloud compute operations describe] command to check the status of this operation.
+09:34:42 attempt 1: build:N=32 RECLAIMED 1 286 Google took the machine back; the run continues on the next attempt
+09:34:45 waiting for Google to finish deleting lean-full-spot-rehearsal (status RUNNING)
+09:35:01 waiting for Google to finish deleting lean-full-spot-rehearsal (status RUNNING)
+09:35:17 waiting for Google to finish deleting lean-full-spot-rehearsal (status RUNNING)
+09:35:34 waiting for Google to finish deleting lean-full-spot-rehearsal (status RUNNING)
+09:35:50 waiting for Google to finish deleting lean-full-spot-rehearsal (status STOPPING)
+attempt 1 is over: the guest reported RECLAIMED
+verified: no instances and no disks remain in the project
+attempt 1 accounted for: progress 393 (attempts in a row without progress: 0), parts 49266750 bytes, replay results saved 0; recorded spend $10.00 of $50
+attempt 2: lean-full-spot-rehearsal (n4d-highmem-32, Spot) in us-central1-a for at most 4500 s; worst case $1.55 plus transfer $0.00; recorded spend so far $10.00 of $50
+NAME                      ZONE           MACHINE_TYPE    PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP   STATUS
+lean-full-spot-rehearsal  us-central1-a  n4d-highmem-32  true         10.128.0.6   34.56.194.53  RUNNING
+CREATED attempt 2 of full-spot-rehearsal-20261122-092917: lean-full-spot-rehearsal in us-central1-a
+watching attempt 2 of full-spot-rehearsal-20261122-092917 (lean-full-spot-rehearsal in us-central1-a)
+09:36:49 attempt 2: earlier-attempt-status none 1 0 -
+09:37:14 attempt 2: setup RUNNING 2 0 installing
+09:38:54 attempt 2: build RUNNING 2 92 starting the build of 175187 modules
+09:39:19 attempt 2: build RUNNING 2 112 restart tests at 447 modules
+09:42:59 attempt 2: build RUNNING 2 325 built 447 of 175187 with 32 jobs; failed job lines 0; 94 GB free
+09:45:53 attempt 2: seal RUNNING 2 516 1639 modules compiled; sealing and hashing
+09:45:56 rehearsal cut seal:delete in attempt 2
+attempt 2 is over: rehearsal cut seal:delete
+deleting instance lean-full-spot-rehearsal in us-central1-a
+Deleted [https://www.googleapis.com/compute/v1/projects/<PROJECT_ID>/zones/us-central1-a/instances/lean-full-spot-rehearsal].
+verified: no instances and no disks remain in the project
+attempt 2 accounted for: progress 2001636 (attempts in a row without progress: 0), parts 353015608 bytes, replay results saved 0; recorded spend $10.21 of $50
+attempt 3: lean-full-spot-rehearsal (n4d-highmem-32, Spot) in us-central1-a for at most 4500 s; worst case $1.55 plus transfer $0.00; recorded spend so far $10.21 of $50
+NAME                      ZONE           MACHINE_TYPE    PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP    STATUS
+lean-full-spot-rehearsal  us-central1-a  n4d-highmem-32  true         10.128.0.7   34.59.101.224  RUNNING
+CREATED attempt 3 of full-spot-rehearsal-20261122-092917: lean-full-spot-rehearsal in us-central1-a
+watching attempt 3 of full-spot-rehearsal-20261122-092917 (lean-full-spot-rehearsal in us-central1-a)
+09:47:28 attempt 3: earlier-attempt-status none 2 0 -
+09:48:16 attempt 3: setup RUNNING 3 0 installing
+09:49:53 attempt 3: seal RUNNING 3 109 1636 modules compiled; sealing and hashing
+09:51:55 attempt 3: c3 RUNNING 3 235 kernel replay, trial at 16 at a time
+09:52:49 rehearsal cut c3:reset in attempt 3
+Updated [https://www.googleapis.com/compute/v1/projects/<PROJECT_ID>/zones/us-central1-a/instances/lean-full-spot-rehearsal].
+attempt 3 is over: rehearsal cut c3:reset
+deleting instance lean-full-spot-rehearsal in us-central1-a
+Deleted [https://www.googleapis.com/compute/v1/projects/<PROJECT_ID>/zones/us-central1-a/instances/lean-full-spot-rehearsal].
+verified: no instances and no disks remain in the project
+attempt 3 accounted for: progress 4001884 (attempts in a row without progress: 0), parts 353015608 bytes, replay results saved 248; recorded spend $10.34 of $50
+attempt 4: lean-full-spot-rehearsal (n4d-highmem-32, Spot) in us-central1-a for at most 4500 s; worst case $1.55 plus transfer $0.00; recorded spend so far $10.34 of $50
+NAME                      ZONE           MACHINE_TYPE    PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP   STATUS
+lean-full-spot-rehearsal  us-central1-a  n4d-highmem-32  true         10.128.0.8   34.56.194.53  RUNNING
+CREATED attempt 4 of full-spot-rehearsal-20261122-092917: lean-full-spot-rehearsal in us-central1-a
+watching attempt 4 of full-spot-rehearsal-20261122-092917 (lean-full-spot-rehearsal in us-central1-a)
+09:54:28 attempt 4: earlier-attempt-status none 3 0 -
+09:54:52 attempt 4: setup RUNNING 4 0 installing
+09:56:55 attempt 4: seal RUNNING 4 113 1636 modules compiled; sealing and hashing
+09:58:57 attempt 4: c3 RUNNING 4 229 kernel replay, trial at 16 at a time
+10:00:35 attempt 4: c3 RUNNING 4 320 kernel replay, trial at 32 at a time
+10:01:47 attempt 4: c2 RUNNING 4 415 axiom check with the deep walk
+10:02:11 attempt 4: c3 RUNNING 4 426 kernel replay by leanchecker, 32 at a time; 1316 results so far
+10:03:48 attempt 4: c3 RUNNING 4 522 second replay, by rhv-replay
+10:06:56 attempt 4: end RUNNING 4 722 hashing the compiled files again
+10:07:20 attempt 4: end DONE 4 731 all phases ran; read facts.json against PREREGISTRATION.md section 5
+attempt 4 is over: the guest reported DONE
+deleting instance lean-full-spot-rehearsal in us-central1-a
+Deleted [https://www.googleapis.com/compute/v1/projects/<PROJECT_ID>/zones/us-central1-a/instances/lean-full-spot-rehearsal].
+verified: no instances and no disks remain in the project
+attempt 4 accounted for: progress 9004908 (attempts in a row without progress: 0), parts 353015608 bytes, replay results saved 3272; recorded spend $10.62 of $50
+rehearsal cuts of full-spot-rehearsal-20261122-092917 (configured: build:simulate seal:delete c3:reset):
+  build:simulate: done as configured
+  seal:delete: done as configured
+  c3:reset: done as configured
+the Spot run full-spot-rehearsal-20261122-092917 is over after 4 attempt(s); results are in <WORKDIR>/analysis/pilot/full-spot-rehearsal-20261122-092917
+the run's checkpoints in gs://<BUCKET>/ckpt/full-spot-rehearsal-20261122-092917/ hold 0.35 GiB; at 0.020 USD per GiB-month they cost about 0.01 USD a month, and they bill until they are deleted
+to delete them: gcloud --project=<PROJECT_ID> storage rm -r gs://<BUCKET>/ckpt/full-spot-rehearsal-20261122-092917/
+--- other billable compute resources (should be empty):
+runtag                               mode                   machine         usd_per_hour  zone           created_epoch  ended_epoch  seconds  usd
+rehearsal-20261120-160144            rehearsal              n4d-highmem-32  2.00          pending        1795212104     1795212104   0        0.00
+rehearsal-20261120-160322            rehearsal              n4d-highmem-32  2.00          pending        1795212202     1795213223   1021     0.57
+pilot-20261120-162141                pilot                  n4d-highmem-32  2.00          us-east1-b     1795213301     1795223780   10479    5.82
+full-rehearsal-20261120-211809       full-rehearsal         n4d-highmem-32  2.00          us-east1-b     1795231090     1795231443   353      0.20
+full-rehearsal-20261120-212636       full-rehearsal         n4d-highmem-32  2.00          us-east1-b     1795231596     1795232738   1142     0.63
+full-rehearsal-20261120-214914       full-rehearsal         n4d-highmem-32  2.00          us-central1-b  1795232954     1795234170   1216     0.68
+full-rehearsal-20261120-233826       full-rehearsal         n4d-highmem-32  2.00          us-central1-b  1795239506     1795240378   872      0.48
+full-rehearsal-20261120-235539       full-rehearsal         n4d-highmem-32  2.00          us-central1-b  1795240539     1795241714   1175     0.65
+full-rehearsal-20261121-113516       full-rehearsal         n4d-highmem-32  2.00          us-east1-b     1795282516     1795284003   1487     0.83
+full-spot-rehearsal-20261122-092917  full-spot-rehearsal#1  n4d-highmem-32  1.20          us-central1-a  1795361363     1795361771   408      0.14
+full-spot-rehearsal-20261122-092917  full-spot-rehearsal#2  n4d-highmem-32  1.20          us-central1-a  1795361793     1795362416   623      0.21
+full-spot-rehearsal-20261122-092917  full-spot-rehearsal#3  n4d-highmem-32  1.20          us-central1-a  1795362437     1795362833   396      0.13
+full-spot-rehearsal-20261122-092917  full-spot-rehearsal#4  n4d-highmem-32  1.20          us-central1-a  1795362855     1795363703   848      0.28
+estimated spend so far: $10.62 of $50 cap (machine-time x 2.00 USD/h, rounded up; the bill is authoritative)
