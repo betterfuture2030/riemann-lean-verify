@@ -56,7 +56,7 @@ GUEST_SHA=$(curl -sf --connect-timeout 5 --max-time 30 -H "Metadata-Flavor: Goog
 DEADLINE=$(( T0 + DEADLINE_MIN * 60 ))
 WORK=/mnt/work; PROJ=$WORK/extract/lean; RES="results/$RUNTAG"; TOOLS=/opt/rhv; CK="ckpt/$SRC_RUNTAG"
 LIB=$PROJ/.lake/build/lib/lean; SPK=$TOOLS/scripts/spot_checkpoint.sh; X=$WORK/export; OPT=/opt/kernels
-TC_BIN=""; TC_DIR=""; LP=""
+TC_BIN=""; TC_DIR=""; LP=""; HP=""; HC=""
 
 now() { date +%s; }
 left() { echo $(( DEADLINE - $(now) )); }
@@ -133,7 +133,7 @@ manifest() {
 }
 as_pilot() { runuser -l pilot -c "ulimit -n 1048576 2>/dev/null; cd $PROJ && $1"; }
 # The checking user: no network, and nothing it can write but its own output directory.
-as_chk() { runuser -u chk -- env -i HOME=/home/chk LANG=C.UTF-8 PATH="$TC_BIN:/usr/bin:/bin" LEAN_PATH="$LP" LEAN_SYSROOT="$TC_DIR" LEAN_ABORT_ON_PANIC=1 bash -c "ulimit -n 1048576 2>/dev/null; ulimit -s unlimited 2>/dev/null; $1"; }
+as_chk() { runuser -u chk -- env -i HOME="$HC" LANG=C.UTF-8 PATH="$TC_BIN:/usr/bin:/bin" LEAN_PATH="$LP" LEAN_SYSROOT="$TC_DIR" LEAN_ABORT_ON_PANIC=1 bash -c "ulimit -n 1048576 2>/dev/null; ulimit -s unlimited 2>/dev/null; $1"; }
 fetch_checked() { gcs_get "$1" "$2" || { echo "could not fetch $1"; return 1; }; local got; got=$(sha256sum "$2" | cut -d' ' -f1); [ -n "$3" ] && [ "$got" = "$3" ] || { echo "$1: sha256 $got, expected $3"; return 1; }; }
 
 s_sysctl() { sysctl -w fs.file-max=50000000 vm.max_map_count=16777216 fs.nr_open=4194304 >/dev/null; }
@@ -142,6 +142,7 @@ s_disk() { mkdir -p "$WORK"; [ -e /dev/disk/by-id/google-pilot-data ] || return 
 s_users() {
   useradd -m -s /bin/bash pilot && useradd -m -s /bin/bash chk || return 1
   printf 'pilot\nchk\n' >> /etc/cron.deny
+  HP=$(getent passwd pilot | cut -d: -f6); HC=$(getent passwd chk | cut -d: -f6); [ -d "$HP" ] && [ -d "$HC" ] || return 1
   mkdir -p "$WORK/extract" "$X" && chown pilot:pilot "$WORK/extract" && chown chk:chk "$X" || return 1
   iptables -I OUTPUT 1 -m owner --uid-owner pilot -d 169.254.169.254 -j REJECT || return 1
   iptables -I OUTPUT 1 -m owner --uid-owner chk -d 169.254.169.254 -j REJECT && iptables -A OUTPUT -m owner --uid-owner chk ! -o lo -j REJECT || return 1
@@ -162,7 +163,7 @@ s_toolchain() {
   # From here on the build user has no network, and everything it owns is handed to root: nothing run below
   # can change the source tree, the toolchain or Mathlib's compiled files.
   iptables -A OUTPUT -m owner --uid-owner pilot ! -o lo -j REJECT || return 1
-  pkill -KILL -u pilot 2>/dev/null; chown -R root:root "$PROJ" /home/pilot/.elan && chmod -R a+rX,go-w "$PROJ" /home/pilot/.elan && chmod 755 /home/pilot || return 1
+  pkill -KILL -u pilot 2>/dev/null; chown -R root:root "$PROJ" "$HP/.elan" && chmod -R a+rX,go-w "$PROJ" "$HP/.elan" && chmod 755 "$HP" || return 1
   local d; LP=""
   for d in "$PROJ"/.lake/packages/*/.lake/build/lib/lean; do [ -d "$d" ] && LP="$LP${LP:+:}$d"; done
   [ -n "$LP" ] || { echo "no compiled packages found"; return 1; }
@@ -316,7 +317,7 @@ kernel() { # kernel <label> <seconds> <command>   -- records exit status and tim
   local t0 rc; t0=$(now)
   [ "$(left)" -gt 300 ] || { fact "${1}_exit_status" not_run_no_time_left; return 0; }
   status kernels RUNNING "$1"
-  runuser -u chk -- env -i HOME=/home/chk LANG=C.UTF-8 PATH="$KTC/bin:/usr/bin:/bin" bash -c "ulimit -s unlimited 2>/dev/null; cd $X && timeout $2 $3" > "$PD/logs/$1.log" 2>&1; rc=$?
+  runuser -u chk -- env -i HOME="$HC" LANG=C.UTF-8 PATH="$KTC/bin:/usr/bin:/bin" bash -c "ulimit -s unlimited 2>/dev/null; cd $X && timeout $2 $3" > "$PD/logs/$1.log" 2>&1; rc=$?
   fact "${1}_exit_status" "$rc"; fact "${1}_seconds" "$(( $(now) - t0 ))"
   tail -c 3000 "$PD/logs/$1.log" > "$PD/logs/$1.tail.txt"; gzip -f "$PD/logs/$1.log"
   sync_small; return 0
