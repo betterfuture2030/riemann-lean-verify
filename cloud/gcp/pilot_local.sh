@@ -11,6 +11,10 @@
 #                                         docs/cloud-notes.md sections 8 and 9). An estimated 26 hours;
 #                                         with GCP_SECOND_REPLAY=rhv-replay, a second replay of every module
 #                                         by another program, about 6 hours more.
+#                        export-check     on the compiled files a finished Spot run left in the bucket
+#                                         (GCP_EXPORT_FROM=its run tag): export the proof, compare the
+#                                         export with the published one, run independent kernels on it
+#                                         (export_guest.sh). About 3 hours, at most 5; on demand.
 #                        full-spot        the full run on Spot machines, about half the price, as a chain of
 #                                         attempts that survives Google taking the machine back (below)
 #                        full-spot-rehearsal  the same chain on full-rehearsal's small tree, ending attempts on
@@ -1000,7 +1004,7 @@ launch)
   [ ! -e "$SPOT_LOCK" ] || spot_lock "launch ${2:-}"
   spot_state_exists && die "a paused Spot run has its state in $STATE: 'bash $SELF watch' continues it, 'bash $SELF abandon' ends it"
   MODE=${2:-}
-  case "$MODE" in pilot|rehearsal|full|full-rehearsal) ;; *) die "usage: $0 launch <rehearsal|pilot|full-rehearsal|full>" ;; esac
+  case "$MODE" in pilot|rehearsal|full|full-rehearsal|export-check) ;; *) die "usage: $0 launch <rehearsal|pilot|full-rehearsal|full|export-check>" ;; esac
   [ -z "$(open_run)" ] || die "a run is still open in the ledger: $(open_run). Run teardown first."
   existing=$($G compute instances list --format='value(name)') || die "could not list instances; not launching"
   [ -z "$existing" ] || die "an instance already exists in the project ($existing); refusing to create another"
@@ -1030,6 +1034,26 @@ launch)
       DATA="name=$NAME-data,device-name=pilot-data,type=hyperdisk-balanced,size=100GB,auto-delete=yes"
       MD="pilot-nmax=32,full-timebox=420,full-prune-after=300,full-prune-every=120,full-c2-timeout=900,full-check-trial=16 32,full-check-trial-secs=90,full-final-reserve=300,full-watchdog-wait=300,full-watchdog-finish-wait=480,full-keep-oleans=1,full-keep-min-left=420,full-second-replay=rhv-replay,full-c3-short-cap=300"
     fi
+    XMD="full-tools-sha=$TSHA,full-tools-commit=$TCOMMIT,full-guest-sha=$(sha256_of "$GUEST_FILE")"
+  elif [ "$MODE" = export-check ]; then
+    # The checks of export_guest.sh on the compiled files a finished Spot run left in the bucket. Like a full run
+    # it is tied to one commit. GCP_EXPORT_FROM names that run; its manifest and facts.json must be in the
+    # results directory on this machine, where `watch` put them.
+    [ -f "$OUT/rhv_tools.id" ] || die "run '$0 stage' first: the archive of this repository's scripts has not been uploaded"
+    read -r TSHA TCOMMIT < "$OUT/rhv_tools.id"
+    [ "$TCOMMIT" = "$(git -C "$REPO_ROOT" rev-parse HEAD)" ] || die "the staged scripts are from commit $TCOMMIT, not the current one; run '$0 stage' again"
+    [ -z "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=all -- scripts cloud)" ] || die "scripts/ or cloud/ has uncommitted or untracked files; commit them and run '$0 stage' again, so that the run is tied to a commit"
+    XFROM=${GCP_EXPORT_FROM:-}; [ -n "$XFROM" ] || die "set GCP_EXPORT_FROM to the run tag of the finished Spot run whose compiled files are to be checked"
+    case "$XFROM" in *[!A-Za-z0-9-]*) die "GCP_EXPORT_FROM is not a run tag" ;; esac
+    [ -f "$OUT/$XFROM/ckpt/manifest.tsv" ] && [ -f "$OUT/$XFROM/facts.json" ] || die "no manifest and facts.json of $XFROM under $OUT/$XFROM"
+    XSEAL=$(python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["seal"]["compiled_files_manifest_sha256"] if d.get("state") == "DONE" else "")' "$OUT/$XFROM/facts.json") || XSEAL=""
+    case "$XSEAL" in *[!0-9a-f]*|'') die "facts.json of $XFROM does not record a finished run with a seal" ;; esac
+    GUEST_FILE="$OUT/export_guest_$RUNTAG.sh"
+    git -C "$REPO_ROOT" show HEAD:cloud/gcp/export_guest.sh > "$GUEST_FILE" || die "could not read cloud/gcp/export_guest.sh from the current commit"
+    TA=none; TB=""
+    DEADLINE_MIN=280; MAXRUN=18000      # the guest stops by 4 h 40 min; Google deletes the VM at 5 h whatever happens
+    DATA="name=$NAME-data,device-name=pilot-data,type=hyperdisk-balanced,size=440GB,provisioned-iops=6000,provisioned-throughput=300,auto-delete=yes"
+    MD="pilot-nmax=32,export-src-runtag=$XFROM,export-manifest-sha=$(sha256_of "$OUT/$XFROM/ckpt/manifest.tsv"),export-seal-sha=$XSEAL"
     XMD="full-tools-sha=$TSHA,full-tools-commit=$TCOMMIT,full-guest-sha=$(sha256_of "$GUEST_FILE")"
   elif [ "$MODE" = pilot ]; then
     DEADLINE_MIN=330; MAXRUN=21600      # the guest finishes by 5.5 h; Google deletes the VM at 6 h whatever happens
@@ -1189,6 +1213,6 @@ ledger)
   column -t -s "$(printf '\t')" "$LEDGER"
   echo "estimated spend so far: \$$(spent) of \$$CAP_USD cap (machine-time x $RATE USD/h, rounded up; the bill is authoritative)"
   ;;
-*) echo "usage: bash $0 stage | launch <rehearsal|pilot|full-rehearsal|full|full-spot|full-spot-rehearsal> | watch | teardown | abandon | ledger"
+*) echo "usage: bash $0 stage | launch <rehearsal|pilot|full-rehearsal|full|full-spot|full-spot-rehearsal|export-check> | watch | teardown | abandon | ledger"
    echo "  in a Spot run, watch exits 0 when the run is over, 3 when it is paused, and 4 when a rehearsal is over but did not do all its cuts as configured"; exit 2 ;;
 esac
