@@ -102,14 +102,14 @@ It is not the proof and does not redistribute it. It is not affiliated with the 
 | `scripts/` | Numbered, re-runnable steps; `lib.sh` holds the shared configuration |
 | `analysis/` | Import-graph and timing analysis, and the cost estimate from the pilot |
 | `cloud/gcp/` | The Google Cloud calibration pilot |
-| `docs/` | Replication guide, verification criteria explained, what others have done and how this compares, source audit, outline of the argument, performance and cloud notes |
+| `docs/` | Replication guide, verification criteria explained, what others have done and how this compares, what to change for another archive, source audit, outline of the argument, performance and cloud notes |
 | `records/` | Hashes, expected values, measurements, audit output, price snapshots and the cloud pilot's data from the runs so far |
 
 ## Roadmap
 
 1. Bring the checks up to the community's standard ([`docs/related-work.md`](docs/related-work.md)). Done on 2026-11-24: the export of the proof, equal to the published one, and one independently written kernel on it. Still to do: `lake comparator` end to end, a second kernel, and a sandboxed build.
 2. Finish the build on the Mac and record what a laptop needs.
-3. Separate what is specific to this proof from what would serve any large Lean archive, and try the result on a second, smaller one.
+3. Separate what is specific to this proof from what would serve any large Lean archive, and try the result on a second, smaller one. The inventory is written ([`docs/adapting-to-another-proof.md`](docs/adapting-to-another-proof.md)); the code is not yet changed and nothing has been tried on a second archive.
 4. A short write-up of the method and its costs, offered to the Lean community for criticism.
 
 An explanation of the mathematics is not on this list. That is work for mathematicians, and it is under way elsewhere.
