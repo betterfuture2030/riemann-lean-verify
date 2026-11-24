@@ -12,7 +12,7 @@ Everything here is meant to be reviewed or re-run by anyone with a Mac, a Linux 
 
 As of 2026-11-23: **one full run in the cloud recorded all three pre-registered criteria as holding.** Under section 5 of the pre-registration that outcome is reported as VERIFIED, relative to the trust assumptions of its section 6. It is one run, it has not been repeated, and its records have so far been read only by the scripts that made them and by AI agents. A second, independent build on a Mac is still in progress.
 
-That result is one confirmation among many, and it came after the community's. The three criteria stop short of the standard the community applied: there is no comparison of the statements against a file that imports only Mathlib, no sandboxed build, no export of the proof and no second kernel ([`docs/related-work.md`](docs/related-work.md)).
+That result is one confirmation among many, and it came after the community's. The three criteria stop short of the standard the community applied ([`docs/related-work.md`](docs/related-work.md)). A further run on 2026-11-24 closed part of that gap, using the community's own challenge file, exporter and kernel: the proof exported from the cloud run's compiled files is byte for byte the export others published (SHA-256 `5ea74b91…244e`), and `con-leche`, a kernel written independently of Lean's, accepted all of it and reported the five challenge statements as justified ([`records/cloud/export-check/`](records/cloud/export-check/)). Still not done: `lake comparator` end to end, a sandboxed build, and a second independent kernel.
 
 | Check | State |
 |---|---|
@@ -107,7 +107,7 @@ It is not the proof and does not redistribute it. It is not affiliated with the 
 
 ## Roadmap
 
-1. Bring the checks up to the community's standard: a challenge file that imports only Mathlib and `lake comparator`, an export of the proof with its hash compared with the published one, at least one independently written kernel, and a sandboxed build ([`docs/related-work.md`](docs/related-work.md)).
+1. Bring the checks up to the community's standard ([`docs/related-work.md`](docs/related-work.md)). Done on 2026-11-24: the export of the proof, equal to the published one, and one independently written kernel on it. Still to do: `lake comparator` end to end, a second kernel, and a sandboxed build.
 2. Finish the build on the Mac and record what a laptop needs.
 3. Separate what is specific to this proof from what would serve any large Lean archive, and try the result on a second, smaller one.
 4. A short write-up of the method and its costs, offered to the Lean community for criticism.

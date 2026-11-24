@@ -1,0 +1,5 @@
+con-leche: stats: phases: parse 53.7s (index 2.4s), check 405.8s
+con-leche: stats: check pool: 405.700s wall, 32 workers, 1468418 records, busy 12961.017s (99.8%); tail 0.464s after the last start, 32 busy then, 1.485s worker-time in it (9.9%)
+con-leche: stats: slowest checks: 69.323s theorem GlobalTheory.HeightCounting.SideCopy.LamCopy.lam_copy (#829554); 51.382s theorem GlobalTheory.HeightCounting.SideCopy.sigSpan_copy (#829660); 40.316s theorem PI.PC.loop_run._proof_1_1 (#571290); 24.518s theorem Formalism.IrreducibleCountingLemmas.GaloisIrreducibility.PrimeCountingLemmas.factorial_ladder_one_forty_one._proof_1_1 (#226690); 20.042s theorem GlobalTheory.PrimeRecip.table_ok._proof_1_1 (#570391)
+con-leche: stats: peak RSS 44.50 GiB
+con-leche: accepted 1468418 declarations (--verified)

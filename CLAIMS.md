@@ -77,7 +77,18 @@ These came from a 43-agent static audit in which every medium or high flag went 
 | R6 | Directory and declaration names are often unrelated to content | `docs/source-audit.md` gives examples; open any of them |
 | R7 | The outline of the argument and the match against the announcement's 20-item list | `docs/proof-outline.md`. A second reader found dependency-edge errors in roughly a quarter of the mapped nodes. Treat as orientation only |
 
+## Beyond the pre-registered criteria
+
+These are not part of C1 to C3 and change nothing in how those are reported. They use the community's method ([`docs/related-work.md`](docs/related-work.md)); the record is [`records/cloud/export-check/`](records/cloud/export-check/).
+
+| # | Claim | Evidence |
+|---|---|---|
+| X1 | The compiled files of the full cloud run, exported by `lean4export` (commit `15f6055e`) with the community's targets, give a file of 61,570,595,788 bytes with SHA-256 `5ea74b91…244e`, the value Andrew Sutherland published. The export of the community's challenge file likewise matches (`bd484ac9…b2b9`) | `export_facts.json` of the one run, 2026-11-24. The files exported were first shown to be the full run's sealed files (875,935 files) |
+| X2 | `con-leche` (commit `cd2eceab`) accepted all 1,468,418 declarations of that export; `con-leche --compare` (commit `5dc36dc1`) reported the five theorems of the challenge file as justified by it | The kernels' own output in `logs/`, exit status 0 each. One run, one machine |
+
 ## What has not been checked
+
+- `lake comparator` has not been run, so Lean's own kernel has not been run over the export here. No second independent kernel has been run: `nanoda` was started with the wrong argument and stopped at once. No build has been made in a sandbox. The script behind X1 and X2 has been run once and reviewed by nobody but the AI agent that wrote it.
 
 - Whether the result of the one full cloud run (`records/cloud/full-run/`) repeats. It is a single run on one kind of machine. Its records have been checked against each other by the scripts that wrote them and by AI agents, not yet by a person, and the Mac build that would be a second, independent C1 is unfinished.
 - Whether the code that carried compiled files from the first cloud machine to the second after Google took the first back did so faithfully, beyond what the run itself checked: every part against its SHA-256, the parts against the sealed files (875,935 files, none missing, different or extra), and the kernel replay of every module afterwards, which reads those files.

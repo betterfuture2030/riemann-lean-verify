@@ -64,6 +64,7 @@ The proof source itself is not here and is not redistributed. Build logs, the ar
 | `cloud/full-rehearsals/` | Records of each rehearsal of the full-run driver, with what it found |
 | `cloud/spot-rehearsals/` | Records of the rehearsal of the same driver as a chain of Spot machines |
 | `cloud/full-run/` | Records of the one full run: the facts it recorded for C1, C2 and C3, the per-module replay results, and each machine's logs |
+| `cloud/export-check/` | Records of the export check of 2026-11-24: the proof exported from the full run's compiled files and compared with the published export, and an independently written kernel's output on it |
 | `cloud/replay_cost.json` | What a kernel replay of the whole tree is estimated to cost by each of three ways of running it, from `analysis/replay_cost.py` |
 | `cloud/replay_method_review.json`, `cloud/replay_method_recheck.json` | Two rounds of AI review of the second replay program and the scripts around it |
 | `cloud/closure_replay_review.json`, `cloud/closure_replay_recheck.json` | Two rounds of AI review of the kernel replay as it now runs (the stock tool with import-closure search paths) and of the cloud driver's replay phase |

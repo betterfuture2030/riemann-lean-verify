@@ -629,3 +629,18 @@ The model was cautious on every line that the run tested. The cut-offs of 10.3 w
 **What the run did not meet:** a reclaim after the seal (during the axiom checks, the replay or the end check), a restore of the whole tree, an attempt outside the bucket's region, an attempt ending at its own deadline, a pause on the cap, a repair part, and a failed upload or download. Those remain reviewed, tested locally and, for some, rehearsed at small scale (10.7).
 
 Recorded spend after the run was 41.83 USD of the cap of 50. The run's checkpoints (28.6 GiB in the bucket, about 0.57 USD a month) were kept.
+
+### 10.9 The export check
+
+On 2026-11-24 a further machine was rented for 2.2 hours (4.49 USD, on demand) to do what the three criteria do not: export the proof and give it to a kernel other than Lean's. The record and its limits are in [`../records/cloud/export-check/`](../records/cloud/export-check/); how this sits beside what others did is in [`related-work.md`](related-work.md).
+
+It built nothing. The 77 parts the full run had saved in the bucket were fetched, checked and unpacked in 11 minutes, and the result was shown to be the sealed files of that run before anything read them. This is the second use of those parts, and the reason for keeping them: a check thought of afterwards cost 4.49 USD and not another 26.
+
+| Step | Time on 32 vCPUs |
+|---|---|
+| Setup, toolchains, building the exporter and `con-leche` | 7 minutes |
+| Fetching and unpacking the compiled files (30.6 GB in 77 parts) | 11 minutes |
+| Export of the proof, single-threaded | 95 minutes, 61.6 GB |
+| `con-leche`, each of two runs | under 8 minutes, peak 45 GiB |
+
+Both exports matched the published hashes and `con-leche` accepted the export. `nanoda` was given the wrong argument by the script and did not run. The export sets the length of such a run, and it uses one core, so a smaller machine might do the same work for less at the price of a slower kernel run. How much memory the export needs was not measured, and a smaller machine has not been tried.

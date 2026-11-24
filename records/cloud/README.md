@@ -35,6 +35,7 @@ This is a dated snapshot, not a quotation. Cloud prices, Spot prices in particul
 | `full-rehearsals/` | Records of each rehearsal of the full-run driver; see its README |
 | `spot-rehearsals/` | Records of the rehearsal of the same driver as a chain of Spot machines that each carry on from what the last one saved; see its README |
 | `full-run/` | Records of the one full run, made that way on 2026-11-22 and 23: `facts.json`, the axiom checks, the replay's result for every module, and each machine's logs; see its README |
+| `export-check/` | Records of the one run of the mode `export-check`, on 2026-11-24: the full run's compiled files exported by `lean4export`, both exports compared with the published hashes, and the output of `con-leche`; see its README |
 | `replay_cost.json` | Output of `analysis/replay_cost.py`: the cost of one kernel check as measured at two sizes of tree, the line through them, and what a replay of the whole tree and a whole run are then estimated to cost by three ways of running it. The two ways that are not the first are projections; for the second, the file also holds what the sixth rehearsal measured on shallow modules |
 | `replay_method_review.json` | First AI review of the second replay program `rhv-replay` and the scripts around it: five lenses, each re-checked by a second agent. Criticism of code, not a result |
 | `replay_method_recheck.json` | Second AI review of the same, after the changes the first led to: four areas, each re-checked |

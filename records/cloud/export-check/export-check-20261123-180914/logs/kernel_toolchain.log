@@ -1,0 +1,6 @@
+info: downloading installer
+info: downloading https://releases.lean-lang.org/lean4/v4.36.0/lean-4.36.0-linux.tar.zst
+info: installing /opt/elan/toolchains/leanprover--lean4---v4.36.0
+
+leanprover/lean4:v4.36.0 installed - Lean (version 4.36.0, x86_64-unknown-linux-gnu, commit 611c117bfaf7b7ae1cfcf246ce6fba31e8f509e9, Release)
+

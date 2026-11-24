@@ -1,0 +1,82 @@
+### 2026-11-24T00:10:29Z +1s  PHASE setup
+### 2026-11-24T00:10:29Z +1s  FACT guest_script_is_the_one_sent = true
+### 2026-11-24T00:10:29Z +1s  FACT tools_commit = 5eaec0cd03fb08acb5f48aa6d02dd6dbde0ac178
+### 2026-11-24T00:10:29Z +1s  FACT source_run = full-spot-20261122-150121
+### 2026-11-24T00:10:29Z +1s  FACT tarball_sha256 = 9631b4f020199e580ba86178cb56c6e9b09f690c2369a80dc4334aa93f49c7fc
+### 2026-11-24T00:10:29Z +1s  step: sysctl
+### 2026-11-24T00:10:29Z +1s  step: packages
+
+Running kernel seems to be up-to-date.
+
+Restarting services...
+ systemctl restart chrony.service cron.service google-guest-agent.service google-osconfig-agent.service multipathd.service packagekit.service polkit.service rsyslog.service snapd.service ssh.service systemd-journald.service systemd-networkd.service systemd-resolved.service systemd-udevd.service
+
+Service restarts being deferred:
+ /etc/needrestart/restart.d/dbus.service
+ systemctl restart <EMAIL>
+ systemctl restart google-startup-scripts.service
+ systemctl restart networkd-dispatcher.service
+ systemctl restart <EMAIL>
+ systemctl restart systemd-logind.service
+ systemctl restart unattended-upgrades.service
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+### 2026-11-24T00:11:12Z +44s  step: disk
+### 2026-11-24T00:11:14Z +46s  step: users
+### 2026-11-24T00:11:14Z +46s  step: elan
+elan 4.4.0 (3cc76985a 2026-11-18)
+### 2026-11-24T00:11:15Z +47s  step: source
+### 2026-11-24T00:11:28Z +60s  step: mathlib_cache
+Decompressed 8690 file(s)
+Already decompressed 8690 file(s)
+### 2026-11-24T00:12:50Z +142s  step: toolchain
+### 2026-11-24T00:12:53Z +145s  FACT mathlib_and_packages_manifest_sha256 = f466ba809d2c91885da2c901a1edef0c61c6cb642af8590c296c021dd8946ff8
+### 2026-11-24T00:12:53Z +145s  FACT mathlib_and_packages_files = 52160
+### 2026-11-24T00:12:53Z +145s  FACT mathlib_revision = 0df444a360eaa60ab8c11dca51a86af692955474
+### 2026-11-24T00:12:53Z +145s  step: exporter
+### 2026-11-24T00:12:55Z +147s  FACT lean4export_commit = 15f6055e299ad5b89345e533cc2192f4cc00f659
+### 2026-11-24T00:12:58Z +150s  FACT lean4export_binary_sha256 = 805ab4cc6a88dcef109644d201c3142261f524aecaf58b04913a9f029e21e9b5
+### 2026-11-24T00:12:58Z +150s  step: kernels
+### 2026-11-24T00:13:17Z +169s  FACT con_leche_master_commit = cd2eceab2e9b10404c663b468639c8aa99d0d1f2
+### 2026-11-24T00:15:12Z +284s  FACT con_leche_compare_commit = 5dc36dc15b7bee891a02406b78a8ac816a47baad
+### 2026-11-24T00:17:11Z +403s  FACT kernel_toolchain = leanprover/lean4:v4.36.0
+### 2026-11-24T00:17:11Z +403s  PHASE challenge
+### 2026-11-24T00:17:11Z +403s  step: challenge
+### 2026-11-24T00:17:11Z +403s  FACT challenge_source_sha256 = a3cebbf30be6b9268a0ed413c9bbc256dfa9f4bfa04f1a75f144d135da5e21a5
+### 2026-11-24T00:17:27Z +419s  FACT challenge_export_bytes = 350862311
+### 2026-11-24T00:17:27Z +419s  FACT challenge_export_sha256 = bd484ac9886a96f26b1d9a7a59ebd45b7a70d102c015d4f31f9302bbdd6ab2b9
+### 2026-11-24T00:17:27Z +419s  FACT challenge_export_sha256_published = bd484ac9886a96f26b1d9a7a59ebd45b7a70d102c015d4f31f9302bbdd6ab2b9
+### 2026-11-24T00:17:27Z +419s  FACT challenge_export_matches_published = true
+### 2026-11-24T00:17:31Z +423s  PHASE restore
+### 2026-11-24T00:17:31Z +423s  step: restore
+### 2026-11-24T00:28:51Z +1103s  FACT parts_restored = 77
+### 2026-11-24T00:28:51Z +1103s  FACT parts_bytes = 30567273702
+### 2026-11-24T00:28:51Z +1103s  FACT restore_seconds = 680
+### 2026-11-24T00:29:01Z +1113s  PHASE seal_check
+### 2026-11-24T00:29:01Z +1113s  step: seal_check
+### 2026-11-24T00:29:28Z +1140s  FACT compiled_files = 875935
+### 2026-11-24T00:29:28Z +1140s  FACT compiled_oleans = 175187
+### 2026-11-24T00:29:28Z +1140s  FACT compiled_files_manifest_sha256 = a770548ccc5a61ed9b5644690f7ae71637fca8bd2463f6597ce7bdfa7603fab3
+### 2026-11-24T00:29:28Z +1140s  FACT seal_check_seconds = 27
+### 2026-11-24T00:29:28Z +1140s  FACT restored_files_are_the_sealed_files = true
+### 2026-11-24T00:29:28Z +1140s  FACT main_olean_sha256 = 9146dfb4148e24d2252e04c50742f3e49dd126dfcc5006d10bf5f873ddf796ad
+### 2026-11-24T00:29:31Z +1143s  PHASE export
+### 2026-11-24T00:29:31Z +1143s  step: export
+### 2026-11-24T02:04:49Z +6861s  FACT solution_export_exit_status = 0
+### 2026-11-24T02:04:49Z +6861s  FACT solution_export_seconds = 5718
+### 2026-11-24T02:04:49Z +6861s  FACT solution_export_bytes = 61570595788
+### 2026-11-24T02:05:23Z +6895s  FACT solution_export_sha256 = 5ea74b912147c5c93cc2b6d70cc727cf908df2f62ac6a20480a3fa02f6be244e
+### 2026-11-24T02:05:23Z +6895s  FACT solution_export_sha256_published = 5ea74b912147c5c93cc2b6d70cc727cf908df2f62ac6a20480a3fa02f6be244e
+### 2026-11-24T02:05:23Z +6895s  FACT solution_export_matches_published = true
+### 2026-11-24T02:05:26Z +6898s  PHASE kernels
+### 2026-11-24T02:12:58Z +7350s  FACT con_leche_compare_exit_status = 0
+### 2026-11-24T02:12:58Z +7350s  FACT con_leche_compare_seconds = 451
+### 2026-11-24T02:20:41Z +7813s  FACT con_leche_master_exit_status = 0
+### 2026-11-24T02:20:41Z +7813s  FACT con_leche_master_seconds = 460
+### 2026-11-24T02:20:44Z +7816s  FACT nanoda_exit_status = 101
+### 2026-11-24T02:20:44Z +7816s  FACT nanoda_seconds = 0
+### 2026-11-24T02:20:47Z +7819s  FINISH DONE: all steps ran; read export_facts.json

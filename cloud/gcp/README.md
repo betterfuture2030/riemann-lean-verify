@@ -144,3 +144,24 @@ bash cloud/gcp/pilot_local.sh watch                       # can be interrupted a
 | Settings | All optional, in `config.example.env` under "Spot runs" |
 
 What a Spot run's `facts.json` adds is a `spot` block: one entry per attempt (when it started, in which zone, how it ended, what it restored), the units of the run completed so far, how many confirming hashes were made, and whether the checkpoints were shown at the seal to reproduce the sealed files exactly. The criteria are read from the same fields as for an on-demand run. A paused run is not a result.
+
+## The export check
+
+**Run once, without a rehearsal** (2026-11-24; [`records/cloud/export-check/`](../../records/cloud/export-check/)). The mode `export-check` builds nothing. On one on-demand machine it fetches the compiled files a finished Spot run left in the bucket, shows that they are that run's sealed files, exports the community's challenge file and the proof with `lean4export`, compares both SHA-256 values with the published ones, and runs `con-leche`, a kernel written independently of Lean's, on the export ([`export_guest.sh`](export_guest.sh), whose header lists each step and what it is not).
+
+```bash
+git status --short scripts cloud                          # must be empty
+bash cloud/gcp/pilot_local.sh stage
+GCP_EXPORT_FROM=full-spot-YYYYMMDD-HHMMSS bash cloud/gcp/pilot_local.sh launch export-check
+bash cloud/gcp/pilot_local.sh watch                       # collects the results and deletes the machine
+```
+
+| What | Detail |
+|---|---|
+| What it needs | The run named by `GCP_EXPORT_FROM` must have finished, its checkpoints must still be in the bucket, and its `facts.json` and `ckpt/manifest.tsv` must be in the local results folder, where `watch` put them |
+| Cost | The machine is limited to five hours, so the cap test counts about 10 USD. The one run took 2.2 hours and is recorded at 4.49 USD. The export of the proof is single-threaded and took 95 minutes of that |
+| What it writes | `export_facts.json`: the hashes, sizes, times and each program's exit status. It is a list of facts, not a verdict. The kernels' whole output is in `logs/` |
+| Known fault | The `nanoda` step passes the export where that program, it appears, expects a configuration file, and stops at once with status 101. It is recorded as such and does not end the run. Not yet corrected |
+| What it is not | `lake comparator`, which also runs Lean's own kernel over the export under a sandbox. Nor does it make the build any more sandboxed than it was |
+
+The launcher's local test (`scripts/dev/test_spot_launcher.sh`, 90 checks) was run after this mode was added and passed. It does not exercise this mode.
