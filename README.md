@@ -1,6 +1,8 @@
 # riemann-lean-verify
 
-An independent, reproducible check of a published Lean 4 formalization that claims to prove the Riemann Hypothesis.
+A low-cost, reproducible way to check a very large Lean 4 proof on a laptop or one rented machine, worked out on the published formalization that proves the Riemann Hypothesis.
+
+**This is not the verification of that proof.** The Lean and Mathlib communities checked it within a day of its release, with stronger methods than are used here; their record is at <https://math.mit.edu/~drew/grh/> and their statement at <https://leanprover-community.github.io/blog/posts/riemann-hypothesis/>. What this repository did is repeat part of that check independently, for about 26 USD of rented machine time, and write down how. [`docs/related-work.md`](docs/related-work.md) says what others did, how the checks here compare, and what is still missing here.
 
 The formalization is the work of Levent Alpöge, who announced it on 2026-11-20 at <https://alpo.ge/remark.pdf> and distributes it as a source tarball from `alpo.ge`. It is about 175,000 Lean files and 17.4 million lines, roughly eight times the size of Mathlib. This repository does not contain that source. Its tooling downloads it, checks it against a recorded SHA-256, inspects it before anything is executed, compiles it with the pinned Lean and Mathlib versions, and runs the checks that decide whether the claimed theorem has actually been proved.
 
@@ -9,6 +11,8 @@ Everything here is meant to be reviewed or re-run by anyone with a Mac, a Linux 
 ## Status
 
 As of 2026-11-23: **one full run in the cloud recorded all three pre-registered criteria as holding.** Under section 5 of the pre-registration that outcome is reported as VERIFIED, relative to the trust assumptions of its section 6. It is one run, it has not been repeated, and its records have so far been read only by the scripts that made them and by AI agents. A second, independent build on a Mac is still in progress.
+
+That result is one confirmation among many, and it came after the community's. The three criteria stop short of the standard the community applied: there is no comparison of the statements against a file that imports only Mathlib, no sandboxed build, no export of the proof and no second kernel ([`docs/related-work.md`](docs/related-work.md)).
 
 | Check | State |
 |---|---|
@@ -83,7 +87,7 @@ Details: [`docs/source-audit.md`](docs/source-audit.md) and [`docs/proof-outline
 
 The investigation is carried out with substantial help from an AI coding assistant, directed and reviewed by the author, who is responsible for the content. The formalization under test was itself produced with AI assistance, so this is disclosed plainly: the verdict is designed to rest only on the Lean kernel and on scripts that anyone can read and re-run, never on an AI system's judgment.
 
-This is a blind replication. Other people's results on this formalization were not consulted before the criteria were fixed.
+This was a blind replication until 2026-11-23. Other people's results on this formalization were not consulted before the criteria were fixed, nor before the full cloud run had finished and been written up (commit `53c3139`). They were first read later that day; [`docs/related-work.md`](docs/related-work.md) is the result.
 
 ## What this repository is not
 
@@ -98,14 +102,17 @@ It is not the proof and does not redistribute it. It is not affiliated with the 
 | `scripts/` | Numbered, re-runnable steps; `lib.sh` holds the shared configuration |
 | `analysis/` | Import-graph and timing analysis, and the cost estimate from the pilot |
 | `cloud/gcp/` | The Google Cloud calibration pilot |
-| `docs/` | Replication guide, verification criteria explained, source audit, outline of the argument, performance and cloud notes |
+| `docs/` | Replication guide, verification criteria explained, what others have done and how this compares, source audit, outline of the argument, performance and cloud notes |
 | `records/` | Hashes, expected values, measurements, audit output, price snapshots and the cloud pilot's data from the runs so far |
 
 ## Roadmap
 
-1. Finish the compile and run the two decisive checks.
-2. A paper describing the method and the outcome.
-3. If it verifies: a layered, illustrated explanation of the argument. If it does not: a diagnosis of where and why it fails, and what repair would involve.
+1. Bring the checks up to the community's standard: a challenge file that imports only Mathlib and `lake comparator`, an export of the proof with its hash compared with the published one, at least one independently written kernel, and a sandboxed build ([`docs/related-work.md`](docs/related-work.md)).
+2. Finish the build on the Mac and record what a laptop needs.
+3. Separate what is specific to this proof from what would serve any large Lean archive, and try the result on a second, smaller one.
+4. A short write-up of the method and its costs, offered to the Lean community for criticism.
+
+An explanation of the mathematics is not on this list. That is work for mathematicians, and it is under way elsewhere.
 
 ## Contact and licence
 
