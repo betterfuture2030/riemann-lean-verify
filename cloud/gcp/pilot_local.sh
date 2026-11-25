@@ -15,6 +15,13 @@
 #                                         (GCP_EXPORT_FROM=its run tag): export the proof, compare the
 #                                         export with the published one, run independent kernels on it
 #                                         (export_guest.sh). About 3 hours, at most 5; on demand.
+#                        kernel-check     on the exported proof (GCP_KERNEL_FROM=the run tag of a finished
+#                                         export-check): a second independent kernel, `lake comparator` in
+#                                         its sandbox with Lean's own kernel, and Lean's paranoid kernel
+#                                         (kernel_guest.sh). About 12 hours, at most 20; on demand.
+#                        kernel-check-rehearsal  the same script on small stand-ins, on a 4-vCPU machine: about
+#                                         25 minutes. It also fetches the proof's export, checks its hash and
+#                                         keeps it in the bucket.
 #                        full-spot        the full run on Spot machines, about half the price, as a chain of
 #                                         attempts that survives Google taking the machine back (below)
 #                        full-spot-rehearsal  the same chain on full-rehearsal's small tree, ending attempts on
@@ -38,7 +45,9 @@
 # Safety design. (1) `launch` refuses to start a VM whose worst case would take recorded spend past GCP_SPEND_CAP_USD,
 # and records the run in the ledger BEFORE creating anything. (2) The VM is created with --max-run-duration and
 # --instance-termination-action=DELETE, and the guest never powers itself off, so that deletion stays armed even if
-# this machine is asleep or offline. (3) `watch` deletes the VM as soon as the guest reports a final state, and
+# this machine is asleep or offline. (The kernel-check modes are the exception: their guest powers the machine off
+# twenty minutes after its final state if nobody has deleted it. That ends the charge for the machine but cancels
+# Google's deletion, so the stopped VM's disks bill, about 1.4 USD a day, until `watch` or `teardown` is run.) (3) `watch` deletes the VM as soon as the guest reports a final state, and
 # also if the guest never reports at all or falls silent for half an hour. Interrupting `watch` (Ctrl-C, a closed
 # terminal) tears a pilot down at once; for a full run it only stops watching, because a day of work would be lost,
 # and the VM stays protected by its maximum run time. `teardown` is then a separate, deliberate command.
@@ -1004,7 +1013,7 @@ launch)
   [ ! -e "$SPOT_LOCK" ] || spot_lock "launch ${2:-}"
   spot_state_exists && die "a paused Spot run has its state in $STATE: 'bash $SELF watch' continues it, 'bash $SELF abandon' ends it"
   MODE=${2:-}
-  case "$MODE" in pilot|rehearsal|full|full-rehearsal|export-check) ;; *) die "usage: $0 launch <rehearsal|pilot|full-rehearsal|full|export-check>" ;; esac
+  case "$MODE" in pilot|rehearsal|full|full-rehearsal|export-check|kernel-check|kernel-check-rehearsal) ;; *) die "usage: $0 launch <rehearsal|pilot|full-rehearsal|full|export-check|kernel-check|kernel-check-rehearsal>" ;; esac
   [ -z "$(open_run)" ] || die "a run is still open in the ledger: $(open_run). Run teardown first."
   existing=$($G compute instances list --format='value(name)') || die "could not list instances; not launching"
   [ -z "$existing" ] || die "an instance already exists in the project ($existing); refusing to create another"
@@ -1055,6 +1064,49 @@ launch)
     DATA="name=$NAME-data,device-name=pilot-data,type=hyperdisk-balanced,size=440GB,provisioned-iops=6000,provisioned-throughput=300,auto-delete=yes"
     MD="pilot-nmax=32,export-src-runtag=$XFROM,export-manifest-sha=$(sha256_of "$OUT/$XFROM/ckpt/manifest.tsv"),export-seal-sha=$XSEAL"
     XMD="full-tools-sha=$TSHA,full-tools-commit=$TCOMMIT,full-guest-sha=$(sha256_of "$GUEST_FILE")"
+  elif [ "$MODE" = kernel-check ] || [ "$MODE" = kernel-check-rehearsal ]; then
+    # The checks of kernel_guest.sh on the exported proof. Like a full run it is tied to one commit, but it
+    # needs nothing that `stage` uploads. GCP_KERNEL_FROM names a finished export-check run: the two hashes
+    # that run recorded are the ones the guest will insist on, and its challenge export is the one fetched.
+    [ -z "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=all -- scripts cloud)" ] || die "scripts/ or cloud/ has uncommitted or untracked files; commit them first, so that the run is tied to a commit"
+    TCOMMIT=$(git -C "$REPO_ROOT" rev-parse HEAD) || die "could not read the current commit"
+    KFROM=${GCP_KERNEL_FROM:-}; [ -n "$KFROM" ] || die "set GCP_KERNEL_FROM to the run tag of a finished export-check run"
+    case "$KFROM" in *[!A-Za-z0-9-]*) die "GCP_KERNEL_FROM is not a run tag" ;; esac
+    [ -f "$OUT/$KFROM/export_facts.json" ] || die "no export_facts.json of $KFROM under $OUT/$KFROM"
+    KV=$(python3 -I -c 'import json,sys
+d=json.load(open(sys.argv[1])); f=d.get("facts",{})
+if d.get("state")=="DONE" and f.get("solution_export_matches_published") is True and f.get("challenge_export_matches_published") is True:
+    print(f["solution_export_sha256"], f["challenge_export_sha256"])' "$OUT/$KFROM/export_facts.json") || KV=""
+    KSOL=${KV%% *}; KCH=${KV##* }
+    case "$KSOL" in *[!0-9a-f]*|'') die "export_facts.json of $KFROM does not record a finished run whose two exports matched the published ones" ;; esac
+    case "$KCH" in *[!0-9a-f]*|'') die "export_facts.json of $KFROM does not record the challenge export's hash" ;; esac
+    [ "${#KSOL}" = 64 ] && [ "${#KCH}" = 64 ] || die "the hashes in export_facts.json of $KFROM are not SHA-256 values"
+    $G storage ls "gs://$BUCKET/results/$KFROM/challenge.ndjson.zst" >/dev/null 2>&1 || die "the bucket does not hold the challenge export of $KFROM (results/$KFROM/challenge.ndjson.zst)"
+    # The long run should find the proof's export in the bucket, where the rehearsal puts it: fetching 7.7 GB
+    # from the published copy is work for the small machine.
+    if [ "$MODE" = kernel-check ] && [ -z "${GCP_KERNEL_FETCH_OK:-}" ]; then
+      $G storage ls "gs://$BUCKET/keep/exports/solution-$KSOL.ndjson.zst" >/dev/null 2>&1 || die "the bucket does not hold the proof's export (keep/exports/solution-$KSOL.ndjson.zst): run kernel-check-rehearsal first, which fetches and keeps it, or set GCP_KERNEL_FETCH_OK=1 to let the large machine fetch the published copy"
+    fi
+    GUEST_FILE="$OUT/kernel_guest_$RUNTAG.sh"
+    git -C "$REPO_ROOT" show HEAD:cloud/gcp/kernel_guest.sh > "$GUEST_FILE" || die "could not read cloud/gcp/kernel_guest.sh from the current commit"
+    TA=none; TB=""
+    if [ "$MODE" = kernel-check ]; then
+      # Lean's kernel took 9 hours on this export in the published record, its paranoid build 10, on another
+      # machine; the one job timed on both was 11% slower here. About 12 hours are expected. The guest stops
+      # by 19 h, and Google deletes a VM still running at 20 h.
+      DEADLINE_MIN=1140; MAXRUN=72000
+      DATA="name=$NAME-data,device-name=pilot-data,type=hyperdisk-balanced,size=200GB,provisioned-iops=6000,provisioned-throughput=300,auto-delete=yes"
+      MD="pilot-nmax=32,kernel-long=${GCP_KERNEL_LONG:-1},kernel-swap-gb=64"
+    else
+      # The rehearsal needs four cores and little memory: a small machine, at its own rate (machine plus
+      # disks, rounded up). The guest stops by 90 min; Google deletes the VM at 100 min.
+      MT=${GCP_KERNEL_REHEARSAL_MACHINE:-n4d-highmem-4}; RATE=${GCP_KERNEL_REHEARSAL_RATE:-0.30}
+      DEADLINE_MIN=90; MAXRUN=6000
+      DATA="name=$NAME-data,device-name=pilot-data,type=hyperdisk-balanced,size=100GB,auto-delete=yes"
+      MD="pilot-nmax=4,kernel-long=1,kernel-swap-gb=2,kernel-default-peak-kb=3000000,kernel-paranoid-peak-kb=3000000,kernel-margin-kb=1000000"
+    fi
+    MD="$MD,kernel-export-run=$KFROM,kernel-solution-sha=$KSOL,kernel-challenge-sha=$KCH,kernel-challenge-object=results/$KFROM/challenge.ndjson.zst,kernel-solution-object=keep/exports/solution-$KSOL.ndjson.zst"
+    XMD="full-tools-commit=$TCOMMIT,full-guest-sha=$(sha256_of "$GUEST_FILE")"
   elif [ "$MODE" = pilot ]; then
     DEADLINE_MIN=330; MAXRUN=21600      # the guest finishes by 5.5 h; Google deletes the VM at 6 h whatever happens
     DATA="name=$NAME-data,device-name=pilot-data,type=hyperdisk-balanced,size=440GB,provisioned-iops=6000,provisioned-throughput=300,auto-delete=yes"
@@ -1129,6 +1181,7 @@ watch)
   case "$MODE" in full-spot|full-spot-rehearsal) spot_watch; exit $? ;; esac
   case "$MODE" in
     full*) trap 'echo; echo "watch stopped. The VM is still running and Google deletes it at its maximum run time ($(( (CREATED + MAXRUN - $(date +%s)) / 60 )) minutes from now)."; echo "To resume: bash $SELF watch     To end the run now and lose what has not been uploaded: bash $SELF teardown"; exit 130' INT TERM HUP ;;
+    kernel-check*) trap 'echo; echo "watch stopped. The VM is still running. Google deletes it if it is still running at its maximum run time ($(( (CREATED + MAXRUN - $(date +%s)) / 60 )) minutes from now). If the guest finishes before that with nobody watching, it powers the machine off twenty minutes later: a stopped VM is not deleted by Google, and its disks bill until watch or teardown is run."; echo "To resume: bash $SELF watch     To end the run now and lose what has not been uploaded: bash $SELF teardown"; exit 130' INT TERM HUP ;;
     *)     trap 'echo "watch interrupted: tearing down"; exec /bin/bash "$SELF" teardown' INT TERM HUP ;;
   esac
   LOCAL_DEADLINE=$(( CREATED + MAXRUN + 300 )); last=""; apifail=0; stale=0; seen=0; absent=0
@@ -1160,7 +1213,7 @@ except Exception: print("unreadable-status unknown 0 -")')
     # Only if no status has ever been read in this session, the bucket has just said three times running that
     # there is none, and 25 minutes have passed since the VM was created.
     if [ "$seen" = 0 ] && [ "$absent" -ge 3 ] && [ "$(( $(date +%s) - CREATED ))" -gt 1500 ]; then echo "the guest has reported nothing in 25 minutes"; break; fi
-    case "$MODE" in full*)
+    case "$MODE" in full*|kernel-check*)
       hb=$($G storage cat "gs://$BUCKET/results/$RUNTAG/heartbeat" 2>/dev/null | tr -cd '0-9')
       if [ -n "$hb" ] && [ "$(( $(date +%s) - hb ))" -gt 1800 ]; then stale=$((stale + 1)); else stale=0; fi
       if [ "$stale" -ge 3 ]; then echo "the guest's last heartbeat is more than 30 minutes old"; break; fi ;;
@@ -1213,6 +1266,6 @@ ledger)
   column -t -s "$(printf '\t')" "$LEDGER"
   echo "estimated spend so far: \$$(spent) of \$$CAP_USD cap (machine-time x $RATE USD/h, rounded up; the bill is authoritative)"
   ;;
-*) echo "usage: bash $0 stage | launch <rehearsal|pilot|full-rehearsal|full|full-spot|full-spot-rehearsal|export-check> | watch | teardown | abandon | ledger"
+*) echo "usage: bash $0 stage | launch <rehearsal|pilot|full-rehearsal|full|full-spot|full-spot-rehearsal|export-check|kernel-check|kernel-check-rehearsal> | watch | teardown | abandon | ledger"
    echo "  in a Spot run, watch exits 0 when the run is over, 3 when it is paused, and 4 when a rehearsal is over but did not do all its cuts as configured"; exit 2 ;;
 esac
