@@ -10,14 +10,22 @@
 #     04_setup_toolchain.sh       pinned Lean toolchain, Mathlib cache, smoke build
 #   and stops with a clear message at the first step that fails. It then prints how to start,
 #   monitor and finish the build (05, 06) and how to run the two checks that matter (08, 09).
-#   It does not start the build: that takes days and is your decision.
+#   It does not start the build: that takes days for the default target and is your decision.
+#
+#   The steps act on one target: the default one, or the one named by RH_TARGET (see
+#   targets/README.md). What the closing text says about the archive (how many theorems, in
+#   which module, with which statement) is taken from the target's profile. The build rate and
+#   the disk figure in it were measured on the default target and are printed for that target
+#   only; for another target the text says that nothing has been measured, and it shows every
+#   command with RH_TARGET in front.
 #
 #   None of these steps establishes that the proof is correct, and none shows that it is not.
 #   They establish that you have the published source, that it contains no obvious escape
 #   hatches at the text level, and that your machine can compile it.
 # What it changes on disk: whatever steps 00 to 04 change, all inside RH_WORKDIR (plus the
 #   toolchain that elan installs in ~/.elan). Each step is safe to run again.
-# How long it takes: 10 to 20 minutes the first time, most of it downloading.
+# How long it takes: 10 to 20 minutes the first time for the default target, most of it
+#   downloading.
 #
 # Usage: scripts/verify.sh [--install-elan]
 #   --install-elan  passed to 00_check_prereqs.sh: install elan if it is missing
@@ -55,6 +63,7 @@ step() {  # step <number> <script> [args...]
   fi
 }
 
+[ "$RH_TARGET_IS_DEFAULT" = 1 ] || echo "Target: $RH_TARGET   Work directory: $RH_WORKDIR"
 # shellcheck disable=SC2086
 step 00 00_check_prereqs.sh $PREREQ_ARGS
 # elan may just have been installed; make it visible to the following steps.
@@ -66,12 +75,41 @@ step 04 04_setup_toolchain.sh
 
 total=$(count_sources)
 jobs=$(effective_jobs)
-days=$(awk -v t="$total" 'BEGIN { printf "%.1f to %.1f", t / 3200 / 24, t / 2500 / 24 }')
+
+# The words of the closing text that depend on the target. They come from its profile; what is
+# known about the default target only (its build rate, its disk need, where its statements are
+# defined) is in the branches for that target below.
+if [ "$RH_TARGET_IS_DEFAULT" = 1 ]; then pre=""; else pre="RH_TARGET=$RH_TARGET "; fi
+nthm=0
+for t in $TGT_THEOREMS; do nthm=$((nthm + 1)); done
+case "$nthm" in
+  1) nword=one ;; 2) nword=two ;; 3) nword=three ;; 4) nword=four ;; 5) nword=five ;;
+  6) nword=six ;; 7) nword=seven ;; 8) nword=eight ;; 9) nword=nine ;; 10) nword=ten ;;
+  *) nword=$nthm ;;
+esac
+if [ "$nthm" -eq 1 ]; then thms="the one theorem"; depend="the theorem depends"
+else thms="the $nword theorems"; depend="the theorems depend"; fi
+case "$TGT_STATEMENT_CONST_MODULE" in
+  Mathlib|Mathlib.*) stmt="Mathlib's $TGT_STATEMENT_CONST" ;;
+  *) stmt="the constant $TGT_STATEMENT_CONST of $TGT_STATEMENT_CONST_MODULE" ;;
+esac
+# 08_check_axioms.sh --probe needs the probe module compiled: it is, if it is one of the smoke
+# modules that step 04 has just built, or if its compiled file is there.
+probe=0
+if [ -n "$TGT_PROBE_MODULE" ] && [ -n "$TGT_PROBE_THEOREM" ]; then
+  case " $TGT_SMOKE_TARGETS " in *" $TGT_PROBE_MODULE "*) probe=1 ;; esac
+  [ -f "$RH_PROJ/.lake/build/lib/lean/$(printf '%s' "$TGT_PROBE_MODULE" | tr '.' '/').olean" ] && probe=1
+fi
+
 cat <<EOF
 
 ==================================================================
 Preparation complete. Nothing has been proved or disproved yet.
 ==================================================================
+EOF
+if [ "$RH_TARGET_IS_DEFAULT" = 1 ]; then
+  days=$(awk -v t="$total" 'BEGIN { printf "%.1f to %.1f", t / 3200 / 24, t / 2500 / 24 }')
+  cat <<EOF
 You now have the published source ($total Lean files) with the recorded SHA-256, a text-level
 audit of it, the pinned toolchain, and Mathlib's prebuilt cache. What remains is the part
 that takes real time.
@@ -90,22 +128,58 @@ that takes real time.
    per-module setup files. As of 2026-11-20 no complete build had been finished by the
    maintainers of these scripts, so neither figure is confirmed. A single failed module
    means the build is not complete: 06 reports failures.
+EOF
+else
+  if [ -n "$RH_TARBALL_SHA256" ]; then ident="with the recorded SHA-256"
+  else ident="identified by its commit only (the profile has no SHA-256 for its archive yet)"; fi
+  cat <<EOF
+Target: $RH_TARGET   Work directory: $RH_WORKDIR
+You now have the published source ($total Lean files), $ident,
+a text-level audit of it, the pinned toolchain, and Mathlib's prebuilt cache. What remains is
+the build and the checks on it. The commands below name the target; that is needed unless
+config.env sets RH_TARGET.
+
+1. Compile everything ($total modules):
+
+     ${pre}scripts/05_build.sh start        # runs detached, with $jobs parallel jobs on this machine
+     ${pre}scripts/06_progress.sh           # snapshot: modules compiled, failures, rate
+     ${pre}scripts/05_build.sh stop         # safe at any time; 'start' resumes where it stopped
+
+   What to expect. How fast a build goes and how much disk it needs have been measured for
+   the default target only, not for this one. 06 shows the rate on this machine once the
+   build is running. A single failed module means the build is not complete: 06 reports
+   failures.
+EOF
+fi
+cat <<EOF
 
 2. When 06 shows every module compiled and no failures, run the decisive check:
 
-     scripts/08_check_axioms.sh       # axioms and statements of the five theorems in Main
-     scripts/08_check_axioms.sh --deep   # the same, plus a walk that ignores stored axiom lists
+     ${pre}scripts/08_check_axioms.sh       # axioms and statements of $thms in $TGT_ROOT_MODULE
+     ${pre}scripts/08_check_axioms.sh --deep   # the same, plus a walk that ignores stored axiom lists
 
-   It passes only if the theorems depend on no axioms beyond propext, Classical.choice and
-   Quot.sound, and riemannHypothesis has exactly Mathlib's RiemannHypothesis as its type.
-   You can try the machinery now, on one small lemma:  scripts/08_check_axioms.sh --probe
+   It passes only if $depend on no axioms beyond propext, Classical.choice and
+   Quot.sound, and $TGT_PRIMARY_THEOREM has exactly $stmt as its type.
+EOF
+[ "$probe" -eq 1 ] && echo "   You can try the machinery now, on one small lemma:  ${pre}scripts/08_check_axioms.sh --probe"
+cat <<EOF
 
 3. Optionally re-check compiled modules with the kernel, independently of the compiler:
 
-     scripts/09_kernel_replay.sh --sample 500    # spot check; the full run takes far longer
+     ${pre}scripts/09_kernel_replay.sh --sample 500    # spot check; the full run takes far longer
 
+EOF
+if [ "$RH_TARGET_IS_DEFAULT" = 1 ]; then
+  cat <<EOF
 A pass in step 2 is a statement about what Lean's kernel accepted from this source with this
 toolchain. Whether the four statements defined in Statements.lean say what their names
 suggest is for a reader to judge; step 2 prints them.
 EOF
+else
+  cat <<EOF
+A pass in step 2 is a statement about what Lean's kernel accepted from this source with this
+toolchain. Whether the statements say what their names suggest is for a reader to judge;
+step 2 prints them.
+EOF
+fi
 exit 0

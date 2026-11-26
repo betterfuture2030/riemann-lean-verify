@@ -6,8 +6,14 @@ text: it says which modules a file asks for, not what any proof depends on.
 
 Usage: import_graph.py [SRC_DIR [OUT_DIR]] [--root Main] [--statements Statements]
 
-SRC_DIR defaults to $RH_PROJ/src and OUT_DIR to $RH_AN, as resolved by scripts/lib.sh (see
-rhpaths.py). Reads every .lean file once (about 1.0 GB for this project; under a minute).
+SRC_DIR defaults to the target's source directory ($RH_SRC: $RH_PROJ/src for the default target) and
+OUT_DIR to $RH_AN, as resolved by scripts/lib.sh (see rhpaths.py). --root defaults to the target's
+root module (TGT_ROOT_MODULE: Main for the default target). Reads every .lean file once (about
+1.0 GB for the default target; under a minute). A directory .lake under SRC_DIR, where Lake keeps
+what it builds and fetches, is not read: it is there when the sources are the project directory.
+
+Statements is a module of the default target. --statements is for a second module of the caller's
+choosing; a name that is not a module of the tree is reported with a closure of 0.
 
 Writes into OUT_DIR:
   import_graph.json           module -> list of imported modules (project and external)
@@ -100,19 +106,22 @@ def read_module(path, head_bytes=65536):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("src", nargs="?", help="source directory (default: $RH_PROJ/src)")
+    ap.add_argument("src", nargs="?", help="source directory (default: the target's, $RH_PROJ/src for the default target)")
     ap.add_argument("out", nargs="?", help="output directory (default: $RH_AN)")
-    ap.add_argument("--root", default="Main", help="module whose import closure is computed (default Main)")
+    ap.add_argument("--root", default=None, help="module whose import closure is computed (default: the target's root module, Main for the default target)")
     ap.add_argument("--statements", default="Statements", help="second module whose closure size is reported")
     a = ap.parse_args()
     src = rhpaths.src_dir(a.src)
     out = rhpaths.analysis_dir(a.out)
+    a.root = rhpaths.root_module(a.root)
     if not os.path.isdir(src):
         sys.exit("source directory not found: %s" % src)
 
     mods = {}      # module -> (lines, bytes)
     deps = {}      # module -> [imports]
-    for root, _dirs, files in os.walk(src):
+    for root, dirs, files in os.walk(src):
+        if root == src:
+            dirs[:] = [d for d in dirs if d != ".lake"]
         for f in files:
             if not f.endswith(".lean"):
                 continue
@@ -135,6 +144,9 @@ def main():
                     stack.append(d)
         return seen
 
+    if a.root not in local:
+        # Every closure figure below is then empty. Said on standard error; the output is as before.
+        sys.stderr.write("WARNING: the root module %s is not a module of %s; its closure is empty\n" % (a.root, src))
     main_cl = closure([a.root])
     stmts_cl = closure([a.statements])
 

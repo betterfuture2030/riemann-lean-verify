@@ -58,7 +58,7 @@
 #   appends to replay_program.tsv the SHA-256 of the program each run used.
 # How long it takes: see docs/performance-notes.md, section 10. On a 10-core, 24 GB Mac with a
 #   third of the tree compiled, 10 to 18 seconds per module with leanchecker, 7 with rhv-replay.
-#   Use --sample for a spot check.
+#   (Those timings are the default target's.) Use --sample for a spot check.
 #
 # Usage: scripts/09_kernel_replay.sh [--c3] [--method leanchecker|rhv-replay] [--whole-library]
 #                                    [--sample N] [--seed S] [--jobs N] [--batch N] [--list FILE]
@@ -121,10 +121,11 @@ case "$METHOD" in leanchecker|rhv-replay) ;; *) die "--method must be leanchecke
 [ "$PREFIX_ONLY" -eq 0 ] || [ "$SAMPLE" -eq 0 ] || die "--prefix-modules does not take --sample (it takes --list)"
 [ "$C3" -eq 0 ] || { [ "$SAMPLE" -eq 0 ] && [ -z "$LIST" ] && [ "$PREFIX_ONLY" -eq 0 ] && [ "$SUMMARY_ONLY" -eq 0 ]; } || die "--c3 covers every module: it takes only --jobs, --batch and --whole-library with it"
 need_cmd python3
+require_extract_from     # for a target other than the default one: the tree must be the profile's archive
 LIB="$RH_PROJ/.lake/build/lib/lean"
 REPLAY="$RH_AN/kernel_replay"
 RESULTS="$REPLAY/results.tsv"
-set -- --lib "$LIB" --src "$RH_PROJ/src" --results "$RESULTS"
+set -- --lib "$LIB" --src "$RH_SRC" --results "$RESULTS"
 # The one rhv-replay program whose passes are expected, when the caller knows it (the cloud driver does).
 TRUSTED=""; [ -n "${RH_REPLAY_TRUSTED_SHA:-}" ] && TRUSTED="--trusted-program $RH_REPLAY_TRUSTED_SHA"
 
@@ -190,6 +191,7 @@ if [ -s "$RESULTS" ] && [ "$(tail -c 1 "$RESULTS" | wc -l | tr -d ' ')" -eq 0 ];
   printf '\tcut-short\tcut-short\tcut-short\tcut-short\tcut-short\tcut-short\tcut-short\tcut-short\n' >> "$RESULTS"
 fi
 log "work directory: $RH_WORKDIR"
+[ "${RH_TARGET_IS_DEFAULT:-1}" = 1 ] || log "target: $RH_TARGET"
 RH_LEANCHECKER_SHA=$(sha256_of "$RH_LEANCHECKER")
 RH_REPLAY_DRIVER=${RH_REPLAY_DRIVER:-}; RH_REPLAY_DRIVER_SHA=""
 RH_REPLAY_DIR="$REPLAY"; RH_LEAN_PATH="$(lean_path)"
@@ -233,7 +235,7 @@ else
       GRAPH="$REPLAY/import_graph.json"
       # Read once and kept; read again whenever the source tree is not the one the stored graph was made from.
       [ -s "$GRAPH" ] || log "reading the import lines of every source file (kept as $GRAPH)"
-      python3 -I -B "$RH_TOOLS" import-graph --if-stale --src "$RH_PROJ/src" --out "$GRAPH" || die "could not build the import graph"
+      python3 -I -B "$RH_TOOLS" import-graph --if-stale --src "$RH_SRC" --out "$GRAPH" || die "could not build the import graph"
       mkdir -p "$TMP/closure" || die "cannot create $TMP/closure"
     else
       WHOLE=1

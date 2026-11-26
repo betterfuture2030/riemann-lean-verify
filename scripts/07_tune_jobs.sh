@@ -78,6 +78,7 @@ failed_total() {
 }
 
 log "work directory: $RH_WORKDIR"
+[ "${RH_TARGET_IS_DEFAULT:-1}" = 1 ] || log "target: $RH_TARGET"
 log "candidates:$CANDIDATES   warm-up ${WARMUP}s   window ${WINDOW}s   results: $OUT"
 printf 'cap\tmodules\tseconds\tmodules_per_hour\tcpu_user\tcpu_sys\tcpu_idle\tfailed_total\n' > "$OUT"
 best=""; bestrate=-1

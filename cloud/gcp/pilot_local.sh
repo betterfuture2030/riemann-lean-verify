@@ -60,6 +60,8 @@
 # Use a project dedicated to this work: `teardown` deletes every instance and disk in GCP_PROJECT.
 set -u
 . "$(cd "$(dirname "$0")" && pwd)/../../scripts/lib.sh"
+# The cloud modes know only the default target: their guest scripts, ledger and spend cap are its own.
+[ "$RH_TARGET_IS_DEFAULT" = 1 ] || die "the cloud scripts know only the default target, alpoge-rh, and RH_TARGET is '$RH_TARGET' (see targets/README.md)"
 [ -n "${GCP_PROJECT:-}" ] || die "set GCP_PROJECT in config.env (see config.example.env)"
 [ -n "${GCP_BUCKET:-}" ]  || die "set GCP_BUCKET in config.env (see config.example.env)"
 NP=$GCP_PROJECT

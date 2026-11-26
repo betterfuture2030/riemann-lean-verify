@@ -6,7 +6,8 @@
 #   prints a recommended value for RH_JOBS, the number of parallel compiler processes.
 # What it changes on disk: nothing. Only with --install-elan does it download the elan installer
 #   to RH_WORKDIR/download/elan-init.sh (kept there so you can read what was run) and run it;
-#   the installer writes to ~/.elan and adds one line to your shell profile.
+#   the installer writes to ~/.elan and adds one line to your shell profile. That also writes the
+#   target's name to RH_WORKDIR/.rh-target if the working directory has no such file yet.
 # How long it takes: a few seconds. The elan install, if requested, takes about a minute.
 #
 # Usage: scripts/00_check_prereqs.sh [--install-elan] [--print-jobs]
@@ -42,6 +43,7 @@ check_optional() {  # check_optional <command> <purpose>
 
 install_elan() {
   have curl || die "curl is needed to download the elan installer"
+  claim_workdir || die "cannot create $RH_DL"
   mkdir -p "$RH_DL" || die "cannot create $RH_DL"
   local script="$RH_DL/elan-init.sh" rc
   log "downloading the elan installer from $ELAN_INIT_URL"

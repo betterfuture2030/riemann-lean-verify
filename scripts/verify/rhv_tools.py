@@ -2,10 +2,12 @@
 """Helpers for the numbered scripts in scripts/. Not meant to be run by hand.
 
 Subcommands
+  git-export       write the files of one commit of a git repository to a tar file (01)
   tar-inspect      list a tarball without extracting it and check every entry (02)
   project-info     toolchain, Mathlib revision and file hashes of the extracted project (02)
   audit-literals   print the fixed strings the source audit pre-filters on (03)
   audit-classify   classify pre-filtered source lines into audit categories (03)
+  axioms-body      print the body of the axiom check file with the target's constant names in it (08)
   axioms-summary   read the output of the axiom check and decide pass or fail (08)
   replay-plan      decide which compiled modules still need a kernel re-check (09)
   replay-summary   summarise kernel re-check results (09)
@@ -13,8 +15,15 @@ Subcommands
   closure-worker   run the stock checker on a batch of modules, each with only its imports visible (09)
   replay-driver-check   compare the second replay program's source with the toolchain's (09)
 
+What is a fact about one archive (its top directory, where its sources are, the names of the
+constants its theorems are about) is an argument. Every such argument has the value of the default
+target (targets/alpoge-rh) as its default, so a command line that names none of them does what it
+did before there were targets. targets/README.md describes the settings.
+
 Only the Python standard library is used. Python 3.6 or later.
-Nothing here writes outside the files named on its command line.
+Nothing here writes outside the files named on its command line, apart from a temporary <name>.tmp
+beside a file it writes, which is renamed into place. git-export runs git, which reads the repository
+it is given and changes nothing in it.
 """
 import argparse
 import collections
@@ -29,6 +38,150 @@ import time
 
 # --------------------------------------------------------------------------------------------
 # Shared helpers
+
+CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def dir_arg_problem(value, closing_slash):
+    """What is wrong with a relative directory name given as an argument, or None if nothing is.
+
+    These names are compared with the names of archive entries as plain text, so they must have the
+    one form an entry name has: components separated by single slashes, none of them empty, '.' or
+    '..', no backslash, no control character. With closing_slash the name must end in a slash, as an
+    archive prefix does: without one, 'lean' would also accept the entries of 'leanx/'."""
+    if closing_slash:
+        if not value.endswith("/"):
+            return "must end with a slash"
+        value = value[:-1]
+    if not value:
+        return "is empty"
+    if "\\" in value or CONTROL_CHARS.search(value):
+        return "has a backslash or a control character in it"
+    if any(p in ("", ".", "..") for p in value.split("/")):
+        return "must be a relative path with no empty, '.' or '..' component"
+    return None
+
+
+# Characters that the HFS+ file system leaves out when it compares names (APFS does not), so that
+# '.g‌it' is '.git' there. git refuses '.git' spelled with them at checkout, and so do these checks.
+HFS_IGNORABLE = re.compile("[‌-‏‪-‮⁪-⁯﻿]")
+
+
+def reserved_component(comp):
+    """Why one component of an entry's name is refused although it is a plain name, or None.
+
+    '.git', in the spellings of it that git itself refuses at checkout and this check knows of: in any
+    case, with characters HFS+ ignores in names, with dots or spaces at the end, followed by ':' and the
+    name of an NTFS stream, or as 'git~1', which Windows may take for the same name. A directory of that
+    name would be a git repository, with a configuration git obeys, inside the project.
+    '.lake', in the same spellings: Lake keeps compiled modules and fetched packages there, and files
+    brought there by the archive would be used by the build without being compiled from the sources that
+    are inspected."""
+    c = HFS_IGNORABLE.sub("", comp).split(":", 1)[0].rstrip(". ").casefold()
+    if c in (".git", "git~1"):
+        return "a '.git' component (git's own directory, refused in any spelling)"
+    if c in (".lake", "lake~1"):
+        return "a '.lake' component (Lake's directory of build products and packages)"
+    return None
+
+
+# The longest name, and the longest component of a name, that an entry may have: macOS's limits for a path
+# (PATH_MAX) and for one name in it (NAME_MAX), in bytes of UTF-8. The default target's longest name has 244
+# bytes. The limits also keep the checks below cheap whatever an archive holds.
+MAX_NAME_BYTES = 1024
+MAX_COMPONENT_BYTES = 255
+
+
+def name_too_long(name):
+    """Why a name is longer than an entry's name may be, or None. name is str or bytes."""
+    b = name.encode("utf-8", "surrogateescape") if isinstance(name, str) else name
+    if len(b) > MAX_NAME_BYTES:
+        return "a name longer than %d bytes (%d)" % (MAX_NAME_BYTES, len(b))
+    longest = max(len(c) for c in b.split(b"/"))
+    if longest > MAX_COMPONENT_BYTES:
+        return "a component of the name longer than %d bytes (%d)" % (MAX_COMPONENT_BYTES, longest)
+    return None
+
+
+def name_tree(names):
+    """The names as a tree of their components, in time and memory that grow with the total length of the names
+    (a set of every path prefix would grow with the square of a name's depth). Returns the nodes, as a list of
+    (parent node, component) in which node 0 is the top and a parent comes before its children, and a dict from
+    each name to its node. Names may be str or bytes; components are split at '/'."""
+    nodes, index, node_of = [(None, "")], {}, {}
+    for n in names:
+        p = 0
+        for c in n.split("/" if isinstance(n, str) else b"/"):
+            q = index.get((p, c))
+            if q is None:
+                q = index[(p, c)] = len(nodes)
+                nodes.append((p, c))
+            p = q
+        node_of[n] = p
+    return nodes, node_of
+
+
+def node_path(nodes, i, sep="/"):
+    parts = []
+    while i:
+        i, c = nodes[i]
+        parts.append(c)
+    return sep.join(reversed(parts))
+
+
+def name_collisions(names):
+    """Pairs of names, of entries or of the directories on the way to them, that differ as written and are
+    one name on a file system that ignores case and Unicode normalisation, as macOS's does by default:
+    there, extracting both leaves one. Each pair is (the first of the names in sorted order, another), and the
+    pairs are in the sorted order of the second name.
+
+    Names are folded one component at a time, which gives the same result as folding the whole path: '/' is
+    left alone by the stripping of ignorable characters, by NFD (it is a starter, so nothing is reordered or
+    combined across it) and by casefold (which maps one character at a time)."""
+    import unicodedata
+    nodes, _ = name_tree(names)
+    folded, fold_of, members = [0], {}, {}
+    for i in range(1, len(nodes)):
+        parent, comp = nodes[i]
+        k = (folded[parent], unicodedata.normalize("NFD", HFS_IGNORABLE.sub("", comp)).casefold())
+        f = fold_of.setdefault(k, len(fold_of) + 1)
+        folded.append(f)
+        members.setdefault(f, []).append(i)
+    out = []
+    for group in members.values():
+        if len(group) > 1:
+            paths = sorted(node_path(nodes, i) for i in group)
+            out.extend((paths[0], p) for p in paths[1:])
+    out.sort(key=lambda pair: pair[1])
+    return out
+
+
+def below_files(names, files):
+    """The names, of names, that have a name of files on the way to them: a file is where such a name needs a
+    directory. In sorted order. files must be among names."""
+    nodes, node_of = name_tree(names)
+    is_file = bytearray(len(nodes))
+    for f in files:
+        is_file[node_of[f]] = 1
+    under = bytearray(len(nodes))          # a file is on the way to this node
+    for i in range(1, len(nodes)):
+        p = nodes[i][0]
+        under[i] = under[p] | is_file[p]
+    return sorted(n for n in names if under[node_of[n]])
+
+
+def unassigned_names(names):
+    """The names with a character in them that is unassigned in the Unicode tables of the Python running
+    this. How a file system folds the case of such a character, or normalises it, is not known here, so a
+    collision with another name could not be ruled out: such names are refused, not passed."""
+    import unicodedata
+    return sorted(n for n in names if any(unicodedata.category(ch) == "Cn" for ch in n))
+
+
+def usage_error(cmd, text):
+    """An argument this tool cannot work with: one line on stderr and status 2, 'could not run'."""
+    sys.stderr.write("rhv_tools: %s: %s\n" % (cmd, text))
+    return 2
 
 def load_json(path):
     if not path or not os.path.isfile(path):
@@ -70,10 +223,24 @@ def compare(label, got, want, diffs):
         diffs.append("%s: found %r, recorded %r" % (label, got, want))
 
 
-def report_comparison(what, expected_path, section_present, diffs):
+def no_recorded_values(what, expected_path, section):
+    """Print the one line that says a comparison did not take place.
+
+    It is in capitals so that a first run, which has nothing to be compared with, cannot be read
+    as a run that matched. It is not a failure: the status of the command is not changed by it."""
+    if not expected_path:
+        why = "no file of recorded values was named"
+    elif not os.path.isfile(expected_path):
+        why = "there is no file %s" % expected_path
+    else:
+        why = "%s has nothing in a section '%s'" % (expected_path, section)
+    print("NO RECORDED VALUES TO COMPARE WITH for the %s: %s" % (what, why))
+
+
+def report_comparison(what, expected_path, section, section_present, diffs):
     """Print the outcome of a comparison with recorded values. Returns True if all matched."""
     if not section_present:
-        print("%s: no recorded values to compare with (%s)" % (what, expected_path or "no file given"))
+        no_recorded_values(what, expected_path, section)
         return True
     if diffs:
         print("%s: DIFFERS from the recorded values in %s" % (what, expected_path))
@@ -85,13 +252,446 @@ def report_comparison(what, expected_path, section_present, diffs):
 
 
 # --------------------------------------------------------------------------------------------
+# 01: the files of one commit of a git repository, as a tar file
+#
+# The tar file is written here, block by block. `git archive` and `git checkout` are not used,
+# because both can change file contents according to attribute files inside the repository.
+# Python's tarfile module is not used to write it, because the headers that module writes are
+# not the same in every Python version. What is written depends on the commit, the subdirectory
+# and the prefix, and on nothing else: not on the machine, the clock, the user, the locale, or
+# the version of git or of Python. That is what lets the SHA-256 of the file be recorded and
+# compared like a published tarball's.
+#
+# Every object is read with `git cat-file --batch`, which gives it as git stores it, and is
+# checked against its name before it is used: the commit, each tree and each blob must have the
+# SHA-1 it was asked for by. File names and modes are read from the trees themselves.
+#
+# The format is the one GNU tar writes and every common tar reads: for each file one 512-byte
+# header and the contents, in the order of the names as bytes; a name longer than 100 bytes is
+# given in full in a '././@LongLink' entry in front of its file. Mode 0644 or 0755, as the tree
+# says; time 0; owner and group 0 with empty names; no entries for directories.
+
+class Refused(Exception):
+    """Something in the repository, or about the commit asked for, that git-export will not go on with."""
+
+
+class GitFailed(Exception):
+    """git could not be run, or did not answer as `git cat-file --batch` answers."""
+
+
+# Variables that would make git read another object store than the one named with --git-dir.
+GIT_ENV_NOT_PASSED_ON = ("GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_COMMON_DIR",
+                         "GIT_NAMESPACE", "GIT_INDEX_FILE", "GIT_WORK_TREE")
+
+
+def git_sha1():
+    """A SHA-1 to check a git object against its name with."""
+    try:
+        return hashlib.sha1(usedforsecurity=False)      # Python 3.9 and later; needed where SHA-1 is restricted
+    except TypeError:
+        return hashlib.sha1()
+
+
+def shown(name):
+    """A file name from a git tree, for a message: quoted, with whatever is not printable text escaped."""
+    return repr(name.decode("utf-8", "backslashreplace"))
+
+
+class GitObjects:
+    """The objects of one repository, read through one `git cat-file --batch` process."""
+
+    def __init__(self, git_dir):
+        import subprocess
+        env = {k: v for k, v in os.environ.items() if k not in GIT_ENV_NOT_PASSED_ON}
+        # --no-replace-objects: the objects themselves, not ones a refs/replace entry puts in their place.
+        self.proc = subprocess.Popen(["git", "--no-replace-objects", "--git-dir", git_dir, "cat-file", "--batch"],
+                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=env)
+
+    def start(self, oid):
+        """Ask for one object. Returns (type, size), or None if the repository does not have it. The
+        contents are then read with read(), all of them, and closed with end()."""
+        want = oid.encode("ascii")
+        try:
+            self.proc.stdin.write(want + b"\n")
+            self.proc.stdin.flush()
+            line = self.proc.stdout.readline()
+        except OSError:                                 # git has gone: a broken pipe
+            line = b""
+        if not line:
+            raise GitFailed("git cat-file ended with status %s without an answer (its own message, if any, is above)"
+                            % self.proc.wait())
+        f = line.split()
+        if len(f) == 2 and f[0] == want and f[1] == b"missing":
+            return None
+        if len(f) != 3 or f[0] != want or not f[2].isdigit():
+            raise GitFailed("unexpected answer from git cat-file for %s: %r (a repository whose object names "
+                            "are not SHA-1 is not supported)" % (oid, line[:200]))
+        return f[1].decode("ascii", "replace"), int(f[2])
+
+    def read(self, n):
+        data = self.proc.stdout.read(n)
+        if len(data) != n:
+            raise GitFailed("git cat-file ended in the middle of an object")
+        return data
+
+    def end(self):
+        if self.proc.stdout.read(1) != b"\n":
+            raise GitFailed("unexpected output from git cat-file after an object")
+
+    def whole(self, oid, kind):
+        """The contents of the commit or tree named oid, checked against that name."""
+        head = self.start(oid)
+        if head is None:
+            raise Refused("%s %s is not in the repository" % (kind, oid))
+        typ, size = head
+        data = self.read(size)
+        self.end()
+        if typ != kind:
+            raise Refused("%s is a %s in the repository, not a %s" % (oid, typ, kind))
+        h = git_sha1()
+        h.update(("%s %d" % (typ, size)).encode("ascii") + b"\0")
+        h.update(data)
+        if h.hexdigest() != oid:
+            raise Refused("what git gives as %s %s has the SHA-1 %s: the repository is damaged or has been altered"
+                          % (kind, oid, h.hexdigest()))
+        return data
+
+    def finish(self):
+        """End the process after the last object. Returns its exit status."""
+        self.proc.stdin.close()
+        self.proc.stdout.read()
+        self.proc.stdout.close()
+        return self.proc.wait()
+
+    def abort(self):
+        if self.proc.poll() is None:
+            self.proc.kill()
+        for fh in (self.proc.stdin, self.proc.stdout):
+            try:
+                fh.close()
+            except OSError:
+                pass
+        self.proc.wait()
+
+
+def parse_tree(data, oid):
+    """The entries of a git tree object as stored: [(mode, name as bytes, name of the object)]."""
+    out, i, n = [], 0, len(data)
+    while i < n:
+        sp = data.find(b" ", i)
+        nul = data.find(b"\0", sp + 1) if sp >= 0 else -1
+        if sp < 0 or nul < 0 or nul + 21 > n or not re.match(rb"[0-7]{1,7}\Z", data[i:sp]):
+            raise Refused("tree %s is not in the form of a git tree" % oid)
+        out.append((int(data[i:sp], 8), data[sp + 1:nul], data[nul + 1:nul + 21].hex()))
+        i = nul + 21
+    return out
+
+
+def git_tree_files(git, tree):
+    """Every file under one tree: [(path as bytes, 0o644 or 0o755, name of the blob)], and a list of what
+    is there that cannot be exported. Kinds of entry, by the mode git records: 040000 a directory, 100644 and
+    100755 a file, 120000 a symbolic link, 160000 a submodule."""
+    files, problems = [], []
+    stack = [(tree, b"")]
+    while stack:
+        oid, base = stack.pop()
+        for mode, name, child in parse_tree(git.whole(oid, "tree"), oid):
+            path = base + name
+            kind = mode & 0o170000
+            if name in (b"", b".", b"..") or b"/" in name:
+                problems.append("an entry whose name is empty, '.', '..' or has a slash in it: %s" % shown(path))
+            elif name_too_long(path):
+                # Nothing below such a name is looked at, so a tree nested very deep costs no more than this.
+                problems.append("%s: %s" % (name_too_long(path), shown(path[:200] + b"...")))
+            elif reserved_component(name.decode("utf-8", "replace")):
+                problems.append("%s: %s" % (reserved_component(name.decode("utf-8", "replace")), shown(path)))
+            elif kind == 0o040000:
+                stack.append((child, path + b"/"))
+            elif kind == 0o100000:
+                files.append((path, 0o755 if mode & 0o100 else 0o644, child))
+            elif kind == 0o120000:
+                problems.append("symbolic link: %s" % shown(path))
+            elif kind == 0o160000:
+                problems.append("submodule: %s" % shown(path))
+            else:
+                problems.append("entry of a kind this tool does not know (mode %o): %s" % (mode, shown(path)))
+    files.sort(key=lambda f: f[0])
+    names = set()
+    for path, _mode, _oid in files:
+        try:
+            path.decode("utf-8")
+        except UnicodeDecodeError:
+            problems.append("a name that is not UTF-8: %s" % shown(path))
+        if path in names:
+            problems.append("two entries with one name: %s" % shown(path))
+        names.add(path)
+    for path in below_files(names, names):
+        problems.append("a file where another entry needs a directory, on the way to %s" % shown(path))
+    decoded = [p.decode("utf-8", "replace") for p in names]
+    for one, other in name_collisions(decoded):
+        problems.append("two names that are one where case and Unicode normalisation are ignored, as on macOS: "
+                        "%s and %s" % (one, other))
+    for n in unassigned_names(decoded):
+        problems.append("a character unassigned in Unicode %s, so a collision cannot be ruled out: %s"
+                        % (__import__("unicodedata").unidata_version, n))
+    return files, problems
+
+
+def tar_header(name, mode, size, typeflag):
+    """One 512-byte tar header in GNU tar's format, with no time, no owner and no group."""
+    if len(name) > 100 or size >= 8 ** 11:
+        raise ValueError("name or size too long for a tar header")
+    h = bytearray(512)
+    h[0:len(name)] = name
+    h[100:108] = b"%07o\0" % mode
+    h[108:116] = b"0000000\0"                   # owner
+    h[116:124] = b"0000000\0"                   # group
+    h[124:136] = b"%011o\0" % size
+    h[136:148] = b"00000000000\0"               # time of last change
+    h[148:156] = b"        "                    # the checksum is taken with its own field as spaces
+    h[156:157] = typeflag
+    h[257:265] = b"ustar  \0"                   # owner and group names, at 265 and 297, stay empty
+    h[148:156] = b"%06o\0 " % sum(h)
+    return bytes(h)
+
+
+def cmd_git_export(a):
+    """Write the files of one commit, or of one directory of it, to a tar file. The last line printed is
+    'sha256 <of the file> entries <number of files>'.
+
+    Exit status: 0 written; 1 refused (the commit is not named by all 40 characters, is not in the repository
+    or is not a commit; the directory is not in it; a symbolic link, a submodule or an unusable name is among
+    the files; an object does not have the SHA-1 it is named by); 2 could not run. Unless the status is 0 the
+    file named with --out is left as it was."""
+    import shutil
+    cmd = "git-export"
+    commit = a.commit.lower()
+    if not re.match(r"[0-9a-f]{40}\Z", commit):
+        sys.stderr.write("git-export: REFUSED: --commit must be all 40 hexadecimal characters of the commit's name, "
+                         "and %r is not. A branch or tag name is not accepted: it can come to mean another commit.\n" % a.commit)
+        return 1
+    problem = dir_arg_problem(a.prefix, True)
+    if problem:
+        return usage_error(cmd, "--prefix %r %s" % (a.prefix, problem))
+    subdir = a.subdir.rstrip("/")
+    if a.subdir and dir_arg_problem(subdir, False):
+        return usage_error(cmd, "--subdir %r %s" % (a.subdir, dir_arg_problem(subdir, False)))
+    if not os.path.isdir(a.git_dir):
+        return usage_error(cmd, "--git-dir %s is not a directory" % a.git_dir)
+    if not shutil.which("git"):
+        return usage_error(cmd, "git was not found on the PATH")
+    prefix = a.prefix.encode("utf-8")
+    tmp = a.out + ".tmp"
+    git = GitObjects(a.git_dir)
+    try:
+        m = re.match(rb"tree ([0-9a-f]{40})\n", git.whole(commit, "commit"))
+        if not m:
+            raise Refused("commit %s does not begin with the name of its tree" % commit)
+        tree = m.group(1).decode("ascii")
+        print("git-export: commit %s, tree %s" % (commit, tree))
+        if subdir:
+            for comp in subdir.encode("utf-8").split(b"/"):
+                found = [e for e in parse_tree(git.whole(tree, "tree"), tree) if e[1] == comp]
+                if len(found) != 1 or found[0][0] & 0o170000 != 0o040000:
+                    raise Refused("%s is not a directory of commit %s" % (subdir, commit))
+                tree = found[0][2]
+            print("git-export: directory %s of it, tree %s" % (subdir, tree))
+        files, problems = git_tree_files(git, tree)
+        if problems:
+            raise Refused("%d things in %s cannot be written to a tar file (showing up to 25)\n  - %s" % (
+                len(problems), "directory %s of commit %s" % (subdir, commit) if subdir else "commit " + commit,
+                "\n  - ".join(problems[:25])))
+        if not files:
+            raise Refused("there are no files to write")
+        total = n_exec = 0
+        with open(tmp, "wb") as out:
+            for path, mode, oid in files:
+                name = prefix + path
+                head = git.start(oid)
+                if head is None or head[0] != "blob":
+                    raise Refused("%s, the contents of %s, is %s" % (
+                        oid, shown(path), "not in the repository" if head is None else "a %s, not a blob" % head[0]))
+                size = head[1]
+                if size >= 8 ** 11:
+                    raise Refused("%s is larger than a tar header can say (%d bytes)" % (shown(path), size))
+                if len(name) > 100:
+                    long_name = name + b"\0"
+                    out.write(tar_header(b"././@LongLink", 0, len(long_name), b"L"))
+                    out.write(long_name + b"\0" * (-len(long_name) % 512))
+                out.write(tar_header(name[:100], mode, size, b"0"))
+                h = git_sha1()
+                h.update(b"blob %d\0" % size)
+                left = size
+                while left:
+                    chunk = git.read(min(left, 1 << 20))
+                    h.update(chunk)
+                    out.write(chunk)
+                    left -= len(chunk)
+                git.end()
+                if h.hexdigest() != oid:
+                    raise Refused("what git gives as blob %s, the contents of %s, has the SHA-1 %s: the repository "
+                                  "is damaged or has been altered" % (oid, shown(path), h.hexdigest()))
+                out.write(b"\0" * (-size % 512))
+                total += size
+                n_exec += 1 if mode == 0o755 else 0
+            out.write(b"\0" * 1024)                         # the end of the archive: two empty blocks,
+            out.write(b"\0" * (-out.tell() % 10240))        # and the file filled up to a whole record
+            out.flush()
+            os.fsync(out.fileno())
+        rc = git.finish()
+        if rc != 0:
+            raise GitFailed("git cat-file ended with status %d" % rc)
+        os.replace(tmp, a.out)
+    except (Refused, GitFailed) as ex:
+        git.abort()
+        if os.path.isfile(tmp):
+            os.remove(tmp)
+        refused = isinstance(ex, Refused)
+        sys.stderr.write("git-export: %s%s\n" % ("REFUSED: " if refused else "could not run: ", ex))
+        sys.stderr.write("git-export: nothing was written to %s\n" % a.out)
+        return 1 if refused else 2
+    except BaseException:
+        git.abort()
+        if os.path.isfile(tmp):
+            os.remove(tmp)
+        raise
+    print("git-export: %d files, %d bytes of contents, %d of the files with an executable bit" % (len(files), total, n_exec))
+    print("git-export: written to %s (%d bytes)" % (a.out, os.path.getsize(a.out)))
+    print("sha256 %s entries %d" % (sha256_file(a.out), len(files)))
+    return 0
+
+
+# --------------------------------------------------------------------------------------------
 # 02: tarball inspection
 
-CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+class KeptTail:
+    """A file that tarfile reads an archive from, once, from start to end. It keeps the last bytes it has given
+    out (at least KEEP of them), so that once tarfile has stopped, what lies between the end it found and the
+    end of the file can still be read."""
+    KEEP = 1 << 16
+
+    def __init__(self, f):
+        self.f, self.pos, self.kept, self.chunks = f, 0, 0, collections.deque()
+
+    def read(self, n=-1):
+        data = self.f.read(n)
+        if data:
+            self.chunks.append((self.pos, data))
+            self.pos += len(data)
+            self.kept += len(data)
+            while self.kept - len(self.chunks[0][1]) >= self.KEEP:
+                self.kept -= len(self.chunks.popleft()[1])
+        return data
+
+    def since(self, offset):
+        """The bytes given out from offset on, or None if some of them are no longer kept."""
+        if not self.chunks:
+            return b"" if offset >= self.pos else None
+        if self.chunks[0][0] > offset:
+            return None
+        return b"".join(d[max(0, offset - s):] for s, d in self.chunks if s + len(d) > offset)
+
+
+def check_extracted(root, names, allow_exec, quiet):
+    """Compare what a tar wrote under root with the names of the archive's entries, as tar-inspect read them.
+
+    Every file system entry under root is looked at with lstat, without following links and without leaving
+    .lake out. Each must be a directory with an entry of the archive in it, or a regular file that is an entry,
+    with one name only, no executable bit unless allow_exec, and no setuid, setgid or sticky bit. Every entry
+    must be there. This checks what the extracting tar made of the archive, whether or not it read the archive
+    as tar-inspect did. Names are compared in NFD, the form HFS+ stores them in (the listing refuses two names
+    that are one when normalised). Prints one line if all is well, the problems otherwise; returns True if all
+    is well."""
+    import stat
+    import unicodedata
+
+    def nfd(s):
+        return unicodedata.normalize("NFD", s)
+
+    want = {nfd(n) for n in names}
+    found, holds = set(), set()          # holds: the directories with an entry in them, at any depth
+    problems, n_problems, n_files = [], 0, 0
+
+    def odd(why, rel):
+        nonlocal n_problems
+        n_problems += 1
+        if len(problems) < 10:
+            problems.append("%s: %s" % (why, rel))
+
+    root = os.path.abspath(root)
+
+    def unreadable(ex):
+        odd("cannot be read (%s)" % (ex.strerror or ex), os.path.relpath(ex.filename or root, root))
+
+    # Bottom up, so that a directory is looked at after everything in it. A link to a directory is listed with
+    # the directories and is not entered.
+    for dirpath, dirnames, filenames in os.walk(root, topdown=False, onerror=unreadable):
+        here = False
+        for d in dirnames + filenames:
+            p = os.path.join(dirpath, d)
+            rel = os.path.relpath(p, root).replace(os.sep, "/")
+            try:
+                st = os.lstat(p)
+            except OSError as ex:
+                unreadable(ex)
+                continue
+            mode = st.st_mode
+            if stat.S_ISLNK(mode):
+                odd("a symbolic link", rel)
+            elif stat.S_ISDIR(mode):
+                if p in holds:
+                    here = True
+                else:
+                    odd("a directory with no entry of the archive in it", rel)
+            elif not stat.S_ISREG(mode):
+                odd("neither a regular file nor a directory", rel)
+            elif nfd(rel) not in want:
+                odd("a file that is not an entry of the archive", rel)
+            else:
+                n_files += 1
+                found.add(nfd(rel))
+                here = True
+                if mode & 0o111 and not allow_exec:
+                    odd("an executable bit (mode %o)" % (mode & 0o7777), rel)
+                if mode & 0o7000:
+                    odd("a setuid, setgid or sticky bit (mode %o)" % (mode & 0o7777), rel)
+                if st.st_nlink > 1:
+                    odd("a file with more than one name (a hard link)", rel)
+        if here:
+            holds.add(dirpath)
+    for rel in sorted(want - found):
+        odd("an entry of the archive that is not on disk", rel)
+    if n_problems:
+        print("EXTRACTED TREE DIFFERS FROM THE LISTING: %d thing(s) under %s (showing up to 10)" % (n_problems, root))
+        for p in problems:
+            print("  - " + p)
+        return False
+    print("extracted tree: %d files under %s, each a regular file and an entry of the archive; nothing else is there"
+          % (n_files, root))
+    return True
 
 
 def cmd_tar_inspect(a):
+    import gzip
     import tarfile
+    import unicodedata
+    import zlib
+
+    # The archive's top directory and the source directory under it. The defaults are the default
+    # target's, 'lean/' and 'src'.
+    prefix = a.prefix
+    problem = dir_arg_problem(prefix, True)
+    if problem:
+        return usage_error("tar-inspect", "--prefix %r %s" % (a.prefix, problem))
+    # '.' is the project directory itself, Lake's default when a lakefile names no srcDir.
+    if a.src_dir == ".":
+        src_prefix = prefix
+    else:
+        problem = dir_arg_problem(a.src_dir, False)
+        if problem:
+            return usage_error("tar-inspect", "--src-dir %r %s" % (a.src_dir, problem))
+        src_prefix = prefix + a.src_dir + "/"
+    top_at = prefix.count("/")           # the position, in an entry's name, of the first component under the prefix
 
     type_names = {
         tarfile.SYMTYPE: "symbolic link", tarfile.LNKTYPE: "hard link", tarfile.DIRTYPE: "directory",
@@ -109,57 +709,115 @@ def cmd_tar_inspect(a):
     by_ext = collections.Counter()
     by_top = collections.Counter()
     seen = set()
-    entries = total_bytes = src_lean = 0
+    not_dirs = []                        # the names of the entries that are not directories
+    entries = total_bytes = src_lean = executable = 0
     tree = os.path.abspath(a.verify_tree) if a.verify_tree else None
     tree_missing = tree_differs = 0
     tree_examples = []
 
-    with tarfile.open(a.tarball, mode="r|gz") as tf:
-        for m in tf:
-            entries += 1
-            name = m.name
-            ok = True
-            if m.type not in (tarfile.REGTYPE, tarfile.AREGTYPE):
-                bad(name, "not a regular file (%s)" % type_names.get(m.type, "type %r" % m.type)); ok = False
-            if name.startswith("/"):
-                bad(name, "absolute path"); ok = False
-            parts = name.split("/")
-            if ".." in parts:
-                bad(name, "'..' path component"); ok = False
-            if "" in parts or "." in parts:
-                bad(name, "empty or '.' path component"); ok = False
-            if not name.startswith(a.prefix):
-                bad(name, "outside %s" % a.prefix); ok = False
-            if "\\" in name or CONTROL_CHARS.search(name):
-                bad(name, "backslash or control character in name"); ok = False
-            if m.mode & 0o111:
-                bad(name, "executable bit set (mode %o)" % m.mode); ok = False
-            if m.mode & 0o7000:
-                bad(name, "setuid, setgid or sticky bit set (mode %o)" % m.mode); ok = False
-            if name in seen:
-                bad(name, "duplicate entry"); ok = False
-            seen.add(name)
-            base = parts[-1]
-            ext = os.path.splitext(base)[1] or "(none)"
-            by_ext[ext] += 1
-            by_top[parts[1] if len(parts) > 1 else parts[0]] += 1
-            total_bytes += m.size
-            if name.startswith(a.prefix + "src/") and name.endswith(".lean"):
-                src_lean += 1
-            if tree and ok:
-                path = os.path.join(tree, name)
-                if not os.path.isfile(path) or os.path.islink(path):
-                    tree_missing += 1
-                    if len(tree_examples) < 10:
-                        tree_examples.append("missing on disk: " + name)
-                else:
-                    fh = tf.extractfile(m)
-                    data = fh.read() if fh is not None else b""
-                    with open(path, "rb") as dh:
-                        if dh.read() != data:
-                            tree_differs += 1
+    try:
+        raw = open(a.tarball, "rb")
+    except OSError as ex:
+        return usage_error("tar-inspect", "cannot open %s: %s" % (a.tarball, ex.strerror or ex))
+    # The archive is read as a stream: gzipped (the default target's tarball) if it starts with the two bytes
+    # of gzip's signature, and an uncompressed tar file (what git-export writes) otherwise. tarfile is not left
+    # to decide where the archive ends. It stops without a word at a header it cannot read, or at the first
+    # empty block, where the tar that extracts the archive may carry on and find more entries; and its own
+    # gzip reader stops at the end of the first of several gzip members. So gzip.GzipFile, which reads every
+    # member and refuses bytes after them that are not gzip, reads the file, and once tarfile has stopped,
+    # everything from where it stopped to the end of the file must be zero bytes.
+    unreadable = after_end = None
+    gzipped = False
+    try:
+        with raw:
+            gzipped = raw.read(2) == b"\x1f\x8b"
+            raw.seek(0)
+            src = KeptTail(gzip.GzipFile(fileobj=raw, mode="rb") if gzipped else raw)
+            with tarfile.open(fileobj=src, mode="r|") as tf:
+                for m in tf:
+                    entries += 1
+                    name = m.name
+                    ok = True
+                    too_long = name_too_long(name)
+                    if too_long:
+                        # Left out of every check below that looks at more than this one entry.
+                        bad(name[:200] + "...", too_long)
+                        continue
+                    if m.type not in (tarfile.REGTYPE, tarfile.AREGTYPE):
+                        bad(name, "not a regular file (%s)" % type_names.get(m.type, "type %r" % m.type)); ok = False
+                    if m.type != tarfile.DIRTYPE:
+                        not_dirs.append(name)
+                    if name.startswith("/"):
+                        bad(name, "absolute path"); ok = False
+                    parts = name.split("/")
+                    if ".." in parts:
+                        bad(name, "'..' path component"); ok = False
+                    if "" in parts or "." in parts:
+                        bad(name, "empty or '.' path component"); ok = False
+                    if not name.startswith(prefix):
+                        bad(name, "outside %s" % prefix); ok = False
+                    if "\\" in name or CONTROL_CHARS.search(name):
+                        bad(name, "backslash or control character in name"); ok = False
+                    reserved = [r for r in map(reserved_component, parts) if r]
+                    if reserved:
+                        bad(name, reserved[0]); ok = False
+                    if m.mode & 0o111:
+                        executable += 1
+                        if not a.allow_exec:
+                            bad(name, "executable bit set (mode %o)" % m.mode); ok = False
+                    if m.mode & 0o7000:
+                        bad(name, "setuid, setgid or sticky bit set (mode %o)" % m.mode); ok = False
+                    if name in seen:
+                        bad(name, "duplicate entry"); ok = False
+                    seen.add(name)
+                    base = parts[-1]
+                    ext = os.path.splitext(base)[1] or "(none)"
+                    by_ext[ext] += 1
+                    by_top[parts[top_at] if len(parts) > top_at else parts[0]] += 1
+                    total_bytes += m.size
+                    if name.startswith(src_prefix) and name.endswith(".lean"):
+                        src_lean += 1
+                    if tree and ok:
+                        path = os.path.join(tree, name)
+                        if not os.path.isfile(path) or os.path.islink(path):
+                            tree_missing += 1
                             if len(tree_examples) < 10:
-                                tree_examples.append("content differs: " + name)
+                                tree_examples.append("missing on disk: " + name)
+                        else:
+                            fh = tf.extractfile(m)
+                            data = fh.read() if fh is not None else b""
+                            with open(path, "rb") as dh:
+                                if dh.read() != data:
+                                    tree_differs += 1
+                                    if len(tree_examples) < 10:
+                                        tree_examples.append("content differs: " + name)
+                # tarfile has stopped: at the first empty block, at a header it cannot read, or at the end of the
+                # data. From the block it stopped at to the end of the file there may be zero bytes and nothing else.
+                rest = src.since(tf.offset)
+                nonzero = rest is None or rest.strip(b"\0") != b""
+                while True:
+                    chunk = src.read(1 << 20)
+                    if not chunk:
+                        break
+                    nonzero = nonzero or chunk.strip(b"\0") != b""
+                if nonzero:
+                    after_end = tf.offset
+    except (tarfile.TarError, OSError, EOFError, zlib.error) as ex:
+        # gzip.BadGzipFile is an OSError: data that is not gzip, a wrong checksum, bytes after the last member.
+        unreadable = "%s: %s" % (type(ex).__name__, ex)
+    if unreadable:
+        bad(a.tarball, "the archive cannot be read to its end (%s), so what follows may hold entries that were "
+            "not checked" % unreadable)
+    if after_end is not None:
+        bad(a.tarball, "data after the end of the archive, from byte %d of the %s: a tar that extracts the "
+            "archive may find entries there that were not checked" % (after_end, "unpacked stream" if gzipped else "file"))
+
+    for name in below_files(seen, not_dirs):
+        bad(name, "a file where this entry needs a directory, on the way to it")
+    for one, other in name_collisions(seen):
+        bad("%s and %s" % (one, other), "one name where case and Unicode normalisation are ignored, as on macOS")
+    for name in unassigned_names(seen):
+        bad(name, "a character unassigned in Unicode %s, so a collision cannot be ruled out" % unicodedata.unidata_version)
 
     def say(text):
         if not a.quiet:
@@ -167,11 +825,11 @@ def cmd_tar_inspect(a):
 
     say("tarball entries:        %d" % entries)
     say("total uncompressed:     %d bytes (%.2f GB)" % (total_bytes, total_bytes / 1e9))
-    say("Lean files under %ssrc/: %d" % (a.prefix, src_lean))
+    say("Lean files under %s: %d" % (src_prefix, src_lean))
     say("entries by extension:")
     for ext, c in sorted(by_ext.items(), key=lambda kv: (-kv[1], kv[0])):
         say("  %-10s %d" % (ext, c))
-    say("entries by top-level item under %s:" % a.prefix)
+    say("entries by top-level item under %s:" % prefix)
     for top, c in sorted(by_top.items(), key=lambda kv: (-kv[1], kv[0])):
         say("  %-22s %d" % (top, c))
 
@@ -181,8 +839,12 @@ def cmd_tar_inspect(a):
         for v in violations:
             print("  - " + v)
         status = 1
+    elif a.allow_exec:
+        say("entry check: every entry is a regular file under %s; no links," % prefix)
+        say("             absolute paths, '..' components or duplicate names")
+        say("             entries with an executable bit, accepted because of --allow-exec: %d" % executable)
     else:
-        say("entry check: every entry is a regular, non-executable file under %s; no links," % a.prefix)
+        say("entry check: every entry is a regular, non-executable file under %s; no links," % prefix)
         say("             absolute paths, '..' components or duplicate names")
 
     summary = {"entries": entries, "total_bytes": total_bytes, "source_lean_files": src_lean,
@@ -198,12 +860,12 @@ def cmd_tar_inspect(a):
                 compare(key, summary[key], exp.get(key), diffs)
     if a.quiet and not diffs:
         pass
-    elif not report_comparison("tarball listing", a.expected, bool(exp), diffs):
+    elif not report_comparison("tarball listing", a.expected, "tarball", bool(exp), diffs):
         status = 1
 
     if tree:
         extra = []
-        root = os.path.join(tree, a.prefix.rstrip("/"))
+        root = os.path.join(tree, prefix.rstrip("/"))
         for dirpath, dirnames, filenames in os.walk(root):
             if dirpath == root:
                 dirnames[:] = [d for d in dirnames if d != ".lake"]   # build products and packages
@@ -222,6 +884,10 @@ def cmd_tar_inspect(a):
             status = 1
         else:
             print("tree comparison: the extracted files are byte-for-byte the tarball's contents")
+
+    if a.check_extracted:
+        if not check_extracted(a.check_extracted, seen, a.allow_exec, a.quiet):
+            status = 1
 
     if a.write_expected and status == 0:
         merge_expected(a.write_expected, "tarball", summary)
@@ -272,7 +938,7 @@ def cmd_project_info(a):
         compare("packages", packages, exp.get("packages"), diffs)
         for f in files:
             compare("sha256 of " + f, hashes[f], (exp.get("sha256") or {}).get(f), diffs)
-    if not report_comparison("project files", a.expected, bool(exp), diffs):
+    if not report_comparison("project files", a.expected, "project", bool(exp), diffs):
         status = 1
     if a.write_expected and status == 0:
         merge_expected(a.write_expected, "project", summary)
@@ -283,7 +949,7 @@ def cmd_project_info(a):
 # 03: source audit
 #
 # The scan has two stages. Stage 1 (ripgrep or grep, fixed strings only) keeps every source line
-# that contains at least one of AUDIT_LITERALS. Stage 2 (this file) applies the regular
+# that contains at least one of the strings of audit_literals(). Stage 2 (this file) applies the regular
 # expressions below to those lines. Every expression can only match a line that contains one of
 # the literals, so the result does not depend on which tool did stage 1.
 #
@@ -343,42 +1009,76 @@ SYNTAX_RE = re.compile(
 SET_OPTION_RE = re.compile(r"\bset_option\s+([A-Za-z_][\w.]*)")
 META_IMPORT_RE = re.compile(r"^\s*(?:(?:public|private|meta)\s+)*import\s+(?:all\s+)?((?:Lean|Qq|Lake)(?:\.[\w.']+)?)\s*$")
 META_WORD_RE = re.compile(w("MetaM|TacticM|TermElabM|CommandElabM|CoreM|Environment"))
+# The protected names: names of the library that the source should not declare for itself. These three
+# are the default target's; --protected-names gives another target's (TGT_PROTECTED_NAMES).
 PROTECTED_NAMES = ["RiemannHypothesis", "riemannZeta", "LFunction"]
-NAMES_ALT = "|".join(PROTECTED_NAMES)
-# A declaration whose name, or last name component, is one of the protected names.
-LOCAL_DEF_RE = re.compile(
-    r"\b(?:def|abbrev|theorem|lemma|structure|class|inductive|instance|opaque|axiom|alias|"
-    r"notation|macro|syntax)\s+(?:[\w.']+\.)?(" + NAMES_ALT + r")(?![\w.'!?])")
-# A name introduced by a binder keyword, or a quoted notation token, that reuses one of the
-# protected names: `fun riemannZeta =>`, `variable (riemannZeta : ...)`, `intro LFunction`,
-# `notation "riemannZeta" => ...`. Binders written inside a declaration's signature cannot be
-# told apart from type ascriptions by a regular expression and are not covered; the statement
-# report of 08_check_axioms.sh, which works on what the kernel sees, covers that case.
-SHADOW_RE = re.compile(
-    r"(?:\b(?:fun|let|have|set|intro|intros|rintro|obtain|rcases|variable|universe)\b|[\u03bb\u2200\u2203])"
-    r"[^:=,\u21a6]*?(?<![\w.'])(?:" + NAMES_ALT + r")(?![\w.'!?])"
-    r"|\"(?:" + NAMES_ALT + r")\"")
 
-AUDIT_LITERALS = sorted(set([
+
+def protected_names_res(names):
+    """The two expressions about the protected names, for a list of such names: one for declarations,
+    one for binders and notation tokens."""
+    names_alt = "|".join(re.escape(n) for n in names)
+    # A declaration whose name, or last name component, is one of the protected names.
+    local_def_re = re.compile(
+        r"\b(?:def|abbrev|theorem|lemma|structure|class|inductive|instance|opaque|axiom|alias|"
+        r"notation|macro|syntax)\s+(?:[\w.']+\.)?(" + names_alt + r")(?![\w.'!?])")
+    # A name introduced by a binder keyword, or a quoted notation token, that reuses one of the
+    # protected names: `fun riemannZeta =>`, `variable (riemannZeta : ...)`, `intro LFunction`,
+    # `notation "riemannZeta" => ...`. Binders written inside a declaration's signature cannot be
+    # told apart from type ascriptions by a regular expression and are not covered; the statement
+    # report of 08_check_axioms.sh, which works on what the kernel sees, covers that case.
+    shadow_re = re.compile(
+        r"(?:\b(?:fun|let|have|set|intro|intros|rintro|obtain|rcases|variable|universe)\b|[\u03bb\u2200\u2203])"
+        r"[^:=,\u21a6]*?(?<![\w.'])(?:" + names_alt + r")(?![\w.'!?])"
+        r"|\"(?:" + names_alt + r")\"")
+    return local_def_re, shadow_re
+
+
+# The fixed strings of stage 1, without the protected names: audit_literals adds those, so that a
+# line that names one of them always reaches stage 2.
+BASE_LITERALS = [
     "sorry", "admit", "axiom", "native", "ReduceBool", "reduceBool", "ReduceNat", "reduceNat", "trustCompiler",
     "unsafe", "implemented_by", "extern", "opaque", "#eval", "initialize", "IO", "System.", "FilePath",
     "readFile", "writeFile", "BinFile", "removeFile", "createDir", "removeDir", "readDir", "pathExists",
     "readToEnd", "putStr", "getLine", "Process.",
     "skipKernelTC", "addDecl", "addAndCompile", "Environment", "modifyEnv", "setEnv", "run_cmd", "run_elab",
     "run_meta", "set_option", "MetaM", "TacticM", "TermElabM", "CommandElabM", "CoreM",
-    "import", "RiemannHypothesis", "riemannZeta", "LFunction",
-] + SYNTAX_KEYWORDS))
+    "import",
+]
+
+
+def audit_literals(names):
+    return sorted(set(BASE_LITERALS + list(names) + SYNTAX_KEYWORDS))
+
+
+def protected_names_arg(a, cmd):
+    """The names given with --protected-names, or None after a message if there is none to work with.
+    A name is put into a regular expression as literal text and given to stage 1 as a fixed string, so it
+    may not be empty or have white space in it; splitting the argument at white space sees to both."""
+    names = a.protected_names.split()
+    if not names:
+        usage_error(cmd, "--protected-names names no name; give at least one, separated by spaces")
+        return None
+    return names
+
 
 HIT_RE = re.compile(r"^(?:\./)?(.*?\.lean):(\d+):(.*)$")
 
 
-def cmd_audit_literals(_a):
-    for lit in AUDIT_LITERALS:
+def cmd_audit_literals(a):
+    names = protected_names_arg(a, "audit-literals")
+    if names is None:
+        return 2
+    for lit in audit_literals(names):
         print(lit)
     return 0
 
 
 def cmd_audit_classify(a):
+    names = protected_names_arg(a, "audit-classify")
+    if names is None:
+        return 2
+    local_def_re, shadow_re = protected_names_res(names)
     compiled = [(key, desc, re.compile(rx)) for key, desc, rx in AUDIT_CATEGORIES]
     lines = {key: 0 for key, _, _ in compiled}
     files = {key: set() for key, _, _ in compiled}
@@ -422,9 +1122,9 @@ def cmd_audit_classify(a):
                 meta_import_files.setdefault(path, set()).add(im.group(1))
             for wm in META_WORD_RE.finditer(body):
                 meta_word_files[path].add(wm.group(0))
-            if LOCAL_DEF_RE.search(body):
+            if local_def_re.search(body):
                 local_defs.append("%s:%d: %s" % (path, lineno, body.strip()[:140]))
-            if SHADOW_RE.search(body):
+            if shadow_re.search(body):
                 local_binders.append("%s:%d: %s" % (path, lineno, body.strip()[:140]))
 
     meta_files = sorted(set(meta_import_files) | set(meta_word_files))
@@ -444,7 +1144,7 @@ def cmd_audit_classify(a):
     print("%-16s %10d %8d   %s" % ("syntax_def", sum(syntax_lines.values()), len(syntax_files),
                                     "lines that begin a syntax-defining command"))
     print("%-16s %10d %8d   %s" % ("local_def", len(local_defs), len(set(d.split(":")[0] for d in local_defs)),
-                                    "declarations named " + ", ".join(PROTECTED_NAMES)))
+                                    "declarations named " + ", ".join(names)))
     print("%-16s %10d %8d   %s" % ("shadowing", len(local_binders), len(set(d.split(":")[0] for d in local_binders)),
                                     "names introduced by a binder keyword, or notation tokens, that reuse one"))
     print()
@@ -463,7 +1163,7 @@ def cmd_audit_classify(a):
         why = sorted(meta_import_files.get(path, set())) + sorted(meta_word_files.get(path, set()))
         print("  %s   [%s]" % (path, ", ".join(why)))
     print()
-    print("Declarations named %s: %d" % (", ".join(PROTECTED_NAMES), len(local_defs)))
+    print("Declarations named %s: %d" % (", ".join(names), len(local_defs)))
     for d in local_defs:
         print("  " + d)
     print("Names introduced by a binder keyword, or notation tokens, that reuse one of them: %d" % len(local_binders))
@@ -501,7 +1201,7 @@ def cmd_audit_classify(a):
     status = 0
     print()
     if not exp:
-        print("comparison: no recorded audit values to compare with (%s)" % (a.expected or "no file given"))
+        no_recorded_values("source audit", a.expected, "audit")
     else:
         zero_diffs, other_diffs = [], []
         compare("lean_files", a.lean_files, exp.get("lean_files"), other_diffs)
@@ -537,13 +1237,82 @@ def cmd_audit_classify(a):
 
 
 # --------------------------------------------------------------------------------------------
-# 08: axiom check summary
+# 08: the body of the axiom check file, and the axiom check summary
 
 ALLOWED_AXIOMS = ["propext", "Classical.choice", "Quot.sound"]
-RH_MODULE = "Mathlib.NumberTheory.LSeries.RiemannZeta"
+# The default target's: the constant its primary theorem's statement must be, the module that
+# constant must be defined in, and the constants whose defining module the check file reports.
+# Other targets give theirs with --statement-const, --statement-const-module and --report-consts
+# (TGT_STATEMENT_CONST, TGT_STATEMENT_CONST_MODULE, TGT_REPORT_CONSTS).
+STATEMENT_CONST = "RiemannHypothesis"
+STATEMENT_CONST_MODULE = "Mathlib.NumberTheory.LSeries.RiemannZeta"
+REPORT_CONSTS = ["RiemannHypothesis", "riemannZeta", "DirichletCharacter.LFunction"]
+
+# A Lean name of plain ASCII components with dots between them. The names are written into the check
+# file after a backquote, and one of them into a string, so nothing else is let through. (Lean accepts
+# some other letters too, but not all that Python calls letters; a name that needs them is refused here
+# rather than written into a file Lean cannot read.)
+LEAN_NAME_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_'!?]*(?:\.[A-Za-z_][A-Za-z0-9_'!?]*)*\Z")
+
+
+def body_lines(const, report):
+    """The four lines of scripts/verify/axioms_check_body.lean that name constants, without their
+    indentation, as they read for one statement constant and one list of constants to report."""
+    return ["let isRH : Bool := target == mkConst `%s" % const,
+            'logInfo m!"RHV CHECK statement_is_constant_%s {primary} {isRH}"' % const,
+            "for c in [%s] do" % ", ".join("`" + n for n in report),
+            "if c == `%s then" % const]
+
+
+def cmd_axioms_body(a):
+    """Print the body of the check file for the constants given.
+
+    For the default target's constants the file is printed as it is, byte for byte, whatever is in it.
+    For others, the four lines that name constants are printed with the names given, and every other
+    line as it is. The statement constant is put in front of the list of constants to report if it is
+    not in it, because axioms-summary needs its module. Status 2, with nothing printed, if a name is
+    not a plain Lean name, if one of the four lines is not in the file exactly once, or if another
+    line of the file names one of the default target's constants: then the file has changed and
+    this function has to be changed with it."""
+    with open(a.body, "rb") as fh:
+        raw = fh.read()
+    const = a.statement_const
+    report = a.report_consts.split() or [const]
+    if const == STATEMENT_CONST and report == REPORT_CONSTS:
+        sys.stdout.buffer.write(raw)
+        sys.stdout.buffer.flush()
+        return 0
+    bad = [n for n in dict.fromkeys([const] + report) if not LEAN_NAME_RE.match(n)]
+    if bad:
+        return usage_error("axioms-body", "not a plain Lean name (components of letters, digits, _ ' ! ?, with dots "
+                           "between them): %s" % ", ".join(repr(n) for n in bad))
+    if const not in report:
+        report = [const] + report
+    old, new = body_lines(STATEMENT_CONST, REPORT_CONSTS), body_lines(const, report)
+    lines = raw.decode("utf-8").split("\n")
+    where = []
+    for text in old:
+        at = [i for i, ln in enumerate(lines) if ln.strip() == text]
+        if len(at) != 1:
+            return usage_error("axioms-body", "%s must have the line '%s' exactly once, and has it %d times; the file and "
+                               "body_lines in rhv_tools.py have to be changed together" % (a.body, text, len(at)))
+        where.append(at[0])
+    for i, ln in enumerate(lines):
+        if i not in where and any(n in ln for n in REPORT_CONSTS):
+            return usage_error("axioms-body", "line %d of %s names a constant of the default target and is not one of the "
+                               "lines this tool rewrites: '%s'; the file and body_lines in rhv_tools.py have to be "
+                               "changed together" % (i + 1, a.body, ln.strip()))
+    for i, was, now in zip(where, old, new):
+        lines[i] = lines[i].replace(was, now)
+    sys.stdout.buffer.write("\n".join(lines).encode("utf-8"))
+    sys.stdout.buffer.flush()
+    return 0
 
 
 def cmd_axioms_summary(a):
+    const, const_module = a.statement_const, a.statement_const_module
+    if not const or not const_module:
+        return usage_error("axioms-summary", "--statement-const and --statement-const-module may not be empty")
     theorems = a.theorem
     info = {t: {"present": False, "kind": None, "declared_in": None, "axiom_count": None, "axioms": [],
                 "type": None, "statement_project_constants": [], "statement_library_constants": []}
@@ -634,12 +1403,12 @@ def cmd_axioms_summary(a):
             failures.append("%s: depends on axioms outside the allowed three: %s" % (t, ", ".join(extra)))
         if d["kind"] == "axiom":
             failures.append("%s: is itself declared as an axiom" % t)
-    chk = checks.get("statement_is_constant_RiemannHypothesis")
+    chk = checks.get("statement_is_constant_" + const)
     if not chk or chk["subject"] != a.primary or not chk["value"]:
         what = "conclusion" if a.mode == "probe" else "type"
-        failures.append("%s: its %s is not exactly the constant RiemannHypothesis" % (a.primary, what))
-    if modules.get("RiemannHypothesis") != RH_MODULE:
-        failures.append("RiemannHypothesis is defined in module %r, expected %s" % (modules.get("RiemannHypothesis"), RH_MODULE))
+        failures.append("%s: its %s is not exactly the constant %s" % (a.primary, what, const))
+    if modules.get(const) != const_module:
+        failures.append("%s is defined in module %r, expected %s" % (const, modules.get(const), const_module))
     if a.deep:
         if deep["visited"] is None or deep["axiom_count"] is None or deep["axiom_count"] != len(deep["axioms"]):
             failures.append("deep walk: did not complete")
@@ -678,11 +1447,19 @@ def cmd_axioms_summary(a):
         "theorems": info, "checks": checks, "defining_modules": modules, "definitions": defs,
         "deep_walk": deep, "log_file": os.path.basename(a.output),
     }
+    if a.source_id:                 # what identifies the source when it is not, or not only, a tarball's SHA-256
+        result["source_id"] = a.source_id
+    if a.target:                    # given for every target but the default one
+        result["target"] = a.target
     if a.json:
         write_json(a.json, result)
 
     print()
     print("== Axiom and statement check (%s mode), Lean %s" % (a.mode, lean_version or "version unknown"))
+    if a.target:
+        print("  target: %s" % a.target)
+    if a.source_id:
+        print("  source: %s" % a.source_id)
     for t in theorems:
         d = info[t]
         if not d["present"]:
@@ -700,8 +1477,8 @@ def cmd_axioms_summary(a):
     for name in sorted(modules):
         print("  %s is defined in module %s" % (name, modules[name]))
     if chk:
-        print("  %s of %s is exactly the constant RiemannHypothesis: %s" % (
-            "conclusion" if a.mode == "probe" else "type", chk["subject"], "yes" if chk["value"] else "NO"))
+        print("  %s of %s is exactly the constant %s: %s" % (
+            "conclusion" if a.mode == "probe" else "type", chk["subject"], const, "yes" if chk["value"] else "NO"))
     if a.deep and deep["visited"] is not None:
         print("  deep walk: visited %d constants; axioms reached: %s" % (
             deep["visited"], ", ".join(x["name"] for x in deep["axioms"]) or "none"))
@@ -723,8 +1500,8 @@ def cmd_axioms_summary(a):
         else:
             print("  Lean reports that each listed theorem depends on no axioms other than")
             print("  %s; the type of %s is the constant" % (", ".join(ALLOWED_AXIOMS), a.primary))
-            print("  RiemannHypothesis; and that constant is the one defined in")
-            print("  %s." % RH_MODULE)
+            print("  %s; and that constant is the one defined in" % const)
+            print("  %s." % const_module)
         print("  Scope of this result: it reads the compiled modules on disk. The axiom lists come")
         print("  from Lean.collectAxioms, the function behind '#print axioms', which for imported")
         print("  declarations answers from lists the compiler recorded in each compiled file. The")
@@ -738,11 +1515,17 @@ def cmd_axioms_summary(a):
 # 09: kernel re-check planning and summary
 
 def lib_files(root, exts):
-    """One walk of root. Returns {ext: {module name: path}} for the files that end with each extension."""
+    """One walk of root. Returns {ext: {module name: path}} for the files that end with each extension.
+
+    A '.lake' directory directly under root is not walked: when the sources are the project directory
+    itself (a target whose sources are in '.'), that is where Lake keeps its build and the packages it
+    fetched, none of which are the project's sources."""
     out = {e: {} for e in exts}
     if not os.path.isdir(root):
         return out
-    for dirpath, _dirs, files in os.walk(root):
+    for dirpath, dirs, files in os.walk(root):
+        if dirpath == root:
+            dirs[:] = [d for d in dirs if d != ".lake"]
         for f in files:
             for e in exts:
                 if f.endswith(e):
@@ -836,8 +1619,10 @@ def replay_state(a):
     files = lib_files(a.lib, (".olean.server", ".olean.private", ".olean"))
     compiled = files[".olean"]
     # leanchecker replays a module's ".olean.private" part when one exists, while an importing file reads only
-    # the ".olean" of a module that is not a `module` file. This project has no `module` files, so any such
-    # part beside a compiled file is something the build did not write: it is reported and blocks "complete".
+    # the ".olean" of a module that is not a `module` file. The default target has no `module` files, and this
+    # replay does not support a project that has them (docs/adapting-to-another-proof.md). So any such part
+    # beside a compiled file is reported and blocks "complete": either the build did not write it, or the
+    # project is one this replay was not made for.
     extra_parts = sorted(set(files[".olean.server"]) | set(files[".olean.private"]))
     sources = lib_files(a.src, (".lean",))[".lean"] if a.src else {}
     # leanchecker checks every module whose name has its argument as a prefix. With the whole library on its
@@ -1074,6 +1859,8 @@ def cmd_replay_summary(a):
         print("  DAMAGED lines in the results file (not a complete result; nothing is complete while there are any): %d" % damaged)
     if extra_parts:
         print("  modules with an .olean.server or .olean.private file the build should not have written: %d" % len(extra_parts))
+        print("    (a file that starts with `module` is compiled to these parts; this replay does not support such"
+              " projects: docs/adapting-to-another-proof.md)")
     if not_compiled:
         print("  source modules not compiled: %d" % len(not_compiled))
     if no_source:
@@ -1275,8 +2062,8 @@ def cmd_closure_worker(a):
                     warned = True
                 break
             # The further parts of a module compiled with the module system. The tool replays the most private
-            # part it finds beside the file, so they must be beside the link too. (This project has none, and
-            # the summary reports any as a fault of the build; the link is here so that the tool is never shown
+            # part it finds beside the file, so they must be beside the link too. (The default target has none,
+            # and the summary reports any as a fault; the link is here so that the tool is never shown
             # less of a module than it would be shown in the library directory.)
             for part in (".server", ".private"):
                 try:
@@ -1379,13 +2166,28 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd")
 
+    p = sub.add_parser("git-export")
+    p.add_argument("--git-dir", required=True, help="the repository: a bare clone, or the .git directory of one")
+    p.add_argument("--commit", required=True, help="all 40 hexadecimal characters of the commit's name")
+    p.add_argument("--subdir", default="", help="write only the files of this directory of the commit")
+    p.add_argument("--prefix", required=True, help="put this in front of every name in the tar file; ends with a slash")
+    p.add_argument("--out", required=True, help="the tar file to write (not compressed)")
+    p.set_defaults(fn=cmd_git_export)
+
     p = sub.add_parser("tar-inspect")
     p.add_argument("tarball")
-    p.add_argument("--prefix", default="lean/")
+    p.add_argument("--prefix", default="lean/", help="the directory every entry must be under, with its closing slash")
+    p.add_argument("--src-dir", default="src",
+                   help="where the Lean sources are under the prefix: a relative path, or . for the prefix itself")
+    p.add_argument("--allow-exec", action="store_true", help="accept entries with an executable bit, and count them")
     p.add_argument("--sha256", default="")
     p.add_argument("--expected", default="")
     p.add_argument("--write-expected", default="")
     p.add_argument("--verify-tree", default="")
+    p.add_argument("--check-extracted", default="",
+                   help="a directory the archive was just extracted into: everything in it, .lake included, must be an "
+                        "entry of the archive or a directory on the way to one, with no links (02 runs this for any "
+                        "target but the default one)")
     p.add_argument("--quiet", action="store_true")
     p.set_defaults(fn=cmd_tar_inspect)
 
@@ -1395,10 +2197,13 @@ def main():
     p.add_argument("--write-expected", default="")
     p.set_defaults(fn=cmd_project_info)
 
+    protected_help = "names the source should not declare for itself, separated by spaces"
     p = sub.add_parser("audit-literals")
+    p.add_argument("--protected-names", default=" ".join(PROTECTED_NAMES), help=protected_help)
     p.set_defaults(fn=cmd_audit_literals)
 
     p = sub.add_parser("audit-classify")
+    p.add_argument("--protected-names", default=" ".join(PROTECTED_NAMES), help=protected_help)
     p.add_argument("--hits", required=True)
     p.add_argument("--lean-files", type=int, required=True)
     p.add_argument("--tool", default="?")
@@ -1408,6 +2213,12 @@ def main():
     p.add_argument("--write-expected", default="")
     p.add_argument("--strict", action="store_true")
     p.set_defaults(fn=cmd_audit_classify)
+
+    p = sub.add_parser("axioms-body")
+    p.add_argument("--body", required=True, help="scripts/verify/axioms_check_body.lean")
+    p.add_argument("--statement-const", default=STATEMENT_CONST)
+    p.add_argument("--report-consts", default=" ".join(REPORT_CONSTS), help="separated by spaces")
+    p.set_defaults(fn=cmd_axioms_body)
 
     p = sub.add_parser("axioms-summary")
     p.add_argument("--output", required=True)
@@ -1420,6 +2231,10 @@ def main():
     p.add_argument("--tarball-sha256", default="")
     p.add_argument("--compiled", type=int, default=None)
     p.add_argument("--sources", type=int, default=None)
+    p.add_argument("--statement-const", default=STATEMENT_CONST, help="the constant the primary theorem's statement must be")
+    p.add_argument("--statement-const-module", default=STATEMENT_CONST_MODULE, help="the module it must be defined in")
+    p.add_argument("--source-id", default="", help="what identifies the source, for one that is not a published tarball")
+    p.add_argument("--target", default="", help="the name of the target, for any target but the default one")
     p.set_defaults(fn=cmd_axioms_summary)
 
     for name, fn in (("replay-plan", cmd_replay_plan), ("replay-summary", cmd_replay_summary)):

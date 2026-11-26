@@ -12,13 +12,11 @@
 # octal escapes so that this file stays plain ASCII.
 MARK_OK=$(printf '\342\234\224')     # U+2714: job succeeded
 MARK_WARN=$(printf '\342\232\240')   # U+26A0: job succeeded with warnings
+MARK_INFO=$(printf '\342\204\271')   # U+2139: job succeeded with info-level output (counted by 06 for targets other than the default)
 MARK_FAIL=$(printf '\342\234\226')   # U+2716: job failed
 
-RH_TARBALL="$RH_DL/lean.tar.gz"                 # the reassembled tarball
-RH_PART_BASENAME="lean.tar.gz.part"             # local part files are <basename>NN
-RH_EXPECTED="$RECORDS/source/expected.json"     # recorded facts about the source, if present
-RH_PARTS_RECORD="$RECORDS/source/parts.sha256"  # recorded SHA-256 of each part, if present
-RH_TOOLS="$REPO_ROOT/scripts/verify/rhv_tools.py"
+# The paths that used to be set here (RH_TARBALL, RH_PART_BASENAME, RH_EXPECTED, RH_PARTS_RECORD and
+# RH_TOOLS) are set in lib.sh, with the other paths that follow from the target.
 
 # Print the header comment of the calling script (everything after the first line up to the
 # first line that is not a comment).
@@ -87,9 +85,12 @@ count_oleans() {
   fi
 }
 
-# Number of Lean source files of the project.
+# Number of Lean source files of the project: the .lean files under its source directory. When that is the
+# project directory itself (TGT_SRC_DIR=.), what Lake keeps in .lake is not counted.
 count_sources() {
-  if [ -d "$RH_PROJ/src" ]; then find "$RH_PROJ/src" -name '*.lean' -type f | wc -l | tr -d ' '; else echo 0; fi
+  if [ ! -d "$RH_SRC" ]; then echo 0
+  elif [ "$TGT_SRC_DIR" = . ]; then (cd "$RH_SRC" && find . -path ./.lake -prune -o -name '*.lean' -type f -print) | wc -l | tr -d ' '
+  else find "$RH_SRC" -name '*.lean' -type f | wc -l | tr -d ' '; fi
 }
 
 # Directory that holds the pinned toolchain's binaries (lean, lake, leanchecker), or empty.

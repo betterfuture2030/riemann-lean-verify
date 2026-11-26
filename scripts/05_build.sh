@@ -21,6 +21,7 @@
 #   build-status.txt. Lake writes compiled files under RH_PROJ/.lake/build (roughly 1.5 TB for
 #   a complete build, by extrapolation). 'stop' and 'status' write nothing themselves.
 # How long it takes: 'start' returns in seconds. The build itself takes days on a laptop.
+#   (The size and the days are the default target's.)
 #
 # Usage: scripts/05_build.sh start [--jobs N] [lake-target ...]
 #        scripts/05_build.sh stop
@@ -69,6 +70,7 @@ cmd_start() {
     esac
   done
   case "$jobs" in ''|*[!0-9]*|0) [ -z "$jobs" ] || die "--jobs must be a positive number" ;; esac
+  require_extract_from     # for a target other than the default one: the tree must be the profile's archive
   [ -f "$RH_PROJ/lakefile.toml" ] || die "project not found at $RH_PROJ (run steps 01 to 04 first)"
   [ -d "$RH_PROJ/.lake/packages/mathlib" ] || die "Mathlib is not set up in $RH_PROJ (run 04_setup_toolchain.sh first)"
   need_cmd lake
@@ -160,6 +162,7 @@ cmd_status() {
   lakes=$(lake_build_pids | tr '\n' ' ')
   nlean=$(project_pids_named lean | wc -l | tr -d ' ')
   echo "work directory:  $RH_WORKDIR"
+  [ "${RH_TARGET_IS_DEFAULT:-1}" = 1 ] || echo "target:          $RH_TARGET"
   echo "launcher:        ${runner:-not running}"
   echo "lake build:      ${lakes:-not running}"
   echo "lean compilers:  $nlean"

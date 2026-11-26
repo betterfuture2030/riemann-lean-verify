@@ -35,6 +35,7 @@ STATUS_FILE="$RH_LOGS/build-status.txt"
 now=$(date +%s)
 echo "== Build snapshot $(date '+%Y-%m-%d %H:%M:%S')"
 echo "work directory: $RH_WORKDIR"
+[ "${RH_TARGET_IS_DEFAULT:-1}" = 1 ] || echo "target: $RH_TARGET"
 
 # --- is it running?
 runner=$(build_runner_pid)
@@ -89,10 +90,16 @@ if [ "$fail_lines" -gt 0 ]; then
 fi
 
 built=0
+# A job that succeeded starts with one of three marks: plain, with warnings, or (MARK_INFO) with output at
+# information level only, as a module with '#eval' or '#print' in it gives. All three are compiled modules.
+# For the default target the third is left out, as it was before there were targets: its build logs have
+# that mark only on replayed jobs, so the count is the same, but the last job line shown would change.
+DONE_MARKS="$MARK_OK|$MARK_WARN"
+[ "${RH_TARGET_IS_DEFAULT:-1}" = 1 ] || DONE_MARKS="$DONE_MARKS|$MARK_INFO"
 if [ -n "$LOGF" ] && [ -f "$LOGF" ]; then
-  built=$(LC_ALL=C grep -cE "^($MARK_OK|$MARK_WARN) \[[0-9]+/[0-9]+\] Built " "$LOGF")
+  built=$(LC_ALL=C grep -cE "^($DONE_MARKS) \[[0-9]+/[0-9]+\] Built " "$LOGF")
   warned=$(LC_ALL=C grep -c "^$MARK_WARN " "$LOGF")
-  last=$(LC_ALL=C grep -E "^($MARK_OK|$MARK_WARN|$MARK_FAIL) \[" "$LOGF" | tail -n 1 | cut -c1-160)
+  last=$(LC_ALL=C grep -E "^($DONE_MARKS|$MARK_FAIL) \[" "$LOGF" | tail -n 1 | cut -c1-160)
   echo "current log: $LOGF"
   echo "  compiled in this run: $built   jobs with warnings (including replayed ones): $warned"
   echo "  last job line: ${last:-none yet}"
