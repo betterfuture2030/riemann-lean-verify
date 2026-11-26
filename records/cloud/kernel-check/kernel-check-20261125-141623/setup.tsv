@@ -1,0 +1,13 @@
+sysctl	0	ok
+packages	23	ok
+disk	1	ok
+users	0	ok
+toolchain	27	ok
+helpers	0	ok
+challenge	2	ok
+con_ron_build	30	ok
+solution	154	ok
+tiny	1	ok
+smoke_comparator	0	ok
+smoke_small	1	ok
+smoke_con_ron	0	ok

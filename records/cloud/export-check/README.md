@@ -48,4 +48,4 @@ The whole output of each kernel is in `logs/` (`*.log.gz`; the `*.tail.txt` file
 | `challenge.ndjson.zst` | 46.7 MB; the export of the challenge file, compressed. Its uncompressed SHA-256 is the published one above | `96781100…579e6b` (the compressed file) |
 | `solution.ndjson` | 61.6 GB; never left the machine. Its SHA-256 is the published one above | |
 
-The files here were copied through `scripts/dev/scrub.py clean` ([`../../README.md`](../../README.md)). Empty files were not copied.
+The files here were copied through `scripts/dev/scrub.py clean` ([`../../README.md`](../../README.md)); it changed one file. In `pilot.log`, two lines of the package installer's output name a system service in a form that looks like an e-mail address, and now read `<EMAIL>`. Empty files were not copied.

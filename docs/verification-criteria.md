@@ -4,6 +4,8 @@ Status on 2026-11-20: **not verified.** The compile is in progress. At 02:01 UTC
 
 This page says which checks decide the question, what each one rules out, and what still has to be trusted after all of them pass. It makes no claim that the proof is correct or incorrect.
 
+The status line above and the dated columns below are kept as they were written. The present state is in [`../README.md`](../README.md) and [`../CLAIMS.md`](../CLAIMS.md).
+
 ## The claim being checked
 
 The source tree ends in a file `Main.lean` whose first theorem is
@@ -123,7 +125,7 @@ If all three checks pass, the following are still being trusted.
 
 | Trusted | Why it is outside the checks | How the trust could be reduced |
 |---|---|---|
-| The Lean kernel, version 4.33.1 | Both the compile and the replay use it. A kernel bug that accepted a false proof would be shared by both | Export the proof and check it with an independently written checker. Not attempted at this size |
+| The Lean kernel, version 4.33.1 | Both the compile and the replay use it. A kernel bug that accepted a false proof would be shared by both | Export the proof and check it with an independently written checker. Not attempted when this page was written; done since, by others first and here on 2026-11-24 and 25 ([`../CLAIMS.md`](../CLAIMS.md), X1 to X3) |
 | The toolchain binaries | `lean`, `lake` and `leanchecker` are the official release binaries installed by `elan` | Build the toolchain from source |
 | The three axioms | They are the foundations of Mathlib, including the axiom of choice | Not reducible; this is the logical setting of the claim |
 | Mathlib's definitions | The claim is exactly as meaningful as Mathlib's `riemannZeta`, `ℂ` and `RiemannHypothesis` are faithful to the mathematics | These definitions are public and short enough to read; the pinned commit is the unmodified official tag |

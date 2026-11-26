@@ -1,0 +1,13 @@
+== 2026-11-25T20:10:18Z +1073s
+MemTotal: 32859720 kB MemAvailable: 30274140 kB SwapTotal: 2097148 kB SwapFree: 2097148 kB 
+   5223    5219      49  1620 00:00:00 time            /usr/bin/time -v -o /mnt/work/out/comparator.time timeout -k 30 3777 /opt/elan/toolchains/leanprover--lean4---v4.36.0/bin/lake comparator --config rehearsal.json --challenge-from-export /mnt/work/x/challen
+   5224    5223      49  2200 00:00:00 timeout         timeout -k 30 3777 /opt/elan/toolchains/leanprover--lean4---v4.36.0/bin/lake comparator --config rehearsal.json --challenge-from-export /mnt/work/x/challenge.ndjson --solution-from-export /mnt/work/x/chall
+   5225    5224      49 716268 00:00:20 lake           /opt/elan/toolchains/leanprover--lean4---v4.36.0/bin/lake comparator --config rehearsal.json --challenge-from-export /mnt/work/x/challenge.ndjson --solution-from-export /mnt/work/x/challenge.ndjson
+   6091    5225      25  2192 00:00:00 bwrap           /usr/bin/bwrap --ro-bind / / --tmpfs /home --tmpfs /root --tmpfs /run/user --tmpfs /tmp --dir /tmp/home --dev /dev --proc /proc --clearenv --tmpfs /run --tmpfs /var --ro-bind /tmp/tmp.XXvIbLql /tmp/tmp.XXv
+   6093    6091      25  1568 00:00:00 bwrap           /usr/bin/bwrap --ro-bind / / --tmpfs /home --tmpfs /root --tmpfs /run/user --tmpfs /tmp --dir /tmp/home --dev /dev --proc /proc --clearenv --tmpfs /run --tmpfs /var --ro-bind /tmp/tmp.XXvIbLql /tmp/tmp.XXv
+   6094    6093      25 565360 00:00:25 leanchecker    /opt/elan/toolchains/leanprover--lean4---v4.36.0/bin/leanchecker --silent --from-export /mnt/work/x/challenge.ndjson
+   6213    6210      24  1620 00:00:00 time            /usr/bin/time -v -o /mnt/work/out/paranoid.time timeout -k 30 3752 /opt/elan/toolchains/leanprover--lean4---v4.36.0/bin/leanchecker-paranoid --silent --from-export /mnt/work/x/challenge.ndjson
+   6214    6213      24  2196 00:00:00 timeout         timeout -k 30 3752 /opt/elan/toolchains/leanprover--lean4---v4.36.0/bin/leanchecker-paranoid --silent --from-export /mnt/work/x/challenge.ndjson
+   6215    6214      24 577340 00:00:24 leanchecker-par /opt/elan/toolchains/leanprover--lean4---v4.36.0/bin/leanchecker-paranoid --silent --from-export /mnt/work/x/challenge.ndjson
+== 2026-11-25T20:10:55Z +1110s
+MemTotal: 32859720 kB MemAvailable: 32060440 kB SwapTotal: 2097148 kB SwapFree: 2097148 kB 

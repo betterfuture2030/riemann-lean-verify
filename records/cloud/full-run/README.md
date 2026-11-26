@@ -61,7 +61,7 @@ The guest finished at 18:33 UTC. `watch`, which runs on the owner's computer, fe
 
 At the top: `facts.json` and `status.json` as the second attempt wrote them, `watch.log` (what `watch` printed on the owner's machine), and `ckpt/` (the run's final `state.json` and `manifest.tsv`, with the SHA-256 and size of each part). Under each `attempt-N/`: that machine's `env.txt`, `setup.tsv`, `phases.tsv`, `pilot.log`, `spot.log`, `progress.tsv`, `modules.tsv.gz` (one line per build job, with its seconds) and `system.tsv.gz`; from the first, `restart_tests.txt`; from the second, `disk.txt`, `disk_after_build.txt`, the axiom checks under `c2/` (`plain.json`, `deep.json`, their logs, and `deep.modules.tsv.gz`, every module the traversal touched), the replay under `c3/` (`results.tsv.gz`, one line per module and tool, and `summary.*`), and the small output files of each phase under `logs/`.
 
-Each file was written by `scripts/dev/scrub.py clean`; a home-directory path in each `env.txt` and the project and bucket names in `watch.log` were replaced by placeholders, and `deep.modules.tsv` was compressed.
+Each file was written by `scripts/dev/scrub.py clean`; a home-directory path in each `env.txt` and the project, bucket and work-directory names in `watch.log` were replaced by placeholders, and `deep.modules.tsv` was compressed.
 
 Not copied, for size. They are kept with the run's results, and their SHA-256 is given so that a copy can be recognised:
 

@@ -1,0 +1,30 @@
+con-ron: reading /mnt/work/x/challenge.ndjson
+con-ron: reading /mnt/work/x/solution.ndjson
+con-ron: parse done: 1468418 fold records — the file's 1468418, 0 built-in prelude records synthesised; store 1065701044 expression, 21605 level, 14065181 name nodes t=365.076s (parse 365.076s)
+con-ron: checking: 1468418 declarations on 32 workers t=365.076s
+con-ron: check 146842 (10%) t=369.671s
+con-ron: check 293684 (20%) t=387.311s
+con-ron: check 440526 (30%) t=409.314s
+con-ron: check 587368 (40%) t=443.483s
+con-ron: check 734209 (50%) t=466.905s
+con-ron: check 881051 (60%) t=497.437s
+con-ron: check 1027893 (70%) t=518.320s
+con-ron: check 1174735 (80%) t=542.682s
+con-ron: check 1321577 (90%) t=573.784s
+con-ron: check 1468418 (100%) t=598.681s
+con-ron: check done: 1468418 declarations t=598.703s (check 233.627s)
+con-ron: done: parse 365.076s, check 233.627s, 32 workers t=598.703s
+con-ron: parse done: 51692 fold records — the file's 51692, 0 built-in prelude records synthesised; store 1065701044 expression, 21605 level, 14065181 name nodes t=599.538s (parse 599.538s)
+con-ron: checking: 51692 declarations on 32 workers t=599.538s
+con-ron: check 5170 (10%) t=599.568s
+con-ron: check 10339 (20%) t=599.603s
+con-ron: check 15508 (30%) t=599.632s
+con-ron: check 20677 (40%) t=599.676s
+con-ron: check 25846 (50%) t=599.733s
+con-ron: check 31016 (60%) t=599.790s
+con-ron: check 36185 (70%) t=599.854s
+con-ron: check 41354 (80%) t=599.953s
+con-ron: check 46523 (90%) t=600.037s
+con-ron: check 51692 (100%) t=600.200s
+con-ron: check done: 51692 declarations t=600.202s (check 0.664s)
+con-ron: done: parse 599.538s, check 0.664s, 32 workers t=600.202s

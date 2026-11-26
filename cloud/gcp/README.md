@@ -1,9 +1,11 @@
-# Google Cloud: calibration pilot and full run
+# Google Cloud: calibration pilot, full run, and the checks on the export
 
-Two things live here, driven by one controller, `pilot_local.sh`.
+Four things live here, driven by one controller, `pilot_local.sh`.
 
 - **The calibration pilot** (`pilot_guest.sh`). One rented virtual machine compiles a time-boxed sample of the proof, measures what each module costs, uploads its measurements to a private bucket, and is deleted. The point is to estimate the cost of a full run before committing to one. It was run on 2026-11-20; its results are in [`records/cloud/pilot/`](../../records/cloud/pilot/).
-- **The full run** (`full_guest.sh`). One virtual machine builds the whole tree and runs the pre-registered checks. It is described at the end of this page. **It has been rehearsed on a seven-minute build, and never run in full on demand.** The same script can make the run on Spot machines, as a chain of machines that each carry on from what the last one saved; that is the last section of this page, and **the full run was made that way on 2026-11-22 and 23** ([`records/cloud/full-run/`](../../records/cloud/full-run/)).
+- **The full run** (`full_guest.sh`). One virtual machine builds the whole tree and runs the pre-registered checks. It is described in the section "The full run". **It has been rehearsed on a seven-minute build, and never run in full on demand.** The same script can make the run on Spot machines, as a chain of machines that each carry on from what the last one saved; that is the section "The full run on Spot machines", and **the full run was made that way on 2026-11-22 and 23** ([`records/cloud/full-run/`](../../records/cloud/full-run/)).
+- **The export check** (`export_guest.sh`). Builds nothing: from the compiled files a finished Spot run left in the bucket it exports the proof, compares the export with the published one and runs an independently written kernel on it. Run once, on 2026-11-24 ([`records/cloud/export-check/`](../../records/cloud/export-check/)).
+- **The kernel check** (`kernel_guest.sh`). Builds nothing and needs only the export: a second independent kernel, `lake comparator` with Lean's own kernel in its sandbox, and Lean's paranoid kernel. Rehearsed once and run once, on 2026-11-25 and 26 ([`records/cloud/kernel-check/`](../../records/cloud/kernel-check/)). It is the last section of this page.
 
 ## What you need
 
@@ -30,8 +32,8 @@ Run the rehearsal first. It exercises every phase with short windows and costs a
 | Control | What it does | What it does not do |
 |---|---|---|
 | Ledger and cap | `launch` refuses to create a VM whose worst case would take recorded spend past `GCP_SPEND_CAP_USD`. The run is recorded before anything is created | It estimates from machine-time and a list rate. The bill is authoritative |
-| Maximum run duration | The VM is created so that Google deletes it, with its disks, at a fixed time (50 minutes for the rehearsal, 6 hours for the pilot, 75 minutes for the full rehearsal, 42 hours for the full run) | It is cleared if the VM is stopped. For that reason the guest never powers itself off; it idles until deleted |
-| `watch` | Deletes the VM about a minute after the guest reports a final state, and also if the guest reports nothing for 25 minutes after creation or, in a full run, falls silent for half an hour | Nothing if your machine is off; the previous control covers that case. Interrupting `watch` tears a pilot down at once; for a full run it only stops watching |
+| Maximum run duration | The VM is created so that Google deletes it, with its disks, at a fixed time (50 minutes for the rehearsal, 6 hours for the pilot, 75 minutes for the full rehearsal, 42 hours for the full run, 5 hours for the export check, 20 hours for the kernel check) | It is cleared if the VM is stopped. For that reason the guest never powers itself off; it idles until deleted. The kernel check is the one exception: see its section |
+| `watch` | Deletes the VM about a minute after the guest reports a final state, and also if the guest reports nothing for 25 minutes after creation or, in a full run or a kernel check, falls silent for half an hour | Nothing if your machine is off; the previous control covers that case. Interrupting `watch` tears a pilot or an export check down at once; for a full run or a kernel check it only stops watching |
 | `teardown` | Deletes every VM and disk in the project, and closes the ledger only after the Compute API confirms none remain | It does not delete the bucket |
 | A Cloud Billing budget | Sends e-mail alerts | It does not stop spending |
 
@@ -71,7 +73,7 @@ prints the estimated hours for a full build and a full kernel replay on the same
 
 ## The full run
 
-**Rehearsed on demand; run in full once, on Spot machines (the last section of this page).** Six rehearsals found three faults, which were fixed. The third ran every phase with the stock tool for the replay and the whole library on its search path, the fifth with `rhv-replay`, and the sixth with the stock tool shown only what each module imports, which is how the driver now runs (two things have changed since: one line of the replay script, for short passes, and the code for Spot runs described at the end of this page, which is switched off here; with it switched off the script has been tested only locally); in each of those every step did what it should ([`records/cloud/full-rehearsals/`](../../records/cloud/full-rehearsals/)). A rehearsal builds about one module in a hundred, all of them shallow, on shortened settings; the paths no rehearsal reaches are listed at the end of that directory's README. Section 9 of [`docs/cloud-notes.md`](../../docs/cloud-notes.md) lists what four reviews of the scripts found and changed.
+**Rehearsed on demand; run in full once, on Spot machines (the section after this one).** Six rehearsals found three faults, which were fixed. The third ran every phase with the stock tool for the replay and the whole library on its search path, the fifth with `rhv-replay`, and the sixth with the stock tool shown only what each module imports, which is how the driver now runs (two things have changed since: one line of the replay script, for short passes, and the code for Spot runs described in the next section, which is switched off here; with it switched off the script has been tested only locally); in each of those every step did what it should ([`records/cloud/full-rehearsals/`](../../records/cloud/full-rehearsals/)). A rehearsal builds about one module in a hundred, all of them shallow, on shortened settings; the paths no rehearsal reaches are listed at the end of that directory's README. Section 9 of [`docs/cloud-notes.md`](../../docs/cloud-notes.md) lists what four reviews of the scripts found and changed.
 
 ```bash
 git status --short scripts cloud                      # must be empty: a full run is tied to one commit
@@ -135,7 +137,7 @@ bash cloud/gcp/pilot_local.sh watch                       # can be interrupted a
 
 | What | Detail |
 |---|---|
-| The cap | Each attempt is sized so that recorded spend, with the attempt run to its time limit, stays under `GCP_SPEND_CAP_USD` less a reserve of 1.00 USD for the checkpoints' storage. The ledger counts a Spot attempt at 1.20 USD an hour. No cap of 94 USD is needed, as it is for `launch full`: a run that the cap cannot carry to its end pauses, with its work kept |
+| The cap | Each attempt is sized so that recorded spend, with the attempt run to its time limit, stays under `GCP_SPEND_CAP_USD` less a reserve of 1.00 USD for the checkpoints' storage. The ledger counts a Spot attempt at 1.20 USD an hour. No cap that covers a whole worst case of 42 hours (84.07 USD on top of what is already recorded) is needed, as it is for `launch full`: a run that the cap cannot carry to its end pauses, with its work kept |
 | Expected cost | With no reclaim about 26 hours and 29 USD at list prices; about 24 minutes more for each reclaim. These are a model's figures ([`records/cloud/spot_resume_model.json`](../../records/cloud/spot_resume_model.json)); Google publishes no rate of reclaims |
 | The rehearsal | By default it ends an attempt during the build with Google's own simulated reclaim, a second at the seal by deleting the machine, and a third during the replay with a hard reset that gives no notice (`GCP_SPOT_REHEARSAL_CUTS`). The one rehearsal made cost 0.76 USD at the ledger rate; each attempt can cost at most about 1.55 |
 | A copy for you | With `GCP_RESULTS_MIRROR_DIR` set to a local folder, for example one that Google Drive for desktop syncs, `watch` copies the status, `facts.json`, the logs and each attempt's small results there every ten minutes and when each attempt ends. The checkpoints themselves stay in the bucket |
@@ -161,7 +163,33 @@ bash cloud/gcp/pilot_local.sh watch                       # collects the results
 | What it needs | The run named by `GCP_EXPORT_FROM` must have finished, its checkpoints must still be in the bucket, and its `facts.json` and `ckpt/manifest.tsv` must be in the local results folder, where `watch` put them |
 | Cost | The machine is limited to five hours, so the cap test counts about 10 USD. The one run took 2.2 hours and is recorded at 4.49 USD. The export of the proof is single-threaded and took 95 minutes of that |
 | What it writes | `export_facts.json`: the hashes, sizes, times and each program's exit status. It is a list of facts, not a verdict. The kernels' whole output is in `logs/` |
-| Known fault | The `nanoda` step passes the export where that program, it appears, expects a configuration file, and stops at once with status 101. It is recorded as such and does not end the run. Not yet corrected |
-| What it is not | `lake comparator`, which also runs Lean's own kernel over the export under a sandbox. Nor does it make the build any more sandboxed than it was |
+| Known fault | The `nanoda` step passes the export where that program expects a configuration file, and stops at once with status 101. It is recorded as such and does not end the run. This script has not been changed; `nanoda` is run correctly by the kernel check below |
+| What it is not | `lake comparator`, which also runs Lean's own kernel over the export under a sandbox: that is the kernel check below. Nor does it make the build any more sandboxed than it was |
 
 The launcher's local test (`scripts/dev/test_spot_launcher.sh`, 90 checks) was run after this mode was added and passed. It does not exercise this mode.
+
+## The kernel check
+
+**Rehearsed once and run once** (2026-11-25 and 26; [`records/cloud/kernel-check/`](../../records/cloud/kernel-check/)). The modes `kernel-check-rehearsal` and `kernel-check` build nothing and need neither the source nor the compiled files. On one on-demand machine they give the proof's export to `nanoda`, to `con-ron --compare`, to `lake comparator`, which compares the five statements and the axioms with the challenge in its own process and then runs Lean's own kernel over the export in its `bubblewrap` sandbox, and to Lean's paranoid kernel ([`kernel_guest.sh`](kernel_guest.sh), whose header lists each step, the two ways it differs from the published runs, and what it is not).
+
+```bash
+git status --short scripts cloud                          # must be empty
+export GCP_KERNEL_FROM=export-check-YYYYMMDD-HHMMSS       # a finished export check: its two hashes are the ones insisted on
+bash cloud/gcp/pilot_local.sh launch kernel-check-rehearsal   # a 4-vCPU machine, about 25 minutes
+bash cloud/gcp/pilot_local.sh watch
+bash cloud/gcp/pilot_local.sh launch kernel-check         # a 32-vCPU machine with 256 GB, about 12 hours
+bash cloud/gcp/pilot_local.sh watch                       # collects the results and deletes the machine
+```
+
+| What | Detail |
+|---|---|
+| What it needs | The run named by `GCP_KERNEL_FROM` must have finished with both exports equal to the published ones, its `export_facts.json` must be in the local results folder, and its challenge export must still be in the bucket. Nothing that `stage` uploads is used |
+| The rehearsal | Runs every step on small stand-ins, in minutes. It also does one piece of real work: it fetches the published copy of the proof's export (7.7 GB), checks it against the published SHA-256 and against the one the export check recorded, and keeps it in the bucket. `launch kernel-check` is refused until that file is there, unless `GCP_KERNEL_FETCH_OK=1` lets the large machine fetch it |
+| Cost | The long run's machine is limited to 20 hours, so the cap test counts 40.07 USD; the one run took 11.5 hours and is recorded at 22.97 USD. The rehearsal's is limited to 100 minutes at its own ledger rate of 0.30 USD an hour; the one rehearsal is recorded at 0.11 USD |
+| Why so large a machine | For memory. The two long checks use one core each for about ten hours and are run side by side: Lean's kernel peaked at 82.6 GiB and its paranoid build at 98.8. `GCP_KERNEL_LONG=0` runs only `nanoda` and `con-ron` |
+| The allocator setting | Lean's two kernels are run with `MIMALLOC_GENERIC_COLLECT=1000000`, without which they take about 48 and 72 hours on this export by the published measurements. `lake comparator` clears the environment of what it starts, so the setting reaches its kernel through a wrapper named as the sandbox program. The guest reads the running kernel's environment and stops it if the setting is missing |
+| When it ends | The guest uploads each checker's result as it ends, then a final state. `watch` then copies the results and deletes the machine. **If nobody collects them within twenty minutes the guest powers the machine off.** It does the same two minutes after reporting a failure, if its script has died or is still unfinished ten minutes after its own deadline, and at once if the machine is ever restarted. That ends the charge for the machine but cancels Google's deletion of it: the stopped machine and its two disks stay, and the disks bill about 1.4 USD a day, until `watch` or `teardown` is run. So keep `watch` running, and if it has stopped, start it again |
+| What it writes | `kernel_facts.json`: hashes, sizes, times, peak memory and each program's exit status and last line. It is a list of facts, not a verdict. Each checker's output is in `logs/`, with every sandbox command line `lake` issued (`bwrap_calls.log`) |
+| What it is not | A sandboxed build, since nothing is built. `lake comparator` as published: here the configuration is the community's without its two external kernels, which run beside it as a user with no network access and not in the sandbox. `lake comparator --paranoid`. `lean4lean` |
+
+The launcher's local test (`scripts/dev/test_spot_launcher.sh`) was run again on 2026-11-26, with these modes in the launcher, and passed (90 checks). It does not exercise them. The pieces of `kernel_guest.sh` that can run without a rented machine were tested separately against stand-ins ([`docs/cloud-notes.md`](../../docs/cloud-notes.md), section 10.10).

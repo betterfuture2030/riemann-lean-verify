@@ -1,0 +1,3 @@
+	Percent of CPU this job got: 1473%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 40:11.98
+	Exit status: 0

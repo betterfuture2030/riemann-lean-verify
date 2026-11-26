@@ -1,0 +1,16 @@
+{
+ "export_file_path": "/mnt/work/x/challenge.ndjson",
+ "use_stdin": false,
+ "num_threads": 4,
+ "permitted_axioms": [
+  "propext",
+  "Classical.choice",
+  "Quot.sound",
+  "sorryAx"
+ ],
+ "unpermitted_axiom_hard_error": false,
+ "nat_extension": true,
+ "string_extension": true,
+ "pp_to_stdout": true,
+ "print_success_message": true
+}

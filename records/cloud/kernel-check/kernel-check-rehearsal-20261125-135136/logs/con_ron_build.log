@@ -1,0 +1,74 @@
+info: downloading installer
+info: profile set to minimal
+info: default host tuple is x86_64-unknown-linux-gnu
+info: syncing channel updates for stable-x86_64-unknown-linux-gnu
+info: latest update on 2026-11-12 for version 1.100.0 (0ef1bc386 2026-11-09)
+info: downloading 3 components
+info: default toolchain set to stable-x86_64-unknown-linux-gnu
+
+  stable-x86_64-unknown-linux-gnu installed - rustc 1.100.0 (0ef1bc386 2026-11-09)
+
+
+Rust is installed now. Great!
+
+To get started you need Cargo's bin directory (/opt/rust/cargo/bin) in your 
+PATH
+environment variable. This has not been done automatically.
+
+To configure your current shell, you need to source
+the corresponding env file under /opt/rust/cargo.
+
+Consider running the right command for your shell (note the leading DOT):
+. "/opt/rust/cargo/env" # For sh/ash/dash/pdksh/bash
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+cargo:rerun-if-env-changed=CPATH
+cargo:rerun-if-env-changed=C_INCLUDE_PATH
+cargo:rerun-if-env-changed=CPLUS_INCLUDE_PATH
+cargo:rerun-if-env-changed=OBJC_INCLUDE_PATH
+cargo:rerun-if-env-changed=OBJCPLUS_INCLUDE_PATH
+cargo:rerun-if-env-changed=COMPILER_PATH
+cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH
+cargo:rerun-if-env-changed=GCC_EXEC_PREFIX
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded mimalloc v0.1.52
+  Downloaded shlex v2.0.1
+  Downloaded find-msvc-tools v0.1.12
+  Downloaded cc v1.4.5
+  Downloaded libmimalloc-sys v0.1.49
+   Compiling find-msvc-tools v0.1.12
+   Compiling shlex v2.0.1
+   Compiling con-ron-core v0.1.0 (/opt/kernels/con-ron/crates/con-ron-core)
+   Compiling cc v1.4.5
+   Compiling libmimalloc-sys v0.1.49
+   Compiling mimalloc v0.1.52
+   Compiling con-ron-dump v0.1.0 (/opt/kernels/con-ron/crates/con-ron-dump)
+   Compiling con-ron v0.1.0 (/opt/kernels/con-ron/crates/con-ron)
+warning: unused dependency `mimalloc`
+  --> crates/con-ron-dump/Cargo.toml:26:1
+   |
+26 | mimalloc = { version = "0.1.52", optional = true }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::unused_dependencies` is set to `warn` by default
+help: consider removing the dependency on `mimalloc`
+warning: `con-ron-dump` (manifest) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 18.91s

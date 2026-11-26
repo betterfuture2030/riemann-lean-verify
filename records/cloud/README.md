@@ -1,6 +1,6 @@
 # Cloud price and capacity records
 
-The research behind the choice of machine for the Google Cloud pilot in [`../../cloud/gcp/`](../../cloud/gcp/), and, in [`pilot/`](pilot/), what the pilot then measured.
+The research behind the choice of machine for the Google Cloud pilot in [`../../cloud/gcp/`](../../cloud/gcp/); in [`pilot/`](pilot/), what the pilot then measured; and, in the other directories, what each later run wrote. [`ledger.tsv`](ledger.tsv) lists every launch made for this work, with its machine time and recorded cost: 69.40 USD in all on 2026-11-26.
 
 ## Date and source
 
@@ -17,8 +17,8 @@ This is a dated snapshot, not a quotation. Cloud prices, Spot prices in particul
 `cloud_options.json`, `gcp_pricing.json` and `gcp_budget_review.json` were written by AI research agents with web access. Parts of the first two were re-checked by further agents, whose results are stored alongside (`checks`, `skeptic`). `gcp_budget.json` is the output of a short budget script, and `gcp_budget_review.json` is three agents' criticism of it. `gcp_family_rates.json`, `gcp_candidates.json` and `gcp_machine_types.csv` are extracts of Google's catalogue data.
 
 - A price marked `first_party: true` was read from the provider's own page or catalogue. Statements the agents marked "from memory" or "not re-checked" are exactly that.
-- Every time and cost estimate is a model. The only measured input is the local compile rate in [`../mac-build/tuning2.tsv`](../mac-build/tuning2.tsv). The conversion from that rate to hours on a rented machine rests on assumed factors, and the reviews in these files dispute several of them.
-- The files in this directory were written before anything had run in the cloud, and none of their estimates had been compared with a real run. The pilot ran later on 2026-11-20. Its measurements and the estimate derived from them are in [`pilot/`](pilot/); they supersede the time and cost models here, which are kept as a record of what was believed beforehand and how far off it was.
+- Every time and cost estimate in the price and budget files is a model. The only measured input is the local compile rate in [`../mac-build/tuning2.tsv`](../mac-build/tuning2.tsv). The conversion from that rate to hours on a rented machine rests on assumed factors, and the reviews in these files dispute several of them.
+- The price and budget files named above were written before anything had run in the cloud, and none of their estimates had been compared with a real run. The pilot ran later on 2026-11-20. Its measurements and the estimate derived from them are in [`pilot/`](pilot/); they supersede the time and cost models here, which are kept as a record of what was believed beforehand and how far off it was.
 
 ## Files
 
@@ -26,7 +26,7 @@ This is a dated snapshot, not a quotation. Cloud prices, Spot prices in particul
 |---|---|
 | `cloud_options.json` | `research`: four notes (`aws`, `gcp-azure`, `budget-baremetal`, `lean-scaling`), each with options, practicalities and caveats. `synthesis`: ranked recommendations, a time model, set-up steps and the main uncertainties. `checks`: independent re-reads of five of the quoted prices. `skeptic`: a critical review of the time model, with a revised range of 3.5 to 40 hours |
 | `gcp_pricing.json` | `amd` and `intel`: per-family component rates and whole-machine hourly prices, on demand and Spot, with the arithmetic. `storage`: disk options and prices, billing rules, and what budget alerts do and do not do. `quota`: how Compute Engine quotas apply to large machines and which increases each machine would need. `checks`: independent re-reads of 22 prices |
-| `gcp_family_rates.json` | Component rates by machine family, extracted from the SKU catalogue for `us-central1`. A key is `FAMILY|Core|OnDemand`, `FAMILY|Ram|OnDemand`, or the same with `Preemptible`, which is the catalogue's name for Spot. `Core` values are US dollars per vCPU-hour; `Ram` values are US dollars per GiB-hour |
+| `gcp_family_rates.json` | Component rates by machine family, extracted from the SKU catalogue for `us-central1`. A key is `FAMILY\|Core\|OnDemand`, `FAMILY\|Ram\|OnDemand`, or the same with `Preemptible`, which is the catalogue's name for Spot. `Core` values are US dollars per vCPU-hour; `Ram` values are US dollars per GiB-hour |
 | `gcp_budget.json` | Output of a budget model. `inputs`: the local rate (3,230.4 modules per hour at a cap of 8), the assumed scenario factors, and the resulting amount of work in performance-core-hours. `options`: six machine configurations, A to F, each with `low`, `expected` and `high` scenarios giving build, verification and billed hours and compute, disk and total cost |
 | `gcp_budget_review.json` | Three reviews of `gcp_budget.json`, by `lens`: `model-skeptic`, `gcp-operations` and `alternatives`. Each has `overall`, `summary`, `errors`, `revised_option_A` and `recommendation`. All three rate the model `usable_with_corrections` |
 | `gcp_candidates.json` | 31 machine types with at least 96 vCPUs that were considered: vCPUs, memory in GB, the US regions that offer them, and the `us-central1` zones that do |
@@ -36,6 +36,10 @@ This is a dated snapshot, not a quotation. Cloud prices, Spot prices in particul
 | `spot-rehearsals/` | Records of the rehearsal of the same driver as a chain of Spot machines that each carry on from what the last one saved; see its README |
 | `full-run/` | Records of the one full run, made that way on 2026-11-22 and 23: `facts.json`, the axiom checks, the replay's result for every module, and each machine's logs; see its README |
 | `export-check/` | Records of the one run of the mode `export-check`, on 2026-11-24: the full run's compiled files exported by `lean4export`, both exports compared with the published hashes, and the output of `con-leche`; see its README |
+| `kernel-check/` | Records of the two runs of the modes `kernel-check-rehearsal` and `kernel-check`, on 2026-11-25 and 26: the output of `nanoda`, of `con-ron --compare`, of `lake comparator` with Lean's kernel in its sandbox, and of Lean's paranoid kernel on the proof's export, with times and peak memory; see its README |
+| `kernel_check_review.json` | AI review of the script behind those runs and of the launcher's two new modes, made before either run: four areas (the shell, fidelity to the published method, money and lost results, the launcher), each re-examined by a second agent. 22 defects reported, all upheld, and 6 more found in the second look; none a blocker. It records the findings and not what was done about each. Criticism of code, not a result |
+| `kernel_check_record_review.json` | AI review of how the kernel check was written up, made before the write-up was committed: six areas (the numbers, the method, what is said of the published record, overclaiming and missing limits, consistency across the repository, privacy), each re-examined by a second agent. 69 points raised and 68 upheld, with 24 more found in the second look; 2 rated major, both about what others had published, and none about a result of the run. The pages were changed accordingly, apart from points about comments in the committed scripts, which were left as they are |
+| `ledger.tsv` | The launcher's ledger as it stood on 2026-11-26: one row for every launch, with the mode, the machine type, the rate the ledger counts, the zone, when the machine was created and deleted, and the machine time and cost recorded. The first row is a launch that found no capacity and created nothing, and the zone of the first two rows reads `pending`. The costs are machine time at a list rate rounded up; the bill is authoritative and is not here |
 | `replay_cost.json` | Output of `analysis/replay_cost.py`: the cost of one kernel check as measured at two sizes of tree, the line through them, and what a replay of the whole tree and a whole run are then estimated to cost by three ways of running it. The two ways that are not the first are projections; for the second, the file also holds what the sixth rehearsal measured on shallow modules |
 | `replay_method_review.json` | First AI review of the second replay program `rhv-replay` and the scripts around it: five lenses, each re-checked by a second agent. Criticism of code, not a result |
 | `replay_method_recheck.json` | Second AI review of the same, after the changes the first led to: four areas, each re-checked |
@@ -53,9 +57,9 @@ Where the reviews mention current quota values, such as a limit of 32 vCPUs acro
 
 ## Sanitising
 
-`gcp_pricing.json` and `gcp_budget_review.json` each named a temporary directory on the machine where the research was run. Those paths now read `<SCRATCH>`. The other files are byte-for-byte copies. See [`../README.md`](../README.md).
+`gcp_pricing.json` and `gcp_budget_review.json` each named a temporary directory on the machine where the research was run. Those paths now read `<SCRATCH>`. In `kernel_check_review.json` and `kernel_check_record_review.json` the paths of the repository and of a scratch directory read `<REPO>` and `<SCRATCH>`. Seven of the other review files at this level carry placeholders in the same way (`c3_amendment_draft_review.json`, `closure_replay_review.json`, `full_run_driver_review.json`, `full_run_driver_recheck.json`, `replay_method_review.json`, `replay_method_recheck.json` and `spot_resume_recheck.json`); a file at this level with no placeholder is a byte-for-byte copy. Each run's directory says what was changed in it. See [`../README.md`](../README.md).
 
 ## Not included
 
 - The raw SKU catalogue (about 29 MB, 33,659 entries). It is public; download the current one from Google.
-- Quota responses and the pilot's local state file. They describe one cloud account. The pilot's spend ledger, which names no account, is in [`pilot/ledger.tsv`](pilot/ledger.tsv).
+- Quota responses and the pilot's local state file. They describe one cloud account. The spend ledger, which names no account, is in [`ledger.tsv`](ledger.tsv); [`pilot/ledger.tsv`](pilot/ledger.tsv) is the same file as it stood after the pilot.

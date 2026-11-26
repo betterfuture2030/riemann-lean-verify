@@ -1,0 +1,35 @@
+13:52:03 no-status none 0 -
+13:52:52 setup RUNNING 0 installing
+13:54:30 inputs RUNNING 77 fetching the two exports and checking their hashes
+14:05:10 inputs RUNNING 758 unpacking and hashing the proof's export
+14:08:26 smoke RUNNING 919 running every checker on a small input first
+14:10:05 kernels RUNNING 1023 the checkers, on the proof's export
+14:10:54 kernels RUNNING 1073  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 0 min; paranoid: running 0 min;
+14:11:43 kernels DONE 1119 all steps ran; read kernel_facts.json
+guest reported DONE
+results copied to <WORKDIR>/analysis/pilot/kernel-check-rehearsal-20261125-135136: env.txt facts.tsv heartbeat kernel_facts.json logs phases.tsv pilot.log setup.tsv status.json 
+deleting instance lean-kernel-check-rehearsal in us-central1-b
+Deleted [https://www.googleapis.com/compute/v1/projects/<PROJECT_ID>/zones/us-central1-b/instances/lean-kernel-check-rehearsal].
+verified: no instances and no disks remain in the project
+--- archives of compiled files kept in the bucket (they cost storage until you delete them):
+8.69GiB      gs://<BUCKET>/keep/
+--- other billable compute resources (should be empty):
+runtag                                  mode                    machine         usd_per_hour  zone           created_epoch  ended_epoch  seconds  usd
+rehearsal-20261120-160144               rehearsal               n4d-highmem-32  2.00          pending        1795212104     1795212104   0        0.00
+rehearsal-20261120-160322               rehearsal               n4d-highmem-32  2.00          pending        1795212202     1795213223   1021     0.57
+pilot-20261120-162141                   pilot                   n4d-highmem-32  2.00          us-east1-b     1795213301     1795223780   10479    5.82
+full-rehearsal-20261120-211809          full-rehearsal          n4d-highmem-32  2.00          us-east1-b     1795231090     1795231443   353      0.20
+full-rehearsal-20261120-212636          full-rehearsal          n4d-highmem-32  2.00          us-east1-b     1795231596     1795232738   1142     0.63
+full-rehearsal-20261120-214914          full-rehearsal          n4d-highmem-32  2.00          us-central1-b  1795232954     1795234170   1216     0.68
+full-rehearsal-20261120-233826          full-rehearsal          n4d-highmem-32  2.00          us-central1-b  1795239506     1795240378   872      0.48
+full-rehearsal-20261120-235539          full-rehearsal          n4d-highmem-32  2.00          us-central1-b  1795240539     1795241714   1175     0.65
+full-rehearsal-20261121-113516          full-rehearsal          n4d-highmem-32  2.00          us-east1-b     1795282516     1795284003   1487     0.83
+full-spot-rehearsal-20261122-092917     full-spot-rehearsal#1   n4d-highmem-32  1.20          us-central1-a  1795361363     1795361771   408      0.14
+full-spot-rehearsal-20261122-092917     full-spot-rehearsal#2   n4d-highmem-32  1.20          us-central1-a  1795361793     1795362416   623      0.21
+full-spot-rehearsal-20261122-092917     full-spot-rehearsal#3   n4d-highmem-32  1.20          us-central1-a  1795362437     1795362833   396      0.13
+full-spot-rehearsal-20261122-092917     full-spot-rehearsal#4   n4d-highmem-32  1.20          us-central1-a  1795362855     1795363703   848      0.28
+full-spot-20261122-150121               full-spot#1             n4d-highmem-32  1.20          us-central1-a  1795381288     1795385803   4515     1.50
+full-spot-20261122-150121               full-spot#2             n4d-highmem-32  1.20          us-central1-a  1795385824     1795474952   89128    29.71
+export-check-20261123-180914            export-check            n4d-highmem-32  2.00          us-east1-b     1795478954     1795487038   8084     4.49
+kernel-check-rehearsal-20261125-135136  kernel-check-rehearsal  n4d-highmem-4   0.30          us-central1-b  1795636297     1795637661   1364     0.11
+estimated spend so far: $46.43 of $100 cap (machine-time x 2.00 USD/h, rounded up; the bill is authoritative)

@@ -1,0 +1,37 @@
+# Snapshot of the local build, taken 2026-11-26 02:33:29 CST (2026-11-26T08:33Z).
+# Output of scripts/06_progress.sh.
+
+== Build snapshot 2026-11-26 02:33:29
+work directory: <WORKDIR>
+state: RUNNING (launcher pid 29959, lake pid 29976 )
+runs so far: 16   last entries of the status file:
+  START 2026-11-20 14:18:26 epoch=1795205906 threads=8 log=<WORKDIR>/logs/build-20261120-141826.log
+  START 2026-11-23 17:02:12 epoch=1795474932 threads=8 log=<WORKDIR>/logs/build-20261123-170212.log
+
+== Modules
+compiled: 149438 of 175187 (85.30%)
+FAILED jobs: 0 line(s) in all build logs, 0 distinct target(s)
+current log: <WORKDIR>/logs/build-20261123-170212.log
+  compiled in this run: 28500   jobs with warnings (including replayed ones): 90414
+  last job line: ✔ [158141/158175] Built GroundTheory.HeightsAndTheta.Heights.ArithmeticBezout.StatementsChartResidueDegreeAlgClosed (69s)
+
+== Rate
+current run: 28500 modules in 57.52 h with 8 jobs = 495 modules/hour
+last 15 minutes: 107 modules = 428 modules/hour
+naive time remaining: at least 60 hours (2.5 days) at 428 modules/hour
+  This is a floor, not a forecast: it assumes the recent rate holds for all remaining
+  modules, and later modules tend to import more of the project than earlier ones.
+
+== Compiler processes
+lean: 8   leanchecker: 0
+    2053 MB       00:57  PConeHypersurfaceDim.lean
+    2052 MB       00:50  PComplexFibreCycle.lean
+    1964 MB       02:51  HeightG.lean
+    1858 MB       00:14  PChowFormBirationalAlgClosed.lean
+    1858 MB       00:17  PChartResidueDegreeAlgClosed.lean
+
+== Memory and disk
+cores: 10   memory: 24 GB   load: 6.16 6.61 7.18
+  System-wide memory free percentage: 27%
+  swap: total = 18432.00M  used = 17777.06M  free = 654.94M  (encrypted)
+free disk in the work directory's filesystem: 2524 GB

@@ -1,8 +1,8 @@
 # Records
 
-Evidence files from the work done so far. Everything here was recorded between 2026-11-20 and 2026-11-23.
+Evidence files from the work done so far. Everything here was recorded between 2026-11-20 and 2026-11-26.
 
-Status on 2026-11-23: one full run in the cloud had recorded each of the three pre-registered criteria as holding (`cloud/full-run/`), and the build on the Mac was still in progress. These records identify the input, document how the local build was run, preserve the research behind the cloud work, and hold what the pilot, the rehearsals and the full run wrote. Apart from `cloud/full-run/`, none of them bears on whether the criteria hold.
+Status on 2026-11-26: one full run in the cloud had recorded each of the three pre-registered criteria as holding (`cloud/full-run/`), two later runs had made further checks on the exported proof (`cloud/export-check/`, `cloud/kernel-check/`), and the build on the Mac was still in progress. These records identify the input, document how the local build was run, preserve the research behind the cloud work, and hold what the pilot, the rehearsals and those runs wrote. Apart from `cloud/full-run/`, none of them bears on whether the criteria hold; the two later runs are outside the criteria.
 
 The proof source itself is not here and is not redistributed. Build logs, the archive listing and anything tied to a cloud account are not here either (see "What is left out").
 
@@ -39,6 +39,7 @@ The proof source itself is not here and is not redistributed. Build logs, the ar
 | `mac-build/mapped-files-sample.txt` | Files memory-mapped by one running compiler process, by type |
 | `mac-build/progress-20261120-2001.txt` | Dated snapshot of the build: modules compiled, failures, rate, and space taken by setup files |
 | `mac-build/progress-20261121-0931.txt` | A later snapshot: 59,988 modules compiled, no failures, and how deep in the import graph the compiled modules reach |
+| `mac-build/progress-20261126-0233.txt` | A snapshot of 2026-11-26: 149,438 modules compiled, no failures |
 
 ### `audit/` - static reading of the source
 
@@ -63,8 +64,14 @@ The proof source itself is not here and is not redistributed. Build logs, the ar
 | `cloud/full_run_driver_recheck.json` | Two reviews of the driver as rewritten after those |
 | `cloud/full-rehearsals/` | Records of each rehearsal of the full-run driver, with what it found |
 | `cloud/spot-rehearsals/` | Records of the rehearsal of the same driver as a chain of Spot machines |
+| `cloud/spot_resume_model.json` | What a full run on Spot machines that resumes is modelled to cost, from `analysis/spot_resume_model.py` |
+| `cloud/spot_resume_review.json`, `cloud/spot_resume_recheck.json` | AI review of the code for that Spot run before anything was launched, and the four later looks at it |
 | `cloud/full-run/` | Records of the one full run: the facts it recorded for C1, C2 and C3, the per-module replay results, and each machine's logs |
 | `cloud/export-check/` | Records of the export check of 2026-11-24: the proof exported from the full run's compiled files and compared with the published export, and an independently written kernel's output on it |
+| `cloud/kernel-check/` | Records of the kernel check of 2026-11-25 and 26 and of its rehearsal: a second independent kernel, `lake comparator` with Lean's own kernel in its sandbox, and Lean's paranoid kernel on the exported proof |
+| `cloud/kernel_check_review.json` | AI review of the script behind the kernel check, made before it ran |
+| `cloud/kernel_check_record_review.json` | AI review of how the kernel check was written up, made before the write-up was committed |
+| `cloud/ledger.tsv` | Every launch made for this work, with its machine time and recorded cost |
 | `cloud/replay_cost.json` | What a kernel replay of the whole tree is estimated to cost by each of three ways of running it, from `analysis/replay_cost.py` |
 | `cloud/replay_method_review.json`, `cloud/replay_method_recheck.json` | Two rounds of AI review of the second replay program and the scripts around it |
 | `cloud/closure_replay_review.json`, `cloud/closure_replay_recheck.json` | Two rounds of AI review of the kernel replay as it now runs (the stock tool with import-closure search paths) and of the cloud driver's replay phase |
@@ -115,10 +122,14 @@ Every file in this directory, apart from the README files, was written by `scrip
 |---|---|
 | `<WORKDIR>` | The working directory of the local build (`RH_WORKDIR` in `config.env`) |
 | `<HOME>` | A home directory |
+| `<VOLUME>` | The path at which a disk is mounted on the machine where a file was written |
 | `<SCRATCH>` | A temporary or session scratch directory |
 | `<REDACTED>` | A name from a private list, here the name of a local disk |
+| `<REPO>` | The directory of this repository on the machine where a file was written |
+| `<BUCKET>`, `<PROJECT_ID>` | The names of the storage bucket and of the cloud project (`GCP_BUCKET` and `GCP_PROJECT` in `config.env`) |
+| `<EMAIL>` | Anything in the form of an e-mail address other than the public contact address |
 
-Six files were changed by it: `mac-build/build-status.txt` (15 paths), `mac-build/progress-20261120-2001.txt` (3 paths), `audit/audit_results.json` (846 paths), `cloud/gcp_pricing.json` (1 path), `cloud/gcp_budget_review.json` (2 paths) and `cloud/pilot/pilot_estimate_review.json` (1 path and 1 name of a local disk). All other files are byte-for-byte copies of the originals; those whose name ends in `.gz` are byte-for-byte copies before compression. No numbers, hashes, module names or findings were altered.
+When this list was first made, six files had been changed by it: `mac-build/build-status.txt` (15 paths), `mac-build/progress-20261120-2001.txt` (3 paths), `audit/audit_results.json` (846 paths), `cloud/gcp_pricing.json` (1 path), `cloud/gcp_budget_review.json` (2 paths) and `cloud/pilot/pilot_estimate_review.json` (1 path and 1 name of a local disk). Records added since that quote a local path, the bucket or the project carry the same placeholders: most of the review files under `cloud/`, and logs in the directories of the cloud runs. A file with none of these placeholders is a byte-for-byte copy of the original; those whose name ends in `.gz` are byte-for-byte copies before compression. No numbers, hashes, module names or findings were altered.
 
 ## What is left out
 

@@ -11,8 +11,8 @@ Nothing here needs an AI system. The scripts are short shell and Python and are 
 | 0 | What is claimed and on what evidence | Minutes | None | No |
 | 1 | The source is the recorded artifact; it contains none of the usual shortcuts; it states the real theorem against the real Mathlib | 5 to 15 minutes | About 2 GB | No |
 | 2 | The toolchain and Mathlib cache work; the final reduction step is kernel-checked on standard axioms; a sample of modules passes kernel replay | About an hour | About 10 GB | Yes |
-| 3 | The whole tree compiles, or does not | Days on a laptop; an estimated 16 hours on a 32-vCPU cloud machine | 200 GB to 1.5 TB | Yes |
-| 4 | The pre-registered verdict: axioms and statement of the compiled theorem, and a full kernel replay | Days to weeks more on a laptop; an estimated 10 hours more on that cloud machine (a projection; [`cloud-notes.md`](cloud-notes.md), section 8.5) | Same | Yes |
+| 3 | The whole tree compiles, or does not | Days on a laptop; 13.8 hours in the one cloud run, on 32-vCPU machines (estimated beforehand at 16) | 200 GB to 1.5 TB | Yes |
+| 4 | The pre-registered verdict: axioms and statement of the compiled theorem, and a full kernel replay | Days to weeks more on a laptop; in that cloud run, 7.2 hours for the kernel replay and 9 minutes for the axiom walk ([`cloud-notes.md`](cloud-notes.md), section 10.8; projected beforehand at about 10 hours) | Same | Yes |
 
 ## Level 0: read
 
@@ -108,7 +108,7 @@ Two things to do before starting:
 
 A module that fails is not necessarily a failure of the proof. If the compiler process was killed for lack of memory, re-run with fewer jobs. The rule this project uses is in section 4 of the pre-registration: a module counts as failing only when it fails with a Lean error, reproducibly, with enough memory.
 
-On Google Cloud, [`cloud/gcp/`](../cloud/gcp/) has a calibration pilot that measures the cost on a rented machine before you commit to a full run. Its results from 2026-11-20, and the estimates built on them, are in [`cloud-notes.md`](cloud-notes.md), section 8: about 16 hours for a full build, and for the kernel replay after it a projected 8.5 hours (section 8.5).
+On Google Cloud, [`cloud/gcp/`](../cloud/gcp/) has a calibration pilot that measures the cost on a rented machine before you commit to a full run. Its results from 2026-11-20, and the estimates built on them, are in [`cloud-notes.md`](cloud-notes.md), section 8: about 16 hours for a full build, and for the kernel replay after it a projected 8.5 hours (section 8.5). The one full run made since, on Spot machines, took 13.8 and 7.2 hours (section 10.8; [`../cloud/gcp/README.md`](../cloud/gcp/README.md)).
 
 ## Level 4: the verdict
 
@@ -136,6 +136,10 @@ scripts/09_kernel_replay.sh --method rhv-replay     # a second replay of every m
 The last is optional and is not part of the criterion. `rhv-replay` is a small program in this repository that calls the same replay function of the same toolchain on exact module names. Before it runs, the script compares the copy of the function in [`../scripts/verify/replay/RhvReplay.lean`](../scripts/verify/replay/RhvReplay.lean) with the toolchain's own source and stops if they differ. You can make the same comparison by eye: the function is 23 lines, and the rest of the file is a loop that calls it. Its results are recorded beside the stock tool's, and a module that either tool rejects is never counted as passed.
 
 A rejection is not retried away. A module that a tool rejects or crashes on is run by that tool again: twice, or until it is rejected a second time, which makes it a failure. Every result is kept, and whatever the later runs say the module does not count as passed in that results file. If that happens, report it with the files under `RH_WORKDIR/analysis/kernel_replay/out`.
+
+## Beyond level 4: the export and the checkers that read it
+
+These are outside the pre-registered verdict ([`../CLAIMS.md`](../CLAIMS.md), X1 to X6) and follow the community's method. Here they have been run only on rented machines: `launch export-check`, which needs the compiled files of a finished Spot run in your bucket, then `launch kernel-check-rehearsal` and `launch kernel-check`, which need a finished export check of your own and about 12 hours on a 32-vCPU machine with 256 GB. Commands, cost and limits are in [`../cloud/gcp/README.md`](../cloud/gcp/README.md), sections "The export check" and "The kernel check". The published record gives commands for making the same checks by hand on the published files: <https://math.mit.edu/~drew/grh/>.
 
 ## If something does not reproduce
 

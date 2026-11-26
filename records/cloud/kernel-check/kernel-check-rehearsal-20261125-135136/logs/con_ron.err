@@ -1,0 +1,31 @@
+con-ron: reading /mnt/work/tiny/Challenge.export
+con-ron: reading /mnt/work/tiny/Solution.export
+con-ron: 2 declarations hoisted ahead of the pinned Nat operations they ground: Nat.mul._f, Nat.mul
+con-ron: parse done: 720 fold records — the file's 719, 1 built-in prelude records synthesised; store 61378 expression, 30 level, 4717 name nodes t=0.044s (parse 0.044s)
+con-ron: checking: 720 declarations on 4 workers t=0.044s
+con-ron: check 72 (10%) t=0.047s
+con-ron: check 144 (20%) t=0.048s
+con-ron: check 216 (30%) t=0.051s
+con-ron: check 288 (40%) t=0.053s
+con-ron: check 360 (50%) t=0.061s
+con-ron: check 432 (60%) t=0.066s
+con-ron: check 504 (70%) t=0.070s
+con-ron: check 576 (80%) t=0.079s
+con-ron: check 648 (90%) t=0.094s
+con-ron: check 720 (100%) t=0.174s
+con-ron: check done: 720 declarations t=0.174s (check 0.130s)
+con-ron: done: parse 0.044s, check 0.130s, 4 workers t=0.174s
+con-ron: parse done: 472 fold records — the file's 471, 1 built-in prelude records synthesised; store 61378 expression, 30 level, 4717 name nodes t=0.177s (parse 0.177s)
+con-ron: checking: 472 declarations on 4 workers t=0.177s
+con-ron: check 48 (10%) t=0.178s
+con-ron: check 95 (20%) t=0.179s
+con-ron: check 142 (30%) t=0.180s
+con-ron: check 189 (40%) t=0.182s
+con-ron: check 236 (50%) t=0.183s
+con-ron: check 284 (60%) t=0.185s
+con-ron: check 331 (70%) t=0.187s
+con-ron: check 378 (80%) t=0.192s
+con-ron: check 425 (90%) t=0.194s
+con-ron: check 472 (100%) t=0.312s
+con-ron: check done: 472 declarations t=0.313s (check 0.136s)
+con-ron: done: parse 0.177s, check 0.136s, 4 workers t=0.313s

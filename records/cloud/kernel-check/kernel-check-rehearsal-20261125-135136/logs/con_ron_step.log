@@ -1,0 +1,5 @@
+### 2026-11-25T19:53:42Z +77s  step: con_ron_build
+### 2026-11-25T19:53:52Z +87s  FACT rustc_version = rustc 1.100.0 (0ef1bc386 2026-11-09)
+### 2026-11-25T19:53:59Z +94s  FACT con_ron_commit = 3f22699b8fd370f97fa9a784f7df7c5decf8e100
+### 2026-11-25T19:54:18Z +113s  FACT con_ron_binary_sha256 = 98e3a60e53535626f263903588bf58c387d2e8b5edb8c08fbf354ca9528a76be
+### 2026-11-25T19:54:18Z +113s  FACT con_ron_help_last_line = this build's global allocator: mimalloc

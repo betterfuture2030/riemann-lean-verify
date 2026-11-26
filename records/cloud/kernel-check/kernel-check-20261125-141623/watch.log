@@ -1,0 +1,170 @@
+14:16:58 no-status none 0 -
+14:17:46 setup RUNNING 0 installing
+14:18:36 inputs RUNNING 52 fetching the two exports and checking their hashes
+14:19:25 inputs RUNNING 106 unpacking and hashing the proof's export
+14:21:04 smoke RUNNING 212 waiting for con-ron to finish building
+14:25:11 kernels RUNNING 472 the checkers, on the proof's export
+14:30:06 kernels RUNNING 773  nanoda: running 5 min; con_ron: running 5 min; comparator: running 5 min;
+14:35:51 kernels RUNNING 1080  nanoda: running 10 min; con_ron: ended with status 0; comparator: running 10 min;
+14:40:48 kernels RUNNING 1380  nanoda: running 15 min; con_ron: ended with status 0; comparator: running 15 min;
+14:45:46 kernels RUNNING 1681  nanoda: running 20 min; con_ron: ended with status 0; comparator: running 20 min;
+14:50:43 kernels RUNNING 1982  nanoda: running 25 min; con_ron: ended with status 0; comparator: running 25 min;
+14:55:39 kernels RUNNING 2283  nanoda: running 30 min; con_ron: ended with status 0; comparator: running 30 min;
+15:00:34 kernels RUNNING 2583  nanoda: running 35 min; con_ron: ended with status 0; comparator: running 35 min;
+15:05:30 kernels RUNNING 2883  nanoda: running 40 min; con_ron: ended with status 0; comparator: running 40 min;
+15:10:28 kernels RUNNING 3190  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 45 min; paranoid: running 4 min;
+15:15:32 kernels RUNNING 3491  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 50 min; paranoid: running 9 min;
+15:20:35 kernels RUNNING 3791  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 55 min; paranoid: running 14 min;
+15:25:40 kernels RUNNING 4091  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 60 min; paranoid: running 19 min;
+15:30:44 kernels RUNNING 4391  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 65 min; paranoid: running 24 min;
+15:35:44 kernels RUNNING 4692  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 70 min; paranoid: running 29 min;
+15:40:47 kernels RUNNING 4992  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 75 min; paranoid: running 34 min;
+15:45:46 kernels RUNNING 5292  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 80 min; paranoid: running 39 min;
+15:50:42 kernels RUNNING 5593  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 85 min; paranoid: running 44 min;
+15:55:39 kernels RUNNING 5893  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 90 min; paranoid: running 49 min;
+16:00:35 kernels RUNNING 6193  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 95 min; paranoid: running 54 min;
+16:05:33 kernels RUNNING 6494  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 100 min; paranoid: running 59 min;
+16:10:32 kernels RUNNING 6794  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 105 min; paranoid: running 64 min;
+16:15:32 kernels RUNNING 7094  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 110 min; paranoid: running 69 min;
+16:20:30 kernels RUNNING 7395  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 115 min; paranoid: running 74 min;
+16:25:31 kernels RUNNING 7695  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 120 min; paranoid: running 79 min;
+16:30:29 kernels RUNNING 7995  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 125 min; paranoid: running 84 min;
+16:35:30 kernels RUNNING 8295  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 130 min; paranoid: running 89 min;
+16:41:14 kernels RUNNING 8596  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 135 min; paranoid: running 94 min;
+16:46:09 kernels RUNNING 8896  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 140 min; paranoid: running 99 min;
+16:51:04 kernels RUNNING 9196  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 145 min; paranoid: running 104 min;
+16:56:06 kernels RUNNING 9497  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 150 min; paranoid: running 109 min;
+17:01:01 kernels RUNNING 9797  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 155 min; paranoid: running 114 min;
+17:05:57 kernels RUNNING 10097  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 160 min; paranoid: running 119 min;
+17:10:53 kernels RUNNING 10398  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 165 min; paranoid: running 124 min;
+17:15:47 kernels RUNNING 10698  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 170 min; paranoid: running 129 min;
+17:20:43 kernels RUNNING 10998  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 175 min; paranoid: running 134 min;
+17:25:38 kernels RUNNING 11299  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 180 min; paranoid: running 139 min;
+17:30:34 kernels RUNNING 11599  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 185 min; paranoid: running 144 min;
+17:36:18 kernels RUNNING 11899  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 190 min; paranoid: running 149 min;
+17:41:13 kernels RUNNING 12199  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 195 min; paranoid: running 154 min;
+17:46:09 kernels RUNNING 12500  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 200 min; paranoid: running 159 min;
+17:51:06 kernels RUNNING 12800  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 205 min; paranoid: running 164 min;
+17:56:02 kernels RUNNING 13100  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 210 min; paranoid: running 169 min;
+18:00:58 kernels RUNNING 13401  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 215 min; paranoid: running 174 min;
+18:05:54 kernels RUNNING 13701  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 220 min; paranoid: running 179 min;
+18:10:48 kernels RUNNING 14001  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 225 min; paranoid: running 184 min;
+18:15:44 kernels RUNNING 14302  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 230 min; paranoid: running 189 min;
+18:20:40 kernels RUNNING 14602  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 235 min; paranoid: running 194 min;
+18:25:36 kernels RUNNING 14902  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 240 min; paranoid: running 199 min;
+18:30:35 kernels RUNNING 15202  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 245 min; paranoid: running 204 min;
+18:36:21 kernels RUNNING 15503  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 250 min; paranoid: running 209 min;
+18:41:15 kernels RUNNING 15803  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 255 min; paranoid: running 214 min;
+18:46:09 kernels RUNNING 16103  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 260 min; paranoid: running 219 min;
+18:51:05 kernels RUNNING 16404  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 265 min; paranoid: running 224 min;
+18:56:05 kernels RUNNING 16704  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 270 min; paranoid: running 229 min;
+19:01:03 kernels RUNNING 17004  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 275 min; paranoid: running 234 min;
+19:05:58 kernels RUNNING 17305  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 280 min; paranoid: running 239 min;
+19:10:54 kernels RUNNING 17605  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 285 min; paranoid: running 244 min;
+19:15:50 kernels RUNNING 17905  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 290 min; paranoid: running 249 min;
+19:20:43 kernels RUNNING 18205  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 295 min; paranoid: running 254 min;
+19:25:39 kernels RUNNING 18506  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 300 min; paranoid: running 259 min;
+19:31:25 kernels RUNNING 18806  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 305 min; paranoid: running 264 min;
+19:36:20 kernels RUNNING 19106  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 310 min; paranoid: running 269 min;
+19:41:15 kernels RUNNING 19407  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 315 min; paranoid: running 274 min;
+19:46:11 kernels RUNNING 19707  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 320 min; paranoid: running 279 min;
+19:51:07 kernels RUNNING 20007  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 325 min; paranoid: running 284 min;
+19:56:02 kernels RUNNING 20308  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 330 min; paranoid: running 289 min;
+20:00:57 kernels RUNNING 20608  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 335 min; paranoid: running 294 min;
+20:05:54 kernels RUNNING 20908  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 340 min; paranoid: running 299 min;
+20:10:50 kernels RUNNING 21208  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 345 min; paranoid: running 304 min;
+20:15:47 kernels RUNNING 21509  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 350 min; paranoid: running 309 min;
+20:20:42 kernels RUNNING 21809  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 355 min; paranoid: running 314 min;
+20:26:30 kernels RUNNING 22109  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 360 min; paranoid: running 319 min;
+20:31:25 kernels RUNNING 22410  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 365 min; paranoid: running 324 min;
+20:36:23 kernels RUNNING 22710  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 370 min; paranoid: running 329 min;
+20:41:19 kernels RUNNING 23010  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 375 min; paranoid: running 334 min;
+20:46:14 kernels RUNNING 23311  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 380 min; paranoid: running 339 min;
+20:51:11 kernels RUNNING 23611  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 385 min; paranoid: running 344 min;
+20:56:06 kernels RUNNING 23911  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 390 min; paranoid: running 349 min;
+21:01:00 kernels RUNNING 24212  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 395 min; paranoid: running 354 min;
+21:05:56 kernels RUNNING 24512  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 400 min; paranoid: running 359 min;
+21:10:53 kernels RUNNING 24812  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 405 min; paranoid: running 364 min;
+21:15:50 kernels RUNNING 25112  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 410 min; paranoid: running 369 min;
+21:20:47 kernels RUNNING 25413  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 415 min; paranoid: running 374 min;
+21:26:32 kernels RUNNING 25713  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 420 min; paranoid: running 379 min;
+21:31:28 kernels RUNNING 26013  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 425 min; paranoid: running 384 min;
+21:36:24 kernels RUNNING 26314  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 430 min; paranoid: running 389 min;
+21:41:20 kernels RUNNING 26614  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 435 min; paranoid: running 394 min;
+21:46:15 kernels RUNNING 26914  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 440 min; paranoid: running 399 min;
+21:51:12 kernels RUNNING 27215  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 445 min; paranoid: running 404 min;
+21:56:08 kernels RUNNING 27515  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 450 min; paranoid: running 409 min;
+22:01:09 kernels RUNNING 27815  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 455 min; paranoid: running 414 min;
+22:06:10 kernels RUNNING 28115  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 460 min; paranoid: running 419 min;
+22:11:08 kernels RUNNING 28416  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 465 min; paranoid: running 424 min;
+22:16:07 kernels RUNNING 28716  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 470 min; paranoid: running 429 min;
+22:21:04 kernels RUNNING 29016  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 475 min; paranoid: running 434 min;
+22:26:00 kernels RUNNING 29317  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 480 min; paranoid: running 439 min;
+22:30:55 kernels RUNNING 29617  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 485 min; paranoid: running 444 min;
+22:35:54 kernels RUNNING 29917  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 490 min; paranoid: running 449 min;
+22:40:54 kernels RUNNING 30218  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 495 min; paranoid: running 454 min;
+22:45:56 kernels RUNNING 30518  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 500 min; paranoid: running 459 min;
+22:50:57 kernels RUNNING 30818  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 505 min; paranoid: running 464 min;
+22:55:55 kernels RUNNING 31118  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 510 min; paranoid: running 469 min;
+23:00:51 kernels RUNNING 31419  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 515 min; paranoid: running 474 min;
+23:06:37 kernels RUNNING 31719  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 520 min; paranoid: running 479 min;
+23:11:38 kernels RUNNING 32019  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 525 min; paranoid: running 484 min;
+23:16:34 kernels RUNNING 32320  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 530 min; paranoid: running 490 min;
+23:21:29 kernels RUNNING 32620  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 535 min; paranoid: running 495 min;
+23:26:26 kernels RUNNING 32920  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 540 min; paranoid: running 500 min;
+23:31:21 kernels RUNNING 33221  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 545 min; paranoid: running 505 min;
+23:36:16 kernels RUNNING 33521  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 550 min; paranoid: running 510 min;
+23:41:17 kernels RUNNING 33821  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 555 min; paranoid: running 515 min;
+23:46:15 kernels RUNNING 34121  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 560 min; paranoid: running 520 min;
+23:51:16 kernels RUNNING 34422  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 565 min; paranoid: running 525 min;
+23:56:13 kernels RUNNING 34722  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 570 min; paranoid: running 530 min;
+00:01:09 kernels RUNNING 35022  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 575 min; paranoid: running 535 min;
+00:06:06 kernels RUNNING 35323  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 580 min; paranoid: running 540 min;
+00:11:03 kernels RUNNING 35623  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 585 min; paranoid: running 545 min;
+00:16:06 kernels RUNNING 35923  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 590 min; paranoid: running 550 min;
+00:21:16 kernels RUNNING 36224  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 595 min; paranoid: running 555 min;
+00:26:20 kernels RUNNING 36524  nanoda: ended with status 0; con_ron: ended with status 0; comparator: running 600 min; paranoid: running 560 min;
+00:31:22 kernels RUNNING 36831  nanoda: ended with status 0; con_ron: ended with status 0; comparator: ended with status 0; paranoid: running 565 min;
+00:36:25 kernels RUNNING 37131  nanoda: ended with status 0; con_ron: ended with status 0; comparator: ended with status 0; paranoid: running 570 min;
+00:41:27 kernels RUNNING 37431  nanoda: ended with status 0; con_ron: ended with status 0; comparator: ended with status 0; paranoid: running 575 min;
+00:46:25 kernels RUNNING 37732  nanoda: ended with status 0; con_ron: ended with status 0; comparator: ended with status 0; paranoid: running 580 min;
+00:51:23 kernels RUNNING 38032  nanoda: ended with status 0; con_ron: ended with status 0; comparator: ended with status 0; paranoid: running 585 min;
+00:56:23 kernels RUNNING 38332  nanoda: ended with status 0; con_ron: ended with status 0; comparator: ended with status 0; paranoid: running 590 min;
+01:01:21 kernels RUNNING 38632  nanoda: ended with status 0; con_ron: ended with status 0; comparator: ended with status 0; paranoid: running 595 min;
+01:06:22 kernels RUNNING 38933  nanoda: ended with status 0; con_ron: ended with status 0; comparator: ended with status 0; paranoid: running 600 min;
+01:11:23 kernels RUNNING 39233  nanoda: ended with status 0; con_ron: ended with status 0; comparator: ended with status 0; paranoid: running 605 min;
+01:16:25 kernels RUNNING 39533  nanoda: ended with status 0; con_ron: ended with status 0; comparator: ended with status 0; paranoid: running 610 min;
+01:21:28 kernels RUNNING 39833  nanoda: ended with status 0; con_ron: ended with status 0; comparator: ended with status 0; paranoid: running 615 min;
+01:26:33 kernels RUNNING 40134  nanoda: ended with status 0; con_ron: ended with status 0; comparator: ended with status 0; paranoid: running 620 min;
+01:31:41 kernels RUNNING 40434  nanoda: ended with status 0; con_ron: ended with status 0; comparator: ended with status 0; paranoid: running 625 min;
+01:36:51 kernels RUNNING 40734  nanoda: ended with status 0; con_ron: ended with status 0; comparator: ended with status 0; paranoid: running 630 min;
+01:41:07 kernels RUNNING 41034  nanoda: ended with status 0; con_ron: ended with status 0; comparator: ended with status 0; paranoid: running 635 min;
+01:42:48 kernels DONE 41109 all steps ran; read kernel_facts.json
+guest reported DONE
+results copied to <WORKDIR>/analysis/pilot/kernel-check-20261125-141623: env.txt facts.tsv heartbeat kernel_facts.json logs phases.tsv pilot.log setup.tsv status.json 
+deleting instance lean-kernel-check in us-central1-b
+Deleted [https://www.googleapis.com/compute/v1/projects/<PROJECT_ID>/zones/us-central1-b/instances/lean-kernel-check].
+verified: no instances and no disks remain in the project
+--- archives of compiled files kept in the bucket (they cost storage until you delete them):
+8.69GiB      gs://<BUCKET>/keep/
+--- other billable compute resources (should be empty):
+runtag                                  mode                    machine         usd_per_hour  zone           created_epoch  ended_epoch  seconds  usd
+rehearsal-20261120-160144               rehearsal               n4d-highmem-32  2.00          pending        1795212104     1795212104   0        0.00
+rehearsal-20261120-160322               rehearsal               n4d-highmem-32  2.00          pending        1795212202     1795213223   1021     0.57
+pilot-20261120-162141                   pilot                   n4d-highmem-32  2.00          us-east1-b     1795213301     1795223780   10479    5.82
+full-rehearsal-20261120-211809          full-rehearsal          n4d-highmem-32  2.00          us-east1-b     1795231090     1795231443   353      0.20
+full-rehearsal-20261120-212636          full-rehearsal          n4d-highmem-32  2.00          us-east1-b     1795231596     1795232738   1142     0.63
+full-rehearsal-20261120-214914          full-rehearsal          n4d-highmem-32  2.00          us-central1-b  1795232954     1795234170   1216     0.68
+full-rehearsal-20261120-233826          full-rehearsal          n4d-highmem-32  2.00          us-central1-b  1795239506     1795240378   872      0.48
+full-rehearsal-20261120-235539          full-rehearsal          n4d-highmem-32  2.00          us-central1-b  1795240539     1795241714   1175     0.65
+full-rehearsal-20261121-113516          full-rehearsal          n4d-highmem-32  2.00          us-east1-b     1795282516     1795284003   1487     0.83
+full-spot-rehearsal-20261122-092917     full-spot-rehearsal#1   n4d-highmem-32  1.20          us-central1-a  1795361363     1795361771   408      0.14
+full-spot-rehearsal-20261122-092917     full-spot-rehearsal#2   n4d-highmem-32  1.20          us-central1-a  1795361793     1795362416   623      0.21
+full-spot-rehearsal-20261122-092917     full-spot-rehearsal#3   n4d-highmem-32  1.20          us-central1-a  1795362437     1795362833   396      0.13
+full-spot-rehearsal-20261122-092917     full-spot-rehearsal#4   n4d-highmem-32  1.20          us-central1-a  1795362855     1795363703   848      0.28
+full-spot-20261122-150121               full-spot#1             n4d-highmem-32  1.20          us-central1-a  1795381288     1795385803   4515     1.50
+full-spot-20261122-150121               full-spot#2             n4d-highmem-32  1.20          us-central1-a  1795385824     1795474952   89128    29.71
+export-check-20261123-180914            export-check            n4d-highmem-32  2.00          us-east1-b     1795478954     1795487038   8084     4.49
+kernel-check-rehearsal-20261125-135136  kernel-check-rehearsal  n4d-highmem-4   0.30          us-central1-b  1795636297     1795637661   1364     0.11
+kernel-check-20261125-141623            kernel-check            n4d-highmem-32  2.00          us-central1-b  1795637785     1795679134   41349    22.97
+estimated spend so far: $69.40 of $100 cap (machine-time x 2.00 USD/h, rounded up; the bill is authoritative)

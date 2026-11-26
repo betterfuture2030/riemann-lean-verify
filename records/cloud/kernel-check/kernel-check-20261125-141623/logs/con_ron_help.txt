@@ -1,0 +1,62 @@
+Check Lean declarations from a lean4export file or from .olean modules.
+
+Usage:
+  con-ron [OPTIONS] [--] FILE.ndjson
+  con-ron [OPTIONS] --compare [--] CHALLENGE.ndjson SOLUTION.ndjson
+  con-ron [OPTIONS] --olean --search-path=DIRS [--] MODULE...
+  con-ron [OPTIONS] --olean --compare [--trusted-search-path=DIRS]
+          --search-path=DIRS [--] CHALLENGE SOLUTION
+
+Options:
+  --verified          Check in the mode the soundness theorem covers (default)
+  --trusted           Skip the checks only the proof needs; outside the theorem
+  --jobs=N            Worker threads (default: one per hardware thread, at most 16)
+  --max-nat-size=N    Largest Nat numeral in bytes the checker takes in or
+                      computes; a larger one is rejected (default 134217728)
+  --progress[=PACE]   Report progress on stderr: PACE is N declarations
+                      (default 1), P% of each phase, or Ss seconds
+  --pins FILE         Testing only: check with this Nat pin list instead of
+                      the embedded one (outside the theorems)
+  --no-pins           Testing only: check with no Nat pin list
+  --help              Print this help and exit
+  --                  End of options
+
+lean4export input:
+  --compare           CHALLENGE.ndjson SOLUTION.ndjson: check SOLUTION, then
+                      check CHALLENGE, its axioms justified by SOLUTION: each
+                      axiom of CHALLENGE (but the standard ones) and each
+                      declaration whose value uses sorry is accepted as an
+                      axiom of its statement when SOLUTION holds a constant
+                      of that name and type, up to the names of level
+                      parameters, and everything that type reads is the same
+                      in both, record by record. Prints the justified axioms
+
+.olean input:
+  --olean             Read modules and their import closure from .olean files
+  --search-path=DIRS  Colon-separated .olean directories; repeatable
+  --constant=NAME     Check only NAME and what it mentions; repeatable
+  --compare           CHALLENGE SOLUTION: check the closure of the module
+                      SOLUTION, then the closure of CHALLENGE, its axioms
+                      justified by SOLUTION's as for lean4export input.
+                      Prints the justified axioms. With --constant=NAME
+                      (declarations of CHALLENGE itself), only NAME and
+                      what it reads
+  --trusted-search-path=DIRS
+                      With --compare: CHALLENGE and all it imports must be
+                      in DIRS, and are read from there only; SOLUTION's
+                      modules from DIRS first, then --search-path.
+                      Colon-separated; repeatable
+
+con-leche's other modes, not run by con-ron yet (a usage error, exit 3):
+  --check-graph, --module, --modular, --schedule[-OPT=V],
+  --worker-stack-size=SIZE, and --compare with any of them
+
+Exit status:
+  0  accepted
+  1  rejected: a declaration is invalid
+  2  declined: an unsupported feature
+  3  error: bad usage, malformed input or an internal failure
+
+Documentation:
+  README.md and OVERVIEW.md of the con-ron repository
+this build's global allocator: mimalloc

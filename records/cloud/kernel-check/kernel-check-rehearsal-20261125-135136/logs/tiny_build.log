@@ -1,0 +1,7 @@
+info: checktest: no previous manifest, creating one from scratch
+info: toolchain not updated; already up-to-date
+⚠ [2/10] Built Challenge (161ms)
+warning: Challenge.lean:1:8: declaration uses `sorry`
+✔ [5/10] Built Solution (136ms)
+✔ [8/10] Built Wrong (160ms)
+Build completed successfully (10 jobs).

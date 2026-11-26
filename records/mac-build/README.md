@@ -99,3 +99,7 @@ A dated snapshot of the build: the output of `scripts/06_progress.sh` followed b
 ### `progress-20261121-0931.txt`
 
 A later snapshot, taken at 09:31 local time on 2026-11-21 (15:31 UTC): the output of `scripts/06_progress.sh`, then two lines computed from the import graph for the modules compiled at that moment. It records 59,988 compiled modules of 175,187 and no failed job. The compiled modules import 892 other project modules on average, and the deepest of them 34,926; the cloud pilot's deepest was 17,860. This build keeps no per-module times, so that says the Mac has compiled deeper modules than any rented machine has, and nothing about what they cost. It supersedes the earlier snapshot as the latest recorded figure.
+
+### `progress-20261126-0233.txt`
+
+A snapshot taken at 02:33 local time on 2026-11-26 (08:33 UTC): the output of `scripts/06_progress.sh`. It records 149,438 compiled modules of 175,187 and no failed job, 57.5 hours into a run of the build that began on 2026-11-23 after the computer restarted, at 495 modules an hour over that run with 8 jobs.

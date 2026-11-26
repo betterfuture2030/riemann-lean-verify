@@ -1,0 +1,25 @@
+{
+ "challenge_module": "Challenge",
+ "solution_module": "Solution",
+ "theorem_names": [
+  "comm"
+ ],
+ "permitted_axioms": [
+  "propext",
+  "Quot.sound",
+  "Classical.choice"
+ ],
+ "external_kernels": {
+  "Lean paranoid": [
+   "leanchecker-paranoid",
+   "--silent",
+   "--from-export"
+  ],
+  "nanoda": [
+   "nanoda_bin"
+  ],
+  "envprobe": [
+   "/opt/kernels/envprobe.sh"
+  ]
+ }
+}
