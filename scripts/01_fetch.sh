@@ -18,11 +18,12 @@
 #   capitals that the value is NOT PINNED and prints the line to add to the profile.
 # What it changes on disk: tarball-parts: writes the parts, the tarball, parts.sha256 and
 #   <tarball name>.sha256 (lean.tar.gz.sha256 for the default target) into RH_WORKDIR/download.
-#   git: writes the clone, the tar file, <tar file name>.sha256 and <tar file name>.from into
-#   RH_WORKDIR/download. The .from file names the address, commit, directory and prefix the file
-#   was written from; 02_inspect_and_extract.sh requires it, pinned or not. The clone records the
-#   address it was made from (git config rhv.sourceurl), and a clone made from another address
-#   than the profile's is not used.
+#   git: writes the clone, the tar file, <tar file name>.from and, unless the file's SHA-256
+#   differs from the pinned one, <tar file name>.sha256 into RH_WORKDIR/download. The .from file
+#   names the address, commit, directory and prefix the file was written from;
+#   02_inspect_and_extract.sh requires it, pinned or not. The clone records the address it was
+#   made from (git config rhv.sourceurl), and a clone made from another address than the
+#   profile's is not used. Only repositories that name their objects by SHA-1 are supported.
 #   Both append to RH_WORKDIR/logs/download.log and, if RH_WORKDIR has no .rh-target file yet,
 #   write the target's name to it. Nothing else. With --check-only it writes nothing at all.
 # How long it takes: default target: about 240 MB of download (seconds to minutes) plus a few
@@ -75,6 +76,14 @@ git_clone_url() {
   git --git-dir="$RH_GIT_DIR" config --get rhv.sourceurl 2>/dev/null
 }
 
+# The kind of object names the clone uses, if it is not git's usual SHA-1: git-export checks every object it
+# reads against its SHA-1 name, so a repository that names its objects by SHA-256 is not supported.
+git_clone_odd_format() {
+  local f
+  f=$(git --git-dir="$RH_GIT_DIR" config --get extensions.objectFormat 2>/dev/null) || return 1
+  [ -n "$f" ] && [ "$f" != sha1 ] && printf '%s' "$f"
+}
+
 # not_pinned_notice <sha256>: what to say when there is no recorded SHA-256 to compare with.
 not_pinned_notice() {
   echo "THE SHA-256 OF THIS ARCHIVE IS NOT PINNED: TGT_TARBALL_SHA256 is empty for the target $RH_TARGET,"
@@ -112,8 +121,12 @@ fetch_git_source() {
     bad=0; h=""
     if [ ! -d "$RH_GIT_DIR" ]; then
       echo "clone:    not present ($RH_GIT_DIR)"
+    elif [ -z "$(git_clone_url)" ]; then
+      echo "clone:    DOES NOT RECORD THE ADDRESS IT WAS MADE FROM ($RH_GIT_DIR; --redownload makes a new clone)"; bad=$((bad + 1))
     elif [ "$(git_clone_url)" != "$TGT_GIT_URL" ]; then
       echo "clone:    NOT MADE FROM THE PROFILE'S ADDRESS ($RH_GIT_DIR records '$(git_clone_url)'; --redownload makes a new clone)"; bad=$((bad + 1))
+    elif t=$(git_clone_odd_format); then
+      echo "clone:    NAMES ITS OBJECTS BY $t, NOT SHA-1, WHICH IS NOT SUPPORTED ($RH_GIT_DIR)"; bad=$((bad + 1))
     elif git_clone_has_commit; then
       echo "clone:    holds the commit ($RH_GIT_DIR)"
     else
@@ -179,6 +192,9 @@ fetch_git_source() {
     mv "$RH_GIT_DIR.partial" "$RH_GIT_DIR" || die "could not move $RH_GIT_DIR.partial into place"
     echo "$(date '+%Y-%m-%d %H:%M:%S') CLONE OK url=$TGT_GIT_URL" >> "$DLLOG"
   fi
+  if t=$(git_clone_odd_format); then
+    die "the repository names its objects by $t, not by SHA-1 ($RH_GIT_DIR, extensions.objectFormat): this is not supported, because git-export checks every object it reads against its SHA-1 name"
+  fi
 
   if ! git_clone_has_commit; then
     t=$(git --git-dir="$RH_GIT_DIR" cat-file -t "$TGT_GIT_COMMIT" 2>/dev/null) || t=""
@@ -194,10 +210,11 @@ fetch_git_source() {
   # The tar file. git-export writes to <file>.tmp and renames it, so a failure leaves any file
   # from an earlier run as it was.
   set -- git-export --git-dir "$RH_GIT_DIR" --commit "$TGT_GIT_COMMIT"
-  [ -n "$TGT_GIT_SUBDIR" ] && set -- "$@" --subdir "$TGT_GIT_SUBDIR"
+  [ -n "$TGT_GIT_SUBDIR" ] && set -- "$@" --subdir="$TGT_GIT_SUBDIR"
   set -- "$@" --prefix "$TGT_ARCHIVE_PREFIX" --out "$RH_TARBALL"
-  # The record of what the file was written from goes first and comes back only once the file is written.
-  rm -f "$RH_TARBALL.from" || die "could not remove $RH_TARBALL.from"
+  # The records of what the file was written from and of its SHA-256 go first, and come back only once the file
+  # is written (the .sha256 file only if the SHA-256 is the pinned one, or none is pinned).
+  rm -f "$RH_TARBALL.from" "$RH_TARBALL.sha256" || die "could not remove $RH_TARBALL.from or $RH_TARBALL.sha256"
   log "writing the files of that commit${TGT_GIT_SUBDIR:+ under $TGT_GIT_SUBDIR/} to $RH_TARBALL"
   out=$(python3 -I -B "$RH_TOOLS" "$@")
   rc=$?

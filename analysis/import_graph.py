@@ -113,7 +113,7 @@ def main():
     a = ap.parse_args()
     src = rhpaths.src_dir(a.src)
     out = rhpaths.analysis_dir(a.out)
-    a.root = rhpaths.root_module(a.root)
+    a.root = rhpaths.root_module(a.root, paths_given=bool(a.src and a.out))
     if not os.path.isdir(src):
         sys.exit("source directory not found: %s" % src)
 

@@ -11,8 +11,8 @@ The source directory is the project directory followed by the target's TGT_SRC_D
 default target; "." is the project directory itself). The target's root module is TGT_ROOT_MODULE
 ("Main" for the default target). Each is taken from the environment if it is set there; otherwise
 from scripts/lib.sh, like the directories. One exception keeps what was done before there were
-targets: for the default target, with RH_PROJ set in the environment, nothing is asked and the
-default target's values are used.
+targets: for the default target, with RH_PROJ set in the environment or every directory given on the
+command line, nothing is asked and the default target's values are used.
 
 Nothing is guessed for another target. If scripts/lib.sh stops with an error (the working directory
 belongs to another target, a profile is incomplete), the script that asked stops with that error.
@@ -86,6 +86,10 @@ def _default_layout():
             owner = fh.readline().rstrip("\n")
     except OSError:
         owner = DEFAULT_TARGET      # no marker: a directory from before markers, or a new one
+    if owner == "":
+        sys.exit("ERROR: the file %s is empty, so it does not say which target the working directory belongs "
+                 "to. If the directory is target '%s''s, write that name into the file and run the command again: "
+                 "see targets/README.md" % (os.path.join(work, ".rh-target"), DEFAULT_TARGET))
     if owner != DEFAULT_TARGET:
         sys.exit("ERROR: the working directory %s belongs to target '%s' (its file .rh-target says so) and "
                  "this command is for target '%s'. Every target has a working directory of its own: see "
@@ -100,19 +104,26 @@ def _pick(arg, var):
     return arg or os.environ.get(var) or _from_lib()[var]
 
 
-def _target_value(var):
-    """A TGT_ setting: from the environment if set there; otherwise what scripts/lib.sh says, except for the
-    default target when RH_PROJ is set in the environment (then the default target's value, unasked)."""
+def _unasked(paths_given):
+    """True when scripts/lib.sh is not asked: for the default target, with RH_PROJ set in the environment or
+    with every directory the script needs given on its command line (paths_given), as before there were
+    targets."""
+    return bool(paths_given or os.environ.get("RH_PROJ")) and _target_named() == DEFAULT_TARGET
+
+
+def _target_value(var, paths_given=False):
+    """A TGT_ setting: from the environment if set there; otherwise what scripts/lib.sh says, except where
+    _unasked (then the default target's value)."""
     if os.environ.get(var):
         return os.environ[var]
-    if os.environ.get("RH_PROJ") and _target_named() == DEFAULT_TARGET:
+    if _unasked(paths_given):
         return _DEFAULT_VALUES[var]
     return _from_lib()[var]
 
 
-def target():
+def target(paths_given=False):
     """The name of the target the analysis is for (see _target_value for when scripts/lib.sh is asked)."""
-    if os.environ.get("RH_PROJ") and _target_named() == DEFAULT_TARGET:
+    if _unasked(paths_given):
         return DEFAULT_TARGET
     return _from_lib()["RH_TARGET"]
 
@@ -126,9 +137,9 @@ def src_dir(arg=None):
     return proj if sub == "." else os.path.join(proj, sub)
 
 
-def root_module(arg=None):
+def root_module(arg=None, paths_given=False):
     """The module whose import closure is computed (for the default target, Main)."""
-    return arg or _target_value("TGT_ROOT_MODULE")
+    return arg or _target_value("TGT_ROOT_MODULE", paths_given)
 
 
 def analysis_dir(arg=None):

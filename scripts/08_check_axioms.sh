@@ -77,7 +77,11 @@ else
   THEOREMS="$TGT_THEOREMS"
 fi
 # The theorem whose statement is compared must be one of those whose axioms are checked.
+# The lists are split on spaces but never expanded as file patterns (set -f), so a name such as
+# Foo.* cannot pick up file names from the directory the script runs in.
+set -f
 found=0; for t in $THEOREMS; do [ "$t" = "$PRIMARY" ] && found=1; done
+set +f
 [ "$found" -eq 1 ] || die "the profile of target $RH_TARGET is not usable: TGT_PRIMARY_THEOREM ($PRIMARY) is not one of TGT_THEOREMS"
 BODY="$HERE/verify/axioms_check_body.lean"
 [ -f "$BODY" ] || die "missing file: $BODY"
@@ -127,6 +131,7 @@ BASE="$RH_LOGS/axioms-$MODE-$TS"
 LEANFILE="$BASE.lean"; OUT="$BASE.log"; JSON="$BASE.json"
 deep_lit=false; [ "$DEEP" -eq 1 ] && deep_lit=true
 body_rc=0
+set -f
 {
   echo "import $IMPORT"
   if [ "$BODY_AS_IS" -eq 1 ]; then
@@ -143,6 +148,7 @@ body_rc=0
   for t in $THEOREMS; do printf '%s`%s' "$sep" "$t"; sep=", "; done
   printf ']\n'
 } > "$LEANFILE"
+set +f
 if [ "$body_rc" -ne 0 ]; then
   rm -f "$LEANFILE"
   die "could not write the check for the constants of target $RH_TARGET (see the message above); nothing was run"
@@ -164,7 +170,7 @@ fi
 
 set -- axioms-summary --output "$OUT" --mode "$MODE" --primary "$PRIMARY" --lean-status "$rc" \
        --json "$JSON" --tarball-sha256 "$RH_TARBALL_SHA256" --compiled "$compiled" --sources "$sources"
-for t in $THEOREMS; do set -- "$@" --theorem "$t"; done
+set -f; for t in $THEOREMS; do set -- "$@" --theorem "$t"; done; set +f
 [ "$DEEP" -eq 1 ] && set -- "$@" --deep
 # Only what differs from the default target's values is passed on, so that its command line stays as it was.
 [ "$TGT_STATEMENT_CONST" = "RiemannHypothesis" ] || set -- "$@" --statement-const "$TGT_STATEMENT_CONST"

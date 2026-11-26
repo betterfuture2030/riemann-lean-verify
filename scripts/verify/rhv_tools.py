@@ -85,6 +85,18 @@ def reserved_component(comp):
     return None
 
 
+def repository_marker(base):
+    """Why a file of this name is refused, or None. git takes any directory that holds a file named HEAD (with
+    objects/ and refs/, or a file named commondir, beside it) for a repository, whatever the directory is called,
+    and then obeys the configuration in it whenever git runs there or below, for example in a shell prompt that
+    shows the branch. So no file may be named HEAD, in any case and in the spellings refused for '.git'. A
+    directory named so is not refused: git needs a file."""
+    if HFS_IGNORABLE.sub("", base).split(":", 1)[0].rstrip(". ").casefold() == "head":
+        return ("a file named 'HEAD' (with objects/ and refs/ beside it git takes the directory for a repository "
+                "and obeys its configuration; refused in any spelling)")
+    return None
+
+
 # The longest name, and the longest component of a name, that an entry may have: macOS's limits for a path
 # (PATH_MAX) and for one name in it (NAME_MAX), in bytes of UTF-8. The default target's longest name has 244
 # bytes. The limits also keep the checks below cheap whatever an archive holds.
@@ -387,10 +399,19 @@ def parse_tree(data, oid):
     return out
 
 
-def git_tree_files(git, tree):
+# The most files, and the most bytes of contents, that git-export writes unless told otherwise: a little over ten
+# times the default target's 175,190 files, and 64 GiB. git stores a directory once however many times a commit
+# names it, so a repository of a few kilobytes can name more files than any disk holds; these limits stop such a
+# commit before much is read or written.
+MAX_EXPORT_FILES = 2000000
+MAX_EXPORT_BYTES = 64 << 30
+
+
+def git_tree_files(git, tree, max_files=MAX_EXPORT_FILES):
     """Every file under one tree: [(path as bytes, 0o644 or 0o755, name of the blob)], and a list of what
     is there that cannot be exported. Kinds of entry, by the mode git records: 040000 a directory, 100644 and
-    100755 a file, 120000 a symbolic link, 160000 a submodule."""
+    100755 a file, 120000 a symbolic link, 160000 a submodule. Raises Refused once more than max_files files,
+    or more than max_files directories still to be read, are found."""
     files, problems = [], []
     stack = [(tree, b"")]
     while stack:
@@ -401,12 +422,14 @@ def git_tree_files(git, tree):
             if name in (b"", b".", b"..") or b"/" in name:
                 problems.append("an entry whose name is empty, '.', '..' or has a slash in it: %s" % shown(path))
             elif name_too_long(path):
-                # Nothing below such a name is looked at, so a tree nested very deep costs no more than this.
+                # Nothing below such a name is looked at.
                 problems.append("%s: %s" % (name_too_long(path), shown(path[:200] + b"...")))
             elif reserved_component(name.decode("utf-8", "replace")):
                 problems.append("%s: %s" % (reserved_component(name.decode("utf-8", "replace")), shown(path)))
             elif kind == 0o040000:
                 stack.append((child, path + b"/"))
+            elif kind == 0o100000 and repository_marker(name.decode("utf-8", "replace")):
+                problems.append("%s: %s" % (repository_marker(name.decode("utf-8", "replace")), shown(path)))
             elif kind == 0o100000:
                 files.append((path, 0o755 if mode & 0o100 else 0o644, child))
             elif kind == 0o120000:
@@ -415,6 +438,9 @@ def git_tree_files(git, tree):
                 problems.append("submodule: %s" % shown(path))
             else:
                 problems.append("entry of a kind this tool does not know (mode %o): %s" % (mode, shown(path)))
+        if len(files) > max_files or len(stack) > max_files:
+            raise Refused("the tree names more than %d files%s; git-export stops at %d (--max-files)" % (
+                max_files, "" if len(files) > max_files else ", or more directories still to be read", max_files))
     files.sort(key=lambda f: f[0])
     names = set()
     for path, _mode, _oid in files:
@@ -460,9 +486,10 @@ def cmd_git_export(a):
     'sha256 <of the file> entries <number of files>'.
 
     Exit status: 0 written; 1 refused (the commit is not named by all 40 characters, is not in the repository
-    or is not a commit; the directory is not in it; a symbolic link, a submodule or an unusable name is among
-    the files; an object does not have the SHA-1 it is named by); 2 could not run. Unless the status is 0 the
-    file named with --out is left as it was."""
+    or is not a commit; the directory is not in it; a symbolic link, a submodule, a file named HEAD or an
+    unusable name is among the files; there are more files, or more bytes in them, than --max-files and
+    --max-bytes allow; an object does not have the SHA-1 it is named by); 2 could not run. Unless the status is
+    0 the file named with --out is left as it was."""
     import shutil
     cmd = "git-export"
     commit = a.commit.lower()
@@ -496,7 +523,7 @@ def cmd_git_export(a):
                     raise Refused("%s is not a directory of commit %s" % (subdir, commit))
                 tree = found[0][2]
             print("git-export: directory %s of it, tree %s" % (subdir, tree))
-        files, problems = git_tree_files(git, tree)
+        files, problems = git_tree_files(git, tree, a.max_files)
         if problems:
             raise Refused("%d things in %s cannot be written to a tar file (showing up to 25)\n  - %s" % (
                 len(problems), "directory %s of commit %s" % (subdir, commit) if subdir else "commit " + commit,
@@ -514,6 +541,9 @@ def cmd_git_export(a):
                 size = head[1]
                 if size >= 8 ** 11:
                     raise Refused("%s is larger than a tar header can say (%d bytes)" % (shown(path), size))
+                if total + size > a.max_bytes:
+                    raise Refused("the files come to more than %d bytes of contents; git-export stops at %d "
+                                  "(--max-bytes)" % (a.max_bytes, a.max_bytes))
                 if len(name) > 100:
                     long_name = name + b"\0"
                     out.write(tar_header(b"././@LongLink", 0, len(long_name), b"L"))
@@ -566,9 +596,9 @@ def cmd_git_export(a):
 
 class KeptTail:
     """A file that tarfile reads an archive from, once, from start to end. It keeps the last bytes it has given
-    out (at least KEEP of them), so that once tarfile has stopped, what lies between the end it found and the
-    end of the file can still be read."""
-    KEEP = 1 << 16
+    out (at least KEEP of them), so that the headers of each entry can be read again as they are, and once
+    tarfile has stopped, what lies between the end it found and the end of the file can still be read."""
+    KEEP = 1 << 20
 
     def __init__(self, f):
         self.f, self.pos, self.kept, self.chunks = f, 0, 0, collections.deque()
@@ -592,14 +622,78 @@ class KeptTail:
         return b"".join(d[max(0, offset - s):] for s, d in self.chunks if s + len(d) > offset)
 
 
+def header_number(field):
+    """The number in a numeric field of a tar header, or None unless every tar reads the field as that number.
+    Python's tarfile reads more forms than other tars do ('0o' in front, '_' between digits, tabs or new lines
+    around them), and where two tars read an entry's size differently, one of them finds entries in what the
+    other reads as data. Accepted: octal digits, with spaces before or after them and a NUL after them, and the
+    form GNU tar writes for large numbers (a first byte of 0x80, the number in base 256 after it)."""
+    if field[:1] == b"\x80":
+        n = 0
+        for c in bytearray(field[1:]):
+            n = n * 256 + c
+        return n
+    s = field.split(b"\0", 1)[0].strip(b" ")
+    if not re.match(rb"[0-7]*\Z", s):
+        return None
+    return int(s, 8) if s else 0
+
+
+# The kinds of header that tarfile reads as part of the next entry: pax headers (local, global, Solaris's) and
+# GNU tar's long names.
+EXTENDED_HEADER_TYPES = (b"x", b"g", b"X", b"L", b"K")
+
+
+def header_chain_problem(src, start, member):
+    """Why the headers of one entry are refused, or None. They are read again as they are, block by block, from
+    start (the end of the entry before it, as tarfile counted it) to the entry's own header: each must have a
+    size every tar reads alike, and each but the last must be an extended header whose data ends where the next
+    header begins, so that no tar can find an entry there that tarfile did not."""
+    end = member.offset_data - 512
+    off = start
+    while True:
+        blk = src.since(off)
+        if blk is None or len(blk) < 512:
+            return "its headers could not be read again to be checked"
+        blk = blk[:512]
+        n = header_number(blk[124:136])
+        if n is None:
+            return ("a size in its header (%r) that not every tar reads as the same number"
+                    % blk[124:136].split(b"\0", 1)[0].decode("latin-1"))
+        if off == end:
+            return None
+        if blk[156:157] not in EXTENDED_HEADER_TYPES:
+            return "a header of type %r before its own, which another tar may read as an entry" % blk[156:157].decode("latin-1")
+        off += 512 + -(-n // 512) * 512
+        if off > end:
+            return "headers that do not end where its own header begins"
+
+
+def pax_header_problem(member):
+    """Why the pax header of one entry is refused, or None: values that tars read differently. tarfile takes
+    '1_025' for a size of 1025 where other tars stop at the '_'; it drops a slash at the end of a path where
+    other tars make the entry a directory and read no data for it; and it takes GNU's sparse-file keys as the
+    size of the entry's data where other tars do not."""
+    pax = member.pax_headers or {}
+    if "size" in pax and not re.match(r"[0-9]+\Z", pax["size"]):
+        return "a pax size (%r) that not every tar reads as the same number" % pax["size"][:40]
+    if pax.get("path", "").endswith("/"):
+        return "a pax path that ends with a slash, which other tars read as a directory's"
+    odd = sorted(k for k in pax if k.startswith("GNU.sparse.") or k == "SCHILY.realsize")
+    if odd:
+        return "pax keys of a sparse file (%s), which tars read differently" % ", ".join(odd[:3])
+    return None
+
+
 def check_extracted(root, names, allow_exec, quiet):
     """Compare what a tar wrote under root with the names of the archive's entries, as tar-inspect read them.
 
     Every file system entry under root is looked at with lstat, without following links and without leaving
     .lake out. Each must be a directory with an entry of the archive in it, or a regular file that is an entry,
     with one name only, no executable bit unless allow_exec, and no setuid, setgid or sticky bit. Every entry
-    must be there. This checks what the extracting tar made of the archive, whether or not it read the archive
-    as tar-inspect did. Names are compared in NFD, the form HFS+ stores them in (the listing refuses two names
+    must be there. This checks the names, kinds and modes of what the extracting tar made of the archive, whether
+    or not it read the archive as tar-inspect did; it does not read the files, so 02 also passes --verify-tree,
+    which compares each file's bytes with the entry's. Names are compared in NFD, the form HFS+ stores them in (the listing refuses two names
     that are one when normalised). Prints one line if all is well, the problems otherwise; returns True if all
     is well."""
     import stat
@@ -734,10 +828,19 @@ def cmd_tar_inspect(a):
             raw.seek(0)
             src = KeptTail(gzip.GzipFile(fileobj=raw, mode="rb") if gzipped else raw)
             with tarfile.open(fileobj=src, mode="r|") as tf:
+                data_end = 0                 # where the data of the entry before ends, as tarfile counts it
                 for m in tf:
                     entries += 1
                     name = m.name
                     ok = True
+                    # tarfile is one reader of the archive, and the tar that extracts it is another. These two
+                    # checks refuse the headers that the two may read differently, so that both find the same
+                    # entries in the same places. (What tar wrote is also compared with this listing afterwards,
+                    # for any target but the default one: see check_extracted.)
+                    headers_start, data_end = data_end, tf.offset
+                    for problem in (header_chain_problem(src, headers_start, m), pax_header_problem(m)):
+                        if problem:
+                            bad(name if len(name) <= 300 else name[:200] + "...", problem); ok = False
                     too_long = name_too_long(name)
                     if too_long:
                         # Left out of every check below that looks at more than this one entry.
@@ -759,6 +862,8 @@ def cmd_tar_inspect(a):
                     if "\\" in name or CONTROL_CHARS.search(name):
                         bad(name, "backslash or control character in name"); ok = False
                     reserved = [r for r in map(reserved_component, parts) if r]
+                    if m.type != tarfile.DIRTYPE and repository_marker(parts[-1]):
+                        reserved.append(repository_marker(parts[-1]))
                     if reserved:
                         bad(name, reserved[0]); ok = False
                     if m.mode & 0o111:
@@ -784,13 +889,19 @@ def cmd_tar_inspect(a):
                             if len(tree_examples) < 10:
                                 tree_examples.append("missing on disk: " + name)
                         else:
+                            # Compared a piece at a time, so that a large entry is never held in memory whole.
                             fh = tf.extractfile(m)
-                            data = fh.read() if fh is not None else b""
+                            same = True
                             with open(path, "rb") as dh:
-                                if dh.read() != data:
-                                    tree_differs += 1
-                                    if len(tree_examples) < 10:
-                                        tree_examples.append("content differs: " + name)
+                                while same:
+                                    x = fh.read(1 << 20) if fh is not None else b""
+                                    same = dh.read(len(x) or 1) == x
+                                    if not x:
+                                        break
+                            if not same:
+                                tree_differs += 1
+                                if len(tree_examples) < 10:
+                                    tree_examples.append("content differs: " + name)
                 # tarfile has stopped: at the first empty block, at a header it cannot read, or at the end of the
                 # data. From the block it stopped at to the end of the file there may be zero bytes and nothing else.
                 rest = src.since(tf.offset)
@@ -924,6 +1035,25 @@ def cmd_project_info(a):
         print("  %-18s %s" % (name, packages[name]))
     for f in files:
         print("sha256 %-20s %s" % (f, hashes[f]))
+    if a.show_urls:
+        # Step 04 runs code these files choose, with the rights of whoever runs it: elan installs and runs the
+        # toolchain lean-toolchain names, and Lake clones every package from its address, runs its lakefile and
+        # builds and runs Mathlib's cache tool. So where they come from is printed for a reader to judge.
+        # The values come from the archive: anything but plain printable text is shown escaped and quoted.
+        def plain(v):
+            v = str(v)
+            return v if v and v.isprintable() and " " not in v else repr(v)
+        origin = toolchain.split(":", 1)[0] if ":" in toolchain else None
+        print("where step 04 fetches and runs code from (read these before running it):")
+        if origin is None:
+            print("  %-18s %s" % ("toolchain", "leanprover/lean4 (elan's default: lean-toolchain names no origin)"))
+        else:
+            print("  %-18s %s%s" % ("toolchain", plain(origin),
+                                    "" if origin == "leanprover/lean4" else "   <- NOT leanprover/lean4"))
+        for p in sorted(manifest.get("packages", []), key=lambda p: str(p.get("name")).lower()):
+            where = (plain(p.get("url")) if p.get("type", "git") == "git"
+                     else "%s %s" % (plain(p.get("type")), plain(p.get("dir"))))
+            print("  %-18s %s" % (plain(p.get("name")), where))
 
     status = 0
     if lakefile_rev and mathlib and lakefile_rev != mathlib:
@@ -1390,6 +1520,10 @@ def cmd_axioms_summary(a):
         failures.append("the check did not run to completion (no final marker in the output)")
     if mode != a.mode:
         failures.append("the output is from mode %r, expected %r" % (mode, a.mode))
+    if a.primary not in theorems:
+        # 08_check_axioms.sh refuses such a profile before running lean; this guards the record itself.
+        failures.append("%s, the theorem whose statement is compared, is not one of the theorems checked (%s)"
+                        % (a.primary, ", ".join(theorems) or "none"))
     for t in theorems:
         d = info[t]
         if not d["present"]:
@@ -2172,6 +2306,10 @@ def main():
     p.add_argument("--subdir", default="", help="write only the files of this directory of the commit")
     p.add_argument("--prefix", required=True, help="put this in front of every name in the tar file; ends with a slash")
     p.add_argument("--out", required=True, help="the tar file to write (not compressed)")
+    p.add_argument("--max-files", type=int, default=MAX_EXPORT_FILES,
+                   help="refuse a commit with more files than this (default %d)" % MAX_EXPORT_FILES)
+    p.add_argument("--max-bytes", type=int, default=MAX_EXPORT_BYTES,
+                   help="refuse a commit whose files hold more bytes than this (default %d)" % MAX_EXPORT_BYTES)
     p.set_defaults(fn=cmd_git_export)
 
     p = sub.add_parser("tar-inspect")
@@ -2183,11 +2321,13 @@ def main():
     p.add_argument("--sha256", default="")
     p.add_argument("--expected", default="")
     p.add_argument("--write-expected", default="")
-    p.add_argument("--verify-tree", default="")
+    p.add_argument("--verify-tree", default="",
+                   help="a directory the archive was extracted into: every entry's file there must hold the entry's "
+                        "bytes, and no file outside .lake may be there that is not an entry")
     p.add_argument("--check-extracted", default="",
                    help="a directory the archive was just extracted into: everything in it, .lake included, must be an "
-                        "entry of the archive or a directory on the way to one, with no links (02 runs this for any "
-                        "target but the default one)")
+                        "entry of the archive or a directory on the way to one, with no links (02 runs this, with "
+                        "--verify-tree on the same directory, for any target but the default one)")
     p.add_argument("--quiet", action="store_true")
     p.set_defaults(fn=cmd_tar_inspect)
 
@@ -2195,6 +2335,9 @@ def main():
     p.add_argument("project")
     p.add_argument("--expected", default="")
     p.add_argument("--write-expected", default="")
+    p.add_argument("--show-urls", action="store_true",
+                   help="also print where lean-toolchain and every package in lake-manifest.json come from, which "
+                        "step 04 fetches and runs (02 passes this for any target but the default one)")
     p.set_defaults(fn=cmd_project_info)
 
     protected_help = "names the source should not declare for itself, separated by spaces"

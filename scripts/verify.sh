@@ -81,7 +81,7 @@ jobs=$(effective_jobs)
 # defined) is in the branches for that target below.
 if [ "$RH_TARGET_IS_DEFAULT" = 1 ]; then pre=""; else pre="RH_TARGET=$RH_TARGET "; fi
 nthm=0
-for t in $TGT_THEOREMS; do nthm=$((nthm + 1)); done
+set -f; for t in $TGT_THEOREMS; do nthm=$((nthm + 1)); done; set +f
 case "$nthm" in
   1) nword=one ;; 2) nword=two ;; 3) nword=three ;; 4) nword=four ;; 5) nword=five ;;
   6) nword=six ;; 7) nword=seven ;; 8) nword=eight ;; 9) nword=nine ;; 10) nword=ten ;;

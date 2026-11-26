@@ -109,7 +109,19 @@
 #       hard link. 02 with a stand-in tar that plants a file in .lake stops and puts nothing in place. With a pin left
 #       over from an earlier commit, 01 --check-only and 02 refuse the old commit's file; a clone made from another
 #       address is refused until --redownload.
-#   28  Cases 14 to 27 called no stand-in for the network or the toolchain either (nor gcloud).
+#   28  tar-inspect refuses the headers that Python's tarfile and bsdtar read differently (a pax path ending in '/', a pax
+#       size '1_025', a size field '0o2000' or '0_2000', GNU.sparse keys) and a file named HEAD (also 'hEaD.'); it
+#       accepts Head.lean, HEADER.md and Python's pax and GNU archives with long names. git-export refuses a file named
+#       HEAD, and stops at --max-files and --max-bytes, writing nothing. 02 with a stand-in tar that changes a listed
+#       file's bytes stops and puts nothing in place. A TGT_ value in the environment reaches the scripts a script
+#       starts (reproduce_findings.sh S1 fails on a wrong pin given that way). lib.sh refuses TGT_GIT_SUBDIR '.',
+#       '../x', '-x', 'x/', '/x', 'a//b' and 'a/./b'. An empty .rh-target stops the scripts with the command that
+#       writes it; a marker that cannot be written is removed, with an error. .gitignore covers work-<name>. A pin that
+#       does not match leaves no .sha256 file; 01 --check-only names a clone that records no address, and refuses a
+#       SHA-256 repository, as 01 does. 08 does not expand a file pattern in TGT_THEOREMS; axioms-summary fails a
+#       record whose primary theorem is not checked. project-info --show-urls prints the toolchain's origin (marking
+#       one that is not leanprover/lean4) and each package's address, escaped, and 02 prints them for fix-git.
+#   29  Cases 14 to 28 called no stand-in for the network or the toolchain either (nor gcloud).
 # What it changes on disk: only a temporary directory of its own under TMPDIR, removed at the end (kept with
 #   TARGETS_TEST_KEEP=1). The repository is only read.
 # No network and no Lean: every command runs with a clean environment (env -i) whose PATH starts with stand-ins for
@@ -1572,7 +1584,205 @@ cenv RH_TARGET=fix-pin /bin/bash "$NEW/scripts/01_fetch.sh" --redownload > "$T27
 res "...01 --redownload clones from the profile's address, which the clone and the record then name" $? "status $rc: $(tailof "$T27/s.d")"
 
 # ================================================================ 28
-section 28 "nothing reached for the network or the toolchain in cases 14 to 27"
+section 28 "headers tars read differently, HEAD files, export limits, overrides in child scripts, markers, globs"
+T28="$TMPD/c28"; mkdir -p "$T28"
+cenv "$PY3" -I -B - "$T28" <<'PY'
+import gzip, io, os, sys, tarfile
+out = sys.argv[1]
+def hdr(name, size, typeflag=b"0", mode=0o644, sizefield=None):
+    h = bytearray(512)
+    h[0:len(name)] = name
+    h[100:108] = b"%07o\0" % mode
+    h[108:116] = b"0000000\0"; h[116:124] = b"0000000\0"
+    h[124:136] = sizefield.ljust(12, b"\0") if sizefield is not None else b"%011o\0" % size
+    h[136:148] = b"00000000000\0"
+    h[148:156] = b"        "
+    h[156:157] = typeflag
+    h[257:265] = b"ustar\x0000"
+    h[148:156] = b"%06o\0 " % sum(h)
+    return bytes(h)
+pad = lambda b: b + b"\0" * (-len(b) % 512)
+reg = lambda name, data: hdr(name, len(data)) + pad(data)
+def pax(records):
+    body = b""
+    for k, v in records:
+        rec = b" " + k + b"=" + v + b"\n"
+        d = 1
+        while len(str(len(rec) + d)) != d:
+            d += 1
+        body += str(len(rec) + d).encode() + rec
+    return hdr(b"PaxHeader/x", len(body), typeflag=b"x") + pad(body)
+P = b"lean/"
+base = reg(P + b"lakefile.toml", b'name = "t"\n') + reg(P + b"src/Main.lean", b"-- what the listing reads\n")
+hidden = reg(P + b"src/Main.lean", b"-- what another tar would write\n")
+# Each hides the entry 'hidden' from Python's tarfile where bsdtar reads it (the review's four vectors), or names
+# a file HEAD; 'near' has names and a pax path that are fine.
+vectors = {
+    "pax_slash": base + pax([(b"path", P + b"foo/")]) + hdr(P + b"foo", len(hidden)) + hidden,
+    "pax_size": base + pax([(b"size", b"1_025")]) + hdr(P + b"bar", 1) + pad(b"x") + hidden,
+    "size_0o": base + hdr(P + b"bar", 0, sizefield=b"0o2000") + hidden,
+    "size_us": base + hdr(P + b"bar", 0, sizefield=b"0_2000") + hidden,
+    "sparse": base + pax([(b"size", b"1"), (b"GNU.sparse.realsize", b"1536")]) + hdr(P + b"bar", 1) + pad(b"x") + hidden,
+    "head": base + reg(P + b"HEAD", b"ref: refs/heads/main\n") + reg(P + b"objects/x", b"x") + reg(P + b"refs/x", b"x"),
+    "head_spelled": base + reg(P + b"src/hEaD.", b"x"),
+    "near": base + reg(P + b"src/Head.lean", b"x") + reg(P + b"HEADER.md", b"x") + pax([(b"path", P + b"paxname.lean")])
+            + reg(P + b"short", b"z"),
+}
+for name, body in vectors.items():
+    data = body + b"\0" * 1024
+    data += b"\0" * (-len(data) % 10240)
+    with open(os.path.join(out, name + ".tar.gz"), "wb") as fh:
+        fh.write(gzip.compress(data, mtime=0))
+# Ordinary archives from Python's tarfile: pax (a long name, a name that is not ASCII) and GNU (a long name).
+for fmt, nm in ((tarfile.PAX_FORMAT, "py_pax"), (tarfile.GNU_FORMAT, "py_gnu")):
+    with tarfile.open(os.path.join(out, nm + ".tar"), "w", format=fmt, encoding="utf-8") as tf:
+        for n in ("lean/lakefile.toml", "lean/src/" + "d" * 120 + "/B.lean", "lean/src/café.lean"):
+            ti = tarfile.TarInfo(n); ti.mode = 0o644; ti.size = 2
+            tf.addfile(ti, io.BytesIO(b"x\n"))
+PY
+TOOLS28="$NEW/scripts/verify/rhv_tools.py"
+for c in "pax_slash|a pax path that ends with a slash" "pax_size|a pax size ('1_025') that not every tar reads as the same number" \
+         "size_0o|a size in its header ('0o2000') that not every tar reads" "size_us|a size in its header ('0_2000') that not every tar reads" \
+         "sparse|pax keys of a sparse file (GNU.sparse.realsize)" "head|a file named 'HEAD'" "head_spelled|a file named 'HEAD'"; do
+  f=${c%%|*}; want=${c#*|}
+  refused "tar-inspect refuses $f.tar.gz: $want" "$want" "$PY3" -I -B "$TOOLS28" tar-inspect "$T28/$f.tar.gz"
+done
+for f in near.tar.gz py_pax.tar py_gnu.tar; do
+  cenv "$PY3" -I -B "$TOOLS28" tar-inspect "$T28/$f" > "$T28/$f.out" 2>&1; rc=$?
+  [ "$rc" = 0 ]; res "tar-inspect accepts $f (Head.lean, HEADER.md, pax and GNU long names)" $? "status $rc: $(tailof "$T28/$f.out")"
+done
+
+# git-export: files named HEAD, and its limits
+C_HEADF=$(branch headfile 100644 proj/HEAD 'ref: refs/heads/main')
+C_HEADS=$(branch headspelled 100644 proj/src/hEaD. 'x')
+for c in "headfile|$C_HEADF" "headspelled|$C_HEADS"; do
+  refused "git-export refuses a file named HEAD ($(printf '%s' "${c%%|*}"))" "a file named 'HEAD'" \
+    "$PY3" -I -B "$TOOLS28" git-export --git-dir "$REPO/.git" --commit "${c#*|}" --subdir proj --prefix proj/ --out "$T28/${c%%|*}.tar"
+  [ ! -e "$T28/${c%%|*}.tar" ] && [ ! -e "$T28/${c%%|*}.tar.tmp" ]; res "...and writes nothing" $?
+done
+refused "git-export --max-files 2 refuses a commit with more files" "git-export stops at 2 (--max-files)" \
+  "$PY3" -I -B "$TOOLS28" git-export --git-dir "$REPO/.git" --commit "$C_MAIN" --subdir proj --prefix proj/ --out "$T28/max.tar" --max-files 2
+[ ! -e "$T28/max.tar" ] && [ ! -e "$T28/max.tar.tmp" ]; res "...and writes nothing" $?
+refused "git-export --max-bytes 10 refuses a commit with more contents" "git-export stops at 10 (--max-bytes)" \
+  "$PY3" -I -B "$TOOLS28" git-export --git-dir "$REPO/.git" --commit "$C_MAIN" --subdir proj --prefix proj/ --out "$T28/max.tar" --max-bytes 10
+[ ! -e "$T28/max.tar" ] && [ ! -e "$T28/max.tar.tmp" ]; res "...and writes nothing" $?
+
+# 02 with a tar that writes other bytes into a listed file (what the four header vectors make bsdtar do)
+STUB28="$TMPD/stub28"; mkdir -p "$STUB28"; REALTAR=$(command -v tar)
+cat > "$STUB28/tar" <<EOF
+#!/bin/sh
+# stand-in made by test_targets.sh: extracts with the real tar, then puts other bytes into a file the archive has
+"$REALTAR" "\$@" || exit
+for a; do last=\$a; done
+printf -- '-- not what the listing read\n' > "\$last/proj/src/A.lean"
+EOF
+chmod +x "$STUB28/tar"
+prof fix-subst; W28s="$NEW/work-fix-subst"
+cenv RH_TARGET=fix-subst /bin/bash "$NEW/scripts/01_fetch.sh" > "$T28/sub.a" 2>&1; rc=$?
+[ "$rc" = 0 ]; res "fix-subst: 01 writes the tar file" $? "status $rc: $(tailof "$T28/sub.a")"
+refused "02 with a tar that changes a listed file's bytes: stops" "what tar extracted is not what the listing showed" \
+  PATH="$STUB28:$CPATH" RH_TARGET=fix-subst /bin/bash "$NEW/scripts/02_inspect_and_extract.sh"
+grep -q 'proj/src/A.lean' "$TMPD/refused.out" && [ ! -e "$W28s/extract" ] && [ ! -e "$W28s/extract.from" ] \
+  && [ -f "$W28s/extract.partial/proj/src/A.lean" ]
+res "...names the file; no extract and no extract.from; the tree is left in extract.partial" $? "$(tailof "$TMPD/refused.out" 4)"
+
+# TGT_ values given in the environment reach the scripts that a script starts (reproduce_findings.sh runs 01)
+t=$(cenv RH_TARGET=fix-git TGT_ROOT_MODULE=Env.Root /bin/bash -c '. "$1/scripts/lib.sh" && /bin/bash "$2" "$1/scripts/lib.sh" -- TGT_ROOT_MODULE' _ "$NEW" "$DUMP" 2>&1)
+[ "$t" = "TGT_ROOT_MODULE=[Env.Root]" ]; res "a TGT_ value in the environment reaches a script started by a script of a non-default target" $? "$t"
+# (A target with nothing extracted yet, pinned right in its profile: fix-git's commit, directory and prefix.)
+prof fix-s1 "TGT_TARBALL_SHA256=$H1"
+# The wrong value first: a run with the right one extracts a tree, which a later run with another pin refuses.
+cenv RH_TARGET=fix-s1 "TGT_TARBALL_SHA256=$(printf '%064d' 5)" /bin/bash "$NEW/scripts/reproduce_findings.sh" > "$T28/rf.b" 2>&1; rc=$?
+[ "$rc" = 1 ] && [ "$(row "$T28/rf.b" S1)" = FAIL ]
+res "reproduce_findings.sh with a wrong TGT_TARBALL_SHA256 in the environment, which its 01 sees too: S1 fails, status 1" $? "status $rc: $(grep '^S1' "$T28/rf.b") $(tailof "$T28/rf.b" 2)"
+cenv RH_TARGET=fix-s1 /bin/bash "$NEW/scripts/reproduce_findings.sh" > "$T28/rf.a" 2>&1; rc=$?
+[ "$rc" = 0 ] && [ "$(row "$T28/rf.a" S1)" = PASS ]; res "...and with the profile's own, right, value: S1 passes" $? "status $rc: $(grep '^S1' "$T28/rf.a") $(tailof "$T28/rf.a" 2)"
+
+# lib.sh checks TGT_GIT_SUBDIR before anything is fetched
+for v in . ../x -x x/ /x a//b a/./b; do
+  prof fix-bad "TGT_GIT_SUBDIR=$v"
+  refused "TGT_GIT_SUBDIR '$v' is refused by lib.sh" "TGT_GIT_SUBDIR must be empty" RH_TARGET=fix-bad /bin/bash "$NEW/scripts/01_fetch.sh"
+done
+[ ! -e "$NEW/work-fix-bad" ]; res "...and none of these left a working directory behind" $?
+
+# The marker: empty, and a write that fails
+W28m="$T28/wm"; mkdir -p "$W28m/logs"; : > "$W28m/.rh-target"
+refused "an empty .rh-target: the scripts stop and say how to write the target's name into it" "is empty or cannot be read" \
+  RH_WORKDIR="$W28m" /bin/bash "$NEW/scripts/06_progress.sh"
+grep -q "printf '%s.n' alpoge-rh > $W28m/.rh-target" "$TMPD/refused.out"; res "...with the command that writes it" $? "$(tailof "$TMPD/refused.out" 2)"
+W28c="$T28/wc"
+cenv RH_WORKDIR="$W28c" /bin/bash -c 'trap "" XFSZ; ulimit -f 0; . "$1/scripts/lib.sh" && claim_workdir && echo claimed' _ "$NEW" 2>&1 | cat > "$T28/claim.out"
+rc=${PIPESTATUS[0]}
+[ "$rc" != 0 ] && grep -q 'could not write' "$T28/claim.out" && [ -d "$W28c" ] && [ ! -e "$W28c/.rh-target" ]
+res "a marker that cannot be written (no room for it: ulimit -f 0): an error, and no empty .rh-target left behind" $? "status $rc: $(tailof "$T28/claim.out")"
+
+# .gitignore: the working directories of other targets too
+if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  cenv git -C "$ROOT" check-ignore -q --no-index work-fix-git/download/source.tar && cenv git -C "$ROOT" check-ignore -q --no-index work/x
+  res ".gitignore covers work-<target name> as well as work" $?
+else
+  skip ".gitignore: $ROOT is not a git checkout"
+fi
+
+# A pin that does not match leaves no .sha256 file; a clone that records no address
+prof fix-pm; W28p="$NEW/work-fix-pm"
+cenv RH_TARGET=fix-pm /bin/bash "$NEW/scripts/01_fetch.sh" > "$T28/pm.a" 2>&1
+[ -f "$W28p/download/source.tar.sha256" ]; res "fix-pm: unpinned, 01 writes source.tar.sha256" $? "$(tailof "$T28/pm.a")"
+prof fix-pm "TGT_TARBALL_SHA256=$(printf '%064d' 7)"
+cenv RH_TARGET=fix-pm /bin/bash "$NEW/scripts/01_fetch.sh" > "$T28/pm.b" 2>&1; rc=$?
+[ "$rc" = 1 ] && [ -f "$W28p/download/source.tar" ] && [ -f "$W28p/download/source.tar.from" ] && [ ! -e "$W28p/download/source.tar.sha256" ]
+res "pinned wrong: 01 stops (status 1), and no .sha256 file describes the tar file it wrote" $? "status $rc: $(ls "$W28p/download" 2>&1 | tr '\n' ' ')"
+cenv git --git-dir="$W28p/download/repo.git" config --unset rhv.sourceurl
+refused "01 --check-only with a clone that records no address says so" "DOES NOT RECORD THE ADDRESS IT WAS MADE FROM" \
+  RH_TARGET=fix-pm /bin/bash "$NEW/scripts/01_fetch.sh" --check-only
+
+# A repository that names its objects by SHA-256
+R256="$FX/repo256"; mkdir -p "$R256"
+if cenv git -C "$R256" init -q --object-format=sha256 . >/dev/null 2>&1; then
+  mkproject "$R256/proj" src
+  cenv GIT_AUTHOR_DATE=1700000000 GIT_COMMITTER_DATE=1700000000 git -C "$R256" -c user.name=test -c user.email=test@example.com \
+    -c commit.gpgsign=false -c core.hooksPath=/dev/null add -A >/dev/null 2>&1
+  cenv GIT_AUTHOR_DATE=1700000000 GIT_COMMITTER_DATE=1700000000 git -C "$R256" -c user.name=test -c user.email=test@example.com \
+    -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m sha256 >/dev/null 2>&1
+  C256=$(cenv git -C "$R256" rev-parse HEAD 2>/dev/null)
+  prof fix-256 "TGT_GIT_URL=$R256" "TGT_GIT_COMMIT=$(printf '%s' "$C256" | cut -c1-40)"
+  refused "a repository that names its objects by SHA-256 (the commit given by its first 40 characters): 01 stops" "not by SHA-1" \
+    RH_TARGET=fix-256 /bin/bash "$NEW/scripts/01_fetch.sh"
+  [ ! -e "$NEW/work-fix-256/download/source.tar" ]; res "...and writes no tar file" $?
+  refused "...and 01 --check-only says so" "NOT SHA-1, WHICH IS NOT SUPPORTED" RH_TARGET=fix-256 /bin/bash "$NEW/scripts/01_fetch.sh" --check-only
+else
+  skip "a SHA-256 repository: this git cannot make one"
+fi
+
+# 08 splits the theorem list on spaces but does not expand file patterns in it (it runs in the extracted tree)
+: > "$W4/extract/proj/c_planted"
+cenv RH_TARGET=fix-git "TGT_THEOREMS=a_thm c_*" /bin/bash "$NEW/scripts/08_check_axioms.sh" > "$T28/glob.out" 2>&1
+fn=$(ls "$W4"/logs/axioms-full-*.lean 2>/dev/null | tail -n 1); fj="${fn%.lean}.json"
+grep -q '^#print axioms c_\*$' "$fn" 2>/dev/null && ! grep -q 'c_planted' "$fn" \
+  && jsonok "$fj" 'd["theorems"] and sorted(d["theorems"]) == ["a_thm", "c_*"]' 2>/dev/null
+res "08 with TGT_THEOREMS 'a_thm c_*' and a file c_planted in the project: the name is used as written" $? "$(grep 'print axioms' "$fn" 2>&1 | tr '\n' ' ') $(tailof "$T28/glob.out" 2)"
+rm -f "$W4/extract/proj/c_planted"
+: > "$T28/empty.log"
+cenv "$PY3" -I -B "$TOOLS28" axioms-summary --output "$T28/empty.log" --mode full --primary a_thm --theorem c_thm --lean-status 0 \
+  --json "$T28/s.json" > "$T28/s.out" 2>&1; rc=$?
+[ "$rc" != 0 ] && grep -q 'a_thm, the theorem whose statement is compared, is not one of the theorems checked' "$T28/s.out"
+res "axioms-summary fails a record whose primary theorem is not among those checked" $? "status $rc: $(tailof "$T28/s.out")"
+
+# Where 04 fetches and runs code from: printed for any target but the default one
+cenv "$PY3" -I -B "$TOOLS28" project-info "$W4/extract/proj" --expected "$T28/none.json" --show-urls > "$T28/pi.a" 2>&1; rc=$?
+[ "$rc" = 0 ] && grep -q '^where step 04 fetches and runs code from' "$T28/pi.a" && grep -q '^  toolchain  *leanprover/lean4$' "$T28/pi.a" \
+  && grep -q '^  mathlib  *https://example.invalid/mathlib4$' "$T28/pi.a"
+res "project-info --show-urls: the toolchain's origin and each package's address" $? "status $rc: $(tailof "$T28/pi.a" 3)"
+P28="$T28/proj"; mkdir -p "$P28"; printf 'name = "x"\n' > "$P28/lakefile.toml"; echo 'evil/lean4:v4.33.1' > "$P28/lean-toolchain"
+printf '{"packages": [{"name": "mathlib", "type": "git", "url": "https://attacker.example/m\\u001b[2Jx", "rev": "%s"}, {"name": "local", "type": "path", "dir": "../x"}]}\n' "$MLREV" > "$P28/lake-manifest.json"
+cenv "$PY3" -I -B "$TOOLS28" project-info "$P28" --expected "$T28/none.json" --show-urls > "$T28/pi.b" 2>&1; rc=$?
+[ "$rc" = 0 ] && grep -q '^  toolchain  *evil/lean4   <- NOT leanprover/lean4$' "$T28/pi.b" && grep -q 'attacker.example' "$T28/pi.b" \
+  && ! LC_ALL=C grep -q "$(printf '\033')" "$T28/pi.b" && grep -q '^  local  *path \.\./x$' "$T28/pi.b"
+res "...marks a toolchain that is not leanprover/lean4, shows path packages, and escapes control characters" $? "status $rc: $(tailof "$T28/pi.b" 4)"
+grep -q '^  mathlib  *https://example.invalid/mathlib4$' "$TMPD/c4.h"; res "02 for target fix-git printed them (its first run, in case 4)" $? "$(tailof "$TMPD/c4.h" 4)"
+
+# ================================================================ 29
+section 29 "nothing reached for the network or the toolchain in cases 14 to 28"
 [ ! -s "$STUBLOG" ] && [ ! -s "$GLOG" ]; res "no stand-in of curl, wget, lake, elan, leanchecker or gcloud was called" $? "$(tailof "$STUBLOG" 3) $(tailof "$GLOG" 3)"
 
 echo "$N checks, $FAILS failed, $SKIPS skipped ($(( $(date +%s) - START )) s)"

@@ -55,7 +55,7 @@ def main():
     adir = rhpaths.analysis_dir(a.analysis_dir)
     if a.key:
         keys = a.key
-    elif rhpaths.target() == rhpaths.DEFAULT_TARGET:
+    elif rhpaths.target(paths_given=bool(a.analysis_dir)) == rhpaths.DEFAULT_TARGET:
         keys = DEFAULT_KEYS
     else:
         keys = [rhpaths.root_module()]

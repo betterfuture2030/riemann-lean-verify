@@ -76,6 +76,10 @@ else
   unset ${!TGT_@}
   . "$REPO_ROOT/targets/$RH_TARGET/target.env"
   _rh_env_wins
+  # unset took away the export of the TGT_ values given in the environment; without it a script that this one
+  # starts (01_fetch.sh from reproduce_findings.sh, the build runner from 05_build.sh) would read the profile's
+  # values instead, and the two would disagree.
+  for _v in $_rh_keep; do case $_v in TGT_*) export "$_v" ;; esac; done
   # The optional settings that have a value when a profile leaves them out.
   if [ "${TGT_SOURCE_KIND:-}" = git ]; then : "${TGT_TARBALL_NAME:=source.tar}"; else : "${TGT_TARBALL_NAME:=source.tar.gz}"; fi
   # The audit looks for declarations by the last component of a name (the default target lists LFunction,
@@ -136,6 +140,9 @@ esac
 if [ "$TGT_SOURCE_KIND" = git ]; then
   case "$TGT_GIT_COMMIT" in *[!0123456789abcdef]*) _rh_len=0 ;; *) _rh_len=${#TGT_GIT_COMMIT} ;; esac
   [ "$_rh_len" = 40 ] || die "target '$RH_TARGET': TGT_GIT_COMMIT must be a commit's 40 hexadecimal characters in lower case; a branch or tag name is refused (got '$TGT_GIT_COMMIT')"
+  # Empty means the whole repository. (The records write an empty value as '.', so '.' itself is refused: the
+  # two would be one line in the records and two different requests to git-export.)
+  [ -z "$TGT_GIT_SUBDIR" ] || ! _rh_bad_path "$TGT_GIT_SUBDIR" || die "target '$RH_TARGET': TGT_GIT_SUBDIR must be empty (the whole repository) or a relative path of plain components with no slash at either end: no '..' anywhere, no '.' component, none starting with '-' (got '$TGT_GIT_SUBDIR')"
 fi
 
 # ---- Paths ------------------------------------------------------------------------------------------------
@@ -170,6 +177,7 @@ lean_path() { local p="$RH_PROJ/.lake/build/lib/lean" d; for d in "$RH_PROJ"/.la
 target_guard() {
   local marker="$RH_WORKDIR/.rh-target" owner=""
   if [ -e "$marker" ]; then
+    [ -r "$marker" ] && [ -s "$marker" ] || die "the file $marker is empty or cannot be read, so it does not say which target the working directory $RH_WORKDIR belongs to. If the directory is target '$RH_TARGET''s, write that name into the file (printf '%s\\n' $RH_TARGET > $marker) and run the command again. Every target has a working directory of its own: see targets/README.md"
     IFS= read -r owner 2>/dev/null < "$marker" || true
     [ "$owner" = "$RH_TARGET" ] || die "the working directory $RH_WORKDIR belongs to target '$owner' (its file .rh-target says so) and this command is for target '$RH_TARGET'. Every target has a working directory of its own: see targets/README.md"
   elif [ "$RH_TARGET_IS_DEFAULT" = 0 ] && [ -d "$RH_WORKDIR" ] && [ -n "$(ls -A -- "$RH_WORKDIR" 2>/dev/null)" ]; then
@@ -180,8 +188,19 @@ target_guard() {
 # Create the working directory and, if it has none, its .rh-target file. A script that writes into the working
 # directory without calling ensure_dirs calls this first.
 claim_workdir() {
+  local m="$RH_WORKDIR/.rh-target"
   mkdir -p "$RH_WORKDIR" || return
-  [ -e "$RH_WORKDIR/.rh-target" ] || (set -C; printf '%s\n' "$RH_TARGET" > "$RH_WORKDIR/.rh-target") 2>/dev/null
+  if [ ! -e "$m" ]; then
+    # set -C: the file is created only if there is none, so two scripts started at once cannot both claim the
+    # directory. Where the directory cannot be written to (the cloud guest's checking accounts, for the default
+    # target) nothing is created and nothing is said, as before. A file that was created but could not be
+    # written to (a full disk) is removed: left empty, it would stop every script.
+    (set -C; printf '%s\n' "$RH_TARGET" > "$m") >/dev/null 2>&1
+    if [ -e "$m" ] && [ ! -s "$m" ]; then
+      rm -f -- "$m"
+      die "could not write $m, the file that names the target the working directory belongs to (is the disk full?); nothing else was written"
+    fi
+  fi
   target_guard
 }
 # Create the working directory's three subdirectories and, if it has none, its .rh-target file. A script calls

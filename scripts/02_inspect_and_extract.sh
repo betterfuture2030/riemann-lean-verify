@@ -7,16 +7,20 @@
 #   2. Lists the tarball without extracting it and refuses to continue unless every entry is a
 #      regular file under the archive's top directory (TGT_ARCHIVE_PREFIX; lean/ for the default
 #      target), with no symbolic links, hard links, absolute paths, '..' components, executable
-#      bits or duplicate names. Prints entry counts by extension. A target's profile can allow
-#      executable bits (TGT_ARCHIVE_ALLOW_EXEC=1) and nothing else of that list.
+#      bits or duplicate names, and with headers that tars read alike. Prints entry counts by
+#      extension. A target's profile can allow executable bits (TGT_ARCHIVE_ALLOW_EXEC=1) and
+#      nothing else of that list. These checks are made on the archive as Python's tarfile reads it.
 #   3. Extracts into RH_WORKDIR/extract (skipped if already extracted). The tarball may be
 #      gzipped or not. For a git source the extracted files get the time of extraction, because
 #      the tar file that 01_fetch.sh writes carries no times. For any target but the default one,
 #      what tar wrote is then compared with the listing (rhv_tools.py tar-inspect
-#      --check-extracted), and the tree is put in place only if it holds the entries of the
-#      listing and nothing else: no links, no other files, nothing in .lake.
+#      --check-extracted and --verify-tree), and the tree is put in place only if it holds the
+#      entries of the listing, each with the bytes the listing read, and nothing else: no links,
+#      no other files, nothing in .lake.
 #   4. Prints lean-toolchain, the Mathlib revision from lake-manifest.json and the SHA-256 of
-#      lakefile.toml, lake-manifest.json and lean-toolchain.
+#      lakefile.toml, lake-manifest.json and lean-toolchain. For any target but the default one it
+#      also prints where 04_setup_toolchain.sh will fetch and run code from: the toolchain's origin
+#      and the address of every package in lake-manifest.json.
 #   Steps 2 and 4 are compared with the target's expected.json (records/source/expected.json for
 #   the default target) when that file exists.
 # What it changes on disk: creates RH_WORKDIR/extract (via a temporary RH_WORKDIR/extract.partial,
@@ -157,10 +161,12 @@ else
   tar "-${tarflags}f" "$RH_TARBALL" -C "$EXTRACT.partial" || die "tar failed; the incomplete tree is in $EXTRACT.partial"
   # For any target but the default one, what tar wrote is compared with the listing before the tree is put in
   # place: two programs that read one archive need not agree on what is in it. Everything in the tree, .lake
-  # included, must be an entry the listing checked, with no links and no other files. (The default target's
-  # archive is pinned, and its listing is recorded, so this is not done for it, as before there were targets.)
+  # included, must be an entry the listing checked, with no links and no other files, and each file must hold
+  # the bytes the listing read for its entry. (The default target's archive is pinned, and its listing is
+  # recorded, so this is not done for it, as before there were targets.)
   if [ "$RH_TARGET_IS_DEFAULT" = 0 ]; then
-    tar_inspect --quiet --check-extracted "$EXTRACT.partial" \
+    log "comparing what tar wrote with the listing: names, kinds, modes and contents"
+    tar_inspect --quiet --check-extracted "$EXTRACT.partial" --verify-tree "$EXTRACT.partial" \
       || die "what tar extracted is not what the listing showed; it was not put in place and is in $EXTRACT.partial (nothing in it has been run)"
   fi
   # The record is written first: a tree that is in place always has one.
@@ -177,6 +183,9 @@ fi
 if [ "$extracted" -eq 1 ]; then
   set -- project-info "$RH_PROJ" --expected "$RH_EXPECTED"
   [ -n "$WRITE_EXPECTED" ] && set -- "$@" --write-expected "$WRITE_EXPECTED"
+  # For any target but the default one, also where 04 fetches and runs code from (the default target's
+  # project files are pinned by their SHA-256 in its records, so its output stays as it was).
+  [ "$RH_TARGET_IS_DEFAULT" = 1 ] || set -- "$@" --show-urls
   python3 -I -B "$RH_TOOLS" "$@" || die "the project files do not match what was expected"
 else
   log "project files not checked: nothing is extracted"

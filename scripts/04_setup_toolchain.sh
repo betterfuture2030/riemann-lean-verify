@@ -14,7 +14,10 @@
 #      was not accepted, and the real build would first spend hours recompiling Mathlib).
 #   The project must be configured by lakefile.toml and must have lean-toolchain and
 #   lake-manifest.json. A project with a lakefile.lean is refused before anything is run: that
-#   file is a program which Lake runs, and it has to be read first.
+#   file is a program which Lake runs, and it has to be read first. The project chooses other code
+#   that this step runs: the toolchain lean-toolchain names, and the packages at the addresses in
+#   lake-manifest.json, whose lakefiles Lake runs (and Mathlib's cache tool). For any target but
+#   the default one, 02_inspect_and_extract.sh prints where they come from: read that first.
 # What it changes on disk: elan may download a toolchain into ~/.elan. Lake creates
 #   RH_PROJ/.lake (about 8 GB for the default target). A log is written to
 #   RH_WORKDIR/logs/setup-<timestamp>.log.
@@ -35,13 +38,16 @@ for arg in "$@"; do
   esac
 done
 # The smoke modules: the Lake targets are the module names with "+" in front, the compiled
-# files the names with dots turned into slashes.
+# files the names with dots turned into slashes. The lists are split on spaces but never expanded
+# as file patterns (set -f), so a name such as Foo.* cannot pick up file names from the project.
 SMOKE_TARGETS=""; SMOKE_FILES=""; SMOKE_COUNT=0
+set -f
 for m in $TGT_SMOKE_TARGETS; do
   SMOKE_TARGETS="$SMOKE_TARGETS${SMOKE_TARGETS:+ }+$m"
   SMOKE_FILES="$SMOKE_FILES${SMOKE_FILES:+ }$(printf '%s' "$m" | tr '.' '/')"
   SMOKE_COUNT=$((SMOKE_COUNT + 1))
 done
+set +f
 [ "$SMOKE_COUNT" -gt 0 ] || die "TGT_SMOKE_TARGETS names no module for target $RH_TARGET; the smoke build needs at least one"
 
 require_extract_from     # for a target other than the default one: the tree must be the profile's archive
@@ -101,9 +107,11 @@ jobs=$(effective_jobs)
 log "running: lake build $SMOKE_TARGETS (with $jobs jobs)"
 echo "### $(date) lake build $SMOKE_TARGETS" >> "$LOG"
 SMOKE="$LOG.smoke"
+set -f
 # shellcheck disable=SC2086
 LEAN_NUM_THREADS="$jobs" lake build $SMOKE_TARGETS > "$SMOKE" 2>&1
 rc=$?
+set +f
 cat "$SMOKE" >> "$LOG"
 echo "### smoke rc=$rc" >> "$LOG"
 rebuilt=$(LC_ALL=C grep -cE 'Built Mathlib(\.| )' "$SMOKE")
@@ -112,9 +120,11 @@ rm -f "$SMOKE"
 [ "$rc" -eq 0 ] || { tail -n 15 "$LOG"; die "the smoke build failed with status $rc; see $LOG"; }
 [ "$failed" -eq 0 ] || die "the smoke build reported $failed failed job(s); see $LOG"
 [ "$rebuilt" -eq 0 ] || die "$rebuilt Mathlib module(s) were compiled locally: the cache was not accepted. See $LOG. Do not start the full build in this state."
+set -f
 for m in $SMOKE_FILES; do
   [ -f ".lake/build/lib/lean/$m.olean" ] || die "expected compiled file is missing: .lake/build/lib/lean/$m.olean"
 done
+set +f
 case "$SMOKE_COUNT" in
   1) compiled_msg="the module compiled" ;;
   2) compiled_msg="both modules compiled" ;;
