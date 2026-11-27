@@ -1,0 +1,169 @@
+{
+ "elapsed_s": 141,
+ "facts": {
+  "axioms_deep_exit_status": "skipped",
+  "axioms_exit_status": "skipped",
+  "axioms_probe_exit_status": 1,
+  "axioms_probe_lean_exit_status": 0,
+  "build_directory_bytes": 27960608,
+  "build_exit_status": 0,
+  "build_seconds": 34,
+  "compiled_files_list_sha256": "4f323111af1b8d1d809d216d7333eae6c783e29631c3c86725d659d0bdfa7a0b",
+  "compiled_files_unchanged_during_the_checks": true,
+  "compiled_olean_files": 4,
+  "cpus": 8,
+  "guest_script_is_the_one_sent": true,
+  "has_recorded_values": true,
+  "lean_files_in_the_project": 796,
+  "lean_version": "Lean (version 4.35.0, x86_64-unknown-linux-gnu, commit eb6cafb7290e8bd5f2937522d8d804f58f02bafc, Release)",
+  "machine_type": "n4d-standard-8",
+  "memory_kb": 32858320,
+  "mode": "target-rehearsal",
+  "replay_exit_status": 0,
+  "replay_modules_passed_by_leanchecker": 2,
+  "replay_runs": 1,
+  "replay_summary_exit_status": 0,
+  "repository_archive_sha256": "86a48a3fb3fc078ea69f4b91f90a7fecd8a10a91e451403966e40acfd8689a16",
+  "target": "grh-compact",
+  "toolchain_files_list_sha256": "5b08cb7c1c80284fd58bc9176c54516699f16c9e570a083fea386ccc58f472ab",
+  "toolchain_files_listed": 17947,
+  "toolchain_files_unchanged_from_step_04_to_the_end": true,
+  "toolchain_line": "leanprover/lean4:v4.35.0",
+  "tools_commit": "2102d955ccb477712a79c4f19315ab87d898388d",
+  "total_seconds": 141,
+  "user_can_look_up_names": true,
+  "user_cannot_connect_to_another_machine": true
+ },
+ "message": "rehearsal: the phases ran (build status 0, 08 --probe: 1 with lean's own status 0, 2 sampled modules replayed and passed, compiled files unchanged: true, toolchain unchanged: true); this says nothing about the proof",
+ "state": "DONE",
+ "steps": [
+  {
+   "command": "(setup)",
+   "exit_status": 0,
+   "peak_memory_kb": null,
+   "seconds": 0,
+   "step": "sysctl"
+  },
+  {
+   "command": "(setup)",
+   "exit_status": 0,
+   "peak_memory_kb": null,
+   "seconds": 7,
+   "step": "packages"
+  },
+  {
+   "command": "(setup)",
+   "exit_status": 0,
+   "peak_memory_kb": null,
+   "seconds": 1,
+   "step": "disk"
+  },
+  {
+   "command": "(setup)",
+   "exit_status": 0,
+   "peak_memory_kb": null,
+   "seconds": 0,
+   "step": "user"
+  },
+  {
+   "command": "(setup)",
+   "exit_status": 0,
+   "peak_memory_kb": null,
+   "seconds": 0,
+   "step": "repository"
+  },
+  {
+   "command": "bash scripts/00_check_prereqs.sh --install-elan",
+   "exit_status": 0,
+   "peak_memory_kb": 14732,
+   "seconds": 1,
+   "step": "00_prereqs"
+  },
+  {
+   "command": "bash scripts/01_fetch.sh",
+   "exit_status": 0,
+   "peak_memory_kb": 29768,
+   "seconds": 6,
+   "step": "01_fetch"
+  },
+  {
+   "command": "bash scripts/01_fetch.sh --check-only",
+   "exit_status": 0,
+   "peak_memory_kb": 4372,
+   "seconds": 0,
+   "step": "01_check"
+  },
+  {
+   "command": "bash scripts/02_inspect_and_extract.sh",
+   "exit_status": 0,
+   "peak_memory_kb": 28912,
+   "seconds": 1,
+   "step": "02_inspect"
+  },
+  {
+   "command": "bash scripts/03_audit_source.sh",
+   "exit_status": 0,
+   "peak_memory_kb": 27380,
+   "seconds": 0,
+   "step": "03_audit"
+  },
+  {
+   "command": "python3 analysis/import_graph.py",
+   "exit_status": 0,
+   "peak_memory_kb": 14936,
+   "seconds": 0,
+   "step": "import_graph"
+  },
+  {
+   "command": "bash scripts/reproduce_findings.sh",
+   "exit_status": 0,
+   "peak_memory_kb": 29644,
+   "seconds": 1,
+   "step": "reproduce"
+  },
+  {
+   "command": "bash scripts/04_setup_toolchain.sh",
+   "exit_status": 0,
+   "peak_memory_kb": 7487256,
+   "seconds": 72,
+   "step": "04_setup"
+  },
+  {
+   "command": "(setup)",
+   "exit_status": 0,
+   "peak_memory_kb": null,
+   "seconds": 0,
+   "step": "lockdown"
+  },
+  {
+   "command": "bash scripts/05_build.sh start +Statements +Lib.General.Analysis.ZpowSum +Lib.General.LinearAlgebra.SubmersionZero",
+   "exit_status": 0,
+   "peak_memory_kb": 4464,
+   "seconds": 3,
+   "step": "05_start"
+  },
+  {
+   "command": "lake build +Statements +Lib.General.Analysis.ZpowSum +Lib.General.LinearAlgebra.SubmersionZero (started by 05_build.sh)",
+   "exit_status": 0,
+   "peak_memory_kb": null,
+   "seconds": 34,
+   "step": "05_build"
+  },
+  {
+   "command": "env TGT_PROBE_MODULE=Lib.General.Analysis.ZpowSum TGT_PROBE_THEOREM=rootDiscr_pos bash scripts/08_check_axioms.sh --probe",
+   "exit_status": 1,
+   "peak_memory_kb": 7640960,
+   "seconds": 3,
+   "step": "08_probe"
+  },
+  {
+   "command": "bash scripts/09_kernel_replay.sh --sample 2",
+   "exit_status": 0,
+   "peak_memory_kb": 6805384,
+   "seconds": 3,
+   "step": "09_replay_1"
+  }
+ ],
+ "what": "facts from one run of cloud/gcp/target_guest.sh; not a verdict. One user ran the build and the checks and owns the toolchain, so every status from step 04 on is that user's word: see 'Another target' in cloud/gcp/README.md",
+ "written_utc": "2026-11-27T18:39:08Z"
+}

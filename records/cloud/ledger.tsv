@@ -17,3 +17,5 @@ full-spot-20261122-150121	full-spot#2	n4d-highmem-32	1.20	us-central1-a	17953858
 export-check-20261123-180914	export-check	n4d-highmem-32	2.00	us-east1-b	1795478954	1795487038	8084	4.49
 kernel-check-rehearsal-20261125-135136	kernel-check-rehearsal	n4d-highmem-4	0.30	us-central1-b	1795636297	1795637661	1364	0.11
 kernel-check-20261125-141623	kernel-check	n4d-highmem-32	2.00	us-central1-b	1795637785	1795679134	41349	22.97
+target-rehearsal-20261127-123601	target-rehearsal	n4d-standard-8	0.40	us-central1-b	1795804565	1795804941	376	0.04
+target-20261127-124345	target	n4d-standard-16	0.75	us-central1-b	1795805029	1795807759	2730	0.57

@@ -1,0 +1,6 @@
+Checking /mnt/work/w/download (nothing will be changed)
+The source is commit 72fead102f663d5c7a407964a13dc0cf9d977207 of https://github.com/lsernau/grh-lean (directory grh-compact)
+clone:    holds the commit (/mnt/work/w/download/repo.git)
+archive:  c4cf2fabe540f758dd8637b5f3aeaed85f840b0829db3ef3c3b45a48abde91a2  ok
+record:   written from this address, commit, directory and prefix (/mnt/work/w/download/source.tar.from)
+RESULT: the archive on disk has the expected SHA-256.

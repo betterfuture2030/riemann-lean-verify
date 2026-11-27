@@ -1,0 +1,24 @@
+2026-11-27 18:45:05  target: grh-compact
+2026-11-27 18:45:05  work directory: /mnt/work/w
+2026-11-27 18:45:05  log file: /mnt/work/w/logs/setup-20261127-184505.log
+2026-11-27 18:45:06  pinned toolchain: leanprover/lean4:v4.35.0 (the first use downloads it)
+2026-11-27 18:46:00  toolchain directory: <HOME>/.elan/toolchains/leanprover--lean4---v4.35.0/bin
+2026-11-27 18:46:00  Lean (version 4.35.0, x86_64-unknown-linux-gnu, commit eb6cafb7290e8bd5f2937522d8d804f58f02bafc, Release)
+2026-11-27 18:46:00  package mathlib: cloning https://github.com/leanprover-community/mathlib4, then checking out 56a005855ea17e0b0958f73ec801ae140b0a1679
+2026-11-27 18:46:28  package plausible: cloning https://github.com/leanprover-community/plausible, then checking out dfa4f38190d07c37e315953e08b90fe2d95b3c24
+2026-11-27 18:46:28  package LeanSearchClient: cloning https://github.com/leanprover-community/LeanSearchClient, then checking out d6b4c7be5be75ec4917c873ac50c756dc1436372
+2026-11-27 18:46:29  package importGraph: cloning https://github.com/leanprover-community/import-graph, then checking out a41f0e9a4dea23188ea9cc1c41ac9f8bbafe0b93
+2026-11-27 18:46:29  package proofwidgets: cloning https://github.com/leanprover-community/ProofWidgets4, then checking out df72b022e558978a1c50264cfc4d7fec86fa8e04
+2026-11-27 18:46:31  package aesop: cloning https://github.com/leanprover-community/aesop, then checking out 4a174c490d8707121c4a9290800489f105d85e07
+2026-11-27 18:46:32  package Qq: cloning https://github.com/leanprover-community/quote4, then checking out dce0ad79c486cb1fb504af04f953c3466b0c6db8
+2026-11-27 18:46:33  package batteries: cloning https://github.com/leanprover-community/batteries, then checking out 66e469188fe07963e5cf666c7d4433f45b8131c5
+2026-11-27 18:46:42  package Cli: cloning https://github.com/leanprover/lean4-cli, then checking out c24fe6078c630e89b489bffe59b3e20ac30d12c8
+2026-11-27 18:46:42  each git package is checked out at the commit lake-manifest.json names
+2026-11-27 18:46:42  running: lake exe mathlib/cache get (downloads Mathlib's compiled files; several minutes the first time)
+2026-11-27 18:47:09  lake-manifest.json unchanged: 1390a02c1729c30db51ee0b19ea7199a129ed899ac571a48956da719573590ae
+2026-11-27 18:47:09  each git package is still checked out at the commit lake-manifest.json names
+2026-11-27 18:47:09  Mathlib checkout: 56a005855ea17e0b0958f73ec801ae140b0a1679
+2026-11-27 18:47:09  Mathlib tags at that commit: v4.35.0 
+2026-11-27 18:47:09  running: lake build +Statements +Lib.General.Analysis.ZpowSum (with 16 jobs)
+2026-11-27 18:47:32  smoke build ok: both modules compiled, no Mathlib module was rebuilt
+2026-11-27 18:47:32  setup complete. Next: 05_build.sh start

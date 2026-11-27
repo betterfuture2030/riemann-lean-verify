@@ -1,0 +1,18 @@
+sysctl	0	0		(setup)
+packages	0	7		(setup)
+disk	0	1		(setup)
+user	0	0		(setup)
+repository	0	0		(setup)
+00_prereqs	0	1	14732	bash scripts/00_check_prereqs.sh --install-elan
+01_fetch	0	6	29768	bash scripts/01_fetch.sh
+01_check	0	0	4372	bash scripts/01_fetch.sh --check-only
+02_inspect	0	1	28912	bash scripts/02_inspect_and_extract.sh
+03_audit	0	0	27380	bash scripts/03_audit_source.sh
+import_graph	0	0	14936	python3 analysis/import_graph.py
+reproduce	0	1	29644	bash scripts/reproduce_findings.sh
+04_setup	0	72	7487256	bash scripts/04_setup_toolchain.sh
+lockdown	0	0		(setup)
+05_start	0	3	4464	bash scripts/05_build.sh start +Statements +Lib.General.Analysis.ZpowSum +Lib.General.LinearAlgebra.SubmersionZero
+05_build	0	34		lake build +Statements +Lib.General.Analysis.ZpowSum +Lib.General.LinearAlgebra.SubmersionZero (started by 05_build.sh)
+08_probe	1	3	7640960	env TGT_PROBE_MODULE=Lib.General.Analysis.ZpowSum TGT_PROBE_THEOREM=rootDiscr_pos bash scripts/08_check_axioms.sh --probe
+09_replay_1	0	3	6805384	bash scripts/09_kernel_replay.sh --sample 2

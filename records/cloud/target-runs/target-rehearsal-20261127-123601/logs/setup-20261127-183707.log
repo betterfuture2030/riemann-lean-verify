@@ -1,0 +1,124 @@
+### Fri Nov 27 18:37:07 UTC 2026 project files
+lean-toolchain:              leanprover/lean4:v4.35.0
+Mathlib revision (manifest): 56a005855ea17e0b0958f73ec801ae140b0a1679
+Mathlib revision (lakefile): 56a005855ea17e0b0958f73ec801ae140b0a1679
+packages in the manifest:    9
+  aesop              4a174c490d8707121c4a9290800489f105d85e07
+  batteries          66e469188fe07963e5cf666c7d4433f45b8131c5
+  Cli                c24fe6078c630e89b489bffe59b3e20ac30d12c8
+  importGraph        a41f0e9a4dea23188ea9cc1c41ac9f8bbafe0b93
+  LeanSearchClient   d6b4c7be5be75ec4917c873ac50c756dc1436372
+  mathlib            56a005855ea17e0b0958f73ec801ae140b0a1679
+  plausible          dfa4f38190d07c37e315953e08b90fe2d95b3c24
+  proofwidgets       df72b022e558978a1c50264cfc4d7fec86fa8e04
+  Qq                 dce0ad79c486cb1fb504af04f953c3466b0c6db8
+sha256 lakefile.toml        f36c58efd8ff5e936868990c4ce23598d84dd3c2acf0cd1c64423fcd888c6010
+sha256 lake-manifest.json   1390a02c1729c30db51ee0b19ea7199a129ed899ac571a48956da719573590ae
+sha256 lean-toolchain       ca5f1f601d34c49079e38d7e7041eb0f2a9c227fbc1df0f404820069a052330c
+libraries outside src, which 03 does not read and the build must not compile (TGT_LIBS_OUTSIDE_SRC):
+  Challenge          in the project's own directory (roots: Challenge)
+project files: matches the recorded values in /mnt/work/rhv/targets/grh-compact/records/expected.json
+### Fri Nov 27 18:37:07 UTC 2026 elan which lean
+warning: could not check for elan self-update: failed to fetch https://github.com/leanprover/elan/releases/latest: HTTP status 504
+info: downloading https://releases.lean-lang.org/lean4/v4.35.0/lean-4.35.0-linux.tar.zst
+info: installing <HOME>/.elan/toolchains/leanprover--lean4---v4.35.0
+### Fri Nov 27 18:37:18 UTC 2026 toolchain
+Lean (version 4.35.0, x86_64-unknown-linux-gnu, commit eb6cafb7290e8bd5f2937522d8d804f58f02bafc, Release)
+Lake version 5.0.0-src+eb6cafb (Lean version 4.35.0)
+### Fri Nov 27 18:37:18 UTC 2026 packages
+### mathlib: git clone --no-checkout -- https://github.com/leanprover-community/mathlib4
+### mathlib 56a005855ea17e0b0958f73ec801ae140b0a1679
+### plausible: git clone --no-checkout -- https://github.com/leanprover-community/plausible
+### plausible dfa4f38190d07c37e315953e08b90fe2d95b3c24
+### LeanSearchClient: git clone --no-checkout -- https://github.com/leanprover-community/LeanSearchClient
+### LeanSearchClient d6b4c7be5be75ec4917c873ac50c756dc1436372
+### importGraph: git clone --no-checkout -- https://github.com/leanprover-community/import-graph
+### importGraph a41f0e9a4dea23188ea9cc1c41ac9f8bbafe0b93
+### proofwidgets: git clone --no-checkout -- https://github.com/leanprover-community/ProofWidgets4
+### proofwidgets df72b022e558978a1c50264cfc4d7fec86fa8e04
+### aesop: git clone --no-checkout -- https://github.com/leanprover-community/aesop
+### aesop 4a174c490d8707121c4a9290800489f105d85e07
+### Qq: git clone --no-checkout -- https://github.com/leanprover-community/quote4
+### Qq dce0ad79c486cb1fb504af04f953c3466b0c6db8
+### batteries: git clone --no-checkout -- https://github.com/leanprover-community/batteries
+### batteries 66e469188fe07963e5cf666c7d4433f45b8131c5
+### Cli: git clone --no-checkout -- https://github.com/leanprover/lean4-cli
+### Cli c24fe6078c630e89b489bffe59b3e20ac30d12c8
+### Fri Nov 27 18:37:44 UTC 2026 lake exe mathlib/cache get
+✔ [3/41] Built Cache.Cli (172ms)
+✔ [4/41] Built Cache.Lean (196ms)
+✔ [5/41] Built Cache.Env (171ms)
+✔ [6/41] Built Cache.Cli:c.o (88ms)
+✔ [7/41] Built Cache.Infra (226ms)
+✔ [8/41] Built Cache.Lean:c.o (137ms)
+✔ [9/41] Built Cache.Env:c.o (128ms)
+✔ [10/41] Built Batteries.Tactic.OpenPrivate (562ms)
+✔ [11/41] Built Cache.Infra:c.o (114ms)
+✔ [12/41] Built Cache.Location (264ms)
+✔ [13/41] Built Cache.Location:c.o (142ms)
+✔ [14/41] Built Cache.IO (721ms)
+✔ [15/41] Built Batteries.Tactic.OpenPrivate:c.o (667ms)
+✔ [16/41] Built Cache.Hashing (348ms)
+✔ [17/41] Built Cache.Hashing:c.o (399ms)
+✔ [18/41] Built Cache.IO:c.o (1.0s)
+✔ [19/41] Built Cache.Requests (975ms)
+✔ [20/41] Built Cache.Marker (199ms)
+✔ [21/41] Built Cache.Marker:c.o (93ms)
+✔ [22/41] Built Cache.Upload.Curl (275ms)
+✔ [23/41] Built Cache.Upload.Rclone (289ms)
+✔ [24/41] Built Cache.Query (301ms)
+✔ [25/41] Built Cache.Upload.Curl:c.o (153ms)
+✔ [26/41] Built Cache.Upload.Rclone:c.o (200ms)
+✔ [27/41] Built Cache.Upload.Azure (301ms)
+✔ [28/41] Built Cache.Query:c.o (220ms)
+✔ [29/41] Built Cache.Upload.S3 (360ms)
+✔ [30/41] Built Cache.Warning (367ms)
+✔ [31/41] Built Cache.Upload.Azure:c.o (109ms)
+✔ [32/41] Built Cache.Upload.Defs (243ms)
+✔ [33/41] Built Cache.Upload.S3:c.o (183ms)
+✔ [34/41] Built Cache.Warning:c.o (214ms)
+✔ [35/41] Built Cache.Upload.Defs:c.o (94ms)
+✔ [36/41] Built Cache.Upload (197ms)
+✔ [37/41] Built Cache.Upload:c.o (66ms)
+✔ [38/41] Built Cache.Main (507ms)
+✔ [39/41] Built Cache.Requests:c.o (1.7s)
+✔ [40/41] Built Cache.Main:c.o (576ms)
+✔ [41/41] Built cache:exe (378ms)
+Current branch: HEAD
+Using cache from origin: (some leanprover-community/mathlib4)
+Attempting to download 9031 file(s) from leanprover-community/mathlib4 cache at https://cache.mathlib.org/mathlib4-master
+Downloaded: 1 file(s) [attempted 1/9031 = 0%, 322 KB/s][KDownloaded: 127 file(s) [attempted 127/9031 = 1%, 697 KB/s][KDownloaded: 297 file(s) [attempted 297/9031 = 3%, 1633 KB/s][KDownloaded: 460 file(s) [attempted 460/9031 = 5%, 2902 KB/s][KDownloaded: 633 file(s) [attempted 633/9031 = 7%, 119 KB/s][KDownloaded: 788 file(s) [attempted 788/9031 = 8%, 1317 KB/s][KDownloaded: 983 file(s) [attempted 983/9031 = 10%, 1121 KB/s][KDownloaded: 1169 file(s) [attempted 1169/9031 = 12%, 1180 KB/s][KDownloaded: 1351 file(s) [attempted 1351/9031 = 14%, 1506 KB/s][KDownloaded: 1521 file(s) [attempted 1521/9031 = 16%, 1790 KB/s][KDownloaded: 1693 file(s) [attempted 1693/9031 = 18%, 1282 KB/s][KDownloaded: 1837 file(s) [attempted 1837/9031 = 20%, 1334 KB/s][KDownloaded: 2019 file(s) [attempted 2019/9031 = 22%, 322 KB/s][KDownloaded: 2210 file(s) [attempted 2210/9031 = 24%, 141 KB/s][KDownloaded: 2402 file(s) [attempted 2402/9031 = 26%, 2291 KB/s][KDownloaded: 2598 file(s) [attempted 2598/9031 = 28%, 273 KB/s][KDownloaded: 2792 file(s) [attempted 2792/9031 = 30%, 1283 KB/s][KDownloaded: 2974 file(s) [attempted 2974/9031 = 32%, 1728 KB/s][KDownloaded: 3160 file(s) [attempted 3160/9031 = 34%, 9868 KB/s][KDownloaded: 3275 file(s) [attempted 3275/9031 = 36%, 380 KB/s][KDownloaded: 3474 file(s) [attempted 3474/9031 = 38%, 361 KB/s][KDownloaded: 3675 file(s) [attempted 3675/9031 = 40%, 945 KB/s][KDownloaded: 3866 file(s) [attempted 3866/9031 = 42%, 2483 KB/s][KDownloaded: 4000 file(s) [attempted 4000/9031 = 44%, 4521 KB/s][KDownloaded: 4191 file(s) [attempted 4191/9031 = 46%, 428 KB/s][KDownloaded: 4381 file(s) [attempted 4381/9031 = 48%, 1956 KB/s][KDownloaded: 4553 file(s) [attempted 4553/9031 = 50%, 391 KB/s][KDownloaded: 4711 file(s) [attempted 4711/9031 = 52%, 228 KB/s][KDownloaded: 4893 file(s) [attempted 4893/9031 = 54%, 290 KB/s][KDownloaded: 5082 file(s) [attempted 5082/9031 = 56%, 134 KB/s][KDownloaded: 5281 file(s) [attempted 5281/9031 = 58%, 3129 KB/s][KDownloaded: 5465 file(s) [attempted 5465/9031 = 60%, 1762 KB/s][KDownloaded: 5654 file(s) [attempted 5654/9031 = 62%, 6068 KB/s][KDownloaded: 5850 file(s) [attempted 5850/9031 = 64%, 2745 KB/s][KDownloaded: 6027 file(s) [attempted 6027/9031 = 66%, 726 KB/s][KDownloaded: 6178 file(s) [attempted 6178/9031 = 68%, 328 KB/s][KDownloaded: 6344 file(s) [attempted 6344/9031 = 70%, 3317 KB/s][KDownloaded: 6525 file(s) [attempted 6525/9031 = 72%, 3954 KB/s][KDownloaded: 6688 file(s) [attempted 6688/9031 = 74%, 572 KB/s][KDownloaded: 6867 file(s) [attempted 6867/9031 = 76%, 612 KB/s][KDownloaded: 7056 file(s) [attempted 7056/9031 = 78%, 727 KB/s][KDownloaded: 7243 file(s) [attempted 7243/9031 = 80%, 456 KB/s][KDownloaded: 7437 file(s) [attempted 7437/9031 = 82%, 537 KB/s][KDownloaded: 7597 file(s) [attempted 7597/9031 = 84%, 2214 KB/s][KDownloaded: 7731 file(s) [attempted 7731/9031 = 85%, 1031 KB/s][KDownloaded: 7918 file(s) [attempted 7918/9031 = 87%, 2390 KB/s][KDownloaded: 8102 file(s) [attempted 8102/9031 = 89%, 1023 KB/s][KDownloaded: 8284 file(s) [attempted 8284/9031 = 91%, 3298 KB/s][KDownloaded: 8456 file(s) [attempted 8456/9031 = 93%, 458 KB/s][KDownloaded: 8629 file(s) [attempted 8629/9031 = 95%, 1287 KB/s][KDownloaded: 8820 file(s) [attempted 8820/9031 = 97%, 533 KB/s][KDownloaded: 9014 file(s) [attempted 9014/9031 = 99%, 4010 KB/s][KDownloaded: 9031 file(s) [attempted 9031/9031 = 100%, 4010 KB/s][K
+Still decompressing downloaded files...
+Decompressed 9031 file(s)
+Already decompressed 9031 file(s)
+### cache rc=0
+### Fri Nov 27 18:38:04 UTC 2026 package checkouts after lake exe mathlib/cache get
+### mathlib 56a005855ea17e0b0958f73ec801ae140b0a1679
+### plausible dfa4f38190d07c37e315953e08b90fe2d95b3c24
+### LeanSearchClient d6b4c7be5be75ec4917c873ac50c756dc1436372
+### importGraph a41f0e9a4dea23188ea9cc1c41ac9f8bbafe0b93
+### proofwidgets df72b022e558978a1c50264cfc4d7fec86fa8e04
+### aesop 4a174c490d8707121c4a9290800489f105d85e07
+### Qq dce0ad79c486cb1fb504af04f953c3466b0c6db8
+### batteries 66e469188fe07963e5cf666c7d4433f45b8131c5
+### Cli c24fe6078c630e89b489bffe59b3e20ac30d12c8
+### mathlib rev 56a005855ea17e0b0958f73ec801ae140b0a1679
+### mathlib tags at HEAD: v4.35.0 
+### Fri Nov 27 18:38:04 UTC 2026 lake build +Statements +Lib.General.Analysis.ZpowSum
+⚠ [9047/9049] Built Statements (2.5s)
+warning: src/Statements.lean: imports `Mathlib` from package `mathlib`, which is designed for use with the module system; consider adding `module` to the start of this file
+⚠ [9048/9049] Built Lib.General.LinearAlgebra.Base (3.2s)
+warning: src/Lib/General/LinearAlgebra/Base.lean: imports `Mathlib` from package `mathlib`, which is designed for use with the module system; consider adding `module` to the start of this file
+✔ [9049/9049] Built Lib.General.Analysis.ZpowSum (7.8s)
+Build completed successfully (9049 jobs).
+### smoke rc=0
+### Fri Nov 27 18:38:18 UTC 2026 package checkouts after the smoke build
+### mathlib 56a005855ea17e0b0958f73ec801ae140b0a1679
+### plausible dfa4f38190d07c37e315953e08b90fe2d95b3c24
+### LeanSearchClient d6b4c7be5be75ec4917c873ac50c756dc1436372
+### importGraph a41f0e9a4dea23188ea9cc1c41ac9f8bbafe0b93
+### proofwidgets df72b022e558978a1c50264cfc4d7fec86fa8e04
+### aesop 4a174c490d8707121c4a9290800489f105d85e07
+### Qq dce0ad79c486cb1fb504af04f953c3466b0c6db8
+### batteries 66e469188fe07963e5cf666c7d4433f45b8131c5
+### Cli c24fe6078c630e89b489bffe59b3e20ac30d12c8

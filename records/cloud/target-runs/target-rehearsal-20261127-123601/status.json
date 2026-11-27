@@ -1,0 +1,1 @@
+{"phase": "gather", "state": "DONE", "message": "rehearsal: the phases ran (build status 0, 08 --probe: 1 with lean's own status 0, 2 sampled modules replayed and passed, compiled files unchanged: true, toolchain unchanged: true); this says nothing about the proof", "elapsed_s": 147, "deadline_in_s": 3453, "mode": "target-rehearsal", "nmax": 8, "utc": "2026-11-27T18:39:14Z"}

@@ -1,0 +1,112 @@
+### 2026-11-27T18:36:47Z +0s  PHASE setup
+### 2026-11-27T18:36:47Z +0s  FACT guest_script_is_the_one_sent = true
+### 2026-11-27T18:36:47Z +0s  FACT tools_commit = 2102d955ccb477712a79c4f19315ab87d898388d
+### 2026-11-27T18:36:47Z +0s  FACT mode = target-rehearsal
+### 2026-11-27T18:36:47Z +0s  FACT target = grh-compact
+### 2026-11-27T18:36:47Z +0s  FACT machine_type = n4d-standard-8
+### 2026-11-27T18:36:47Z +0s  FACT cpus = 8
+### 2026-11-27T18:36:47Z +0s  FACT memory_kb = 32858320
+### 2026-11-27T18:36:47Z +0s  setup: sysctl
+### 2026-11-27T18:36:47Z +0s  setup: packages
+### 2026-11-27T18:36:54Z +7s  setup: disk
+### 2026-11-27T18:36:55Z +8s  setup: user
+### 2026-11-27T18:36:55Z +8s  setup: repository
+### 2026-11-27T18:36:55Z +8s  FACT repository_archive_sha256 = 86a48a3fb3fc078ea69f4b91f90a7fecd8a10a91e451403966e40acfd8689a16
+### 2026-11-27T18:36:56Z +9s  PHASE source
+### 2026-11-27T18:36:56Z +9s  step 00_prereqs: bash scripts/00_check_prereqs.sh --install-elan
+### 2026-11-27T18:36:57Z +10s  step 00_prereqs ended with status 0 after 1 s; its last lines:
+  the archive. The sizes given in docs/ are the default target's (alpoge-rh); for that target,
+  Mathlib and its cache alone take about 8 GB.
+
+RESULT: all required tools are present.
+### 2026-11-27T18:36:57Z +10s  step 01_fetch: bash scripts/01_fetch.sh
+### 2026-11-27T18:37:03Z +16s  step 01_fetch ended with status 0 after 6 s; its last lines:
+git-export: written to /mnt/work/w/download/source.tar (8130560 bytes)
+sha256 c4cf2fabe540f758dd8637b5f3aeaed85f840b0829db3ef3c3b45a48abde91a2 entries 807
+2026-11-27 18:37:03  archive verified: /mnt/work/w/download/source.tar
+2026-11-27 18:37:03  sha256 c4cf2fabe540f758dd8637b5f3aeaed85f840b0829db3ef3c3b45a48abde91a2
+### 2026-11-27T18:37:03Z +16s  step 01_check: bash scripts/01_fetch.sh --check-only
+### 2026-11-27T18:37:03Z +16s  step 01_check ended with status 0 after 0 s; its last lines:
+clone:    holds the commit (/mnt/work/w/download/repo.git)
+archive:  c4cf2fabe540f758dd8637b5f3aeaed85f840b0829db3ef3c3b45a48abde91a2  ok
+record:   written from this address, commit, directory and prefix (/mnt/work/w/download/source.tar.from)
+RESULT: the archive on disk has the expected SHA-256.
+### 2026-11-27T18:37:03Z +16s  step 02_inspect: bash scripts/02_inspect_and_extract.sh
+### 2026-11-27T18:37:04Z +17s  step 02_inspect ended with status 0 after 1 s; its last lines:
+project files: matches the recorded values in /mnt/work/rhv/targets/grh-compact/records/expected.json
+2026-11-27 18:37:04  extracted 794 Lean source files
+2026-11-27 18:37:04  project files: checked above, before the tree was put in place
+2026-11-27 18:37:04  done
+### 2026-11-27T18:37:04Z +17s  step 03_audit: bash scripts/03_audit_source.sh
+### 2026-11-27T18:37:04Z +17s  step 03_audit ended with status 0 after 0 s; its last lines:
+    Lib/Cohomology/Etale/TestCohomology.lean:17: /-- A is a test ring: reduced, absolutely integrally closed, and any a, b admit an idempotent e
+    Lib/General/Algebra/TensorCohomology.lean:43: /-- For M flat over S, the maps M ⊗_S Ext^n(N, Φ) → Ext^n(N, M ⊗ Φ) admit dévissage in N
+
+comparison: matches the recorded values in /mnt/work/rhv/targets/grh-compact/records/expected.json
+### 2026-11-27T18:37:05Z +18s  step import_graph: python3 analysis/import_graph.py
+### 2026-11-27T18:37:05Z +18s  step import_graph ended with status 0 after 0 s; its last lines:
+   "New.Rows.StackedDeterminants"
+  ]
+ ]
+}
+### 2026-11-27T18:37:05Z +18s  step reproduce: bash scripts/reproduce_findings.sh
+### 2026-11-27T18:37:06Z +19s  step reproduce ended with status 0 after 1 s; its last lines:
+S9        PASS    import graph matches the recorded summary
+S10       n/a     source-file pattern count: the profile names no pattern to count (TGT_S10_PATTERN is empty)
+
+4 of 6 claims reproduced for target grh-compact. 2 claims were not applicable (n/a above): nothing was compared for them, so they are neither reproduced nor refuted. None failed.
+### 2026-11-27T18:37:06Z +19s  FACT lean_files_in_the_project = 796
+### 2026-11-27T18:37:06Z +19s  FACT has_recorded_values = true
+### 2026-11-27T18:37:06Z +19s  PHASE toolchain
+### 2026-11-27T18:37:06Z +19s  step 04_setup: bash scripts/04_setup_toolchain.sh
+### 2026-11-27T18:38:18Z +91s  step 04_setup ended with status 0 after 72 s; its last lines:
+2026-11-27 18:38:04  Mathlib tags at that commit: v4.35.0 
+2026-11-27 18:38:04  running: lake build +Statements +Lib.General.Analysis.ZpowSum (with 8 jobs)
+2026-11-27 18:38:18  smoke build ok: both modules compiled, no Mathlib module was rebuilt
+2026-11-27 18:38:18  setup complete. Next: 05_build.sh start
+### 2026-11-27T18:38:19Z +92s  FACT lean_version = Lean (version 4.35.0, x86_64-unknown-linux-gnu, commit eb6cafb7290e8bd5f2937522d8d804f58f02bafc, Release)
+### 2026-11-27T18:38:19Z +92s  FACT toolchain_line = leanprover/lean4:v4.35.0
+### 2026-11-27T18:38:19Z +92s  setup: lockdown
+### 2026-11-27T18:38:19Z +92s  FACT user_cannot_connect_to_another_machine = true
+### 2026-11-27T18:38:19Z +92s  FACT user_can_look_up_names = true
+### 2026-11-27T18:38:21Z +94s  FACT toolchain_files_listed = 17947
+### 2026-11-27T18:38:21Z +94s  FACT toolchain_files_list_sha256 = 5b08cb7c1c80284fd58bc9176c54516699f16c9e570a083fea386ccc58f472ab
+### 2026-11-27T18:38:21Z +94s  PHASE build
+### 2026-11-27T18:38:21Z +94s  step 05_start: bash scripts/05_build.sh start +Statements +Lib.General.Analysis.ZpowSum +Lib.General.LinearAlgebra.SubmersionZero
+### 2026-11-27T18:38:24Z +97s  step 05_start ended with status 0 after 3 s; its last lines:
+2026-11-27 18:38:24  build started with 8 parallel jobs (launcher pid 4900)
+2026-11-27 18:38:24  log:      /mnt/work/w/logs/build-current.log
+2026-11-27 18:38:24  progress: /mnt/work/rhv/scripts/06_progress.sh
+2026-11-27 18:38:24  stop:     scripts/05_build.sh stop
+### 2026-11-27T18:38:55Z +128s  FACT build_exit_status = 0
+### 2026-11-27T18:38:55Z +128s  FACT build_seconds = 34
+### 2026-11-27T18:38:55Z +128s  FACT compiled_olean_files = 4
+### 2026-11-27T18:38:55Z +128s  FACT build_directory_bytes = 27960608
+### 2026-11-27T18:38:59Z +132s  FACT compiled_files_list_sha256 = 4f323111af1b8d1d809d216d7333eae6c783e29631c3c86725d659d0bdfa7a0b
+### 2026-11-27T18:38:59Z +132s  PHASE probe
+### 2026-11-27T18:38:59Z +132s  step 08_probe: env TGT_PROBE_MODULE=Lib.General.Analysis.ZpowSum TGT_PROBE_THEOREM=rootDiscr_pos bash scripts/08_check_axioms.sh --probe
+### 2026-11-27T18:39:02Z +135s  step 08_probe ended with status 1 after 3 s; its last lines:
+
+RESULT: FAIL
+  - rootDiscr_pos: its conclusion is not exactly the constant RiemannHypothesis
+2026-11-27 18:39:02  summary: /mnt/work/w/logs/axioms-probe-20261127-183859.json
+### 2026-11-27T18:39:02Z +135s  FACT axioms_exit_status = skipped
+### 2026-11-27T18:39:02Z +135s  FACT axioms_deep_exit_status = skipped
+### 2026-11-27T18:39:02Z +135s  FACT axioms_probe_exit_status = 1
+### 2026-11-27T18:39:02Z +135s  FACT axioms_probe_lean_exit_status = 0
+### 2026-11-27T18:39:02Z +135s  PHASE replay
+### 2026-11-27T18:39:02Z +135s  step 09_replay_1: bash scripts/09_kernel_replay.sh --sample 2
+### 2026-11-27T18:39:05Z +138s  step 09_replay_1 ended with status 0 after 3 s; its last lines:
+    no rejection or crash recorded by any tool:                yes
+    the results file has no damaged lines:                     yes
+    all of these hold: NO
+2026-11-27 18:39:05  results: /mnt/work/w/analysis/kernel_replay/results.tsv   summary: /mnt/work/w/analysis/kernel_replay/summary.json
+### 2026-11-27T18:39:06Z +139s  FACT replay_exit_status = 0
+### 2026-11-27T18:39:06Z +139s  FACT replay_runs = 1
+### 2026-11-27T18:39:06Z +139s  FACT replay_summary_exit_status = 0
+### 2026-11-27T18:39:06Z +139s  FACT replay_modules_passed_by_leanchecker = 2
+### 2026-11-27T18:39:06Z +139s  FACT compiled_files_unchanged_during_the_checks = true
+### 2026-11-27T18:39:08Z +141s  FACT toolchain_files_unchanged_from_step_04_to_the_end = true
+### 2026-11-27T18:39:08Z +141s  PHASE gather
+### 2026-11-27T18:39:08Z +141s  FINISH DONE: rehearsal: the phases ran (build status 0, 08 --probe: 1 with lean's own status 0, 2 sampled modules replayed and passed, compiled files unchanged: true, toolchain unchanged: true); this says nothing about the proof
+### 2026-11-27T18:39:08Z +141s  FACT total_seconds = 141

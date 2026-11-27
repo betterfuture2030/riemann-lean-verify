@@ -1,0 +1,4 @@
+2026-11-27 18:38:24  build started with 8 parallel jobs (launcher pid 4900)
+2026-11-27 18:38:24  log:      /mnt/work/w/logs/build-current.log
+2026-11-27 18:38:24  progress: /mnt/work/rhv/scripts/06_progress.sh
+2026-11-27 18:38:24  stop:     scripts/05_build.sh stop

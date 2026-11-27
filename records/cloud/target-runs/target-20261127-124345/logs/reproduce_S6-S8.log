@@ -1,0 +1,49 @@
+2026-11-27 18:45:04  target: grh-compact
+2026-11-27 18:45:04  source directory: /mnt/work/w/extract/grh-compact/src
+2026-11-27 18:45:04  libraries the profile names as outside the source directory (TGT_LIBS_OUTSIDE_SRC; 02 and 04 check that they are), whose files this scan does not read: Challenge
+2026-11-27 18:45:04  scanning 794 Lean files with grep for 63 fixed strings
+Lean source files scanned:  794
+stage 1 tool:               grep
+lines kept by stage 1:      1557
+
+Counts are of matching LINES, anywhere in a file, comments included.
+category              lines    files   what is matched
+sorry                     0        0   the word sorry
+sorryAx                   0        0   the axiom behind sorry, named directly
+admit                     3        3   the word admit
+axiom                     0        0   the word axiom (axiom declarations)
+native_decide             0        0   native_decide, decide +native, native := true
+reduceBool                0        0   ofReduceBool, reduceBool, ofReduceNat, reduceNat, trustCompiler
+unsafe                    0        0   the word unsafe
+implemented_by            0        0   the attribute implemented_by
+extern                    0        0   the word extern
+opaque                    0        0   the word opaque
+hash_eval                 0        0   #eval commands
+initialize                0        0   initialize and builtin_initialize
+io_primitives             0        0   Lean's IO, file and process primitives, by name (see IO_PRIMITIVES_RE)
+io_word                   0        0   the bare word IO (also matches a project namespace or field of that name)
+skipKernelTC              0        0   the option debug.skipKernelTC
+addDecl                   0        0   addDecl..., addAndCompile (kernel-checked additions to the environment)
+unchecked_add             0        0   addDeclWithoutChecking, Environment.add, Kernel.Environment
+modifyEnv                 0        0   modifyEnv and setEnv
+run_cmd                   0        0   run_cmd, run_elab, run_meta
+syntax_def                0        0   lines that begin a syntax-defining command
+local_def                 0        0   declarations named RiemannHypothesis, riemannZeta, LFunction
+shadowing                 0        0   names introduced by a binder keyword, or notation tokens, that reuse one
+
+Syntax-defining commands by keyword: none
+Syntax-defining commands by scope:   none
+
+set_option names (occurrences): 4 distinct
+        30  backward.isDefEq.respectTransparency
+         9  synthInstance.maxHeartbeats
+         5  synthInstance.maxSize
+         1  warning.simp.varHead
+
+Files that import Lean, Qq or Lake modules, or mention MetaM, TacticM, TermElabM,
+CommandElabM, CoreM or Environment: 0 (0 of them by import)
+
+Declarations named RiemannHypothesis, riemannZeta, LFunction: 0
+Names introduced by a binder keyword, or notation tokens, that reuse one of them: 0
+
+comparison: matches the recorded values in /mnt/work/rhv/targets/grh-compact/records/expected.json

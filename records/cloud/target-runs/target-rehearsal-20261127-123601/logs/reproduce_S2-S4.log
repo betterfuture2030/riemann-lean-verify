@@ -1,0 +1,63 @@
+2026-11-27 18:37:05  work directory: /mnt/work/w
+2026-11-27 18:37:05  tarball SHA-256 ok: c4cf2fabe540f758dd8637b5f3aeaed85f840b0829db3ef3c3b45a48abde91a2
+2026-11-27 18:37:05  01_fetch.sh's record says it wrote this file from commit 72fead102f663d5c7a407964a13dc0cf9d977207, directory grh-compact of https://github.com/lsernau/grh-lean
+2026-11-27 18:37:05  listing the tarball (nothing is extracted in this step)
+tarball entries:        807
+total uncompressed:     7507927 bytes (0.01 GB)
+Lean files under grh-compact/src/: 794
+entries by extension:
+  .lean      796
+  (none)     4
+  .md        4
+  .json      2
+  .toml      1
+entries by top-level item under grh-compact/:
+  src                    794
+  .gitignore             1
+  ATTRIBUTION.md         1
+  Challenge.lean         1
+  GUIDE.md               1
+  LICENSE                1
+  NOTICE                 1
+  README.md              1
+  REFERENCES.md          1
+  comparator.json        1
+  lake-manifest.json     1
+  lakefile.toml          1
+  lean-toolchain         1
+  scripts                1
+entry check: every entry is a regular, non-executable file under grh-compact/; no links,
+             absolute paths, '..' components or duplicate names
+tarball listing: matches the recorded values in /mnt/work/rhv/targets/grh-compact/records/expected.json
+2026-11-27 18:37:06  already extracted: /mnt/work/w/extract/grh-compact (794 Lean source files); not extracting again
+lean-toolchain:              leanprover/lean4:v4.35.0
+Mathlib revision (manifest): 56a005855ea17e0b0958f73ec801ae140b0a1679
+Mathlib revision (lakefile): 56a005855ea17e0b0958f73ec801ae140b0a1679
+packages in the manifest:    9
+  aesop              4a174c490d8707121c4a9290800489f105d85e07
+  batteries          66e469188fe07963e5cf666c7d4433f45b8131c5
+  Cli                c24fe6078c630e89b489bffe59b3e20ac30d12c8
+  importGraph        a41f0e9a4dea23188ea9cc1c41ac9f8bbafe0b93
+  LeanSearchClient   d6b4c7be5be75ec4917c873ac50c756dc1436372
+  mathlib            56a005855ea17e0b0958f73ec801ae140b0a1679
+  plausible          dfa4f38190d07c37e315953e08b90fe2d95b3c24
+  proofwidgets       df72b022e558978a1c50264cfc4d7fec86fa8e04
+  Qq                 dce0ad79c486cb1fb504af04f953c3466b0c6db8
+sha256 lakefile.toml        f36c58efd8ff5e936868990c4ce23598d84dd3c2acf0cd1c64423fcd888c6010
+sha256 lake-manifest.json   1390a02c1729c30db51ee0b19ea7199a129ed899ac571a48956da719573590ae
+sha256 lean-toolchain       ca5f1f601d34c49079e38d7e7041eb0f2a9c227fbc1df0f404820069a052330c
+where step 04 fetches and runs code from (read these before running it):
+  toolchain          leanprover/lean4
+  aesop              https://github.com/leanprover-community/aesop
+  batteries          https://github.com/leanprover-community/batteries
+  Cli                https://github.com/leanprover/lean4-cli
+  importGraph        https://github.com/leanprover-community/import-graph
+  LeanSearchClient   https://github.com/leanprover-community/LeanSearchClient
+  mathlib            https://github.com/leanprover-community/mathlib4
+  plausible          https://github.com/leanprover-community/plausible
+  proofwidgets       https://github.com/leanprover-community/ProofWidgets4
+  Qq                 https://github.com/leanprover-community/quote4
+libraries outside src, which 03 does not read and the build must not compile (TGT_LIBS_OUTSIDE_SRC):
+  Challenge          in the project's own directory (roots: Challenge)
+project files: matches the recorded values in /mnt/work/rhv/targets/grh-compact/records/expected.json
+2026-11-27 18:37:06  done

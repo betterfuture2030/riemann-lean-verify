@@ -6,7 +6,7 @@ Five things live here, driven by one controller, `pilot_local.sh`. The first fou
 - **The full run** (`full_guest.sh`). One virtual machine builds the whole tree and runs the pre-registered checks. It is described in the section "The full run". **It has been rehearsed on a seven-minute build, and never run in full on demand.** The same script can make the run on Spot machines, as a chain of machines that each carry on from what the last one saved; that is the section "The full run on Spot machines", and **the full run was made that way on 2026-11-22 and 23** ([`records/cloud/full-run/`](../../records/cloud/full-run/)).
 - **The export check** (`export_guest.sh`). Builds nothing: from the compiled files a finished Spot run left in the bucket it exports the proof, compares the export with the published one and runs an independently written kernel on it. Run once, on 2026-11-24 ([`records/cloud/export-check/`](../../records/cloud/export-check/)).
 - **The kernel check** (`kernel_guest.sh`). Builds nothing and needs only the export: a second independent kernel, `lake comparator` with Lean's own kernel in its sandbox, and Lean's paranoid kernel. Rehearsed once and run once, on 2026-11-25 and 26 ([`records/cloud/kernel-check/`](../../records/cloud/kernel-check/)). It is the section "The kernel check".
-- **Another target's steps** (`target_guest.sh`). One virtual machine runs the numbered steps (00 to 05, 08 and 09) for another target profile, as a person would by hand: fetch, inspect, audit, toolchain, build, axiom check, kernel replay. It is described in the last section, "Another target".
+- **Another target's steps** (`target_guest.sh`). One virtual machine runs the numbered steps (00 to 05, 08 and 09) for another target profile, as a person would by hand: fetch, inspect, audit, toolchain, build, axiom check, kernel replay. It is described in the last section, "Another target". Rehearsed once and run once, on 2026-11-27, for the target `grh-compact` ([`records/cloud/target-runs/`](../../records/cloud/target-runs/)).
 
 ## What you need
 
@@ -197,12 +197,12 @@ The launcher's local test (`scripts/dev/test_spot_launcher.sh`) was run again on
 
 ## Another target
 
-**Written on 2026-11-27 and not yet run.** The modes `target-rehearsal` and `target` run this repository's own numbered steps for a target other than the default one ([`targets/README.md`](../../targets/README.md)) on one on-demand machine. Nothing here is specific to one archive: the guest script runs the numbered scripts with `RH_TARGET` set, as a person following the [guide](../../docs/adapting-to-another-proof.md) would, and reports what each step said.
+**Written, rehearsed once and run once on 2026-11-27**, for the target `grh-compact`: the rehearsal's steps took 141 seconds and its machine is in the ledger for 376 seconds, 0.04 USD; the run's steps took 41 minutes and its machine is in the ledger for 45.5 minutes, 0.57 USD ([`records/cloud/target-runs/`](../../records/cloud/target-runs/)). The modes `target-rehearsal` and `target` run this repository's own numbered steps for a target other than the default one ([`targets/README.md`](../../targets/README.md)) on one on-demand machine. Nothing here is specific to one archive: the guest script runs the numbered scripts with `RH_TARGET` set, as a person following the [guide](../../docs/adapting-to-another-proof.md) would, and reports what each step said.
 
 ```bash
 git status --short scripts cloud targets analysis        # must be empty: the run is tied to the current commit
 export GCP_TARGET=<name>                                  # a directory of targets/; RH_TARGET stays unset
-bash cloud/gcp/pilot_local.sh launch target-rehearsal     # an 8-vCPU machine; not yet run, so not timed (the guest stops by 60 minutes)
+bash cloud/gcp/pilot_local.sh launch target-rehearsal     # an 8-vCPU machine; for grh-compact the steps took 141 seconds and the machine was up about six minutes (the guest stops by 60 minutes)
 bash cloud/gcp/pilot_local.sh watch
 bash cloud/gcp/pilot_local.sh launch target               # a 16-vCPU machine with 64 GB
 bash cloud/gcp/pilot_local.sh watch                       # collects the results and deletes the machine

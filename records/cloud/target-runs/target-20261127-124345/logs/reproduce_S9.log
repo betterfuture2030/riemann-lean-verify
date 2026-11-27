@@ -1,0 +1,5 @@
+modules_total                  got 794          recorded 794          ok
+main_closure_modules           got 794          recorded 794          ok
+not_in_main_closure            got 0            recorded 0            ok
+critical_path_depth_modules    got 55           recorded 55           ok
+lines_total                    got 112827       recorded 112827       ok

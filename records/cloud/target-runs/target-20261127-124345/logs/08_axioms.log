@@ -1,0 +1,62 @@
+2026-11-27 19:19:40  work directory: /mnt/work/w
+2026-11-27 19:19:40  target: grh-compact
+2026-11-27 19:19:40  compiled modules on disk: 794 of 794 source files
+2026-11-27 19:19:40  running lean on /mnt/work/w/logs/axioms-full-20261127-191940.lean
+2026-11-27 19:19:44  lean exit status: 0   output: /mnt/work/w/logs/axioms-full-20261127-191940.log
+
+== Axiom and statement check (full mode), Lean 4.35.0
+  target: grh-compact
+  source: https://github.com/lsernau/grh-lean commit 72fead102f663d5c7a407964a13dc0cf9d977207 directory grh-compact
+  riemannHypothesis  (theorem, declared in Main)
+      axioms: propext, Classical.choice, Quot.sound
+      type:   RiemannHypothesis
+  riemannZeta_eq_zero_re  (theorem, declared in Main)
+      axioms: propext, Classical.choice, Quot.sound
+      type:   RiemannZetaZerosOnLine
+      statement uses project definition RiemannZetaZerosOnLine (module Statements)
+      statement uses project definition RiemannZetaZerosOnLine._proof_1 (module Statements)
+  LFunction_ne_zero_of_half_lt_re  (theorem, declared in Main)
+      axioms: propext, Classical.choice, Quot.sound
+      type:   DirichletLNonvanishingRightOfHalf
+      statement uses project definition DirichletLNonvanishingRightOfHalf (module Statements)
+      statement uses project definition RiemannZetaZerosOnLine._proof_1 (module Statements)
+  LFunction_eq_zero_re  (theorem, declared in Main)
+      axioms: propext, Classical.choice, Quot.sound
+      type:   DirichletLZerosOnLine
+      statement uses project definition DirichletLZerosOnLine (module Statements)
+      statement uses project definition RiemannZetaZerosOnLine._proof_1 (module Statements)
+  LFunction_eq_zero_re_of_isPrimitive  (theorem, declared in Main)
+      axioms: propext, Classical.choice, Quot.sound
+      type:   PrimitiveDirichletLZerosOnLine
+      statement uses project definition PrimitiveDirichletLZerosOnLine (module Statements)
+      statement uses project definition RiemannZetaZerosOnLine._proof_1 (module Statements)
+  definition of DirichletLNonvanishingRightOfHalf:
+      ∀ (N : ℕ) [inst : NeZero N] (χ : DirichletCharacter ℂ N) (s : ℂ),
+        1 / 2 < s.re → χ ≠ 1 ∨ s ≠ 1 → DirichletCharacter.LFunction χ s ≠ 0
+  definition of DirichletLZerosOnLine:
+      ∀ (N : ℕ) [inst : NeZero N] (χ : DirichletCharacter ℂ N) (s : ℂ),
+        0 < s.re → s.re < 1 → DirichletCharacter.LFunction χ s = 0 → s.re = 1 / 2
+  definition of PrimitiveDirichletLZerosOnLine:
+      ∀ (N : ℕ) [inst : NeZero N] (χ : DirichletCharacter ℂ N),
+        χ.IsPrimitive → ∀ (s : ℂ), 0 < s.re → s.re < 1 → DirichletCharacter.LFunction χ s = 0 → s.re = 1 / 2
+  definition of RiemannHypothesis:
+      ∀ (s : ℂ), riemannZeta s = 0 → (¬∃ n, s = -2 * (↑n + 1)) → s ≠ 1 → s.re = 1 / 2
+  definition of RiemannZetaZerosOnLine:
+      ∀ (s : ℂ), riemannZeta s = 0 → (¬∃ n, s = -2 * (↑n + 1)) → s ≠ 1 → s.re = 1 / 2
+  DirichletCharacter.LFunction is defined in module Mathlib.NumberTheory.LSeries.DirichletContinuation
+  RiemannHypothesis is defined in module Mathlib.NumberTheory.LSeries.RiemannZeta
+  riemannZeta is defined in module Mathlib.NumberTheory.LSeries.RiemannZeta
+  type of riemannHypothesis is exactly the constant RiemannHypothesis: yes
+
+RESULT: PASS
+  Lean reports that each listed theorem depends on no axioms other than
+  propext, Classical.choice, Quot.sound; the type of riemannHypothesis is the constant
+  RiemannHypothesis; and that constant is the one defined in
+  Mathlib.NumberTheory.LSeries.RiemannZeta.
+  Scope of this result: it reads the compiled modules on disk. The axiom lists come
+  from Lean.collectAxioms, the function behind '#print axioms', which for imported
+  declarations answers from lists the compiler recorded in each compiled file. The
+  result is therefore as complete as the build (06_progress.sh) and as trustworthy as
+  the compiled files (09_kernel_replay.sh re-checks them; --deep re-derives the axiom
+  list without the recorded lists). The deep walk was not requested in this run.
+2026-11-27 19:19:44  summary: /mnt/work/w/logs/axioms-full-20261127-191940.json

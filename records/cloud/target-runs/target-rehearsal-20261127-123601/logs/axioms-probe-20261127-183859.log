@@ -1,0 +1,38 @@
+### 2026-11-27 18:38:59 Lean (version 4.35.0, x86_64-unknown-linux-gnu, commit eb6cafb7290e8bd5f2937522d8d804f58f02bafc, Release)
+### mode=probe deep=0 import=Lib.General.Analysis.ZpowSum
+### target=grh-compact
+'rootDiscr_pos' depends on axioms: [propext, Classical.choice, Quot.sound]
+RHV LEAN_VERSION 4.35.0
+RHV MODE probe
+RHV ALLOWED propext
+RHV ALLOWED Classical.choice
+RHV ALLOWED Quot.sound
+RHV KIND rootDiscr_pos theorem
+RHV DECLARED_IN rootDiscr_pos Lib.General.Analysis.ZpowSum
+RHV AXIOM_COUNT rootDiscr_pos 3
+RHV AXIOM rootDiscr_pos propext
+RHV AXIOM rootDiscr_pos Classical.choice
+RHV AXIOM rootDiscr_pos Quot.sound
+RHV TYPE_BEGIN rootDiscr_pos
+∀ (K : Type u_1) [inst : Field K] [inst_1 : NumberField K], 0 < NumberField.rootDiscr K
+RHV TYPE_END rootDiscr_pos
+RHV STATEMENT_PROJECT_COUNT rootDiscr_pos 0
+RHV STATEMENT_LIBRARY_COUNT rootDiscr_pos 9
+RHV STATEMENT_LIBRARY_CONST rootDiscr_pos NumberField.rootDiscr Mathlib.NumberTheory.NumberField.Discriminant.Basic
+RHV STATEMENT_LIBRARY_CONST rootDiscr_pos Real.instZero Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST rootDiscr_pos Zero.toOfNat0 Init.Data.Zero
+RHV STATEMENT_LIBRARY_CONST rootDiscr_pos OfNat.ofNat Init.Prelude
+RHV STATEMENT_LIBRARY_CONST rootDiscr_pos Real.instLT Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST rootDiscr_pos Real Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST rootDiscr_pos LT.lt Init.Prelude
+RHV STATEMENT_LIBRARY_CONST rootDiscr_pos NumberField Mathlib.NumberTheory.NumberField.Basic
+RHV STATEMENT_LIBRARY_CONST rootDiscr_pos Field Mathlib.Algebra.Field.Defs
+RHV CHECK statement_is_constant_RiemannHypothesis rootDiscr_pos false
+RHV MODULE RiemannHypothesis Mathlib.NumberTheory.LSeries.RiemannZeta
+RHV DEF_BEGIN RiemannHypothesis
+∀ (s : ℂ), riemannZeta s = 0 → (¬∃ n, s = -2 * (↑n + 1)) → s ≠ 1 → s.re = 1 / 2
+RHV DEF_END RiemannHypothesis
+RHV MODULE riemannZeta Mathlib.NumberTheory.LSeries.RiemannZeta
+RHV MODULE DirichletCharacter.LFunction Mathlib.NumberTheory.LSeries.DirichletContinuation
+RHV DONE
+### lean exit status 0

@@ -1,0 +1,238 @@
+{
+ "modules_total": 794,
+ "lines_total": 112827,
+ "bytes_total": 7420187,
+ "root": "Main",
+ "main_closure_modules": 794,
+ "main_closure_lines": 112827,
+ "statements_closure_modules": 1,
+ "not_in_main_closure": 0,
+ "critical_path_depth_modules": 55,
+ "critical_path_lines": 8793,
+ "prefix_modules": 0,
+ "by_top_all": {
+  "Lib": 573,
+  "New": 219,
+  "Main": 1,
+  "Statements": 1
+ },
+ "by_top_main": {
+  "Lib": 573,
+  "New": 219,
+  "Main": 1,
+  "Statements": 1
+ },
+ "external_imports_top30": [
+  [
+   "Mathlib",
+   2
+  ]
+ ],
+ "external_import_roots": {
+  "Mathlib": 2
+ },
+ "most_imported_in_main_closure_top25": [
+  [
+   "Lib.General.LinearAlgebra.Base",
+   11
+  ],
+  [
+   "Lib.Cohomology.Etale.TestRings",
+   7
+  ],
+  [
+   "Lib.Adelic.Witt.FrameAction",
+   6
+  ],
+  [
+   "Lib.General.Analysis.OstrowskiTaussky",
+   6
+  ],
+  [
+   "Lib.General.LinearAlgebra.CommonEigenvectors",
+   6
+  ],
+  [
+   "Lib.Shimura.IntegralModel.NeatLevel",
+   6
+  ],
+  [
+   "Lib.Adelic.Adeles.AdeleIdempotent",
+   5
+  ],
+  [
+   "Lib.Adelic.CuspForms.Petersson",
+   5
+  ],
+  [
+   "Lib.Adelic.Witt.SpaceOperations",
+   5
+  ],
+  [
+   "Lib.CM.FormalGroup.FormalHeight",
+   5
+  ],
+  [
+   "Lib.ClassField.Places.AdeleNorm",
+   5
+  ],
+  [
+   "Lib.ClassField.Places.UnramifiedCharacters",
+   5
+  ],
+  [
+   "Lib.General.Algebra.AdicRingHomExt",
+   5
+  ],
+  [
+   "Lib.General.Analysis.HolomorphicIntegral",
+   5
+  ],
+  [
+   "Lib.General.Groups.ValuationPair",
+   5
+  ],
+  [
+   "Lib.General.LinearAlgebra.ExpSurjective",
+   5
+  ],
+  [
+   "Lib.Weil.DualPair.PairSumNegation",
+   5
+  ],
+  [
+   "Lib.Weil.DualPair.ThetaIntegralLaws",
+   5
+  ],
+  [
+   "Lib.Weil.Lift.Staircase",
+   5
+  ],
+  [
+   "Lib.Weil.MixedModel.EquivariantCoefficients",
+   5
+  ],
+  [
+   "Lib.Weil.Unramified.SphericalHecke",
+   5
+  ],
+  [
+   "New.Seesaw.IndexTypes",
+   5
+  ],
+  [
+   "Lib.Adelic.Adeles.AdelicModulus",
+   4
+  ],
+  [
+   "Lib.Adelic.Adeles.CoprimeValuation",
+   4
+  ],
+  [
+   "Lib.Adelic.Adeles.RationalPoints",
+   4
+  ]
+ ],
+ "largest_files_top25": [
+  [
+   619,
+   "Lib.Weil.MixedModel.ZeroTerm"
+  ],
+  [
+   608,
+   "Lib.Cohomology.ProjectiveLine.NormalizationPullback"
+  ],
+  [
+   592,
+   "New.Filling.TopFloor"
+  ],
+  [
+   564,
+   "New.Filling.BoxPartition"
+  ],
+  [
+   558,
+   "Lib.Cohomology.ProperBaseChange.ValuativeDensity"
+  ],
+  [
+   554,
+   "Lib.DiscreteSeries.Bruhat.BigCell"
+  ],
+  [
+   527,
+   "Lib.Cohomology.Duality.Contraction"
+  ],
+  [
+   521,
+   "New.Seesaw.NamesAtSplitLevel"
+  ],
+  [
+   511,
+   "Lib.SiegelWeil.RallisInner.SharpData"
+  ],
+  [
+   496,
+   "New.Lift.LongGap"
+  ],
+  [
+   484,
+   "Lib.LocalGL.Shintani.LabelCharacters"
+  ],
+  [
+   458,
+   "New.RealPlace.LocalTheorem"
+  ],
+  [
+   452,
+   "Lib.Cyclotomic.Kolyvagin.ComponentBound"
+  ],
+  [
+   406,
+   "New.Filling.Setup"
+  ],
+  [
+   402,
+   "Lib.Adelic.Unitary.CongruenceLevel"
+  ],
+  [
+   398,
+   "Lib.General.Groups.ValuationPair"
+  ],
+  [
+   394,
+   "New.Filling.BlockBound"
+  ],
+  [
+   390,
+   "Lib.CM.Sigma.CurveTheta"
+  ],
+  [
+   390,
+   "Lib.Weil.Periods.UnfoldingStep"
+  ],
+  [
+   378,
+   "New.Rows.GluedFormTheta"
+  ],
+  [
+   376,
+   "New.Filling.GlobalToLocal"
+  ],
+  [
+   366,
+   "New.Data.Different"
+  ],
+  [
+   365,
+   "Lib.Adelic.Adeles.FinitePlaceDensity"
+  ],
+  [
+   354,
+   "Lib.PadicHodge.WachKisin.HodgeFrame"
+  ],
+  [
+   353,
+   "New.Rows.StackedDeterminants"
+  ]
+ ]
+}
