@@ -93,16 +93,78 @@ count_sources() {
   else find "$RH_SRC" -name '*.lean' -type f | wc -l | tr -d ' '; fi
 }
 
-# Directory that holds the pinned toolchain's binaries (lean, lake, leanchecker), or empty.
-# elan chooses the toolchain from the lean-toolchain file in the current directory.
+# The directory elan keeps the release that RH_PROJ/lean-toolchain names in: <ELAN_HOME>/toolchains/
+# <origin>---<release>, with each '/' of the origin as '--' (leanprover/lean4:v4.33.1 is leanprover--lean4---v4.33.1).
+# elan takes the origin leanprover/lean4 when the line names none, and puts a 'v' before a release that starts with a
+# digit.
+elan_release_dir() {
+  local line origin rel
+  line=$(head -n 1 "$RH_PROJ/lean-toolchain" 2>/dev/null | LC_ALL=C tr -d '\r\n')
+  [ -n "$line" ] || return 1
+  case "$line" in
+    *:*) origin=${line%%:*}; rel=${line#*:} ;;
+    *) origin=leanprover/lean4; rel=$line ;;
+  esac
+  case "$rel" in [0-9]*) rel="v$rel" ;; esac
+  printf '%s/toolchains/%s---%s\n' "${ELAN_HOME:-$HOME/.elan}" "$(printf '%s' "$origin" | sed 's#/#--#g')" "$rel"
+}
+
+# Whether ELAN_HOME, when it is set, is an absolute path; if not, says why on stderr and fails. elan reads a relative
+# ELAN_HOME against the directory it runs in, here the project's, and an empty one as that directory itself: the
+# toolchains it ran would be files of the project. 04 and 09 check it through elan_bin_dir; 05 and 08, which run
+# elan's lake and lean without asking elan which, check it themselves.
+elan_home_ok() {
+  case "${ELAN_HOME-/}" in
+    /*) return 0 ;;
+  esac
+  echo "ELAN_HOME is set to '$(printf '%s' "$ELAN_HOME" | LC_ALL=C tr -c '[:print:]' '?')', which is not an absolute path: elan would read it against the project's directory, where it runs, and run a toolchain from there. Set it to an absolute path, or unset it" >&2
+  return 1
+}
+
+# The bin directory of the toolchain elan runs in RH_PROJ, if it is the release's own directory under elan's
+# toolchains directory; otherwise it says why on stderr and fails. elan 4.2 reads lean-toolchain as a path in the
+# project first, a release tag included, and runs <line>/bin/lean from the project if there is one: that lean, and
+# the lake and leanchecker beside it, would be the archive's. ELAN_TOOLCHAIN and elan's overrides choose another
+# toolchain too. 'elan which lean' downloads the release the first time; what elan says on stderr (its progress, or
+# why it failed) is passed on, with anything that is not printable shown as '?' (elan's messages quote the line).
+elan_bin_dir() {
+  local l rel want got shown e x
+  elan_home_ok || return 1
+  e=$(mktemp "${TMPDIR:-/tmp}/rhv-elan.XXXXXX" 2>/dev/null) || e=""
+  l=$(cd "$RH_PROJ" 2>/dev/null && elan which lean 2>"${e:-/dev/null}") || l=""
+  if [ -n "$e" ]; then LC_ALL=C tr -c '[:print:]\n' '?' < "$e" >&2; rm -f "$e"; fi
+  [ -n "$l" ] || { echo "elan chose no lean for the project ('elan which lean' failed in $RH_PROJ; what it said, if anything, is above)" >&2; return 1; }
+  shown=$(printf '%s' "$l" | LC_ALL=C tr -c '[:print:]' '?')
+  rel=$(elan_release_dir) || rel=""
+  want=""; [ -n "$rel" ] && want=$(cd -P "$rel/bin" 2>/dev/null && pwd)
+  got=$(cd -P "$(dirname "$l")" 2>/dev/null && pwd) || got=""
+  [ -n "$want" ] && [ "$got" = "$want" ] && [ "$(basename "$l")" = lean ] || {
+    echo "elan would run $shown, not the release's own lean in $(printf '%s' "${rel:-<the release lean-toolchain names>}" | LC_ALL=C tr -c '[:print:]' '?')/bin (a file of the project at the line's path, ELAN_TOOLCHAIN or an elan override chooses another toolchain)" >&2
+    return 1; }
+  [ -f "$want/lean" ] && [ -x "$want/lean" ] || { echo "elan chose $shown, which is not an executable file" >&2; return 1; }
+  # An ELAN_HOME under the work directory's extract directory would make the release's lean a file 02 extracted.
+  x=$(cd -P "$RH_WORKDIR/extract" 2>/dev/null && pwd) || x=""
+  if [ -n "$x" ] && [ "$x" != / ]; then
+    case "$want/" in
+      "$x"/*) echo "elan would run $shown, in $(printf '%s' "$x" | LC_ALL=C tr -c '[:print:]' '?'), where 02 extracts the archive: it would be one of the archive's files. Set ELAN_HOME to a directory outside it" >&2
+              return 1 ;;
+    esac
+  fi
+  printf '%s\n' "$want"
+}
+
+# Directory that holds the pinned toolchain's binaries (lean, lake, leanchecker), or empty, with the reason on
+# stderr. With elan it is the release's own directory (elan_bin_dir), and nothing else is tried; without elan, that
+# of the lean on PATH.
 toolchain_bin_dir() {
   local l
   if command -v elan >/dev/null 2>&1; then
-    l=$(cd "$RH_PROJ" 2>/dev/null && elan which lean 2>/dev/null) || l=""
-    [ -n "$l" ] && [ -x "$l" ] && { dirname "$l"; return 0; }
+    elan_bin_dir
+    return $?
   fi
   l=$(command -v lean 2>/dev/null) || l=""
-  [ -n "$l" ] && dirname "$l"
+  [ -n "$l" ] || { echo "neither elan nor lean is on PATH (elan installs itself in ~/.elan/bin: open a new shell, or add that directory to PATH)" >&2; return 1; }
+  dirname "$l"
 }
 
 # ---------------------------------------------------------------------------------------------

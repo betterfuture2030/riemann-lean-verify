@@ -147,8 +147,9 @@ fi
 need_cmd xargs
 bindir=$(toolchain_bin_dir)
 RH_LEANCHECKER="$bindir/leanchecker"
-[ -n "$bindir" ] && [ -x "$RH_LEANCHECKER" ] || {
-  echo "ERROR: leanchecker not found next to the pinned toolchain's lean (looked in '${bindir:-nowhere}')" >&2; exit 2; }
+[ -n "$bindir" ] || { echo "ERROR: no directory of the pinned toolchain (the reason is above); leanchecker was not run" >&2; exit 2; }
+[ -x "$RH_LEANCHECKER" ] || {
+  echo "ERROR: leanchecker not found next to the pinned toolchain's lean (looked in '$bindir')" >&2; exit 2; }
 JOBS=$(effective_jobs "$JOBS")
 ensure_dirs
 TMP="${REPLAY:?}/tmp"                      # scratch for this run; emptied at the start and at the end

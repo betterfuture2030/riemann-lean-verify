@@ -18,7 +18,8 @@
 #       ASCII, an empty file and a name longer than 100 bytes, and a file outside proj/) and a profile for it.
 #       01_fetch.sh writes the tar file and says NOT PINNED with the line that pins it; a second run and --redownload
 #       give the same SHA-256; the tar holds the commit's files of proj/, sorted, with no times or owners; pinned, it
-#       is verified; pinned wrong, status 1. 02 --write-expected extracts work-<name>/extract/proj byte for byte as
+#       is verified; pinned wrong, status 1. 02 --write-expected (with TAR_READER_OPTIONS and TAR_OPTIONS set to
+#       ones bsdtar and GNU tar fail with: 02 unsets them) extracts work-<name>/extract/proj byte for byte as
 #       the commit has it and records what it saw; a second run compares with the record; --verify-tree passes and
 #       notices a changed file.
 #    5  Refusals, each with a non-zero status and a message that names the problem: RH_TARGET with an upper-case
@@ -109,7 +110,7 @@
 #       hard link. 02 with a stand-in tar that plants a file in .lake stops and puts nothing in place. With a pin left
 #       over from an earlier commit, 01 --check-only and 02 refuse the old commit's file; a clone made from another
 #       address is refused until --redownload.
-#   28  tar-inspect refuses the headers that Python's tarfile and bsdtar read differently (a pax path ending in '/', a pax
+#   28  tar-inspect refuses headers that Python's tarfile and bsdtar are known to read differently (a pax path ending in '/', a pax
 #       size '1_025', a size field '0o2000' or '0_2000', GNU.sparse keys) and a file named HEAD (also 'hEaD.'); it
 #       accepts Head.lean, HEADER.md and Python's pax and GNU archives with long names. git-export refuses a file named
 #       HEAD, and stops at --max-files and --max-bytes, writing nothing. 02 with a stand-in tar that changes a listed
@@ -121,7 +122,119 @@
 #       SHA-256 repository, as 01 does. 08 does not expand a file pattern in TGT_THEOREMS; axioms-summary fails a
 #       record whose primary theorem is not checked. project-info --show-urls prints the toolchain's origin (marking
 #       one that is not leanprover/lean4) and each package's address, escaped, and 02 prints them for fix-git.
-#   29  Cases 14 to 28 called no stand-in for the network or the toolchain either (nor gcloud).
+#   29  tar-inspect refuses a header checksum that only Python's tarfile reads ('0o', '_', a tab, base 256; each hides
+#       an entry from it), bytes where a POSIX header has its name prefix in a GNU one (a v7 one is refused for its format, case
+#       30), a global pax header that sets a path (said once), a GNU long name that runs past its size, a mode
+#       '0_644', an ACL pax key and an AppleDouble '._' file; it also refuses pax data that is not whole records or
+#       has bytes in the rest of its block, two extended headers of one kind before one entry (it accepts a long name
+#       with a pax header), and shows an ACL key or a name with an escape character escaped. It stops within 30 s,
+#       with status 1, on sizes far beyond the archive (base 256 and pax), on sparse entries (old GNU and pax) and on
+#       an 8 MiB pax header, and accepts a signed checksum, Python's ustar long names and a global header with a
+#       comment only. --verify-tree says NOT FINISHED for an archive cut short or an entry it refused, 'cannot be read
+#       on disk' for a file or directory it cannot read, and names a directory that is a symbolic link on disk; never
+#       byte-for-byte. On macOS, an archive macOS's tar makes of a file with an extended attribute is refused, and one
+#       made with COPYFILE_DISABLE=1 passes both post-extraction checks. git-export refuses 2^41 directories made of
+#       42 objects within 30 s, a directory larger than the entries still allowed or a commit over 1 MiB before
+#       reading it, and names a 305-byte name. lib.sh refuses a space in TGT_GIT_SUBDIR or TGT_ARCHIVE_PREFIX, a new
+#       line in TGT_GIT_URL and a .rh-target that is a symbolic link (writing nothing through it). A working directory
+#       holding only another script's .rh-target.<number> is claimed; 12 scripts claiming one new directory at once,
+#       40 times over, all go on and leave no file behind (default target and fix-git); the command printed for an
+#       empty marker writes it in a directory whose name has a space and a quote. 01's message for a pin that does not
+#       match says the file is kept; project-info escapes control characters in the project files and fails, counting
+#       each value once (an address too, with or without --show-urls), shows a path package's directory with a space
+#       quoted and refuses the package, and refuses a package name with a space. 02 refuses to extract another target's archive as root, and stops
+#       before placing a tree whose project files do not match the records, leaving it in extract.partial.
+#   30  tar-inspect refuses an archive in the v7 format (a header in neither POSIX ustar nor GNU tar's format), a
+#       number field that tars read differently (a user id with a tab, a time with a new line, a device number with an
+#       underscore), a text field with a control character or bytes after its NUL (name, link name, user name), a
+#       first header that begins as a bzip2 stream does, more than 8 extended headers in a row (it accepts 8 global
+#       comments), 250 long names in a row, sparse files in pax form (a version 1.0 map that claims a billion pieces,
+#       a map that is not numbers, SCHILY.realsize), Solaris's SUN.holesdata and a name that is not UTF-8, each within
+#       30 s with status 1 and no traceback; it reads 20 pax headers of about 500 KB each within 30 s, shows a size in
+#       base 256 in hexadecimal, and --check-extracted shows a name with an escape character escaped. --verify-tree
+#       says 'cannot be read on disk' for the files of a directory it can list and not search. project-info refuses a
+#       package name that looks blank (U+2800) and a host with a Cyrillic letter in it (with or without --show-urls),
+#       a git package with no address (with --show-urls) and a manifest of another shape (status 1, no traceback),
+#       20,000 names with a tab within 30 s, and reads the form Lake wrote before manifest version 7. lib.sh refuses a
+#       .rh-target that is a directory; for one that is a link it prints a command that puts a plain file in its place
+#       and leaves the file the link pointed to as it was; it refuses a TGT_GIT_URL with a C1 control character, a
+#       Cyrillic letter or a tab, in the C locale and in a UTF-8 one. 00, in a UTF-8 locale, shows the toolchain line
+#       with '?' for each byte that is not printable ASCII, and one that ends with CRLF as the line alone. git-export
+#       refuses 2^41 directories made of 42 objects at its default limits within 60 s, and its message for a name
+#       over 255 bytes shows the start of the name.
+#   31  tar-inspect, under this Python and the system's where that is another version, refuses bytes 345 to 499 of
+#       a GNU header (atime, old sparse map, isextended, realsize) and a time in base 256 below -2^63, and accepts
+#       times before 1970 as Python's GNU and pax formats write them, an empty archive and an archive in two gzip
+#       members or with zero bytes after the last; it refuses zero bytes between gzip members, the reserved gzip
+#       flags (in the first member or a later one), other bytes after a member, and a first header (here a pax
+#       header) that begins as an xz stream does. An archive bsdtar made in its pax format of two files from 1960
+#       passes, both its entries having times before 1970 (on macOS; bsdtar's ustar format leaves such files out
+#       and its gnutar format writes the time 0). A name in NFC extracted by the system's tar passes both checks of
+#       the tree, whatever form the file system stores; a second file with the name in the other form is refused
+#       where the file system can hold both. project-info accepts project files in the forms of the default
+#       target's, the default target's manifest in the form of version 6 ({"git": {...}} entries, with inputRev?
+#       and subDir?), a manifest of schemaVersion 7, a package name in guillemets (and a requirement of that name),
+#       every Lean option the check allows (with 'weak.' or not, in leanOptions, in a library's and with -D), a
+#       toolchain that is a release candidate, names no origin or has no 'v' (leanprover/lean4:4.33.1, 4.33.1), an
+#       address with a port, roots and globs with '!' and '?', srcDir './src/' and a lean-toolchain with CRLF;
+#       with --src-dir . (the sources in the project's own directory), the lakefile.toml 'lake new proj math' and
+#       'lake new 2proj math' write (Mathlib pinned by a tag, which the manifest has as the entry's inputRev, or
+#       inputRev? in the form of version 6, and
+#       shown so, with no Reservoir line), one whose library is named Proj! and srcDir './'; and refuses, with status 1
+#       and no traceback: names with guillemets around nothing, around a character that is not ASCII, unbalanced, or
+#       around an identifier ('\u00abmathlib\u00bb', beside mathlib or alone), a name Lake cannot read ('doc-gen4'
+#       bare), a name with '/' or '.' between guillemets ('../x', '../build', '/x', '.x', 'b/c' after 'a.'), two packages of one name, a manifest with no package named mathlib or no packages at all; a
+#       configFile, subDir, subDir?, packagesDir or manifestFile other than Lake writes, any subDir but '.' (one of
+#       '.' is accepted), a file or a dangling link named https: in the project; a path package; a git
+#       package with no revision, with no address (also without --show-urls) or with no type, whose revision is not
+#       a full commit hash (a branch, a short hash or a hash in capitals, Mathlib's or another package's), or whose
+#       address is not https://<host>/<path> (none: also listed as refused without --show-urls; file://, ssh://,
+#       user@host:path, a user name before the host, a leading '-', http://, '..' and '.' parts, '%2e%2e', '?',
+#       '#', an empty part); a lean-toolchain that names a nightly (after an origin or alone) or stable, an origin
+#       with no '/', or whose first part is a file of the project (a lean at the line's path, with an origin or not,
+#       or a dangling link): these refusals of toolchains, revisions, types and addresses (a requirement's too), of
+#       a subDir, of a file named https: and of such names, also without --show-urls, with the same first REFUSED
+#       line;
+#       a manifest with no version Lake reads ('1.0.0-' among them) or with packages in the other version's form; a lakefile.toml with an executable, the name of a package it depends on (in any case), a
+#       library outside TGT_SRC_DIR (accepted with --src-dir .; under srcDir './', one in './other/', shown as
+#       other), a backslash, an unknown key, an argument to lean that loads code, a key given twice, two
+#       requirements of one name, a requirement the manifest has no entry for, a requirement's address with no
+#       scheme, http:// or '..' parts, or with a letter that is not ASCII, a root with '-' in a part (the message
+#       naming guillemets), the Lean options sat.solver, weak.trace.profiler.output (with -D) and
+#       debug.skipKernelTC (for a library) or a multi-line string; a lakefile naming another Mathlib tag than
+#       the manifest's entry was made from (a WARNING naming both); files that are not UTF-8, a lean-toolchain with
+#       U+3000 before its line end, a manifest that is not JSON, has a 40-digit number (whole or not) or NaN, or
+#       nests 40 or 100,000 deep. lib.sh sets LAKE_NO_CACHE=1 over 0 in the environment or config.env (for the
+#       default target and another), gives it to the programs it runs when config.env makes it an array, and stops
+#       when config.env makes it read-only (also with the environment's value, a 1 with a line end after it); it
+#       unsets GIT_DIR, the other variables that point git at another repository and LAKE_PKG_URL_MAP, and stops when
+#       config.env makes GIT_DIR read-only. 04 refuses a lakefile.toml changed since 02, and a package name that is not
+#       one directory name, before it runs lake or clones anything; stops
+#       before it runs lean or lake, or clones anything, when elan (a stand-in) would run a lean other than the
+#       release's own (also where elan's directory has no such release) or chooses none (its log and the terminal
+#       show what elan said, with '?' for an escape), or when ELAN_HOME is relative or empty (saying why on the
+#       terminal); takes the release's own lean for the lines leanprover/lean4:4.33.1, v4.33.1
+#       and 4.33.1; and with files it accepts clones each package (from a made-up repository, through git's
+#       url.<base>.insteadOf) and checks it out at the commit the manifest names before it runs 'lake exe
+#       mathlib/cache get', with LAKE_NO_CACHE=1. With a stand-in lake, 04 goes on to the smoke build when each
+#       package is at its commit (with a manifest of version 6 too, and when a package's repository has a default
+#       branch named as the commit and pointing at another, which 'git checkout --detach <hash>' takes, as checked
+#       first, from a checkout at the commit, with status 0 and a detached HEAD), and with GIT_DIR and GIT_WORK_TREE
+#       naming another clone, which it leaves as it was; removes a clone an earlier run left half made under the
+#       name it gives one, and, when a checkout fails, leaves the clone under that name and not as the package's
+#       directory (the next run removes it and goes on); stops before lake at a package directory there already at
+#       another commit (saying how to clone it again), that is a link, that is a clone with no files checked out or
+#       with a file changed, or at a .lake/package-overrides.json (a file or a dangling link); stops before the
+#       smoke build at a package Lake left at another commit (also with version 6) or with a file changed, at a
+#       package-overrides.json Lake wrote, or at a release build's trace or archive or a barrel in a package's .lake
+#       (in its config directory too) or the project's (deep in it, hidden or not), but not at the traces Lake keeps
+#       in build and config, at lakefile.olean.trace at the top of a .lake or at a package's source file named so;
+#       after a stand-in smoke build that writes the compiled files of the modules named, reaches 'setup complete',
+#       and stops at a release build's trace, a package at another commit or a package-overrides.json that the smoke
+#       build left. 09, with no elan and no lean on PATH, says so before it runs anything. git clone, run in a
+#       directory with a git bundle at https:/example.invalid/plausible, clones it for https://example.invalid/
+#       plausible (the premise of the refusal of a file named https:).
+#   32  Cases 14 to 31 called no stand-in for the network or the toolchain either (nor gcloud).
 # What it changes on disk: only a temporary directory of its own under TMPDIR, removed at the end (kept with
 #   TARGETS_TEST_KEEP=1). The repository is only read.
 # No network and no Lean: every command runs with a clean environment (env -i) whose PATH starts with stand-ins for
@@ -129,8 +242,9 @@
 #   (GIT_ALLOW_PROTOCOL=file). The stand-in lean answers --version and runs nothing; the others log the call and fail.
 #   From case 14 on, some commands get a narrower PATH in which python3 and git are reached through small wrappers
 #   and their own directories are left out, so that an elan, gcloud or rg installed beside them is not found; cases
-#   19, 20 and 25 put further stand-ins (gcloud; curl and sh; bash) first on the PATH.
-# How long it takes: about 40 seconds.
+#   19, 20 and 25 put further stand-ins (gcloud; curl and sh; bash) first on the PATH, and cases 27 and 28 a tar that
+#   runs the real one and then changes what it wrote. Case 29 runs macOS's own tar and xattr, on macOS only.
+# How long it takes: about two minutes (longer while the machine is busy).
 # Requires: bash 3.2 or later, git, python3, tar, gzip.
 # Usage: scripts/dev/test_targets.sh        Prints ok or FAIL for each check, with its case number, then the count.
 #   TARGETS_TEST_BASE=<commit>  compare the default target with this commit instead
@@ -319,7 +433,7 @@ import gzip, io, os, sys, tarfile
 out, rev = sys.argv[1], sys.argv[2]
 files = [
     ("lean/lakefile.toml", 'name = "rh"\n\n[[require]]\nname = "mathlib"\ngit = "https://example.invalid/mathlib4"\nrev = "%s"\n' % rev),
-    ("lean/lake-manifest.json", '{"packages": [{"name": "mathlib", "rev": "%s", "type": "git"}], "name": "rh"}\n' % rev),
+    ("lean/lake-manifest.json", '{"version": "1.1.0", "packages": [{"name": "mathlib", "rev": "%s", "type": "git", "url": "https://example.invalid/mathlib4"}], "name": "rh"}\n' % rev),
     ("lean/lean-toolchain", "leanprover/lean4:v4.33.1\n"),
     ("lean/src/Main.lean", "import Statements\n-- sorry is only a word in this comment\ntheorem riemannHypothesis : True := trivial\n"),
     ("lean/src/Statements.lean", "set_option maxHeartbeats 400000\ndef S : Prop := True\n"),
@@ -509,8 +623,10 @@ cenv RH_TARGET=fix-git /bin/bash "$NEW/scripts/01_fetch.sh" --check-only > "$TMP
 # 02, first with nothing pinned (the first run of a new target), then pinned.
 prof fix-git
 REC4="$NEW/targets/fix-git/records/expected.json"
-cenv RH_TARGET=fix-git /bin/bash "$NEW/scripts/02_inspect_and_extract.sh" --write-expected "$REC4" > "$TMPD/c4.h" 2>&1; rc=$?
-[ "$rc" = 0 ] && [ -f "$W4/extract/proj/lakefile.toml" ]; res "02 --write-expected <records>/expected.json: status 0, extracted under work-fix-git/extract/proj" $? "status $rc: $(tailof "$TMPD/c4.h")"
+# TAR_READER_OPTIONS is bsdtar's and TAR_OPTIONS GNU tar's; with these, each fails ("iconv_open failed", an unknown
+# option), so the extraction shows 02 unset them, whichever tar this system has
+cenv RH_TARGET=fix-git TAR_READER_OPTIONS=hdrcharset=BINARY TAR_OPTIONS=--no-such-option /bin/bash "$NEW/scripts/02_inspect_and_extract.sh" --write-expected "$REC4" > "$TMPD/c4.h" 2>&1; rc=$?
+[ "$rc" = 0 ] && [ -f "$W4/extract/proj/lakefile.toml" ]; res "02 --write-expected <records>/expected.json, TAR_READER_OPTIONS and TAR_OPTIONS set to ones bsdtar and GNU tar fail with: status 0, extracted under work-fix-git/extract/proj" $? "status $rc: $(tailof "$TMPD/c4.h")"
 grep -q 'THE ARCHIVE IS NOT PINNED' "$TMPD/c4.h" && grep -q 'NO RECORDED VALUES TO COMPARE WITH' "$TMPD/c4.h"
 res "02: says in capitals that the archive is not pinned and that nothing was recorded to compare with" $? "$(grep -i 'pinned\|recorded' "$TMPD/c4.h" | tr '\n' ' ')"
 cenv "$PY3" -I -B - "$REPO" "$C_MAIN" proj "$W4/extract" <<'PY' > "$TMPD/c4.x" 2>&1
@@ -979,7 +1095,7 @@ TGIT="a '.git' component (git's own directory, refused in any spelling): lean/"
 tinsp "lean/.git/config" dotgit "${TGIT}.git/config"
 tinsp "lean/src/deep/.git/config" deep "${TGIT}src/deep/.git/config"
 tinsp "lean/.GIT/x" upper "${TGIT}.GIT/x"
-tinsp "lean/.g<U+200C>it/config" hfs "${TGIT}.g${ZWNJ}it/config"
+tinsp "lean/.g<U+200C>it/config (the name shown escaped)" hfs "${TGIT%lean/}'lean/.g\\u200cit/config'"
 tinsp "lean/git~1/config" short "${TGIT}git~1/config"
 tinsp "lean/.git./config" dot "${TGIT}.git./config"
 tinsp "'lean/.git /config'" space "${TGIT}.git /config"
@@ -1501,7 +1617,7 @@ cenv "$PY3" -I -B "$NEW/scripts/verify/rhv_tools.py" tar-inspect "$T27/dirs.tar"
 [ "$rc" = 1 ] && grep -q 'not a regular file (directory): lean/src$' "$T27/dirs.out" && ! grep -q 'needs a directory' "$T27/dirs.out"
 res "tar-inspect on directory entries: refused as such, with no 'file where a directory is needed'" $? "status $rc: $(tailof "$T27/dirs.out" 4)"
 C_LONG=$(branch long 100644 "proj/src/$(printf '%0300d' 0 | tr 0 x).lean" 'def x := 1')
-refused "git-export refuses a component longer than 255 bytes" "a component of the name longer than 255 bytes" \
+refused "git-export refuses a component longer than 255 bytes" "a name longer than 255 bytes" \
   "$PY3" -I -B "$NEW/scripts/verify/rhv_tools.py" git-export --git-dir "$REPO/.git" --commit "$C_LONG" --subdir proj --prefix proj/ --out "$T27/long.tar"
 [ ! -e "$T27/long.tar" ]; res "...and writes nothing" $?
 
@@ -1774,15 +1890,1499 @@ cenv "$PY3" -I -B "$TOOLS28" project-info "$W4/extract/proj" --expected "$T28/no
   && grep -q '^  mathlib  *https://example.invalid/mathlib4$' "$T28/pi.a"
 res "project-info --show-urls: the toolchain's origin and each package's address" $? "status $rc: $(tailof "$T28/pi.a" 3)"
 P28="$T28/proj"; mkdir -p "$P28"; printf 'name = "x"\n' > "$P28/lakefile.toml"; echo 'evil/lean4:v4.33.1' > "$P28/lean-toolchain"
-printf '{"packages": [{"name": "mathlib", "type": "git", "url": "https://attacker.example/m\\u001b[2Jx", "rev": "%s"}, {"name": "local", "type": "path", "dir": "../x"}]}\n' "$MLREV" > "$P28/lake-manifest.json"
+printf '{"version": "1.1.0", "packages": [{"name": "mathlib", "type": "git", "url": "https://attacker.example/m", "rev": "%s"}]}\n' "$MLREV" > "$P28/lake-manifest.json"
 cenv "$PY3" -I -B "$TOOLS28" project-info "$P28" --expected "$T28/none.json" --show-urls > "$T28/pi.b" 2>&1; rc=$?
-[ "$rc" = 0 ] && grep -q '^  toolchain  *evil/lean4   <- NOT leanprover/lean4$' "$T28/pi.b" && grep -q 'attacker.example' "$T28/pi.b" \
-  && ! LC_ALL=C grep -q "$(printf '\033')" "$T28/pi.b" && grep -q '^  local  *path \.\./x$' "$T28/pi.b"
-res "...marks a toolchain that is not leanprover/lean4, shows path packages, and escapes control characters" $? "status $rc: $(tailof "$T28/pi.b" 4)"
+[ "$rc" = 0 ] && grep -q '^  toolchain  *evil/lean4   <- NOT leanprover/lean4$' "$T28/pi.b" && grep -q '^  mathlib  *https://attacker.example/m$' "$T28/pi.b"
+res "...marks a toolchain that is not leanprover/lean4 (control characters and path packages: case 29)" $? "status $rc: $(tailof "$T28/pi.b" 4)"
 grep -q '^  mathlib  *https://example.invalid/mathlib4$' "$TMPD/c4.h"; res "02 for target fix-git printed them (its first run, in case 4)" $? "$(tailof "$TMPD/c4.h" 4)"
 
 # ================================================================ 29
-section 29 "nothing reached for the network or the toolchain in cases 14 to 28"
+section 29 "checksums, prefix fields, global and ACL headers, ._ files, huge sizes, unreadable files, export limits, markers"
+T29="$TMPD/c29"; mkdir -p "$T29"
+# within <seconds> <output file> <command...>: the command in the clean environment, stopped after that many seconds
+# (its status is then 124)
+within() {
+  local s=$1 o=$2; shift 2
+  cenv "$PY3" -I -B -c '
+import subprocess, sys
+try:
+    with open(sys.argv[2], "wb") as out:
+        sys.exit(subprocess.run(sys.argv[3:], stdout=out, stderr=subprocess.STDOUT, timeout=float(sys.argv[1])).returncode)
+except subprocess.TimeoutExpired:
+    sys.exit(124)' "$s" "$o" "$@"
+}
+cenv "$PY3" -I -B - "$T29" <<'PY'
+import gzip, io, os, sys, tarfile
+out = sys.argv[1]
+def hdr(name, size, typeflag=b"0", mode=b"0000644\0", sizefield=None, cks=None, magic=b"ustar\x0000", prefix=b"", extra=()):
+    h = bytearray(512)
+    h[0:len(name)] = name
+    h[100:108] = mode.ljust(8, b"\0")
+    h[108:116] = b"0000000\0"; h[116:124] = b"0000000\0"
+    h[124:136] = sizefield.ljust(12, b"\0") if sizefield is not None else b"%011o\0" % size
+    h[136:148] = b"00000000000\0"
+    h[148:156] = b"        "
+    h[156:157] = typeflag
+    h[257:265] = magic.ljust(8, b"\0")
+    h[345:345 + len(prefix)] = prefix
+    for at, b in extra:
+        h[at:at + len(b)] = b
+    s = sum(h)
+    h[148:156] = cks(s, h) if cks else b"%06o\0 " % s
+    assert len(h) == 512
+    return bytes(h)
+pad = lambda b: b + b"\0" * (-len(b) % 512)
+reg = lambda name, data: hdr(name, len(data)) + pad(data)
+def rec(k, v):
+    r = b" " + k + b"=" + v + b"\n"
+    d = 1
+    while len(str(len(r) + d)) != d:
+        d += 1
+    return str(len(r) + d).encode() + r
+def pax(records, typeflag=b"x"):
+    body = b"".join(rec(k, v) for k, v in records)
+    return hdr(b"PaxHeader/x", len(body), typeflag=typeflag) + pad(body)
+# A pax header that gives a size of its own for its data, whatever the data holds
+paxraw = lambda body, size: hdr(b"PaxHeader/x", size, typeflag=b"x") + pad(body)
+longhdr = lambda n: hdr(b"././@LongLink", len(n) + 1, typeflag=b"L") + pad(n + b"\0")
+huge = b"\x80" + (1 << 62).to_bytes(11, "big")
+def underscore(s, h):
+    d = b"%o" % s
+    return (d[:1] + b"_" + d[1:] + b"\0").ljust(8, b" ")
+signed = lambda s, h: b"%06o\0 " % (s - 256 * sum(1 for c in h if c > 127))
+P = b"lean/"
+base = reg(P + b"lakefile.toml", b'name = "t"\n') + reg(P + b"src/Main.lean", b"-- what the listing reads\n")
+hidden = reg(P + b"src/Main.lean", b"-- what another tar would write\n")
+longname = P + b"src/" + b"x" * 150 + b".lean"
+vectors = {
+    # checksums that Python's tarfile reads and libarchive does not: bsdtar skips the header and finds 'hidden'
+    "cks_0o": base + hdr(P + b"bar", len(hidden), cks=lambda s, h: b"0o%05o\0" % s) + hidden,
+    "cks_us": base + hdr(P + b"bar", len(hidden), cks=underscore) + hidden,
+    "cks_tab": base + hdr(P + b"bar", len(hidden), cks=lambda s, h: b"\t%05o\0 " % s) + hidden,
+    "cks_b256": base + hdr(P + b"bar", len(hidden), cks=lambda s, h: b"\x80" + s.to_bytes(7, "big")) + hidden,
+    # name-prefix bytes in a header that is not POSIX ustar: tarfile reads lean/src/X.lean, bsdtar X.lean
+    "prefix_gnu": base + hdr(b"X.lean", 2, magic=b"ustar  \0", prefix=b"lean/src") + pad(b"x\n"),
+    "prefix_v7": base + hdr(b"X.lean", 2, magic=b"", prefix=b"lean/src") + pad(b"x\n"),
+    "gpax_path": base + pax([(b"path", P + b"src/Main.lean")], typeflag=b"g") + reg(P + b"src/Other.lean", b"x")
+                 + reg(P + b"src/Third.lean", b"y"),
+    # a GNU long name whose header gives a size of 20: tarfile reads on to the NUL, other tars stop at 20 bytes
+    "gnu_long_past": base + hdr(b"././@LongLink", 20, typeflag=b"L") + pad(longname + b"\0") + reg(b"placeholder", b"x\n"),
+    "mode_us": base + hdr(P + b"src/M.lean", 2, mode=b"0_644\0") + pad(b"x\n"),
+    "acl": base + pax([(b"SCHILY.acl.access", b"user::rw-,group::r--,other::rw-")]) + reg(P + b"src/Acl.lean", b"x"),
+    "appledouble": base + reg(P + b"src/._Main.lean", b"\x00\x05\x16\x07"),
+    # sizes far beyond the archive: one too large for every tar to read alike, one below 2**63, one in a pax header
+    "b256_huge": base + hdr(P + b"src/Big.lean", 0, sizefield=b"\x80" + (1 << 80).to_bytes(11, "big")) + pad(b"x"),
+    "b256_big": base + hdr(P + b"src/Big.lean", 0, sizefield=b"\x80" + (1 << 62).to_bytes(11, "big")) + pad(b"x"),
+    "pax_huge": base + pax([(b"size", b"1" + b"0" * 30)]) + hdr(P + b"src/Big.lean", 1) + pad(b"x"),
+    # accepted: a signed checksum (some old tars) of a header with bytes above 127
+    "cks_signed": base + hdr(P + "src/café.lean".encode(), 2, cks=signed) + pad(b"x\n"),
+    # pax records after the size the header gives, in the rest of its block: tarfile reads the second one (size
+    # 2048), libarchive does not; and data within the size that is not whole records
+    "pax_pad": base + paxraw(rec(b"mtime", b"1") + rec(b"size", b"2048"), len(rec(b"mtime", b"1")))
+               + hdr(P + b"src/A2.lean", 0) + pad(b"x" * 2048),
+    "pax_nul_in_size": base + paxraw(rec(b"mtime", b"1") + b"\0\0\0", len(rec(b"mtime", b"1")) + 3) + reg(P + b"src/G.lean", b"x"),
+    # two extended headers of one kind before one entry: tarfile uses the first, bsdtar the last
+    "two_L": base + longhdr(P + b"src/L0.lean") + longhdr(P + b"src/L1.lean") + reg(b"placeholder", b"x\n"),
+    "two_x": base + pax([(b"path", P + b"src/X0.lean")]) + pax([(b"path", P + b"src/X1.lean")]) + reg(b"placeholder", b"x\n"),
+    # accepted: a long name and a pax header before one entry
+    "L_and_x": base + longhdr(longname) + pax([(b"mtime", b"1")]) + reg(b"placeholder", b"x\n"),
+    # sparse entries, which tarfile would read as zero bytes up to the size they give, without reading the archive
+    "sparse_S_hdr": base + hdr(P + b"src/S.lean", 0, typeflag=b"S", sizefield=huge) + pad(b"x"),
+    "sparse_S_real": base + hdr(P + b"src/S.lean", 1, typeflag=b"S", extra=((386, b"%011o\0" % 0), (398, b"%011o\0" % 1), (483, huge)))
+                     + pad(b"x"),
+    "pax_sparse_real": base + pax([(b"GNU.sparse.map", b"0,1"), (b"GNU.sparse.realsize", b"1" + b"0" * 30)])
+                       + hdr(P + b"src/S.lean", 1) + pad(b"x"),
+    # an extended header whose size is far beyond the archive, followed by 8 MiB of zeros
+    "pax_bomb": base + hdr(b"PaxHeader/x", 0, typeflag=b"x", sizefield=huge) + b"\0" * (8 << 20),
+    # text from the archive that would move a terminal's cursor
+    "acl_esc": base + pax([(b"SCHILY.acl.\x1b[2Kx", b"u")]) + reg(P + b"src/E.lean", b"x"),
+    "name_esc": base + reg(P + b"src/A\x1b[2K.lean", b"x"),
+}
+for name, body in vectors.items():
+    data = body + b"\0" * 1024
+    data += b"\0" * (-len(data) % 10240)
+    with open(os.path.join(out, name + ".tar.gz"), "wb") as fh:
+        fh.write(gzip.compress(data, mtime=0))
+# Accepted: Python's ustar format (a long name split into the prefix field) and a global header with a comment only
+with tarfile.open(os.path.join(out, "py_ustar.tar"), "w", format=tarfile.USTAR_FORMAT) as tf:
+    for n in ("lean/lakefile.toml", "lean/src/" + "d" * 120 + "/B.lean"):
+        ti = tarfile.TarInfo(n); ti.mode = 0o644; ti.size = 2
+        tf.addfile(ti, io.BytesIO(b"x\n"))
+with tarfile.open(os.path.join(out, "py_gcomment.tar"), "w", format=tarfile.PAX_FORMAT, pax_headers={"comment": "x"}) as tf:
+    for n in ("lean/lakefile.toml", "lean/src/A.lean"):
+        ti = tarfile.TarInfo(n); ti.mode = 0o644; ti.size = 2
+        tf.addfile(ti, io.BytesIO(b"x\n"))
+# For --verify-tree: an archive, and the same cut short in the data of its last file
+with tarfile.open(os.path.join(out, "vt.tar"), "w", format=tarfile.PAX_FORMAT) as tf:
+    for n, size in (("lean/lakefile.toml", 11), ("lean/src/A.lean", 1000), ("lean/src/B.lean", 6000)):
+        ti = tarfile.TarInfo(n); ti.mode = 0o644; ti.size = size
+        tf.addfile(ti, io.BytesIO(b"y" * size))
+data = open(os.path.join(out, "vt.tar"), "rb").read()
+open(os.path.join(out, "vt_cut.tar"), "wb").write(data[:data.index(b"y" * 6000) + 3000])
+# For --verify-tree with an entry the listing refuses (an executable bit)
+with tarfile.open(os.path.join(out, "vt_exec.tar"), "w", format=tarfile.PAX_FORMAT) as tf:
+    for n, mode in (("lean/lakefile.toml", 0o644), ("lean/src/A.lean", 0o755)):
+        ti = tarfile.TarInfo(n); ti.mode = mode; ti.size = 600
+        tf.addfile(ti, io.BytesIO(b"a" * 600))
+PY
+for c in "cks_0o|a header checksum ('0o" "cks_us|a header checksum ('" "cks_tab|a header checksum ('.t" "cks_b256|a header checksum ('" \
+         "prefix_gnu|bytes where a POSIX header has its name prefix, in a header in GNU tar's format: Python's tarfile puts them in front of the name" \
+         "prefix_v7|a header in neither POSIX ustar format nor GNU tar's" \
+         "gpax_path|a global pax header that sets path" "gnu_long_past|a GNU long name (type L) that runs past the size" \
+         "mode_us|a mode in its header ('0_644') that not every tar reads" "acl|pax keys of an access control list (SCHILY.acl.access)" \
+         "appledouble|an AppleDouble file ('._' in front of the name): .* to the entry that follows it in the archive" \
+         "pax_pad|bytes after the end of a pax header's data, in the rest of its block" \
+         "pax_nul_in_size|a pax header whose data is not whole records" \
+         "two_L|two extended headers of one kind (type L) before one entry" "two_x|two extended headers of one kind (type x) before one entry" \
+         "acl_esc|pax keys of an access control list ('SCHILY.acl.\\\\x1b\[2Kx')" "name_esc|backslash or control character in name: 'lean/src/A\\\\x1b"; do
+  f=${c%%|*}; want=${c#*|}
+  refused "tar-inspect refuses $f.tar.gz: $want" "$want" "$PY3" -I -B "$TOOLS28" tar-inspect "$T29/$f.tar.gz"
+  [ "$f" = gpax_path ] && { [ "$(grep -c 'a global pax header' "$TMPD/refused.out")" = 1 ]; res "...said once, not for each entry after it" $? "$(grep 'global pax' "$TMPD/refused.out" | head -n 3 | tr '\n' ' ')"; }
+  case $f in *_esc) ! LC_ALL=C grep -q "$(printf '\033')" "$TMPD/refused.out"; res "...with the archive's text escaped: no escape character reaches the terminal" $? ;; esac
+done
+for c in "cks_signed.tar.gz|a signed checksum of a header with bytes above 127" "py_ustar.tar|Python's ustar format, a long name in the prefix field" \
+         "py_gcomment.tar|a global pax header with a comment only" "vt.tar|Python's pax format" \
+         "L_and_x.tar.gz|a GNU long name and a pax header before one entry"; do
+  f=${c%%|*}; cenv "$PY3" -I -B "$TOOLS28" tar-inspect "$T29/$f" > "$T29/$f.out" 2>&1; rc=$?
+  [ "$rc" = 0 ]; res "tar-inspect accepts $f: ${c#*|}" $? "status $rc: $(tailof "$T29/$f.out")"
+done
+for c in "b256_huge|a size in its header" "b256_big|cannot be read to its end" "pax_huge|cannot be read to its end" \
+         "sparse_S_hdr|a sparse entry (GNU tar's type S)" "sparse_S_real|a sparse entry (GNU tar's type S)" "pax_sparse_real|pax keys of a sparse file" \
+         "pax_bomb|an extended header (type x) of 4611686018427387904 bytes; tar-inspect reads at most 524288"; do
+  f=${c%%|*}; within 30 "$T29/$f.out" "$PY3" -I -B "$TOOLS28" tar-inspect "$T29/$f.tar.gz"; rc=$?
+  [ "$rc" = 1 ] && grep -q -- "${c#*|}" "$T29/$f.out"
+  res "tar-inspect on $f.tar.gz (a size far beyond the archive) stops within 30 s, status 1: ${c#*|}" $? "status $rc: $(tailof "$T29/$f.out")"
+done
+
+# --verify-tree: a file on disk that cannot be read, and an archive that cannot be read to its end
+X29="$T29/vt"; mkdir -p "$X29"; cenv tar -xf "$T29/vt.tar" -C "$X29"
+cenv "$PY3" -I -B "$TOOLS28" tar-inspect "$T29/vt_cut.tar" --verify-tree "$X29" > "$T29/vtc.out" 2>&1; rc=$?
+[ "$rc" = 1 ] && grep -q 'tree comparison: NOT FINISHED' "$T29/vtc.out" && ! grep -q 'byte-for-byte' "$T29/vtc.out"
+res "--verify-tree with an archive cut short: NOT FINISHED, not byte-for-byte, status 1" $? "status $rc: $(tailof "$T29/vtc.out" 4)"
+if [ "$(id -u)" != 0 ]; then
+  chmod 000 "$X29/lean/src/A.lean"
+  cenv "$PY3" -I -B "$TOOLS28" tar-inspect "$T29/vt.tar" --verify-tree "$X29" > "$T29/vtu.out" 2>&1; rc=$?
+  chmod 644 "$X29/lean/src/A.lean"
+  [ "$rc" = 1 ] && grep -q 'cannot be read on disk' "$T29/vtu.out" && grep -q 'files that cannot be read on disk: *1' "$T29/vtu.out" \
+    && ! grep -q 'byte-for-byte' "$T29/vtu.out" && ! grep -q 'content differs: lean/src/A.lean' "$T29/vtu.out"
+  res "--verify-tree with a file on disk that cannot be read: said so, not 'content differs', not byte-for-byte" $? "status $rc: $(tailof "$T29/vtu.out" 4)"
+else
+  skip "--verify-tree with a file that cannot be read: run as root, which reads any file"
+fi
+# --verify-tree: an entry the listing refuses is not compared, so the comparison is not finished
+X29e="$T29/vte"; mkdir -p "$X29e"; cenv tar -xf "$T29/vt_exec.tar" -C "$X29e"; chmod 644 "$X29e/lean/src/A.lean"; printf 'other\n' > "$X29e/lean/src/A.lean"
+cenv "$PY3" -I -B "$TOOLS28" tar-inspect "$T29/vt_exec.tar" --verify-tree "$X29e" > "$T29/vte.out" 2>&1; rc=$?
+[ "$rc" = 1 ] && grep -q 'tree comparison: NOT FINISHED: 1 entries the listing refused were not compared' "$T29/vte.out" \
+  && grep -q 'entries refused above, not compared: *1' "$T29/vte.out" && ! grep -q 'byte-for-byte' "$T29/vte.out"
+res "--verify-tree with an entry the listing refused, and other bytes on disk: NOT FINISHED, not byte-for-byte" $? "status $rc: $(tailof "$T29/vte.out" 4)"
+# --verify-tree: a directory of the tree that is a link, and one that cannot be read, are reported
+X29s="$T29/vts"; mkdir -p "$X29s"; cenv tar -xf "$T29/vt.tar" -C "$X29s"
+mv "$X29s/lean/src" "$T29/vts_src"; ln -s "$T29/vts_src" "$X29s/lean/src"; printf 'x\n' > "$T29/vts_src/Evil.lean"
+cenv "$PY3" -I -B "$TOOLS28" tar-inspect "$T29/vt.tar" --verify-tree "$X29s" > "$T29/vts.out" 2>&1; rc=$?
+[ "$rc" = 1 ] && grep -q 'not in tarball: lean/src (a symbolic link to a directory)' "$T29/vts.out" && grep -q 'tree comparison: DIFFERENT' "$T29/vts.out"
+res "--verify-tree with lean/src a link to a directory outside the tree: reported, DIFFERENT" $? "status $rc: $(tailof "$T29/vts.out" 4)"
+if [ "$(id -u)" != 0 ]; then
+  mkdir -p "$X29/lean/evil"; printf 'x\n' > "$X29/lean/evil/E.lean"; chmod 000 "$X29/lean/evil"
+  cenv "$PY3" -I -B "$TOOLS28" tar-inspect "$T29/vt.tar" --verify-tree "$X29" > "$T29/vtd.out" 2>&1; rc=$?
+  chmod 755 "$X29/lean/evil"
+  [ "$rc" = 1 ] && grep -q 'directory cannot be listed on disk (Permission denied): lean/evil' "$T29/vtd.out" \
+    && grep -q 'directories that cannot be listed: *1' "$T29/vtd.out" && grep -q 'tree comparison: DIFFERENT' "$T29/vtd.out"
+  res "--verify-tree with a directory that cannot be read: reported, DIFFERENT" $? "status $rc: $(tailof "$T29/vtd.out" 4)"
+else
+  skip "--verify-tree with a directory that cannot be read: run as root, which reads any directory"
+fi
+
+# macOS's own tar: a file with an extended attribute gets a ._ file unless COPYFILE_DISABLE=1 is set
+if [ "$(uname -s)" = Darwin ] && [ -x /usr/bin/tar ] && [ -x /usr/bin/xattr ]; then
+  M29="$T29/mac"; mkdir -p "$M29/lean/src"; printf 'name = "m"\n' > "$M29/lean/lakefile.toml"; printf -- '-- m\n' > "$M29/lean/src/A.lean"
+  /usr/bin/xattr -w user.rhv.test 1 "$M29/lean/src/A.lean"
+  (cd "$M29" && cenv /usr/bin/tar -czf "$T29/mac_plain.tar.gz" lean/lakefile.toml lean/src/A.lean)
+  refused "an archive macOS's tar made of a file with an extended attribute: refused, with what to do" "unless COPYFILE_DISABLE=1 is set" \
+    "$PY3" -I -B "$TOOLS28" tar-inspect "$T29/mac_plain.tar.gz"
+  (cd "$M29" && cenv COPYFILE_DISABLE=1 /usr/bin/tar --format pax -czf "$T29/mac_cd.tar.gz" lean/lakefile.toml lean/src/A.lean)
+  XM29="$T29/macx"; mkdir -p "$XM29"; cenv /usr/bin/tar -xzf "$T29/mac_cd.tar.gz" -C "$XM29"
+  cenv "$PY3" -I -B "$TOOLS28" tar-inspect "$T29/mac_cd.tar.gz" --check-extracted "$XM29" --verify-tree "$XM29" > "$T29/mac_cd.out" 2>&1; rc=$?
+  [ "$rc" = 0 ] && grep -q 'byte-for-byte' "$T29/mac_cd.out"
+  res "...and with COPYFILE_DISABLE=1 (pax format): accepted, and what macOS's tar extracts from it passes both checks" $? "status $rc: $(tailof "$T29/mac_cd.out" 4)"
+else
+  skip "macOS's tar and ._ files: not macOS"
+fi
+
+# git-export: directories counted, trees and commits not read past what the limits allow
+E29=$(g mktree < /dev/null); t=$E29; i=0
+while [ "$i" -lt 40 ]; do t=$(tree "040000 tree $t${TAB}a" "040000 tree $t${TAB}b"); i=$((i + 1)); done
+C29b=$(g commit-tree "$(tree "040000 tree $t${TAB}proj")" -m bomb)
+within 30 "$T29/bomb.out" "$PY3" -I -B "$TOOLS28" git-export --git-dir "$REPO/.git" --commit "$C29b" --subdir proj --prefix proj/ \
+  --out "$T29/bomb.tar" --max-files 1000; rc=$?
+[ "$rc" = 1 ] && grep -q 'more than 1000 entries, files and directories' "$T29/bomb.out" && [ ! -e "$T29/bomb.tar" ] && [ ! -e "$T29/bomb.tar.tmp" ]
+res "git-export of 2^41 directories made of 42 objects, --max-files 1000: refused within 30 s, nothing written" $? "status $rc: $(tailof "$T29/bomb.out")"
+B29=$(blob x)
+big=$(i=0; while [ "$i" -lt 3000 ]; do printf '100644 blob %s\tf%05d.lean\n' "$B29" "$i"; i=$((i + 1)); done | g mktree)
+C29t=$(g commit-tree "$(tree "040000 tree $big${TAB}proj")" -m wide)
+refused "git-export --max-files 100 and a directory of 3000 files: refused before the tree is read" \
+  "is 117000 bytes, more than the 100 entries still allowed can take (at most 284 bytes each): it has more entries than git-export reads (100 in all, --max-files), or a name longer than 255 bytes" \
+  "$PY3" -I -B "$TOOLS28" git-export --git-dir "$REPO/.git" --commit "$C29t" --subdir proj --prefix proj/ --out "$T29/wide.tar" --max-files 100
+cenv "$PY3" -I -B -c 'import sys; sys.stdout.write("x" * 1100000 + "\n")' > "$T29/msg"
+C29c=$(g commit-tree "$C_MAIN^{tree}" -F "$T29/msg")
+refused "git-export refuses a commit of more than 1 MiB before reading it" "bytes, and git-export reads at most 1048576 bytes of a commit" \
+  "$PY3" -I -B "$TOOLS28" git-export --git-dir "$REPO/.git" --commit "$C29c" --subdir proj --prefix proj/ --out "$T29/bigc.tar"
+long=$(tree "100644 blob $B29${TAB}$(printf '%0300d' 0 | tr 0 n).lean")
+C29l=$(g commit-tree "$(tree "040000 tree $long${TAB}proj")" -m long)
+refused "git-export --max-files 1 and one file with a name of 300 bytes: the reason given names the long name too" \
+  "more than the 1 entries still allowed can take .*, or a name longer than 255 bytes" \
+  "$PY3" -I -B "$TOOLS28" git-export --git-dir "$REPO/.git" --commit "$C29l" --subdir proj --prefix proj/ --out "$T29/long1.tar" --max-files 1
+refused "...and with the default limit: a name longer than 255 bytes" "a name longer than 255 bytes (305)" \
+  "$PY3" -I -B "$TOOLS28" git-export --git-dir "$REPO/.git" --commit "$C29l" --subdir proj --prefix proj/ --out "$T29/long2.tar"
+[ ! -e "$T29/wide.tar" ] && [ ! -e "$T29/bigc.tar" ] && [ ! -e "$T29/long1.tar" ] && [ ! -e "$T29/long2.tar" ]; res "...and none of them wrote a tar file" $?
+
+# lib.sh: no space in a git source's directory or prefix (the record that names the source is one line of words)
+for v in "TGT_GIT_SUBDIR='a b'" "TGT_ARCHIVE_PREFIX='p q/'"; do
+  prof fix-bad "$v"
+  refused "lib.sh refuses $v" "may not contain a space" RH_TARGET=fix-bad /bin/bash "$NEW/scripts/01_fetch.sh"
+done
+refused "lib.sh refuses a new line in TGT_GIT_URL (two sources could give one record)" "TGT_GIT_URL may hold printable ASCII characters only" \
+  RH_TARGET=fix-git "TGT_GIT_URL=$(printf 'file:///x\ny')" /bin/bash "$NEW/scripts/01_fetch.sh"
+[ ! -e "$NEW/work-fix-bad" ]; res "...and neither left a working directory behind" $?
+
+# The marker: a directory with only another script's file for it, scripts started at once, the repair command
+W29m="$T29/wonly"; mkdir -p "$W29m"; : > "$W29m/.rh-target.12345"
+t=$(cenv RH_TARGET=fix-git RH_WORKDIR="$W29m" /bin/bash -c '. "$1/scripts/lib.sh" && claim_workdir && cat "$RH_WORKDIR/.rh-target"' _ "$NEW" 2>&1)
+[ "$t" = fix-git ]; res "a working directory holding only another script's .rh-target.<number>: a non-default target claims it" $? "$t"
+for tg in alpoge-rh fix-git; do
+  W29l="$T29/wlink-$tg"; mkdir -p "$W29l"; ln -s "$T29/no-such-marker" "$W29l/.rh-target"
+  refused "$tg: a .rh-target that is a symbolic link (to nothing): the scripts stop" "is a symbolic link; it must be a plain file" \
+    RH_TARGET=$tg RH_WORKDIR="$W29l" /bin/bash -c '. "$1/scripts/lib.sh" && claim_workdir' _ "$NEW"
+  [ ! -e "$T29/no-such-marker" ]; res "...and nothing was written through the link" $?
+done
+cat > "$T29/claim1.sh" <<'EOF'
+# claim1.sh <lib.sh> <target> <working directory> <file to make when ready> <file to wait for> <file for failures>:
+# one script that claims a working directory (sources lib.sh, says it is ready, waits, then calls claim_workdir)
+RH_TARGET=$2 RH_WORKDIR=$3; export RH_TARGET RH_WORKDIR
+. "$1" > /dev/null 2>&1 || { echo "$3: lib.sh failed" >> "$6"; exit 1; }
+: > "$4"
+while [ ! -e "$5" ]; do :; done
+out=$( (claim_workdir) 2>&1 ) || echo "$3 (process $$): $out" >> "$6"
+EOF
+cat > "$T29/race.sh" <<'EOF'
+# race.sh <claim1.sh> <lib.sh> <target> <rounds> <scripts> <dir>: in each round, that many scripts, each a process of
+# its own, claim one new working directory <dir>/w<round> at the same moment
+c1=$1 lib=$2 tgt=$3 rounds=$4 n=$5 d=$6 r=0
+while [ "$r" -lt "$rounds" ]; do
+  i=0
+  while [ "$i" -lt "$n" ]; do
+    /bin/bash "$c1" "$lib" "$tgt" "$d/w$r" "$d/ready.$r.$i" "$d/go.$r" "$d/fails" &
+    i=$((i + 1))
+  done
+  while :; do set -- "$d"/ready.$r.*; [ "$#" -ge "$n" ] && [ -e "$1" ] && break; done
+  : > "$d/go.$r"
+  wait
+  r=$((r + 1))
+done
+EOF
+for tg in alpoge-rh fix-git; do
+  RD="$T29/race-$tg"; mkdir -p "$RD"
+  cenv /bin/bash "$T29/race.sh" "$T29/claim1.sh" "$NEW/scripts/lib.sh" "$tg" 40 12 "$RD" > "$RD.log" 2>&1
+  bad=0; for w in "$RD"/w*; do [ "$(cat "$w/.rh-target" 2>/dev/null)" = "$tg" ] || bad=$((bad + 1)); done
+  left=$(ls -A "$RD"/w* 2>/dev/null | grep -c '^\.rh-target\.')
+  [ ! -s "$RD/fails" ] && [ "$bad" = 0 ] && [ "$left" = 0 ] && [ "$(ls -d "$RD"/w* | wc -l | tr -d ' ')" = 40 ]
+  res "$tg: 12 scripts claiming one new working directory at once, 40 times: none stops, each marker names $tg, no file left over" $? \
+    "$(head -n 3 "$RD/fails" 2>/dev/null | tr '\n' ' ' | cut -c1-300) bad markers: $bad, left over: $left"
+done
+W29q="$T29/w x'q"; mkdir -p "$W29q/logs"; : > "$W29q/.rh-target"
+refused "an empty .rh-target in a directory whose name has a space and a quote: the scripts stop" "is empty or cannot be read" \
+  RH_WORKDIR="$W29q" /bin/bash "$NEW/scripts/06_progress.sh"
+cmd=$(sed -n "s/.*(\(printf '%s.n' alpoge-rh > .*\)) and run the command again.*/\1/p" "$TMPD/refused.out")
+[ -n "$cmd" ] && cenv /bin/bash -c "$cmd" && [ "$(cat "$W29q/.rh-target")" = alpoge-rh ]
+res "...and the command it prints writes the name into that file" $? "command: $cmd"
+[ -z "$(ls -A "$W28c" | grep '^\.rh-target\.')" ]; res "the marker that could not be written (case 28) left no .rh-target.<number> behind" $? "$(ls -A "$W28c" | tr '\n' ' ')"
+grep -q 'The file just written is kept at' "$T28/pm.b"; res "01 with a pin that does not match says the file it wrote is kept" $? "$(tailof "$T28/pm.b" 3)"
+
+# project-info: values that are not plain printable text are escaped, and the run fails
+P29="$T29/proj"; mkdir -p "$P29"; printf 'name = "x"\n' > "$P29/lakefile.toml"; printf 'leanprover/lean4:v4.33.1\033[2K\r\n' > "$P29/lean-toolchain"
+printf '%s\n' '{"version": "1.1.0", "packages": [{"name": "ma\u001b[2Kth", "type": "git", "url": "https://example.invalid/m\r", "rev": "\u001b[31m0123"}]}' > "$P29/lake-manifest.json"
+for opt in "" --show-urls; do
+  # shellcheck disable=SC2086
+  cenv "$PY3" -I -B "$TOOLS28" project-info "$P29" --expected "$T28/none.json" $opt > "$T29/pi$opt.out" 2>&1; rc=$?
+  [ "$rc" = 1 ] && grep -q "^REFUSED: 4 value(s) in the project files are missing, are not printable ASCII text, or have a space in them" "$T29/pi$opt.out" \
+    && ! LC_ALL=C grep -q "$(printf '\033')" "$T29/pi$opt.out" && ! LC_ALL=C grep -q "$(printf '\r')" "$T29/pi$opt.out"
+  res "project-info ${opt:-(without --show-urls)} with control characters in the toolchain, a name, an address and a revision: escaped, REFUSED, each value counted once, status 1" $? "status $rc: $(tailof "$T29/pi$opt.out" 3 | LC_ALL=C tr -d '\033\r')"
+done
+P29s="$T29/projs"; mkdir -p "$P29s"; printf 'name = "x"\n' > "$P29s/lakefile.toml"; echo 'leanprover/lean4:v4.33.1' > "$P29s/lean-toolchain"
+printf '{"version": "1.1.0", "packages": [{"name": "local", "type": "path", "dir": "../my dir"}]}\n' > "$P29s/lake-manifest.json"
+cenv "$PY3" -I -B "$TOOLS28" project-info "$P29s" --expected "$T28/none.json" --show-urls > "$T29/pis.out" 2>&1; rc=$?
+[ "$rc" = 1 ] && grep -q "^  local  *path '../my dir'\$" "$T29/pis.out" \
+  && grep -q "^REFUSED: lake-manifest.json: the package 'local' is a 'path' package: Lake runs the lakefile in its directory" "$T29/pis.out" \
+  && ! grep -q 'REFUSED: [0-9]* value' "$T29/pis.out"
+res "project-info --show-urls with a path package whose directory has a space: the directory shown quoted, the package refused" $? "status $rc: $(tailof "$T29/pis.out" 3)"
+printf '{"version": "1.1.0", "packages": [{"name": "a b", "type": "git", "url": "https://example.invalid/m", "rev": "%s"}]}\n' "$MLREV" > "$P29s/lake-manifest.json"
+refused "...but a package name with a space is refused" "^REFUSED: 1 value(s)" "$PY3" -I -B "$TOOLS28" project-info "$P29s" --expected "$T28/none.json" --show-urls
+
+# 02 for a target other than the default one: not as root; and the project files are checked before the tree is in place
+STUB29="$TMPD/stub29"; mkdir -p "$STUB29"
+printf '#!/bin/sh\n# stand-in made by test_targets.sh: says the user is root\nif [ "$1" = -u ]; then echo 0; else /usr/bin/id "$@"; fi\n' > "$STUB29/id"
+chmod +x "$STUB29/id"
+prof fix-root; W29r="$NEW/work-fix-root"
+cenv RH_TARGET=fix-root /bin/bash "$NEW/scripts/01_fetch.sh" > "$T29/r.a" 2>&1
+refused "fix-root: 02 run as root stops before extracting" "does not extract the archive of target 'fix-root' as root" \
+  PATH="$STUB29:$CPATH" RH_TARGET=fix-root /bin/bash "$NEW/scripts/02_inspect_and_extract.sh"
+[ ! -e "$W29r/extract" ] && [ ! -e "$W29r/extract.partial" ]; res "...and nothing was extracted" $?
+prof fix-pi; W29p="$NEW/work-fix-pi"
+cenv RH_TARGET=fix-pi /bin/bash "$NEW/scripts/01_fetch.sh" > "$T29/q.a" 2>&1
+mkdir -p "$NEW/targets/fix-pi/records"; printf '{"project": {"lean_toolchain": "leanprover/lean4:v0.0.0"}}\n' > "$NEW/targets/fix-pi/records/expected.json"
+prof fix-pi "TGT_RECORDS_DIR=targets/fix-pi/records"
+refused "fix-pi: 02 with project files that do not match the records stops" "the project files were refused, or do not match what was expected" \
+  RH_TARGET=fix-pi /bin/bash "$NEW/scripts/02_inspect_and_extract.sh"
+[ ! -e "$W29p/extract" ] && [ ! -e "$W29p/extract.from" ] && [ -d "$W29p/extract.partial" ]
+res "...before the tree is put in place: no extract, no extract.from, the tree left in extract.partial" $? "$(tailof "$TMPD/refused.out" 3)"
+
+# ================================================================ 30
+section 30 "header formats and fields, sparse and Solaris entries, header chains, names, project files, markers, addresses"
+T30="$TMPD/c30"; mkdir -p "$T30"
+cenv "$PY3" -I -B - "$T30" "$MLREV" <<'PY30'
+import gzip, json, os, sys
+out, mlrev = sys.argv[1], sys.argv[2]
+def hdr(name, size, typeflag=b"0", magic=b"ustar\x0000", extra=()):
+    h = bytearray(512)
+    h[0:len(name)] = name
+    h[100:108] = b"0000644\0"; h[108:116] = b"0000000\0"; h[116:124] = b"0000000\0"
+    h[124:136] = b"%011o\0" % size
+    h[136:148] = b"00000000000\0"
+    h[148:156] = b"        "
+    h[156:157] = typeflag
+    h[257:265] = magic.ljust(8, b"\0")
+    for at, b in extra:
+        h[at:at + len(b)] = b
+    h[148:156] = b"%06o\0 " % sum(h)
+    assert len(h) == 512
+    return bytes(h)
+pad = lambda b: b + b"\0" * (-len(b) % 512)
+reg = lambda name, data, **k: hdr(name, len(data), **k) + pad(data)
+def rec(k, v):
+    r = b" " + k + b"=" + v + b"\n"
+    d = 1
+    while len(str(len(r) + d)) != d:
+        d += 1
+    return str(len(r) + d).encode() + r
+def pax(records, typeflag=b"x"):
+    body = b"".join(rec(k, v) for k, v in records)
+    return hdr(b"PaxHeader/x", len(body), typeflag=typeflag) + pad(body)
+longhdr = lambda n: hdr(b"././@LongLink", len(n) + 1, typeflag=b"L") + pad(n + b"\0")
+P = b"lean/"
+base = reg(P + b"lakefile.toml", b'name = "t"\n') + reg(P + b"src/Main.lean", b"-- m\n")
+comment = pax([(b"comment", b"x")], typeflag=b"g")
+vectors = {
+    # number fields that not every tar reads as the same number
+    "uid_tab": base + reg(P + b"src/U.lean", b"x", extra=((108, b"\t000000\0"),)),
+    "mtime_nl": base + reg(P + b"src/T.lean", b"x", extra=((136, b"0000000000\n\0"),)),
+    "devminor_us": base + reg(P + b"src/D.lean", b"x", extra=((337, b"0_00000\0"),)),
+    # text fields with a control character, or with bytes after the NUL that ends them
+    "name_junk": base + reg(P + b"src/N.lean\0junk", b"x"),
+    "linkname_junk": base + reg(P + b"src/K.lean", b"x", extra=((157, b"\0abc"),)),
+    "uname_esc": base + reg(P + b"src/O.lean", b"x", extra=((265, b"r\x1b[2Koot\0"),)),
+    # the v7 format, whose headers have no mark of their format
+    "v7": reg(P + b"lakefile.toml", b'name = "t"\n', magic=b"") + reg(P + b"src/Main.lean", b"-- m\n", magic=b""),
+    # a first header that begins as a bzip2 stream does
+    "bzip2_first": reg(b"BZh91AY&SY" + b"x" * 20, b"x") + base,
+    # extended headers in a row: eight global comments are read, nine are not; 250 long names stop at once
+    "g8": base + comment * 8 + reg(P + b"src/G.lean", b"x"),
+    "g9": base + comment * 9 + reg(P + b"src/G.lean", b"x"),
+    "L250": base + b"".join(longhdr(P + b"src/L%05d.lean" % i) for i in range(250)) + reg(b"placeholder", b"x"),
+    # sparse files in pax form: a version 1.0 map that claims a billion pieces, a map that is not numbers, and the
+    # key star and bsdtar use
+    "sparse10": base + pax([(b"GNU.sparse.major", b"1"), (b"GNU.sparse.minor", b"0"), (b"GNU.sparse.name", P + b"src/S.lean"),
+                            (b"GNU.sparse.realsize", b"1")]) + reg(b"GNUSparseFile.0/S.lean", b"999999999\n0\n0\n"),
+    "sparse01_bad": base + pax([(b"GNU.sparse.map", b"0,1,a"), (b"GNU.sparse.realsize", b"1")]) + reg(P + b"src/S.lean", b"x"),
+    "realsize": base + pax([(b"SCHILY.realsize", b"1" + b"0" * 20)]) + reg(P + b"src/S.lean", b"x"),
+    # Solaris's holes, which bsdtar makes and tarfile does not
+    "sun_holes": base + pax([(b"SUN.holesdata", b" 0 1 4 8")]) + reg(P + b"src/H.lean", b"x" * 12),
+    "not_utf8": base + reg(P + b"src/\xff\xfe.lean", b"x"),
+    # twenty pax headers of about 500 KB each, each of many records
+    "pax20": base + b"".join(pax([(b"comment", b"x" * 10)] * 23000) + reg(P + b"src/P%02d.lean" % i, b"x") for i in range(20)),
+}
+for name, body in vectors.items():
+    data = body + b"\0" * 1024
+    data += b"\0" * (-len(data) % 10240)
+    if name in ("v7", "bzip2_first"):
+        with open(os.path.join(out, name + ".tar"), "wb") as fh:
+            fh.write(data)
+    else:
+        with open(os.path.join(out, name + ".tar.gz"), "wb") as fh:
+            fh.write(gzip.compress(data, mtime=0))
+# Project files
+def project(name, m):
+    d = os.path.join(out, name)
+    os.makedirs(d, exist_ok=True)
+    with open(os.path.join(d, "lakefile.toml"), "w") as fh:
+        fh.write('name = "x"\n')
+    with open(os.path.join(d, "lean-toolchain"), "w") as fh:
+        fh.write("leanprover/lean4:v4.33.1\n")
+    with open(os.path.join(d, "lake-manifest.json"), "w") as fh:
+        fh.write(m if isinstance(m, str) else json.dumps(m if "version" in m else dict(m, version="1.1.0")))
+git = lambda name, url="https://example.invalid/m": {"name": name, "type": "git", "url": url, "rev": mlrev}
+project("pi_blank", {"packages": [git("⠀")]})
+project("pi_homoglyph", {"packages": [git("mathlib", "https://gіthub.com/m")]})
+project("pi_nourl", {"packages": [{"name": "mathlib", "type": "git", "rev": mlrev}]})
+project("pi_v6", {"version": 6, "packages": [{"git": {"name": "mathlib", "url": "https://example.invalid/m6", "rev": mlrev}}]})
+project("pi_shape1", "[]")
+project("pi_shape2", '{"packages": {}}')
+project("pi_shape3", '{"packages": [1]}')
+project("pi_tabs", {"packages": [git("a\tb%05d" % i) for i in range(20000)]})
+PY30
+for c in "v7.tar|a header in neither POSIX ustar format nor GNU tar's (its magic and version are" \
+         "uid_tab.tar.gz|a user id in its header ('\\\\t000000') that not every tar reads as the same number" \
+         "mtime_nl.tar.gz|a time in its header ('0000000000\\\\n') that not every tar reads as the same number" \
+         "devminor_us.tar.gz|a device minor number in its header ('0_00000') that not every tar reads as the same number" \
+         "name_junk.tar.gz|a name field in a header with a control character in it, or bytes after the NUL that ends it" \
+         "linkname_junk.tar.gz|a link name field in a header with a control character in it, or bytes after the NUL" \
+         "uname_esc.tar.gz|a user name field in a header with a control character in it" \
+         "bzip2_first.tar|a first header that begins as a bzip2, xz or zstd stream does" \
+         "g9.tar.gz|more than 8 extended headers (pax headers and GNU long names) in a row" "L250.tar.gz|extended headers" \
+         "sparse10.tar.gz|pax keys of a sparse file" "sparse01_bad.tar.gz|pax keys of a sparse file" \
+         "realsize.tar.gz|pax keys of a sparse file (SCHILY.realsize)" \
+         "sun_holes.tar.gz|pax keys of Solaris's tar (SUN.holesdata), which bsdtar applies and Python's tarfile does not" \
+         "not_utf8.tar.gz|a name that is not UTF-8"; do
+  f=${c%%|*}; want=${c#*|}
+  within 30 "$T30/$f.out" "$PY3" -I -B "$TOOLS28" tar-inspect "$T30/$f"; rc=$?
+  [ "$rc" = 1 ] && grep -q -- "$want" "$T30/$f.out" && ! grep -q Traceback "$T30/$f.out" && ! LC_ALL=C grep -q "$(printf '\033')" "$T30/$f.out"
+  res "tar-inspect refuses $f within 30 s, status 1, no traceback, nothing unescaped: $want" $? "status $rc: $(tailof "$T30/$f.out")"
+done
+for c in "g8.tar.gz|8 global pax headers with a comment only" "pax20.tar.gz|20 pax headers of about 500 KB each"; do
+  f=${c%%|*}; within 30 "$T30/$f.out" "$PY3" -I -B "$TOOLS28" tar-inspect "$T30/$f"; rc=$?
+  [ "$rc" = 0 ]; res "tar-inspect accepts $f within 30 s: ${c#*|}" $? "status $rc: $(tailof "$T30/$f.out")"
+done
+grep -q 'a size in its header (0x800100000000000000000000) that not every tar reads as the same number' "$T29/b256_huge.out"
+res "a size in base 256 (2^80, case 29) is shown in hexadecimal" $? "$(tailof "$T29/b256_huge.out")"
+X30="$T30/vtx"; mkdir -p "$X30"; cenv tar -xf "$T29/vt.tar" -C "$X30"; printf 'x\n' > "$X30/lean/src/A$(printf '\033')[2K.lean"
+cenv "$PY3" -I -B "$TOOLS28" tar-inspect "$T29/vt.tar" --check-extracted "$X30" > "$T30/cx.out" 2>&1; rc=$?
+[ "$rc" = 1 ] && grep -q -F "a file that is not an entry of the archive: 'lean/src/A\\x1b[2K.lean'" "$T30/cx.out" \
+  && ! LC_ALL=C grep -q "$(printf '\033')" "$T30/cx.out"
+res "--check-extracted with a file on disk whose name has an escape character: named, escaped, status 1" $? "status $rc: $(tailof "$T30/cx.out" 3)"
+if [ "$(id -u)" != 0 ]; then
+  X30u="$T30/vtu"; mkdir -p "$X30u"; cenv tar -xf "$T29/vt.tar" -C "$X30u"; chmod 644 "$X30u/lean/src"
+  cenv "$PY3" -I -B "$TOOLS28" tar-inspect "$T29/vt.tar" --verify-tree "$X30u" > "$T30/vtu.out" 2>&1; rc=$?
+  chmod 755 "$X30u/lean/src"
+  [ "$rc" = 1 ] && grep -q 'cannot be read on disk (Permission denied): lean/src/A.lean' "$T30/vtu.out" && ! grep -q 'missing on disk.*: lean/' "$T30/vtu.out" \
+    && grep -q 'files that cannot be read on disk: *2' "$T30/vtu.out" && ! grep -q 'byte-for-byte' "$T30/vtu.out"
+  res "--verify-tree with a directory it can list and not search: its files 'cannot be read on disk', not missing, not byte-for-byte" $? "status $rc: $(tailof "$T30/vtu.out" 4)"
+else
+  skip "--verify-tree with a directory that cannot be searched: run as root, which searches any directory"
+fi
+
+# project-info: values that look like others or like nothing, missing values, other shapes, many values
+for opt in "" --show-urls; do
+  for c in "pi_blank|a package name that is U+2800, which looks blank" "pi_homoglyph|an address whose host has a Cyrillic i (U+0456) in it" \
+           "pi_nourl|a git package with no address"; do
+    f=${c%%|*}
+    [ "$f$opt" = pi_nourl ] && continue     # a missing address is refused when the addresses are listed
+    # shellcheck disable=SC2086
+    cenv "$PY3" -I -B "$TOOLS28" project-info "$T30/$f" --expected "$T28/none.json" $opt > "$T30/$f$opt.out" 2>&1; rc=$?
+    [ "$rc" = 1 ] && grep -q '^REFUSED: 1 value(s) in the project files are missing, are not printable ASCII text, or have a space in them' "$T30/$f$opt.out" \
+      && { [ -n "$opt" ] || [ "$f" = pi_blank ] || grep -q '^addresses and directories refused (--show-urls lists every one):$' "$T30/$f$opt.out"; }
+    res "project-info ${opt:-(without --show-urls)} refuses ${c#*|}: status 1, the value printed escaped" $? "status $rc: $(tailof "$T30/$f$opt.out" 3)"
+  done
+done
+cenv "$PY3" -I -B "$TOOLS28" project-info "$T30/pi_v6" --expected "$T28/none.json" --show-urls > "$T30/pi_v6.out" 2>&1; rc=$?
+[ "$rc" = 0 ] && grep -q '^  mathlib  *https://example.invalid/m6$' "$T30/pi_v6.out"
+res "project-info --show-urls reads a package in the form Lake wrote before manifest version 7 and shows its address" $? "status $rc: $(tailof "$T30/pi_v6.out" 3)"
+for f in pi_shape1 pi_shape2 pi_shape3; do
+  cenv "$PY3" -I -B "$TOOLS28" project-info "$T30/$f" --expected "$T28/none.json" > "$T30/$f.out" 2>&1; rc=$?
+  [ "$rc" = 1 ] && grep -q '^REFUSED: lake-manifest.json is not an object whose "packages" is a list of objects' "$T30/$f.out" && ! grep -q Traceback "$T30/$f.out"
+  res "project-info refuses a manifest of another shape ($(head -c 40 "$T30/$f/lake-manifest.json")): status 1, no traceback" $? "status $rc: $(tailof "$T30/$f.out" 3)"
+done
+within 30 "$T30/pi_tabs.out" "$PY3" -I -B "$TOOLS28" project-info "$T30/pi_tabs" --expected "$T28/none.json"; rc=$?
+[ "$rc" = 1 ] && grep -q '^REFUSED: 20000 value(s)' "$T30/pi_tabs.out"
+res "project-info with 20,000 package names with a tab: refused within 30 s, each counted" $? "status $rc: $(tailof "$T30/pi_tabs.out" 2)"
+
+# lib.sh: a marker that is a link or a directory; addresses with characters outside printable ASCII
+W30k="$T30/wlink"; mkdir -p "$W30k"; printf 'fix-git\n' > "$T30/other-marker"; ln -s "$T30/other-marker" "$W30k/.rh-target"
+refused "a .rh-target that is a link to another directory's marker: the scripts stop and say how to put a plain file in its place" \
+  "Remove the link and write the file in its place" RH_WORKDIR="$W30k" /bin/bash -c '. "$1/scripts/lib.sh" && claim_workdir' _ "$NEW"
+cmd=$(sed -n 's/.*(\(rm -- .*\)), then run the command again.*/\1/p' "$TMPD/refused.out" | sed 's/<target>/alpoge-rh/')
+[ -n "$cmd" ] && cenv /bin/bash -c "$cmd" && [ ! -L "$W30k/.rh-target" ] && [ "$(cat "$W30k/.rh-target")" = alpoge-rh ] \
+  && [ "$(cat "$T30/other-marker")" = fix-git ] && cenv RH_WORKDIR="$W30k" /bin/bash -c '. "$1/scripts/lib.sh" && claim_workdir' _ "$NEW" > /dev/null 2>&1
+res "...and the command it prints, with the target named, puts a plain file in place, leaves the other marker as it was, and the scripts go on" $? "command: $cmd"
+W30d="$T30/wdir"; mkdir -p "$W30d/.rh-target"
+refused "a .rh-target that is a directory: the scripts stop" "is not a plain file (it is a directory, or another kind of file)" \
+  RH_TARGET=fix-git RH_WORKDIR="$W30d" /bin/bash -c '. "$1/scripts/lib.sh" && claim_workdir' _ "$NEW"
+U8=$(locale -a 2>/dev/null | grep -i -E -m 1 '^(C|en_US)\.utf-?8$')
+for loc in C $U8; do
+  for u in "$(printf 'file:///x\302\205y')" "$(printf 'file:///g\321\226thub')" "$(printf 'file:///x\ty')"; do
+    refused "lib.sh, LC_ALL=$loc, refuses TGT_GIT_URL $(printf '%q' "$u" | LC_ALL=C tr -c '[:print:]' '?')" "TGT_GIT_URL may hold printable ASCII characters only" \
+      LC_ALL=$loc RH_TARGET=fix-git "TGT_GIT_URL=$u" /bin/bash "$NEW/scripts/01_fetch.sh"
+  done
+done
+[ -n "$U8" ] || skip "lib.sh and TGT_GIT_URL in a UTF-8 locale: none installed"
+if [ -n "$U8" ] && ! cenv PATH="$P20" /bin/sh -c 'command -v elan || command -v lake' > /dev/null 2>&1; then
+  W30t="$T30/w00"; mkdir -p "$W30t/extract/lean"; printf 'alpoge-rh\n' > "$W30t/.rh-target"
+  printf 'leanprover/lean4:v4.33.1\342\200\256\033[2K\377\n' > "$W30t/extract/lean/lean-toolchain"
+  cenv PATH="$P20" LC_ALL="$U8" RH_WORKDIR="$W30t" /bin/bash "$NEW/scripts/00_check_prereqs.sh" > "$T30/p00.out" 2>&1
+  grep -q -x -F '  pinned toolchain (from the extracted project): leanprover/lean4:v4.33.1????[2K?' "$T30/p00.out" && ! LC_ALL=C grep -q "$(printf '\033')" "$T30/p00.out"
+  res "00, LC_ALL=$U8, shows the archive's toolchain line with '?' for each byte that is not printable ASCII" $? "$(grep 'pinned toolchain' "$T30/p00.out" | LC_ALL=C tr -c '[:print:]\n' '?')"
+else
+  skip "00 and the toolchain line in a UTF-8 locale: no UTF-8 locale, or an elan or lake on the narrower PATH"
+fi
+if ! cenv PATH="$P20" /bin/sh -c 'command -v elan || command -v lake' > /dev/null 2>&1; then
+  W30r="$T30/w00crlf"; mkdir -p "$W30r/extract/lean"; printf 'alpoge-rh\n' > "$W30r/.rh-target"
+  printf 'leanprover/lean4:v4.33.1\r\n' > "$W30r/extract/lean/lean-toolchain"
+  cenv PATH="$P20" RH_WORKDIR="$W30r" /bin/bash "$NEW/scripts/00_check_prereqs.sh" > "$T30/p00crlf.out" 2>&1
+  grep -q -x -F '  pinned toolchain (from the extracted project): leanprover/lean4:v4.33.1' "$T30/p00crlf.out"
+  res "00 shows a toolchain line that ends with CRLF as the line alone, with no '?' for the CR" $? "$(grep 'pinned toolchain' "$T30/p00crlf.out" | LC_ALL=C tr -c '[:print:]\n' '?')"
+else
+  skip "00 and a toolchain line with CRLF: an elan or lake on the narrower PATH"
+fi
+
+# git-export at its default limits
+within 60 "$T30/bomb.out" "$PY3" -I -B "$TOOLS28" git-export --git-dir "$REPO/.git" --commit "$C29b" --subdir proj --prefix proj/ --out "$T30/bomb.tar"; rc=$?
+[ "$rc" = 1 ] && grep -q -E 'more than 2000000 entries|more than 268435456 bytes' "$T30/bomb.out" && [ ! -e "$T30/bomb.tar" ] && [ ! -e "$T30/bomb.tar.tmp" ]
+res "git-export of 2^41 directories made of 42 objects, at its default limits: refused within 60 s, nothing written" $? "status $rc: $(tailof "$T30/bomb.out")"
+cenv "$PY3" -I -B "$TOOLS28" git-export --git-dir "$REPO/.git" --commit "$C29l" --subdir proj --prefix proj/ --out "$T30/long.tar" > "$T30/long.out" 2>&1; rc=$?
+[ "$rc" = 1 ] && grep -q 'a name longer than 255 bytes (305) .*n\{200\}\.\.\.' "$T30/long.out" && [ ! -e "$T30/long.tar" ]
+res "git-export's message for a name of 305 bytes shows its first 200" $? "status $rc: $(tailof "$T30/long.out" | cut -c1-200)"
+
+# ================================================================ 31
+section 31 "GNU header tails, times before 1970, empty archives, gzip members, Unicode forms on disk, manifest forms, names and paths, Mathlib pins, lakefile limits and Lean options, 04's own check"
+T31="$TMPD/c31"; mkdir -p "$T31"
+cenv "$PY3" -I -B - "$T31" "$MLREV" <<'PY31'
+import gzip, io, json, os, sys, tarfile
+out, mlrev = sys.argv[1], sys.argv[2]
+def hdr(name, size, typeflag=b"0", magic=b"ustar  \0", extra=()):
+    h = bytearray(512)
+    h[0:len(name)] = name
+    h[100:108] = b"0000644\0"; h[108:116] = b"0000000\0"; h[116:124] = b"0000000\0"
+    h[124:136] = b"%011o\0" % size
+    h[136:148] = b"00000000000\0"
+    h[148:156] = b"        "
+    h[156:157] = typeflag
+    h[257:265] = magic.ljust(8, b"\0")
+    for at, b in extra:
+        h[at:at + len(b)] = b
+    h[148:156] = b"%06o\0 " % sum(h)
+    assert len(h) == 512
+    return bytes(h)
+pad = lambda b: b + b"\0" * (-len(b) % 512)
+reg = lambda name, data, **k: hdr(name, len(data), **k) + pad(data)
+end = lambda b: b + b"\0" * 1024 + b"\0" * (-(len(b) + 1024) % 10240)
+P = b"lean/"
+base = reg(P + b"lakefile.toml", b'name = "t"\n') + reg(P + b"src/Main.lean", b"-- m\n")
+# Headers in GNU tar's format (the magic above) with bytes where a POSIX header has its name prefix: bsdtar reads
+# GNU tar's access time, old sparse map, isextended flag and real size there, for an entry of any kind
+tars = {
+    "gnu_atime": base + reg(P + b"src/A.lean", b"x", extra=((345, b"14000000000\0"),)),
+    "gnu_sparsemap": base + reg(P + b"src/S.lean", b"x", extra=((386, b"00000000000\0" b"00000000001\0"),)),
+    "gnu_isextended": base + reg(P + b"src/E.lean", b"x", extra=((482, b"\x01"),)),
+    "gnu_realsize": base + reg(P + b"src/R.lean", b"x", extra=((483, b"77777777777\0"),)),
+    # a time in base 256 below -2^63
+    "t_neg_huge": base + reg(P + b"src/T.lean", b"x", extra=((136, b"\xff" + b"\0" * 11),)),
+    "empty": b"",
+}
+for name, body in tars.items():
+    with open(os.path.join(out, name + ".tar"), "wb") as fh:
+        fh.write(end(body))
+# Times before 1970, as Python writes them: in base 256 in GNU's format, in a pax record in pax format
+for fmt, label in ((tarfile.GNU_FORMAT, "gnu"), (tarfile.PAX_FORMAT, "pax")):
+    with tarfile.open(os.path.join(out, "t1960_%s.tar" % label), "w", format=fmt) as tf:
+        for n in ("lean/lakefile.toml", "lean/src/A.lean"):
+            ti = tarfile.TarInfo(n); ti.mode = 0o644; ti.size = 2; ti.mtime = -315619200
+            tf.addfile(ti, io.BytesIO(b"x\n"))
+# gzip members: two that hold one archive; zero bytes between them; zero bytes after the last; a reserved flag set
+# (in the first member or the second); bytes after the last that are not a member
+data = end(base)
+m1, m2 = gzip.compress(data[:1024], mtime=0), gzip.compress(data[1024:], mtime=0)
+flag = lambda m: m[:3] + bytes([m[3] | 0x20]) + m[4:]
+gz = {"gz_two": m1 + m2, "gz_zeropad": m1 + b"\0" * 16 + m2, "gz_zerotail": m1 + m2 + b"\0" * 512,
+      "gz_flag_first": flag(m1) + m2, "gz_flag_second": m1 + flag(m2), "gz_junk": m1 + m2 + b"junk"}
+for name, body in gz.items():
+    with open(os.path.join(out, name + ".tar.gz"), "wb") as fh:
+        fh.write(body)
+# A name in NFC, for the tree a tar writes on a file system that may store it in NFD
+with tarfile.open(os.path.join(out, "nfc.tar"), "w", format=tarfile.PAX_FORMAT) as tf:
+    for n in ("lean/lakefile.toml", "lean/src/Caf\u00e9.lean"):
+        ti = tarfile.TarInfo(n); ti.mode = 0o644; ti.size = 2
+        tf.addfile(ti, io.BytesIO(b"x\n"))
+# Project files: a lakefile and a manifest in the forms the default target's have, then one change in each case
+LAKEFILE = '''name = "tree"
+version = "0.1.0"
+srcDir = "src"
+defaultTargets = ["Statements", "Main"]
+moreLeanArgs = ["--tstack=400000"]
+
+[leanOptions]
+pp.unicode.fun = true
+autoImplicit = false
+maxHeartbeats = 4000000
+
+[[require]]
+name = "mathlib"
+git = "https://example.invalid/mathlib4"
+rev = "%s"
+
+[[lean_lib]]
+name = "Formalism"
+globs = ["Formalism.+"]
+leanOptions = {synthInstance.maxHeartbeats = 400000}
+
+[[lean_lib]]
+name = "Statements"
+roots = ["Statements", "Main"]
+''' % mlrev
+def pkg(name, inherited=False, cfg="lakefile.toml", **k):
+    p = {"url": "https://example.invalid/" + name.strip("\u00ab\u00bb"), "type": "git", "subDir": None, "scope": "",
+         "rev": mlrev, "name": name, "manifestFile": "lake-manifest.json", "inputRev": "main", "inherited": inherited,
+         "configFile": cfg}
+    p.update(k)
+    return p
+def manifest(packages=None, **k):
+    m = {"version": "1.2.0", "packagesDir": ".lake/packages",
+         "packages": packages if packages is not None else [pkg("mathlib", cfg="lakefile.lean"), pkg("plausible", True)],
+         "name": "tree", "lakeDir": ".lake"}
+    m.update(k)
+    return m
+def project(name, m=None, lakefile=LAKEFILE, toolchain="leanprover/lean4:v4.33.1\n"):
+    d = os.path.join(out, name)
+    os.makedirs(d, exist_ok=True)
+    m = manifest() if m is None else m
+    m = m if isinstance(m, (str, bytes)) else json.dumps(m, indent=2)
+    for f, v in (("lakefile.toml", lakefile), ("lean-toolchain", toolchain), ("lake-manifest.json", m)):
+        with open(os.path.join(d, f), "wb") as fh:
+            fh.write(v if isinstance(v, bytes) else v.encode("utf-8"))
+G = lambda s: "\u00ab" + s + "\u00bb"
+project("ok")
+project("guillemets", manifest([pkg("mathlib", cfg="lakefile.lean"), pkg(G("doc-gen4"))]),
+        lakefile=LAKEFILE + '\n[[require]]\nname = "doc-gen4"\ngit = "https://example.invalid/doc-gen4"\nrev = "main"\n')
+U = "https://example.invalid/x"
+project("guillemets_bad", manifest([pkg("mathlib", cfg="lakefile.lean"), pkg(G("a\u2800"), url=U), pkg(G(""), url=U), pkg("doc-gen4\u00bb", url=U)]))
+project("schema7", {"schemaVersion": 7, "packages": [pkg("mathlib", cfg="lakefile.lean")]})
+project("cfg", manifest([pkg("mathlib", cfg="../../x/lakefile.lean")]))
+project("sub", manifest([pkg("mathlib", cfg="lakefile.lean", subDir="../x")]))
+project("v6sub", {"version": 6, "packages": [{"git": {"name": "mathlib", "url": "https://example.invalid/m", "rev": mlrev, "subDir?": "../x"}}]})
+project("pkgsdir", manifest(packagesDir="../pk"))
+project("mfile", manifest([pkg("mathlib", cfg="lakefile.lean", manifestFile="../m.json")]))
+project("path", manifest([pkg("mathlib", cfg="lakefile.lean"), {"type": "path", "name": "local", "dir": "../x", "inherited": False, "scope": ""}]))
+project("nover", {"packages": [pkg("mathlib", cfg="lakefile.lean")]})
+project("v4", {"version": 4, "packages": [{"git": {"name": "mathlib", "url": "https://example.invalid/m", "rev": mlrev}}]})
+project("v2major", manifest(version="2.0.0"))
+project("v6flat", {"version": 6, "packages": [pkg("mathlib", cfg="lakefile.lean")]})
+project("v7tagged", {"version": 7, "packages": [{"git": {"name": "mathlib", "url": "https://example.invalid/m", "rev": mlrev}}]})
+add = lambda extra: LAKEFILE + extra
+project("lean_exe", lakefile=add('\n[[lean_exe]]\nname = "cache"\nroot = "Cache"\n'))
+project("root_lower", lakefile=LAKEFILE.replace('name = "tree"', 'name = "mathlib"', 1))
+project("root_upper", lakefile=LAKEFILE.replace('name = "tree"', 'name = "Mathlib"', 1))
+project("lib_outside", lakefile=add('\n[[lean_lib]]\nname = "Other"\nsrcDir = "../other"\n'))
+project("lib_elsewhere", lakefile=LAKEFILE.replace('srcDir = "src"', 'srcDir = "."', 1) + '\n[[lean_lib]]\nname = "Other"\nsrcDir = "other"\n')
+project("backslash", lakefile=LAKEFILE.replace('rev = "%s"' % mlrev, 'rev = "\\u0030%s"' % mlrev[1:], 1))
+project("unknown_key", lakefile=LAKEFILE.replace('srcDir = "src"\n', 'srcDir = "src"\nprecompileModules = true\n', 1))
+project("plugin", lakefile=LAKEFILE.replace('["--tstack=400000"]', '["--tstack=400000", "--plugin=x.so"]', 1))
+project("lib_dynlib", lakefile=add('weakLeanArgs = ["--load-dynlib=x.so"]\n'))
+project("dup_key", lakefile=LAKEFILE.replace('version = "0.1.0"\n', 'version = "0.1.0"\nversion = "0.2.0"\n', 1))
+project("two_requires", lakefile=add('\n[[require]]\nname = "mathlib"\ngit = "https://example.invalid/other"\n'))
+project("multiline", lakefile=LAKEFILE.replace('version = "0.1.0"', 'version = """0.1.0"""', 1))
+project("toolchain_not_utf8", toolchain=b"leanprover/lean4:v4.33.1\xff\n")
+project("lakefile_not_utf8", lakefile=LAKEFILE.encode() + b"# \xff\n")
+project("manifest_not_utf8", json.dumps(manifest()).encode() + b"\xff")
+project("not_json", "{")
+project("big_number", '{"version": 1%s, "packages": []}' % ("0" * 40))
+project("deep", '{"version": "1.2.0", "packages": [], "x": %s1%s}' % ("[" * 40, "]" * 40))
+project("deeper", "[" * 100000 + "]" * 100000)
+# A first header (a pax header, whose name is not read as a name) that begins as an xz stream does
+def pax(records):
+    body = b""
+    for k, v in records:
+        r = b" %s=%s\n" % (k, v)
+        n = len(r) + 1
+        while n != len(r) + len(b"%d" % n):
+            n = len(r) + len(b"%d" % n)
+        body += b"%d%s" % (n, r)
+    return body
+xzbody = pax([(b"path", b"lean/lakefile.toml")])
+with open(os.path.join(out, "xz_first.tar"), "wb") as fh:
+    fh.write(end(hdr(b"\xfd7zXZ", len(xzbody), typeflag=b"x", magic=b"ustar\x0000") + pad(xzbody)
+                 + reg(P + b"lakefile.toml", b'name = "t"\n') + reg(P + b"src/Main.lean", b"-- m\n")))
+# What 'lake new <name> math' writes (Lake 4.33.1's template), with the manifest Lake makes from it: Mathlib pinned
+# by a tag, which the manifest keeps as the entry's inputRev beside the commit
+MATH = '''name = %s
+version = "0.1.0"
+keywords = ["math"]
+defaultTargets = [%s]
+
+[leanOptions]
+pp.unicode.fun = true # pretty-prints `fun a \u21a6 b`
+relaxedAutoImplicit = false
+weak.linter.mathlibStandardSet = true
+maxSynthPendingDepth = 3
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "v4.33.1"
+
+[[lean_lib]]
+name = %s
+'''
+SC = "leanprover-community"
+MM = manifest([pkg("mathlib", cfg="lakefile.lean", scope=SC, inputRev="v4.33.1"), pkg("plausible", True, scope=SC)])
+project("lake_new", MM, lakefile=MATH % ('"proj"', '"Proj"', '"Proj"'))
+project("lake_new_2proj", MM, lakefile=MATH % ('"2proj"', '"\u00ab2proj\u00bb"', '"\u00ab2proj\u00bb"'))
+project("tag_other", MM, lakefile=(MATH % ('"proj"', '"Proj"', '"Proj"')).replace('rev = "v4.33.1"', 'rev = "v4.33.0"'))
+project("srcdir_spellings", lakefile=LAKEFILE.replace('srcDir = "src"', 'srcDir = "./src/"', 1))
+project("toolchain_crlf", toolchain="leanprover/lean4:v4.33.1\r\n")
+project("toolchain_ws", toolchain="leanprover/lean4:v4.33.1\u3000\n")
+# Names as Lake reads them: mathlib in guillemets beside mathlib, or alone; two of one name; a name Lake cannot read
+project("mathlib_twice", manifest([pkg("mathlib", cfg="lakefile.lean"), pkg(G("mathlib"), cfg="lakefile.lean", rev="0" * 40)]))
+project("mathlib_escaped", manifest([pkg(G("mathlib"), cfg="lakefile.lean")]))
+project("dup_names", manifest([pkg("mathlib", cfg="lakefile.lean"), pkg("mathlib", cfg="lakefile.lean")]))
+project("bare_hyphen", manifest([pkg("mathlib", cfg="lakefile.lean"), pkg("doc-gen4")]))
+project("no_mathlib", manifest([pkg("plausible")]))
+project("no_packages", {"version": "1.2.0", "name": "tree"})
+def without(p, k):
+    del p[k]
+    return p
+project("no_rev", manifest([without(pkg("mathlib", cfg="lakefile.lean"), "rev")]))
+project("no_url", manifest([pkg("mathlib", cfg="lakefile.lean"), without(pkg("plausible", True), "url")]))
+project("req_missing", lakefile=add('\n[[require]]\nname = "extra"\ngit = "https://example.invalid/extra"\nrev = "main"\n'))
+project("req_cyrillic", lakefile=LAKEFILE.replace("https://example.invalid/mathlib4", "https://example.invalid/math\u0456ib4", 1))
+project("float_big", '{"version": "1.2.0", "packages": [], "x": 1.%s}' % ("0" * 40))
+project("nan", '{"version": "1.2.0", "packages": [], "x": NaN}')
+project("ver_dash", manifest(version="1.0.0-"))
+# Lean options that make lean run a program, write a file, or add declarations with no check by the kernel
+project("sat_solver", lakefile=LAKEFILE.replace("autoImplicit = false\n", 'autoImplicit = false\nsat.solver = "/bin/sh"\n', 1))
+project("trace_arg", lakefile=LAKEFILE.replace('["--tstack=400000"]', '["--tstack=400000", "-Dweak.trace.profiler.output=lakefile.toml"]', 1))
+project("debug_lib", lakefile=LAKEFILE.replace("{synthInstance.maxHeartbeats = 400000}", "{synthInstance.maxHeartbeats = 400000, debug.skipKernelTC = true}", 1))
+# Every Lean option the check allows, with 'weak.' before it or not: in the package's leanOptions, in a library's,
+# and with -D in moreLeanArgs
+OPTS = ('autoImplicit = false\nrelaxedAutoImplicit = false\nmaxHeartbeats = 4000000\nmaxRecDepth = 2000\n'
+        'maxSynthPendingDepth = 3\nsynthInstance.maxHeartbeats = 400000\nsynthInstance.maxSize = 256\n'
+        'warningAsError = true\nElab.async = false\npp.proofs = true\nlinter.unusedVariables = false\n'
+        'backward.synthInstance.canonInstances = false\nweak.linter.mathlibStandardSet = true\nweak.maxRecDepth = 4000\n')
+LF = LAKEFILE.replace("pp.unicode.fun = true\nautoImplicit = false\nmaxHeartbeats = 4000000\n", "pp.unicode.fun = true\n" + OPTS, 1)
+LF = LF.replace("{synthInstance.maxHeartbeats = 400000}", "{synthInstance.maxHeartbeats = 400000, maxRecDepth = 2000, "
+                "pp.proofs = true, weak.linter.style.longLine = false, Elab.async = false}", 1)
+LF = LF.replace('["--tstack=400000"]', '["--tstack=400000", "-DmaxHeartbeats=4000000", "-Dpp.proofs=true", '
+                '"-Dweak.linter.unusedVariables=false", "-DElab.async=false", "-Dbackward.synthInstance.canonInstances=false", '
+                '"-DsynthInstance.maxSize=256", "-DwarningAsError=true"]', 1)
+assert "weak.maxRecDepth" in LF and "Elab.async = false}" in LF and "-DwarningAsError=true" in LF
+project("options_all", lakefile=LF)
+# Revisions that are not full commit hashes, addresses that are not https://<host>/<path>, a package with no type
+project("rev_branch", manifest([pkg("mathlib", cfg="lakefile.lean", rev="master"), pkg("plausible", True)]))
+project("rev_short", manifest([pkg("mathlib", cfg="lakefile.lean", rev="0123456"), pkg("plausible", True)]))
+project("rev_dep", manifest([pkg("mathlib", cfg="lakefile.lean"), pkg("plausible", True, rev="main")]))
+for label, url in (("noscheme", "github.com/leanprover-community/mathlib4"), ("file", "file:///x"),
+                   ("ssh", "ssh://git@example.com/x"), ("scp", "git@example.com:x/y"),
+                   ("userinfo", "https://github.com@example.com/m"), ("dash", "-uhttps://x")):
+    project("url_" + label, manifest([pkg("mathlib", cfg="lakefile.lean", url=url), pkg("plausible", True)]))
+project("req_git_noscheme", lakefile=LAKEFILE.replace("https://example.invalid/mathlib4", "github.com/leanprover-community/mathlib4", 1))
+project("type_missing", manifest([pkg("mathlib", cfg="lakefile.lean"), without(pkg("plausible", True), "type")]))
+# Toolchains that are not release tags, and two that are
+for label, tc in (("nightly", "leanprover/lean4:nightly-2025-11-01"), ("bare_nightly", "nightly-2025-11-01"),
+                  ("stable", "leanprover/lean4:stable"), ("rc", "leanprover/lean4:v4.22.0-rc3"), ("bare", "v4.33.1")):
+    project("toolchain_" + label, toolchain=tc + "\n")
+# A library named with '!', which Lean writes with no guillemets; srcDir './', alone and with a library in './other/'
+project("lib_bang", MM, lakefile=MATH % ('"proj"', '"Proj!"', '"Proj!"'))
+project("srcdir_dotslash", lakefile=LAKEFILE.replace('srcDir = "src"', 'srcDir = "./"', 1))
+project("srcdir_dotslash_out", lakefile=LAKEFILE.replace('srcDir = "src"', 'srcDir = "./"', 1) + '\n[[lean_lib]]\nname = "Other"\nsrcDir = "./other/"\n')
+# A revision in capitals, which Lake does not read as a commit; addresses with '..' or '.' parts (git's https transport
+# takes them out), a percent-escape, a query, a fragment, an empty part or http://; and an address with a port
+project("rev_upper", manifest([pkg("mathlib", cfg="lakefile.lean"), pkg("plausible", True, rev=mlrev.upper())]))
+for label, url in (("dotdot", "https://github.com/leanprover-community/mathlib4/../../attacker/mathlib4"),
+                   ("dot", "https://example.invalid/./mathlib4"), ("pct", "https://example.invalid/%2e%2e/mathlib4"),
+                   ("query", "https://example.invalid/mathlib4?x=1"), ("frag", "https://example.invalid/mathlib4#x"),
+                   ("empty", "https://example.invalid//mathlib4"), ("http", "http://example.invalid/mathlib")):
+    project("url_" + label, manifest([pkg("mathlib", cfg="lakefile.lean", url=url), pkg("plausible", True)]))
+for label, url in (("http", "http://example.invalid/mathlib4"), ("dotdot", "https://example.invalid/mathlib4/../other")):
+    project("req_" + label, lakefile=LAKEFILE.replace("https://example.invalid/mathlib4", url, 1))
+PORT = "https://example.invalid:8443/mathlib"
+project("url_port", manifest([pkg("mathlib", cfg="lakefile.lean", url=PORT), pkg("plausible", True)]),
+        lakefile=LAKEFILE.replace("https://example.invalid/mathlib4", PORT, 1))
+# Toolchains with no 'v' (elan puts it in), an origin with no '/', and a file of the project at the line's path,
+# which elan 4.2 would run in place of the release (with an origin, with none, and a dangling link as the first part)
+for label, tc in (("nov", "leanprover/lean4:4.33.1"), ("bare_nov", "4.33.1"), ("origin_noslash", "lean4:v4.33.1"),
+                  ("path", "leanprover/lean4:v4.33.1"), ("path_bare", "v4.33.1")):
+    project("toolchain_" + label, toolchain=tc + "\n")
+for label, tc in (("path", "leanprover/lean4:v4.33.1"), ("path_bare", "v4.33.1")):
+    os.makedirs(os.path.join(out, "toolchain_" + label, tc, "bin"))
+    with open(os.path.join(out, "toolchain_" + label, tc, "bin", "lean"), "w") as fh:
+        fh.write("#!/bin/sh\necho planted\n")
+project("toolchain_path_link")
+os.symlink("elsewhere", os.path.join(out, "toolchain_path_link", "leanprover"))
+# A file, and a dangling link, named https:, as every address starts: git clone reads https://example.invalid/x as the
+# path https:/example.invalid/x in the directory it runs in first. A package with a subDir, and one whose subDir is '.'
+project("https_bundle")
+os.makedirs(os.path.join(out, "https_bundle", "https:", "example.invalid"))
+with open(os.path.join(out, "https_bundle", "https:", "example.invalid", "plausible"), "w") as fh:
+    fh.write("not a bundle\n")
+project("https_link")
+os.symlink("elsewhere", os.path.join(out, "https_link", "https:"))
+project("subdir_x", manifest([pkg("mathlib", cfg="lakefile.lean"), pkg("plausible", True, subDir="x")]))
+project("subdir_dot", manifest([pkg("mathlib", cfg="lakefile.lean"), pkg("plausible", True, subDir=".")]))
+project("name_dotdot", manifest([pkg("mathlib", cfg="lakefile.lean"), pkg(G("../x"), True, url=U)]))
+project("name_build", manifest([pkg("mathlib", cfg="lakefile.lean"), pkg(G("../build"), True, url=U)]))
+project("name_abs", manifest([pkg("mathlib", cfg="lakefile.lean"), pkg(G("/x"), True, url=U)]))
+project("name_slash", manifest([pkg("mathlib", cfg="lakefile.lean"), pkg("a." + G("b/c"), True, url=U)]))
+project("name_dot", manifest([pkg("mathlib", cfg="lakefile.lean"), pkg(G(".x"), True, url=U)]))
+project("name_numstr", manifest([pkg("mathlib", cfg="lakefile.lean"), pkg("1", True, url=U), pkg(G("1"), True, url=U)]))
+project("name_case", manifest([pkg("mathlib", cfg="lakefile.lean"), pkg("Mathlib", True, url=U)]))
+project("name_long", manifest([pkg("mathlib", cfg="lakefile.lean"), pkg("a" * 243, True, url=U)]))
+project("v6subx", {"version": 6, "packages": [{"git": {"name": "mathlib", "url": "https://example.invalid/m", "rev": mlrev, "subDir?": "x"}}]})
+def v6(m):
+    """m in the form Lake wrote up to version 6: each package {"git": {...}}, with inputRev? and subDir?"""
+    ps = [{p["type"]: {"url": p["url"], "subDir?": p["subDir"], "rev": p["rev"], "name": p["name"],
+                       "inputRev?": p["inputRev"], "inherited": p["inherited"]}} for p in m["packages"]]
+    return {"version": 6, "packagesDir": m["packagesDir"], "packages": ps}
+project("v6pin", v6(manifest()))
+project("lake_new_v6", v6(MM), lakefile=MATH % ('"proj"', '"Proj"', '"Proj"'))
+# roots and globs with '!' and '?' in their parts, and a root with a part that is not an identifier
+RB = LAKEFILE.replace('roots = ["Statements", "Main"]', 'roots = ["Statements", "Main", "Proj!", "Proj.A?"]', 1)
+RB = RB.replace('globs = ["Formalism.+"]', 'globs = ["Formalism.+", "Proj!.+", "Proj.B?.*"]', 1)
+assert RB.count("Proj") == 4
+project("roots_bang", lakefile=RB)
+project("roots_bad", lakefile=LAKEFILE.replace('roots = ["Statements", "Main"]', 'roots = ["Statements", "a-b"]', 1))
+PY31
+# The Pythons tar-inspect and project-info are run with: this one and, where it runs and is another version, the
+# system's (on macOS, Python 3.9)
+pyv() { cenv "$1" -I -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null; }
+PY31B=""; V31A=$(pyv "$PY3"); V31B=$( [ -x /usr/bin/python3 ] && pyv /usr/bin/python3 )
+[ -n "$V31B" ] && [ "$V31B" != "$V31A" ] && PY31B=/usr/bin/python3
+[ -n "$PY31B" ] || skip "tar-inspect and project-info under a second Python: /usr/bin/python3 is missing, does not run or is $V31A too"
+for py in "$PY3" ${PY31B:+"$PY31B"}; do
+  v=$(pyv "$py")
+  for c in "gnu_atime.tar|GNU tar's access time" "gnu_sparsemap.tar|its old map of a sparse file" \
+           "gnu_isextended.tar|the flag saying the map goes on in the next block" "gnu_realsize.tar|a sparse file's real size"; do
+    f=${c%%|*}
+    refused "tar-inspect (Python $v) refuses $f, bytes 345 to 499 of a GNU header set (where bsdtar reads ${c#*|}, for an entry of any kind)" \
+      "bytes where a POSIX header has its name prefix, in a header in GNU tar's format" "$py" -I -B "$TOOLS28" tar-inspect "$T31/$f"
+  done
+  refused "tar-inspect (Python $v) refuses a time in base 256 below -2^63" \
+    "a time in its header (0xff0000000000000000000000) that not every tar reads as the same number" "$py" -I -B "$TOOLS28" tar-inspect "$T31/t_neg_huge.tar"
+  for c in "t1960_gnu.tar|a time before 1970 in base 256, as Python's GNU format writes it" "t1960_pax.tar|a time before 1970 in a pax record" \
+           "empty.tar|an archive with no entries (Python 3.9's tarfile seeks backwards in one)" \
+           "gz_two.tar.gz|an archive in two gzip members" "gz_zerotail.tar.gz|zero bytes after the last gzip member"; do
+    f=${c%%|*}; cenv "$py" -I -B "$TOOLS28" tar-inspect "$T31/$f" > "$T31/$f.$v.out" 2>&1; rc=$?
+    [ "$rc" = 0 ] && ! grep -q Traceback "$T31/$f.$v.out"; res "tar-inspect (Python $v) accepts $f: ${c#*|}" $? "status $rc: $(tailof "$T31/$f.$v.out")"
+  done
+  for c in "gz_zeropad.tar.gz|zero bytes between two gzip members: bsdtar stops at them" "gz_flag_first.tar.gz|unknown header flags set" \
+           "gz_flag_second.tar.gz|unknown header flags set" "gz_junk.tar.gz|bytes after a gzip member that are neither another member nor zero bytes" \
+           "xz_first.tar|a first header that begins as a bzip2, xz or zstd stream does"; do
+    f=${c%%|*}
+    refused "tar-inspect (Python $v) refuses $f: ${c#*|}" "${c#*|}" "$py" -I -B "$TOOLS28" tar-inspect "$T31/$f"
+  done
+done
+# Times before 1970 from this system's tar, when it is bsdtar (macOS's)
+if cenv tar --version 2>/dev/null | grep -q bsdtar; then
+  X31b="$T31/bsd1960"; mkdir -p "$X31b/lean/src"; printf 'name = "t"\n' > "$X31b/lean/lakefile.toml"; printf 'x\n' > "$X31b/lean/src/A.lean"
+  cenv touch -t 196001010000 "$X31b/lean/lakefile.toml" "$X31b/lean/src/A.lean"
+  # Only its pax format keeps such a time (in a pax record): its ustar format leaves the files out, with a warning,
+  # and its gnutar format writes the time 0
+  (cd "$X31b" && cenv COPYFILE_DISABLE=1 tar --format pax -cf ../bsd1960_pax.tar lean/lakefile.toml lean/src/A.lean) 2> "$T31/bsd1960_pax.err"
+  n=$(cenv "$PY3" -I -c 'import sys, tarfile; print(sum(1 for m in tarfile.open(sys.argv[1]) if m.mtime < 0))' "$T31/bsd1960_pax.tar" 2>&1)
+  cenv "$PY3" -I -B "$TOOLS28" tar-inspect "$T31/bsd1960_pax.tar" > "$T31/bsd1960_pax.out" 2>&1; rc=$?
+  [ "$n" = 2 ] && [ "$rc" = 0 ]
+  res "tar-inspect accepts two files from 1960 in an archive bsdtar made in its pax format (both with times before 1970)" $? "status $rc, entries before 1970: $n: $(tailof "$T31/bsd1960_pax.out") $(tailof "$T31/bsd1960_pax.err")"
+else
+  skip "files from 1960 in archives bsdtar made: this system's tar is not bsdtar"
+fi
+
+# A name in NFC, extracted by this system's tar: on macOS the file system may store it in NFD
+X31="$T31/nfc_tree"; mkdir -p "$X31"; cenv tar -xf "$T31/nfc.tar" -C "$X31"
+form=$(ls "$X31/lean/src" | cenv "$PY3" -I -c 'import sys, unicodedata; n = sys.stdin.buffer.read().decode("utf-8").strip(); print("NFC" if n == unicodedata.normalize("NFC", n) else "NFD")')
+cenv "$PY3" -I -B "$TOOLS28" tar-inspect "$T31/nfc.tar" --check-extracted "$X31" --verify-tree "$X31" > "$T31/nfc.out" 2>&1; rc=$?
+[ "$rc" = 0 ] && grep -q 'byte-for-byte' "$T31/nfc.out"
+res "a name in NFC extracted by this system's tar (stored here in $form): --check-extracted and --verify-tree pass, byte-for-byte" $? "status $rc: $(tailof "$T31/nfc.out" 3)"
+NFD31=$(printf 'Cafe\314\201.lean')
+if [ -e "$X31/lean/src/$NFD31" ]; then
+  skip "a second file with an entry's name in the other Unicode form: this file system holds one file for both forms"
+else
+  printf 'x\n' > "$X31/lean/src/$NFD31"
+  cenv "$PY3" -I -B "$TOOLS28" tar-inspect "$T31/nfc.tar" --check-extracted "$X31" > "$T31/nfd2.out" 2>&1; rc=$?
+  [ "$rc" = 1 ] && grep -q 'a second file with the name of an entry of the archive, in another Unicode form' "$T31/nfd2.out"
+  res "--check-extracted refuses a second file with an entry's name in the other Unicode form" $? "status $rc: $(tailof "$T31/nfd2.out" 3)"
+fi
+
+# project-info: the forms and paths of the manifest, the lakefile's limits, files that cannot be read
+for py in "$PY3" ${PY31B:+"$PY31B"}; do
+  v=$(pyv "$py")
+  for c in "ok|a lakefile and a manifest in the forms the default target's have" "schema7|a manifest of schemaVersion 7" \
+           "guillemets|a package name with the guillemets Lake writes around a part that is not an identifier, and a requirement of that name" \
+           "srcdir_spellings|srcDir './src/', which Lake reads as src" "toolchain_crlf|a lean-toolchain with CRLF" \
+           "options_all|every Lean option the check allows, with weak. before it or not, in leanOptions, in a library's and with -D" \
+           "toolchain_rc|a lean-toolchain naming a release candidate (v4.22.0-rc3)" "toolchain_bare|a lean-toolchain naming no origin (v4.33.1)" \
+           "toolchain_nov|a lean-toolchain with no 'v' (leanprover/lean4:4.33.1, as Lake writes it), which elan puts in" \
+           "toolchain_bare_nov|a lean-toolchain with no origin and no 'v' (4.33.1)" \
+           "roots_bang|roots and globs with '!' and '?' in their parts, which Lean writes with no guillemets" \
+           "v6pin|the default target's manifest in the form of version 6 ({\"git\": {...}}, inputRev?, subDir?)" \
+           "subdir_dot|a package whose subDir is '.'"; do
+    f=${c%%|*}; cenv "$py" -I -B "$TOOLS28" project-info "$T31/$f" --show-urls > "$T31/$f.$v.out" 2>&1; rc=$?
+    [ "$rc" = 0 ] && ! grep -q -E '^REFUSED|Traceback' "$T31/$f.$v.out" && grep -q '^  mathlib  *https://example.invalid/mathlib$' "$T31/$f.$v.out" \
+      && { [ "$f" != guillemets ] || grep -q -F "  $(printf '\302\253')doc-gen4$(printf '\302\273')  " "$T31/$f.$v.out"; }
+    res "project-info (Python $v) accepts $c" $? "status $rc: $(tailof "$T31/$f.$v.out" 3)"
+  done
+  cenv "$py" -I -B "$TOOLS28" project-info "$T31/url_port" --show-urls > "$T31/url_port.$v.out" 2>&1; rc=$?
+  [ "$rc" = 0 ] && ! grep -q -E '^REFUSED|Traceback' "$T31/url_port.$v.out" && grep -q '^  mathlib  *https://example.invalid:8443/mathlib$' "$T31/url_port.$v.out"
+  res "project-info (Python $v) accepts an address with a port, in the manifest and in the lakefile" $? "status $rc: $(tailof "$T31/url_port.$v.out" 3)"
+  for c in "guillemets_bad|REFUSED: 3 value(s)" \
+           "cfg|has the configFile '../../x/lakefile.lean': Lake reads the package's lakefile from there" \
+           "sub|has the subDir '../x': Lake takes the package from that directory of its clone" "v6sub|has the subDir? '../x'" \
+           "pkgsdir|packagesDir is '../pk': Lake puts the packages there" "mfile|has the manifestFile '../m.json'" \
+           "path|the package 'local' is a 'path' package: Lake runs the lakefile in its directory" \
+           "nover|gives no version that Lake reads (version None)" "v4|gives no version that Lake reads (version 4)" \
+           "v2major|gives no version that Lake reads (version '2.0.0')" \
+           "v6flat|is of version 0.6, and a package in it is in the form Lake writes from version 7" \
+           "v7tagged|is of version 0.7, and a package in it is in the form Lake writes before version 7" \
+           "lean_exe|a table \[\[lean_exe\]\], which is not one this check knows" \
+           "root_lower|the package is named 'mathlib', as a package it depends on is" "root_upper|the package is named 'Mathlib', as a package it depends on is" \
+           "lib_outside|library 3 ('Other'): srcDir is not '.' or a relative directory of plain parts" \
+           "lib_elsewhere|library 3 ('Other'): its sources are in other, not under src, the directory 03 reads" \
+           "backslash|a backslash in a string" "unknown_key|a key 'precompileModules', which is not one this check knows what Lake does with" \
+           "plugin|moreLeanArgs is not a list of arguments to lean of the kinds allowed" \
+           "lib_dynlib|library 2 ('Statements'): weakLeanArgs is not a list of arguments to lean of the kinds allowed" \
+           "dup_key|the key version is given twice" "two_requires|two requirements named 'mathlib'" "multiline|a multi-line string" \
+           "toolchain_not_utf8|lean-toolchain is not UTF-8 text" "lakefile_not_utf8|lakefile.toml is not UTF-8 text" \
+           "manifest_not_utf8|lake-manifest.json is not UTF-8 text" "not_json|lake-manifest.json is not JSON that can be read" \
+           "big_number|lake-manifest.json is not JSON that can be read (a number of more than 30 digits)" \
+           "deep|nests its values more than 32 deep" "deeper|nests its values more than 32 deep" \
+           "mathlib_twice|has guillemets around mathlib, which Lake writes without them: it reads the name as mathlib" \
+           "mathlib_escaped|has guillemets around mathlib, which Lake writes" \
+           "dup_names|two packages are named 'mathlib': Lake uses the last" \
+           "bare_hyphen|the package name 'doc-gen4' has a part that is not an identifier, a number or between guillemets" \
+           "no_mathlib|no package is named mathlib" "no_packages|is not an object whose" \
+           "no_rev|REFUSED: 1 value(s) in the project files are missing" "no_url|REFUSED: 1 value(s) in the project files are missing" \
+           "req_missing|the requirement 'extra' has no entry in lake-manifest.json" \
+           "req_cyrillic|requirement 1: git is not an address of the form https://<host>/<path> in printable ASCII" \
+           "req_git_noscheme|requirement 1: git is not an address of the form https://<host>/<path>" \
+           "rev_branch|the package 'mathlib' has the revision master, which is not a full commit hash" \
+           "rev_short|the package 'mathlib' has the revision 0123456, which is not a full commit hash" \
+           "rev_dep|the package 'plausible' has the revision main, which is not a full commit hash" \
+           "url_noscheme|the package 'mathlib' has the address github.com/leanprover-community/mathlib4, which is not of the form https://<host>/<path>" \
+           "url_file|has the address file:///x, which is not of the form" "url_ssh|has the address ssh://git@example.com/x, which is not of the form" \
+           "url_scp|has the address git@example.com:x/y, which is not of the form" \
+           "url_userinfo|has the address https://github.com@example.com/m, which is not of the form" \
+           "url_dash|has the address -uhttps://x, which is not of the form" \
+           "type_missing|the package 'plausible' has no type: Lake stops at a package with none" \
+           "toolchain_nightly|REFUSED: lean-toolchain: it names the release nightly-2025-11-01, which is not a release tag" \
+           "toolchain_bare_nightly|REFUSED: lean-toolchain: it names the release nightly-2025-11-01, which is not a release tag" \
+           "toolchain_stable|REFUSED: lean-toolchain: it names the release stable, which is not a release tag" \
+           "srcdir_dotslash_out|library 3 ('Other'): its sources are in other, not under src, the directory 03 reads" \
+           "float_big|(a number of more than 30 digits)" "nan|NaN, which is not JSON" \
+           "ver_dash|gives no version that Lake reads (version '1.0.0-')" \
+           "sat_solver|leanOptions sets the Lean option 'sat.solver', which is not one this check allows" \
+           "trace_arg|moreLeanArgs sets the Lean option 'weak.trace.profiler.output'" \
+           "debug_lib|library 1 ('Formalism'): leanOptions sets the Lean option 'debug.skipKernelTC'" \
+           "rev_upper|the package 'plausible' has the revision 0123456789ABCDEF0123456789ABCDEF01234567, which is not a full commit hash" \
+           "url_dotdot|has the address https://github.com/leanprover-community/mathlib4/../../attacker/mathlib4, which is not of the form" \
+           "url_dot|has the address https://example.invalid/./mathlib4, which is not of the form" \
+           "url_pct|has the address https://example.invalid/%2e%2e/mathlib4, which is not of the form" \
+           "url_query|has the address https://example.invalid/mathlib4?x=1, which is not of the form" \
+           "url_frag|has the address https://example.invalid/mathlib4#x, which is not of the form" \
+           "url_empty|has the address https://example.invalid//mathlib4, which is not of the form" \
+           "url_http|has the address http://example.invalid/mathlib, which is not of the form https://<host>/<path>" \
+           "req_http|requirement 1: git is not an address of the form https://<host>/<path>" \
+           "req_dotdot|requirement 1: git is not an address of the form https://<host>/<path>" \
+           "toolchain_origin_noslash|REFUSED: lean-toolchain: it names the origin lean4, which is not <owner>/<repository>" \
+           "toolchain_path|REFUSED: lean-toolchain: the project has a file or directory named leanprover, the start of the line" \
+           "toolchain_path_bare|REFUSED: lean-toolchain: the project has a file or directory named v4.33.1, the start of the line" \
+           "toolchain_path_link|REFUSED: lean-toolchain: the project has a file or directory named leanprover, the start of the line" \
+           "https_bundle|the project has a file or directory named https:, the start of every package's address: git clone reads" \
+           "https_link|the project has a file or directory named https:, the start of every package's address" \
+           "subdir_x|the package 'plausible' has the subDir 'x': Lake would take the package from that directory of its clone" \
+           "v6subx|the package 'mathlib' has the subDir? 'x': Lake would take the package from that directory of its clone" \
+           "name_dotdot|has a part between guillemets that is empty or has something other than ASCII letters, digits" \
+           "name_build|has a part between guillemets that is empty or has something other than ASCII letters, digits" \
+           "name_abs|has a part between guillemets that is empty or has something other than ASCII letters, digits" \
+           "name_slash|has a part between guillemets that is empty or has something other than ASCII letters, digits" \
+           "name_dot|has a part between guillemets that is empty or has something other than ASCII letters, digits" \
+           "name_numstr|the packages '1' and '.xab1.xbb' would be kept in one directory of .lake/packages: Lake drops the guillemets" \
+           "name_case|the packages 'Mathlib' and 'mathlib' would be kept in one directory of .lake/packages" \
+           "name_long|is longer than 242 characters: 04 clones the package as .lake/packages/.<name>.rhv-partial" \
+           "roots_bad|roots is not a list of module names of ASCII letters, digits and the characters _'!? (a part may be between guillemets)" \
+           "toolchain_ws|REFUSED: 1 value(s) in the project files"; do
+    f=${c%%|*}; want=${c#*|}
+    cenv "$py" -I -B "$TOOLS28" project-info "$T31/$f" --show-urls > "$T31/$f.$v.out" 2>&1; rc=$?
+    [ "$rc" = 1 ] && grep -q '^REFUSED' "$T31/$f.$v.out" && grep -q -- "$want" "$T31/$f.$v.out" && ! grep -q Traceback "$T31/$f.$v.out"
+    res "project-info (Python $v) refuses $f, status 1, no traceback: $want" $? "status $rc: $(tailof "$T31/$f.$v.out" 3 | cut -c1-300)"
+  done
+done
+# What 'lake new' writes keeps the sources in the project's own directory (as srcDir './' does): TGT_SRC_DIR is then '.'
+for py in "$PY3" ${PY31B:+"$PY31B"}; do
+  v=$(pyv "$py")
+  for c in "lake_new|the lakefile.toml 'lake new proj math' writes, Mathlib pinned by a tag" \
+           "lake_new_2proj|the one 'lake new 2proj math' writes, whose library is named in guillemets" \
+           "lake_new_v6|the one 'lake new proj math' writes, with its manifest in the form of version 6" \
+           "lib_bang|one whose library is named Proj!, which Lean writes with no guillemets" \
+           "srcdir_dotslash|srcDir './', which Lake reads as the project's directory"; do
+    f=${c%%|*}; cenv "$py" -I -B "$TOOLS28" project-info "$T31/$f" --show-urls --src-dir . > "$T31/$f.$v.out" 2>&1; rc=$?
+    [ "$rc" = 0 ] && ! grep -q -E '^(REFUSED|WARNING)|Traceback' "$T31/$f.$v.out"
+    res "project-info (Python $v) with --src-dir . accepts $c" $? "status $rc: $(tailof "$T31/$f.$v.out" 3)"
+  done
+done
+grep -q -F "Mathlib revision (lakefile): v4.33.1 (the manifest's inputRev: Lake checks out the commit above)" "$T31/lake_new.$V31A.out" \
+  && ! grep -q -i 'reservoir' "$T31/lake_new.$V31A.out"
+res "...it shows the tag as the manifest's inputRev, and, the scripts running Lake with LAKE_NO_CACHE=1, no Reservoir line" $? "$(tailof "$T31/lake_new.$V31A.out" 4)"
+grep -q -F "Mathlib revision (lakefile): v4.33.1 (the manifest's inputRev: Lake checks out the commit above)" "$T31/lake_new_v6.$V31A.out"
+res "...and the same from a manifest of version 6, whose entry has it as inputRev?" $? "$(tailof "$T31/lake_new_v6.$V31A.out" 4)"
+cenv "$PY3" -I -B "$TOOLS28" project-info "$T31/tag_other" --src-dir . > "$T31/tag_other.out" 2>&1; rc=$?
+[ "$rc" = 1 ] && ! grep -q '^REFUSED' "$T31/tag_other.out" && grep -q -F "WARNING: the lakefile and the manifest name different Mathlib revisions (the manifest's entry was made from the revision v4.33.1)" "$T31/tag_other.out" \
+  && grep -q -F "Mathlib revision (lakefile): v4.33.0" "$T31/tag_other.out"
+res "project-info with the lakefile pinning v4.33.0 and the manifest's entry made from v4.33.1: status 1, a WARNING naming both" $? "status $rc: $(tailof "$T31/tag_other.out" 3)"
+cenv "$PY3" -I -B "$TOOLS28" project-info "$T31/no_url" > "$T31/no_url.plain.out" 2>&1; rc=$?
+[ "$rc" = 1 ] && grep -q '^addresses and directories refused' "$T31/no_url.plain.out" && grep -q '^  plausible  *None$' "$T31/no_url.plain.out"
+res "...and, without --show-urls (as 04 runs it), refuses the package with no address and lists it" $? "status $rc: $(tailof "$T31/no_url.plain.out" 4)"
+cenv "$PY3" -I -B "$TOOLS28" project-info "$T31/url_noscheme" > "$T31/url_noscheme.plain.out" 2>&1; rc=$?
+[ "$rc" = 1 ] && grep -q '^addresses and directories refused' "$T31/url_noscheme.plain.out" \
+  && grep -q '^  mathlib  *github.com/leanprover-community/mathlib4$' "$T31/url_noscheme.plain.out"
+res "...and, without --show-urls, lists an address with no scheme as refused" $? "status $rc: $(tailof "$T31/url_noscheme.plain.out" 4)"
+for f in toolchain_nightly toolchain_bare_nightly toolchain_stable toolchain_origin_noslash toolchain_path toolchain_path_bare \
+         toolchain_path_link rev_branch rev_short rev_dep rev_upper type_missing url_dotdot url_dot url_pct url_query url_frag \
+         url_empty url_http url_file url_ssh url_scp url_userinfo url_dash req_http req_dotdot https_bundle https_link subdir_x \
+         v6subx name_dotdot name_build name_abs name_slash name_dot name_numstr name_case name_long; do
+  cenv "$PY3" -I -B "$TOOLS28" project-info "$T31/$f" > "$T31/$f.plain.out" 2>&1; rc=$?
+  want=$(grep -m 1 '^REFUSED' "$T31/$f.$V31A.out")
+  [ "$rc" = 1 ] && [ -n "$want" ] && grep -q -F -x -- "$want" "$T31/$f.plain.out"
+  res "...and refuses $f without --show-urls too (as 04 runs it), with the same REFUSED line" $? "status $rc: $(tailof "$T31/$f.plain.out" 2 | cut -c1-300)"
+done
+cenv "$PY3" -I -B "$TOOLS28" project-info "$T31/lib_elsewhere" --src-dir . > "$T31/lib_elsewhere.dot.out" 2>&1; rc=$?
+[ "$rc" = 0 ]; res "...and accepts lib_elsewhere with --src-dir ., where 03 reads the whole project" $? "status $rc: $(tailof "$T31/lib_elsewhere.dot.out" 3)"
+cenv "$PY3" -I -B "$TOOLS28" project-info "$T31/guillemets_bad" > "$T31/gb.out" 2>&1
+for n in "'\\xaba\\u2800\\xbb'" "'\\xab\\xbb'" "'doc-gen4\\xbb'"; do
+  grep -q -F -- "$n" "$T31/gb.out"; res "project-info shows the name $n escaped" $? "$(tailof "$T31/gb.out" 4)"
+done
+! grep -q '^addresses and directories refused' "$T31/gb.out"
+res "...and, its addresses being plain, lists none of them as refused" $? "$(tailof "$T31/gb.out" 4)"
+
+# lib.sh sets LAKE_NO_CACHE=1 whatever the environment or config.env says, and stops if it cannot
+t=$(libvar LAKE_NO_CACHE LAKE_NO_CACHE=0); [ "$t" = 1 ]; res "lib.sh sets LAKE_NO_CACHE=1 over LAKE_NO_CACHE=0 in the environment" $? "[$t]"
+setcfg 'LAKE_NO_CACHE=0'
+t=$(libvar LAKE_NO_CACHE); [ "$t" = 1 ]; res "...and over LAKE_NO_CACHE=0 in config.env" $? "[$t]"
+t=$(libvar LAKE_NO_CACHE RH_TARGET=fix-git); [ "$t" = 1 ]; res "...for a target other than the default one too" $? "[$t]"
+setcfg 'readonly LAKE_NO_CACHE=0'
+refused "lib.sh stops when config.env makes LAKE_NO_CACHE read-only at 0" "LAKE_NO_CACHE could not be set to 1" \
+  /bin/bash "$DUMP" "$NEW/scripts/lib.sh" -- LAKE_NO_CACHE
+setcfg 'LAKE_NO_CACHE=(0)'
+t=$(cenv /bin/bash -c '. "$1/scripts/lib.sh" && printenv LAKE_NO_CACHE' _ "$NEW" 2>&1); [ "$t" = 1 ]
+res "...and gives the programs it runs LAKE_NO_CACHE=1 when config.env makes it an array (bash exports no array)" $? "[$t]"
+setcfg 'readonly LAKE_NO_CACHE'
+refused "...and stops when config.env makes the environment's LAKE_NO_CACHE, a 1 with a line end after it, read-only" \
+  "LAKE_NO_CACHE could not be set to 1" LAKE_NO_CACHE=$'1\n' /bin/bash "$DUMP" "$NEW/scripts/lib.sh" -- LAKE_NO_CACHE
+nocfg
+# lib.sh unsets the variables that point git at another repository, and LAKE_PKG_URL_MAP, and stops if it cannot
+V31G="GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_NAMESPACE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+  GIT_REPLACE_REF_BASE GIT_GRAFT_FILE GIT_SHALLOW_FILE GIT_IMPLICIT_WORK_TREE GIT_PREFIX GIT_CONFIG LAKE_PKG_URL_MAP LAKE_OVERRIDE_LEAN"
+# shellcheck disable=SC2046,SC2086
+t=$(cenv $(for v in $V31G; do printf '%s=/x ' "$v"; done) /bin/bash "$DUMP" "$NEW/scripts/lib.sh" -- $V31G 2>&1 | tr '\n' ' ')
+[ "$t" = "$(for v in $V31G; do printf '%s unset ' "$v"; done)" ]
+res "lib.sh unsets GIT_DIR, the other variables that point git at another repository or other objects, LAKE_PKG_URL_MAP and LAKE_OVERRIDE_LEAN" $? "[$t]"
+for v in $V31G; do
+  setcfg "readonly $v=/x"
+  refused "...and stops when config.env makes $v read-only" "$v could not be unset" /bin/bash "$DUMP" "$NEW/scripts/lib.sh" -- "$v"
+done
+setcfg 'readonly -a LAKE_NO_CACHE=(1)'
+refused "...and stops when config.env makes LAKE_NO_CACHE a read-only array whose first element is 1 (bash exports no array)" \
+  "LAKE_NO_CACHE could not be set to 1" /bin/bash "$DUMP" "$NEW/scripts/lib.sh" -- LAKE_NO_CACHE
+nocfg
+# ...and does all this after it has read the target's profile, which is shell code
+prof fix-env31
+printf '%s\n' 'LAKE_NO_CACHE=0; export LAKE_NO_CACHE' 'GIT_DIR=/elsewhere/.git; export GIT_DIR' 'LAKE_PKG_URL_MAP={}; export LAKE_PKG_URL_MAP' \
+  'GIT_REPLACE_REF_BASE=refs/heads/; export GIT_REPLACE_REF_BASE' >> "$NEW/targets/fix-env31/target.env"
+t=$(cenv RH_TARGET=fix-env31 /bin/bash -c '. "$1/scripts/lib.sh" && printenv LAKE_NO_CACHE GIT_DIR LAKE_PKG_URL_MAP GIT_REPLACE_REF_BASE; echo end' _ "$NEW" 2>&1 | tr '\n' ' ')
+[ "$t" = "1 end " ]
+res "...after the target's profile: a profile that sets LAKE_NO_CACHE=0, GIT_DIR, LAKE_PKG_URL_MAP and GIT_REPLACE_REF_BASE leaves the programs the scripts run LAKE_NO_CACHE=1 and none of the others" $? "[$t]"
+prof fix-envro31; printf '%s\n' 'readonly LAKE_PKG_URL_MAP={}' >> "$NEW/targets/fix-envro31/target.env"
+refused "...and stops when the profile makes LAKE_PKG_URL_MAP read-only" "LAKE_PKG_URL_MAP could not be unset" \
+  RH_TARGET=fix-envro31 /bin/bash "$DUMP" "$NEW/scripts/lib.sh" -- LAKE_PKG_URL_MAP
+
+# 04 checks the project files again before it runs anything they name, checks that elan would run the release's own
+# lean, clones each package itself and checks it out by its commit, and fetches Mathlib's cache by its package, with
+# LAKE_NO_CACHE=1 (lib.sh sets it for every Lake the scripts run). The packages come from a made-up repository with two
+# commits, through git's url.<base>.insteadOf (the addresses stay https://example.invalid/..., which git may not fetch
+# here), and the project files pin its first commit.
+STUB31="$T31/stub"; mkdir -p "$STUB31"
+printf '#!/bin/sh\n# stand-in made by test_targets.sh: answers --version, logs any other call and fails\nif [ "$1" = --version ]; then echo "Lake version 5.0.0 (test stand-in)"; exit 0; fi\necho "lake $* (LAKE_NO_CACHE=${LAKE_NO_CACHE-unset})" >> "%s"\nexit 1\n' "$T31/lake.log" > "$STUB31/lake"
+chmod +x "$STUB31/lake"
+# A stand-in elan that names the release's own lean, in a made-up ELAN_HOME, as the one it would run
+EH31="$T31/elanhome"; TC31="$EH31/toolchains/leanprover--lean4---v4.33.1/bin"; mkdir -p "$TC31"
+cp "$STUB/lean" "$TC31/lean"; chmod +x "$TC31/lean"
+printf '#!/bin/sh\n# stand-in made by test_targets.sh: answers which lean, logs any other call and fails\nif [ "$*" = "which lean" ]; then echo "%s"; exit 0; fi\necho "elan $*" >> "%s"\nexit 1\n' "$TC31/lean" "$T31/elan.log" > "$STUB31/elan"
+chmod +x "$STUB31/elan"; : > "$T31/elan.log"
+# The package repository; a clone of it whose default branch is named as the first commit and points at the second
+R31="$T31/pkgrepo"; R31H="$T31/pkgrepo_branch"; mkdir -p "$R31"
+gp() { local r=$1; shift; cenv GIT_AUTHOR_DATE=1700000000 GIT_COMMITTER_DATE=1700000000 git -C "$r" -c user.name=test \
+         -c user.email=test@example.com -c commit.gpgsign=false -c core.hooksPath=/dev/null "$@"; }
+{ gp "$R31" init -q . && printf 'one\n' > "$R31/f" && gp "$R31" add -A && gp "$R31" commit -q -m one && printf 'two\n' > "$R31/f" \
+    && gp "$R31" commit -q -a -m two; } > /dev/null 2>&1 || { echo "could not make the package repository"; exit 2; }
+C31B=$(gp "$R31" rev-parse HEAD); C31A=$(gp "$R31" rev-parse HEAD~1)
+{ cenv git clone -q "$R31" "$R31H" && gp "$R31H" branch "$C31A" "$C31B" && gp "$R31H" symbolic-ref HEAD "refs/heads/$C31A"; } > /dev/null 2>&1 \
+  || { echo "could not make the package repository with a branch named as a commit"; exit 2; }
+GIT31=(GIT_CONFIG_COUNT=2 "GIT_CONFIG_KEY_0=url.$R31.insteadOf" GIT_CONFIG_VALUE_0=https://example.invalid/mathlib
+       "GIT_CONFIG_KEY_1=url.$R31.insteadOf" GIT_CONFIG_VALUE_1=https://example.invalid/plausible)
+GIT31H=("GIT_CONFIG_KEY_1=url.$R31H.insteadOf" GIT_CONFIG_VALUE_1=https://example.invalid/plausible)
+# The premises: in a clone of the second repository, 'git checkout --detach <first commit>' takes the branch; git clone
+# reads an address as a path in the directory it runs in first, a git bundle there included
+N31="$T31/naive"; { cenv git clone -q "$R31H" "$N31" && cenv git -C "$N31" checkout -q --detach "$C31A^{commit}" --; } > /dev/null 2>&1
+t0=$(cenv git -C "$N31" rev-parse HEAD 2>&1)
+cenv git -C "$N31" checkout -q --detach "$C31A" -- > /dev/null 2>&1; rc=$?
+t=$(cenv git -C "$N31" rev-parse HEAD 2>&1)
+[ "$t0" = "$C31A" ] && [ "$rc" = 0 ] && [ "$t" = "$C31B" ] && ! cenv git -C "$N31" symbolic-ref -q HEAD > /dev/null 2>&1
+res "(premise) in a clone of a repository whose default branch is named as a commit, 'git checkout --detach <that commit>', run from a checkout at that commit (by '<commit>^{commit}'), checks out the branch's commit, with status 0 and HEAD detached" $? "HEAD by ^{commit} [$t0], status $rc, HEAD [$t], the commit $C31A"
+GB31="$T31/gitpath"; mkdir -p "$GB31/https:/example.invalid"
+gp "$R31" bundle create "$GB31/https:/example.invalid/plausible" --all > /dev/null 2>&1
+( cd "$GB31" && cenv git clone -q https://example.invalid/plausible got ) > /dev/null 2>&1
+t=$(cenv git -C "$GB31/got" rev-parse HEAD 2>&1); [ "$t" = "$C31B" ]
+res "(premise) git clone https://example.invalid/plausible, run where https:/example.invalid/plausible is a git bundle, clones the bundle" $? "HEAD [$t]"
+# mk04 <work directory> [<project of this case>]: a work directory of the default target with that project's files (the
+# ok project's), the first commit of the package repository in place of the made-up hash
+mk04() {
+  local f; mkdir -p "$T31/$1/extract/lean/src"; printf 'alpoge-rh\n' > "$T31/$1/.rh-target"
+  for f in lakefile.toml lake-manifest.json lean-toolchain; do sed "s/$MLREV/$C31A/g" "$T31/${2:-ok}/$f" > "$T31/$1/extract/lean/$f"; done
+}
+# run04 <work directory> <label> [VAR=value ...]: 04 there, its output in <label>.out and its status in <label>.rc
+run04() {
+  local w=$1 l=$2; shift 2
+  cenv "$@" RH_WORKDIR="$T31/$w" TGT_RECORDS_DIR=targets/none31/records /bin/bash "$NEW/scripts/04_setup_toolchain.sh" > "$T31/$l.out" 2>&1
+  echo "$?" > "$T31/$l.rc"
+}
+rc31() { cat "$T31/$1.rc"; }
+head31() { cenv git -C "$T31/$1/extract/lean/.lake/packages/$2" rev-parse HEAD 2>&1; }
+mk04 w04exe lean_exe; mk04 w04ok; mk04 w04elan; mk04 w04elan2; mk04 w04noelan
+: > "$T31/lake.log"
+refused "04 with a lakefile.toml changed since 02 (an executable named cache added): stops before running anything" \
+  "the project files were refused, or do not match what was recorded" \
+  PATH="$STUB31:$CPATH" RH_WORKDIR="$T31/w04exe" TGT_RECORDS_DIR=targets/none31/records /bin/bash "$NEW/scripts/04_setup_toolchain.sh"
+grep -q 'REFUSED: lakefile.toml: line 26: a table \[\[lean_exe\]\]' "$TMPD/refused.out" && [ ! -s "$T31/lake.log" ]
+res "...it shows why, and lake was not run" $? "$(tailof "$TMPD/refused.out" 3) / lake: $(tailof "$T31/lake.log")"
+run04 w04ok 04ok "${GIT31[@]}" PATH="$STUB31:$CPATH" ELAN_HOME="$EH31"
+[ "$(rc31 04ok)" != 0 ] && [ "$(cat "$T31/lake.log")" = "lake exe mathlib/cache get (LAKE_NO_CACHE=1)" ] && grep -q "'lake exe mathlib/cache get' failed" "$T31/04ok.out" \
+  && grep -q 'toolchain directory: .*/toolchains/leanprover--lean4---v4.33.1/bin$' "$T31/04ok.out" && [ ! -s "$T31/elan.log" ]
+res "04 with project files it accepts, and the release's own lean, goes on to 'lake exe mathlib/cache get', with LAKE_NO_CACHE=1 (the stand-in lake then fails)" $? "status $(rc31 04ok): $(tailof "$T31/04ok.out" 3) / lake: $(tailof "$T31/lake.log") / elan: $(tailof "$T31/elan.log")"
+grep -q "package mathlib: cloning https://example.invalid/mathlib, then checking out $C31A" "$T31/04ok.out" \
+  && grep -q "package plausible: cloning https://example.invalid/plausible, then checking out $C31A" "$T31/04ok.out" \
+  && grep -q 'each git package is checked out at the commit lake-manifest.json names' "$T31/04ok.out" \
+  && [ "$(head31 w04ok mathlib)" = "$C31A" ] && [ "$(head31 w04ok plausible)" = "$C31A" ] \
+  && [ "$(cat "$T31/w04ok/extract/lean/.lake/packages/plausible/f")" = one ]
+res "...having first cloned each package from its address and checked it out at the commit the manifest names, its files with it" $? "$(tailof "$T31/04ok.out" 5) / mathlib $(head31 w04ok mathlib), plausible $(head31 w04ok plausible)"
+for c in "nov|leanprover/lean4:4.33.1" "bare|v4.33.1" "bare_nov|4.33.1"; do
+  t=${c%%|*}; mk04 "w04tc_$t" "toolchain_$t"; : > "$T31/lake.log"
+  run04 "w04tc_$t" "04tc_$t" "${GIT31[@]}" PATH="$STUB31:$CPATH" ELAN_HOME="$EH31"
+  grep -q 'toolchain directory: .*/toolchains/leanprover--lean4---v4.33.1/bin$' "$T31/04tc_$t.out" && grep -q "'lake exe mathlib/cache get' failed" "$T31/04tc_$t.out"
+  res "04 with the toolchain line ${c#*|} takes the release's own lean, in elan's directory of leanprover/lean4:v4.33.1, and goes on" $? "status $(rc31 "04tc_$t"): $(tailof "$T31/04tc_$t.out" 3)"
+done
+# A stand-in elan that would run a lean from elsewhere, as elan 4.2 runs one at the line's path in the project
+STUB31E="$T31/stub_elan_other"; mkdir -p "$STUB31E" "$T31/elsewhere/bin" "$T31/elanhome_empty"; cp "$STUB31/lake" "$STUB31E/lake"
+printf '#!/bin/sh\necho planted\n' > "$T31/elsewhere/bin/lean"; chmod +x "$T31/elsewhere/bin/lean"
+printf '#!/bin/sh\n# stand-in made by test_targets.sh: names another lean as the one it would run\nif [ "$*" = "which lean" ]; then echo "%s"; exit 0; fi\nexit 1\n' "$T31/elsewhere/bin/lean" > "$STUB31E/elan"
+chmod +x "$STUB31E/elan"; : > "$T31/lake.log"
+run04 w04elan 04elan "${GIT31[@]}" PATH="$STUB31E:$CPATH" ELAN_HOME="$EH31"
+[ "$(rc31 04elan)" != 0 ] && grep -q "the lean elan would run is not the release lean-toolchain names, or could not be checked (the reason is above; see .*); lean and lake were not run" "$T31/04elan.out" \
+  && grep -q "elan would run .*/elsewhere/bin/lean, not the release's own lean in .*/toolchains/leanprover--lean4---v4.33.1/bin (a file of the project at the line's path" "$T31/04elan.out" \
+  && ! grep -q 'test stand-in' "$T31/04elan.out" && [ ! -s "$T31/lake.log" ] && [ ! -e "$T31/w04elan/extract/lean/.lake" ]
+res "04 stops before it runs lean or lake, or clones a package, when elan would run a lean that is not the release's own, and says which" $? "status $(rc31 04elan): $(tailof "$T31/04elan.out" 3) / lake: $(tailof "$T31/lake.log")"
+run04 w04elan2 04elan2 "${GIT31[@]}" PATH="$STUB31E:$CPATH" ELAN_HOME="$T31/elanhome_empty"
+[ "$(rc31 04elan2)" != 0 ] && grep -q -F "elan would run $T31/elsewhere/bin/lean, not the release's own lean in $T31/elanhome_empty/toolchains/leanprover--lean4---v4.33.1/bin (" "$T31/04elan2.out" \
+  && ! grep -q -F '?/bin' "$T31/04elan2.out" && [ ! -s "$T31/lake.log" ]
+res "...and where elan's directory has no such release, names the directory it would be in" $? "status $(rc31 04elan2): $(tailof "$T31/04elan2.out" 3)"
+# A stand-in elan that chooses no lean, with an escape sequence in what it says
+STUB31N="$T31/stub_elan_none"; mkdir -p "$STUB31N"; cp "$STUB31/lake" "$STUB31N/lake"
+printf '#!/bin/sh\n# stand-in made by test_targets.sh: chooses no lean\nprintf "error: no toolchain \\033[31mfor\\033[0m this project\\n" >&2\nexit 1\n' > "$STUB31N/elan"
+chmod +x "$STUB31N/elan"; : > "$T31/lake.log"
+run04 w04noelan 04noelan "${GIT31[@]}" PATH="$STUB31N:$CPATH" ELAN_HOME="$EH31"
+L31=$(ls "$T31/w04noelan/logs/"setup-*.log 2>/dev/null | head -n 1)
+[ "$(rc31 04noelan)" != 0 ] && grep -q "elan chose no lean for the project ('elan which lean' failed in " "$T31/04noelan.out" \
+  && grep -q "; lean and lake were not run" "$T31/04noelan.out" && [ ! -s "$T31/lake.log" ] && [ -n "$L31" ] \
+  && grep -q -F 'error: no toolchain ?[31mfor?[0m this project' "$L31" && ! LC_ALL=C grep -q "$(printf '\033')" "$L31" \
+  && grep -q -F 'error: no toolchain ?[31mfor?[0m this project' "$T31/04noelan.out" && ! LC_ALL=C grep -q "$(printf '\033')" "$T31/04noelan.out"
+res "04 stops before it runs lean or lake when elan chooses no lean, its log and the terminal showing what elan said with '?' for the escapes" $? "status $(rc31 04noelan): $(tailof "$T31/04noelan.out" 3) / log: $(tailof "$L31" 3)"
+# A relative or an empty ELAN_HOME, which elan reads against the directory it runs in (the project's)
+for c in "rel|.elan" "empty|"; do
+  t=${c%%|*}; mk04 "w04eh_$t"; : > "$T31/lake.log"
+  run04 "w04eh_$t" "04eh_$t" "${GIT31[@]}" PATH="$STUB31:$CPATH" ELAN_HOME="${c#*|}"
+  [ "$(rc31 "04eh_$t")" != 0 ] && grep -q -F "ELAN_HOME is set to '${c#*|}', which is not an absolute path: elan would read it against the project's directory" "$T31/04eh_$t.out" \
+    && grep -q '; lean and lake were not run' "$T31/04eh_$t.out" && [ ! -s "$T31/lake.log" ] && [ ! -e "$T31/w04eh_$t/extract/lean/.lake" ]
+  res "04 stops before it runs lean or lake, or clones a package, when ELAN_HOME is '${c#*|}', and says why on the terminal" $? "status $(rc31 "04eh_$t"): $(tailof "$T31/04eh_$t.out" 3)"
+done
+# A package name that is not one directory name
+mk04 w04name name_dotdot; : > "$T31/lake.log"
+run04 w04name 04name "${GIT31[@]}" PATH="$STUB31:$CPATH" ELAN_HOME="$EH31"
+[ "$(rc31 04name)" != 0 ] && grep -q 'the project files were refused' "$T31/04name.out" && [ ! -e "$T31/w04name/extract/lean/.lake" ] \
+  && [ ! -e "$T31/w04name/extract/lean/.lake/x" ] && [ ! -s "$T31/lake.log" ]
+res "04 with a package named '../x' between guillemets stops before it clones anything" $? "status $(rc31 04name): $(tailof "$T31/04name.out" 3)"
+
+# A stand-in lake whose 'exe mathlib/cache get' leaves the packages 04 cloned as they are, or checks plausible out at
+# the second commit, writes the files LAKE31_TRACE names, changes a file of plausible or writes
+# .lake/package-overrides.json (as LAKE31_MODE says); its 'build' fails, or, with LAKE31_SMOKE set, writes the compiled
+# files of the modules named and then does what LAKE31_SMOKE says (or adds a space to lake-manifest.json)
+STUB31P="$T31/stub_pkgs"; mkdir -p "$STUB31P"
+cat > "$STUB31P/lake" <<LAKE31P
+#!/bin/sh
+# stand-in made by test_targets.sh: answers --version; 'exe mathlib/cache get' does what LAKE31_MODE says, and
+# 'build' what LAKE31_SMOKE says
+if [ "\$1" = --version ]; then echo "Lake version 5.0.0 (test stand-in)"; exit 0; fi
+echo "lake \$*" >> "$T31/lakep.log"
+act() {
+  case "\$1" in
+    bad) git -C .lake/packages/plausible checkout -q --detach "$C31B" || exit 1 ;;
+    trace) for t in \${LAKE31_TRACE:-}; do mkdir -p "\${t%/*}" && : > "\$t" || exit 1; done ;;
+    dirty) printf 'changed\\n' > .lake/packages/plausible/f || exit 1 ;;
+    override) printf '{}\\n' > .lake/package-overrides.json || exit 1 ;;
+    manifest) printf ' ' >> lake-manifest.json || exit 1 ;;
+  esac
+}
+if [ "\$*" = "exe mathlib/cache get" ]; then act "\${LAKE31_MODE:-}"; exit 0; fi
+[ "\$1" = build ] && [ -n "\${LAKE31_SMOKE:-}" ] || exit 1
+shift
+for a in "\$@"; do
+  case "\$a" in +*) f=.lake/build/lib/lean/\$(printf '%s' "\${a#+}" | tr . /).olean; mkdir -p "\${f%/*}" && : > "\$f" || exit 1 ;; esac
+done
+act "\$LAKE31_SMOKE"
+exit 0
+LAKE31P
+chmod +x "$STUB31P/lake"
+# p04 <work directory> <label> [VAR=value ...]: 04 there with this lake, which logs to lakep.<label>.log
+p04() {
+  local w=$1 l=$2; shift 2; : > "$T31/lakep.log"
+  run04 "$w" "04$l" "${GIT31[@]}" PATH="$STUB31P:$STUB31:$CPATH" ELAN_HOME="$EH31" "$@"
+  cp "$T31/lakep.log" "$T31/lakep.$l.log"
+}
+mk04 w04pin; p04 w04pin good LAKE31_MODE=good
+[ "$(rc31 04good)" != 0 ] && grep -q 'each git package is still checked out at the commit lake-manifest.json names' "$T31/04good.out" \
+  && grep -q 'the smoke build failed' "$T31/04good.out" && grep -q '^lake build ' "$T31/lakep.good.log"
+res "04 with each package at the commit the manifest names goes on to the smoke build (the stand-in lake then fails)" $? "status $(rc31 04good): $(tailof "$T31/04good.out" 3)"
+mk04 w04pinbad; p04 w04pinbad bad LAKE31_MODE=bad
+[ "$(rc31 04bad)" != 0 ] && grep -q "the package plausible is checked out at $C31B, not at $C31A, the commit lake-manifest.json names" "$T31/04bad.out" \
+  && grep -q '^lake exe mathlib/cache get$' "$T31/lakep.bad.log" && ! grep -q '^lake build ' "$T31/lakep.bad.log"
+res "04 stops, before the smoke build, at a package Lake left checked out at another commit than the manifest names" $? "status $(rc31 04bad): $(tailof "$T31/04bad.out" 3)"
+mk04 w04host; p04 w04host host LAKE31_MODE=good "${GIT31H[@]}"
+[ "$(rc31 04host)" != 0 ] && grep -q 'the smoke build failed' "$T31/04host.out" && [ "$(head31 w04host plausible)" = "$C31A" ] \
+  && [ "$(cat "$T31/w04host/extract/lean/.lake/packages/plausible/f")" = one ]
+res "04 checks a package out at the commit the manifest names when the package's default branch is named as that commit and points at another, and goes on to the smoke build" $? "status $(rc31 04host): $(tailof "$T31/04host.out" 3) / plausible $(head31 w04host plausible)"
+mk04 w04there; cenv git clone -q "$R31" "$T31/w04there/extract/lean/.lake/packages/plausible" > /dev/null 2>&1
+p04 w04there there LAKE31_MODE=good
+[ "$(rc31 04there)" != 0 ] && grep -q "the package plausible is checked out at $C31B, not at $C31A, the commit lake-manifest.json names" "$T31/04there.out" \
+  && grep -q -F 'w04there/extract/lean/.lake/packages/plausible) and run this step again to clone it again)' "$T31/04there.out" \
+  && [ ! -s "$T31/lakep.there.log" ]
+res "04 stops before it runs lake when a package's directory is there already, at another commit than the manifest names" $? "status $(rc31 04there): $(tailof "$T31/04there.out" 3) / lake: $(tailof "$T31/lakep.there.log")"
+mk04 w04link; { cenv git clone -q "$R31" "$T31/pkglink" && cenv git -C "$T31/pkglink" checkout -q --detach "$C31A"; } > /dev/null 2>&1
+mkdir -p "$T31/w04link/extract/lean/.lake/packages"; ln -s "$T31/pkglink" "$T31/w04link/extract/lean/.lake/packages/plausible"
+p04 w04link link LAKE31_MODE=good
+[ "$(rc31 04link)" != 0 ] && grep -q "w04link/extract/lean/.lake/packages/plausible is not a git clone with its files checked out (" "$T31/04link.out" \
+  && [ ! -s "$T31/lakep.link.log" ]
+res "...and when a package's directory is a link (here to a clone at that commit)" $? "status $(rc31 04link): $(tailof "$T31/04link.out" 3)"
+for m in good bad; do mk04 "w04v6$m" v6pin; p04 "w04v6$m" "v6$m" LAKE31_MODE=$m; done
+[ "$(rc31 04v6good)" != 0 ] && grep -q 'the smoke build failed' "$T31/04v6good.out" \
+  && grep -q "package plausible: cloning https://example.invalid/plausible, then checking out $C31A" "$T31/04v6good.out"
+res "04 with a manifest in the form of version 6 clones its packages and goes on to the smoke build" $? "status $(rc31 04v6good): $(tailof "$T31/04v6good.out" 3)"
+[ "$(rc31 04v6bad)" != 0 ] && grep -q "the package plausible is checked out at $C31B, not at $C31A" "$T31/04v6bad.out" && ! grep -q '^lake build ' "$T31/lakep.v6bad.log"
+res "...and stops, before the smoke build, at a package Lake left at another commit" $? "status $(rc31 04v6bad): $(tailof "$T31/04v6bad.out" 3)"
+# The traces and archives of a package's release build or barrel, where Lake puts them by default, and Lake's own traces
+n=0
+for t in .lake/packages/plausible/.lake/plausible-build.tar.gz.trace .lake/packages/plausible/.lake/.x.tar.gz.trace \
+         .lake/packages/plausible/.lake/dl/x.tar.gz.trace .lake/packages/plausible/.lake/build.barrel .lake/plausible-x.tar.gz \
+         .lake/packages/plausible/.lake/config/x.tar.gz.trace .lake/dl/x.tar.gz.trace .lake/.x.tar.gz.trace; do
+  n=$((n + 1)); mk04 "w04trace$n"; p04 "w04trace$n" "trace$n" LAKE31_MODE=trace LAKE31_TRACE="$t"
+  [ "$(rc31 "04trace$n")" != 0 ] && grep -q -F "Lake downloaded a prebuilt build of a package: $t (" "$T31/04trace$n.out" \
+    && ! grep -q '^lake build ' "$T31/lakep.trace$n.log"
+  res "04 stops, before the smoke build, at $t, as a release build or barrel Lake downloaded leaves" $? "status $(rc31 "04trace$n"): $(tailof "$T31/04trace$n.out" 3)"
+done
+mk04 w04tracenot
+p04 w04tracenot tracenot LAKE31_MODE=trace LAKE31_TRACE=".lake/config/0/lakefile.olean.trace .lake/build/x.trace .lake/packages/mathlib/.lake/build/m.trace .lake/packages/plausible/widget/js/lake.trace .lake/packages/plausible/.lake/lakefile.olean.trace .lake/lakefile.olean.trace"
+[ "$(rc31 04tracenot)" != 0 ] && grep -q 'the smoke build failed' "$T31/04tracenot.out" && grep -q '^lake build ' "$T31/lakep.tracenot.log"
+res "...and goes on to the smoke build past the traces Lake keeps in build and config, lakefile.olean.trace at the top of a .lake (an older Lake's), and a package's source file named lake.trace" $? "status $(rc31 04tracenot): $(tailof "$T31/04tracenot.out" 3)"
+# 04 with GIT_DIR and GIT_WORK_TREE naming another clone (lib.sh unsets them): the packages are cloned and checked out in
+# the project, and that clone is left as it was
+OT31="$T31/otherclone"; cenv git clone -q "$R31" "$OT31" > /dev/null 2>&1
+mk04 w04gitdir; p04 w04gitdir gitdir LAKE31_MODE=good GIT_DIR="$OT31/.git" GIT_WORK_TREE="$OT31"
+[ "$(rc31 04gitdir)" != 0 ] && grep -q 'the smoke build failed' "$T31/04gitdir.out" && [ "$(head31 w04gitdir plausible)" = "$C31A" ] \
+  && [ "$(cenv git -C "$OT31" rev-parse HEAD 2>&1)" = "$C31B" ] && [ -z "$(cenv git -C "$OT31" status --porcelain 2>&1)" ]
+res "04 with GIT_DIR and GIT_WORK_TREE naming another clone clones and checks out each package in the project, and leaves that clone as it was" $? "status $(rc31 04gitdir): $(tailof "$T31/04gitdir.out" 3) / plausible $(head31 w04gitdir plausible), the other clone at $(cenv git -C "$OT31" rev-parse HEAD 2>&1)"
+# A clone an earlier run left half made, under the name 04 gives one, is removed, and the package is cloned again
+mk04 w04partial; mkdir -p "$T31/w04partial/extract/lean/.lake/packages/.plausible.rhv-partial/.git"
+p04 w04partial partial LAKE31_MODE=good
+[ "$(rc31 04partial)" != 0 ] && grep -q 'removing .lake/packages/.plausible.rhv-partial, left by an earlier run of this step that did not finish' "$T31/04partial.out" \
+  && grep -q 'the smoke build failed' "$T31/04partial.out" && [ ! -e "$T31/w04partial/extract/lean/.lake/packages/.plausible.rhv-partial" ] \
+  && [ "$(head31 w04partial plausible)" = "$C31A" ]
+res "04 removes a clone an earlier run left half made under its own name, clones the package again and goes on" $? "status $(rc31 04partial): $(tailof "$T31/04partial.out" 3)"
+# A checkout that fails leaves the clone under that name, not as the package's directory; the next run removes it
+mk04 w04stop
+cenv "$PY3" -I -B -c 'import json, sys
+p = sys.argv[1]; m = json.load(open(p))
+for q in m["packages"]:
+    if q["name"] == "plausible": q["rev"] = "1" * 40
+json.dump(m, open(p, "w"), indent=2)' "$T31/w04stop/extract/lean/lake-manifest.json"
+p04 w04stop stop1 LAKE31_MODE=good
+[ "$(rc31 04stop1)" != 0 ] && grep -q "the package plausible could not be checked out at 1111111111111111111111111111111111111111" "$T31/04stop1.out" \
+  && [ ! -e "$T31/w04stop/extract/lean/.lake/packages/plausible" ] && [ -d "$T31/w04stop/extract/lean/.lake/packages/.plausible.rhv-partial/.git" ] \
+  && [ ! -s "$T31/lakep.stop1.log" ]
+res "04 stops when a package cannot be checked out at its commit, leaving the clone under its own name and not as the package's directory" $? "status $(rc31 04stop1): $(tailof "$T31/04stop1.out" 3)"
+mk04 w04stop; p04 w04stop stop2 LAKE31_MODE=good
+[ "$(rc31 04stop2)" != 0 ] && grep -q "package mathlib: already at $C31A" "$T31/04stop2.out" \
+  && grep -q 'removing .lake/packages/.plausible.rhv-partial' "$T31/04stop2.out" && grep -q 'the smoke build failed' "$T31/04stop2.out" \
+  && [ "$(head31 w04stop plausible)" = "$C31A" ]
+res "...and, run again with the manifest put right, removes that clone, clones the package and goes on" $? "status $(rc31 04stop2): $(tailof "$T31/04stop2.out" 3)"
+# A package directory there already that is a clone with no files checked out (as a clone that was stopped leaves one),
+# or a clone at the commit with a file changed
+mk04 w04nockout; cenv git clone -q --no-checkout "$R31" "$T31/w04nockout/extract/lean/.lake/packages/plausible" > /dev/null 2>&1
+p04 w04nockout nockout LAKE31_MODE=good
+[ "$(rc31 04nockout)" != 0 ] && grep -q -F 'w04nockout/extract/lean/.lake/packages/plausible is not a git clone with its files checked out (an earlier run of this step that was stopped, or another program, may have left it; remove it (rm -rf -- ' "$T31/04nockout.out" \
+  && grep -q -F 'w04nockout/extract/lean/.lake/packages/plausible) and run this step again to clone it again)' "$T31/04nockout.out" \
+  && [ ! -s "$T31/lakep.nockout.log" ]
+res "04 stops before it runs lake when a package's directory is a clone with no files checked out, and says how to clone it again" $? "status $(rc31 04nockout): $(tailof "$T31/04nockout.out" 3)"
+mk04 w04dirty; PD31="$T31/w04dirty/extract/lean/.lake/packages/plausible"
+{ cenv git clone -q "$R31" "$PD31" && cenv git -C "$PD31" checkout -q --detach "$C31A" && printf 'changed\n' > "$PD31/f"; } > /dev/null 2>&1
+p04 w04dirty dirty LAKE31_MODE=good
+[ "$(rc31 04dirty)" != 0 ] && grep -q "the package plausible has files that are not as in its commit $C31A" "$T31/04dirty.out" && [ ! -s "$T31/lakep.dirty.log" ]
+res "...and when it is a clone at the commit with a file changed" $? "status $(rc31 04dirty): $(tailof "$T31/04dirty.out" 3)"
+mk04 w04ldirty; p04 w04ldirty ldirty LAKE31_MODE=dirty
+[ "$(rc31 04ldirty)" != 0 ] && grep -q "the package plausible has files that are not as in its commit $C31A" "$T31/04ldirty.out" \
+  && grep -q "(Lake, or a lakefile or tool it ran, changed it during lake exe mathlib/cache get; running this step again will not undo that" "$T31/04ldirty.out" \
+  && grep -q '^lake exe mathlib/cache get$' "$T31/lakep.ldirty.log" && ! grep -q '^lake build ' "$T31/lakep.ldirty.log"
+res "04 stops, before the smoke build, at a package in which Lake changed a file" $? "status $(rc31 04ldirty): $(tailof "$T31/04ldirty.out" 3)"
+# .lake/package-overrides.json, which Lake reads in place of the manifest's entries
+mk04 w04ovr; mkdir -p "$T31/w04ovr/extract/lean/.lake"; printf '{}\n' > "$T31/w04ovr/extract/lean/.lake/package-overrides.json"
+mk04 w04ovrlink; mkdir -p "$T31/w04ovrlink/extract/lean/.lake"; ln -s nowhere "$T31/w04ovrlink/extract/lean/.lake/package-overrides.json"
+for w in ovr ovrlink; do
+  p04 "w04$w" "$w" LAKE31_MODE=good
+  [ "$(rc31 "04$w")" != 0 ] && grep -q 'package-overrides.json is there: Lake would take the packages it names from where it says' "$T31/04$w.out" \
+    && [ ! -s "$T31/lakep.$w.log" ]
+  res "04 stops before it runs lake when .lake/package-overrides.json is there ($w)" $? "status $(rc31 "04$w"): $(tailof "$T31/04$w.out" 3)"
+done
+mk04 w04lovr; p04 w04lovr lovr LAKE31_MODE=override
+[ "$(rc31 04lovr)" != 0 ] && grep -q 'package-overrides.json is there' "$T31/04lovr.out" \
+  && grep -q '^lake exe mathlib/cache get$' "$T31/lakep.lovr.log" && ! grep -q '^lake build ' "$T31/lakep.lovr.log"
+res "...and, before the smoke build, at one Lake wrote" $? "status $(rc31 04lovr): $(tailof "$T31/04lovr.out" 3)"
+# A stand-in smoke build that writes the compiled files of the modules named: 04 reaches its end, and stops at what the
+# smoke build left (a release build's trace, a package at another commit, a package-overrides.json)
+mk04 w04smoke; p04 w04smoke smoke LAKE31_MODE=good LAKE31_SMOKE=ok
+[ "$(rc31 04smoke)" = 0 ] && grep -q 'smoke build ok: both modules compiled, no Mathlib module was rebuilt' "$T31/04smoke.out" \
+  && grep -q 'setup complete' "$T31/04smoke.out" && grep -q '^lake build ' "$T31/lakep.smoke.log"
+res "04 reaches 'setup complete' after a smoke build that compiles the modules named and leaves the packages as they are" $? "status $(rc31 04smoke): $(tailof "$T31/04smoke.out" 3)"
+for c in "trace|Lake downloaded a prebuilt build of a package: .lake/packages/plausible/.lake/x.tar.gz.trace (" \
+         "bad|the package plausible is checked out at $C31B, not at $C31A" "override|package-overrides.json is there" \
+         "manifest|lake-manifest.json changed during the smoke build (it was "; do
+  m=${c%%|*}; mk04 "w04smoke$m"
+  p04 "w04smoke$m" "smoke$m" LAKE31_MODE=good LAKE31_SMOKE="$m" LAKE31_TRACE=.lake/packages/plausible/.lake/x.tar.gz.trace
+  [ "$(rc31 "04smoke$m")" != 0 ] && grep -q -F -- "${c#*|}" "$T31/04smoke$m.out" && grep -q '^lake build ' "$T31/lakep.smoke$m.log" \
+    && ! grep -q 'setup complete' "$T31/04smoke$m.out"
+  res "...and stops after the smoke build at what it left ($m)" $? "status $(rc31 "04smoke$m"): $(tailof "$T31/04smoke$m.out" 3)"
+done
+# A manifest that names an annotated tag's hash: the clone 04 makes is checked out at the commit the tag names, and is
+# refused before it is renamed or lake runs, with no word that running 04 again would help
+gp "$R31" tag -a -m t t31 "$C31A" > /dev/null 2>&1; TAG31=$(gp "$R31" rev-parse t31 2>&1)
+# setrev31 <work directory> <commit>: the manifest of that work directory pins plausible at that commit
+setrev31() {
+  cenv "$PY3" -I -B -c 'import json, sys
+p = sys.argv[1]; m = json.load(open(p))
+for q in m["packages"]:
+    if q["name"] == "plausible": q["rev"] = sys.argv[2]
+json.dump(m, open(p, "w"), indent=2)' "$T31/$1/extract/lean/lake-manifest.json" "$2"
+}
+mk04 w04tag; setrev31 w04tag "$TAG31"; p04 w04tag tag LAKE31_MODE=good
+[ "$(rc31 04tag)" != 0 ] && [ "$TAG31" != "$C31A" ] \
+  && grep -q "the package plausible is checked out at $C31A, not at $TAG31, the commit lake-manifest.json names (this is the clone this step has just made, and running this step again would make the same one" "$T31/04tag.out" \
+  && [ -d "$T31/w04tag/extract/lean/.lake/packages/.plausible.rhv-partial/.git" ] && [ ! -e "$T31/w04tag/extract/lean/.lake/packages/plausible" ] \
+  && [ ! -s "$T31/lakep.tag.log" ]
+res "04 refuses its own clone of a package pinned at an annotated tag's hash before it renames it or runs lake, saying that running it again would make the same clone" $? "status $(rc31 04tag): $(tailof "$T31/04tag.out" 3)"
+# A package whose .gitattributes has git convert the line ends of a file stored with CRLF, and run a filter that git's
+# configuration defines: 04 checks its clone out with the commit's bytes and no filter, and the check passes
+R31C="$T31/pkgrepo_attr"; mkdir -p "$R31C"
+{ gp "$R31C" init -q . && printf 'one\r\n' > "$R31C/f" && printf 'gee\n' > "$R31C/g" && gp "$R31C" add f g \
+    && printf 'f text\ng filter=t31\n' > "$R31C/.gitattributes" && gp "$R31C" add .gitattributes && gp "$R31C" commit -q -m attr; } > /dev/null 2>&1 \
+  || { echo "could not make the package repository with a .gitattributes"; exit 2; }
+C31C=$(gp "$R31C" rev-parse HEAD 2>&1)
+F31="sh -c 'echo ran >> $T31/filter31.log; cat'"
+N31C="$T31/naive_attr"; cenv git -c "filter.t31.smudge=$F31" clone -q "$R31C" "$N31C" > /dev/null 2>&1
+# the file written again with the same bytes, so that git compares its contents and not only its size and time
+cat "$N31C/f" > "$N31C/f.new" && mv "$N31C/f.new" "$N31C/f"
+t=$(cenv git -C "$N31C" status --porcelain 2>&1); [ "$t" = " M f" ] && [ -s "$T31/filter31.log" ]
+res "(premise) a plain clone of that repository runs the filter, and shows the CRLF file, written again unchanged, as changed" $? "[$t] filter: $(cat "$T31/filter31.log" 2>&1)"
+rm -f "$T31/filter31.log"
+GIT31C=(GIT_CONFIG_COUNT=3 "GIT_CONFIG_KEY_1=url.$R31C.insteadOf" GIT_CONFIG_VALUE_1=https://example.invalid/plausible
+        GIT_CONFIG_KEY_2=filter.t31.smudge "GIT_CONFIG_VALUE_2=$F31")
+mk04 w04attr; setrev31 w04attr "$C31C"; p04 w04attr attr LAKE31_MODE=good "${GIT31C[@]}"
+PA31="$T31/w04attr/extract/lean/.lake/packages/plausible"
+[ "$(rc31 04attr)" != 0 ] && grep -q 'the smoke build failed' "$T31/04attr.out" && [ "$(head31 w04attr plausible)" = "$C31C" ] \
+  && [ "$(LC_ALL=C tr '\r' R < "$PA31/f")" = oneR ] && [ "$(cat "$PA31/g")" = gee ] && [ ! -e "$T31/filter31.log" ]
+res "04 checks out a package with the commit's bytes, no line ends changed and no filter run, whatever its .gitattributes says, and goes on to the smoke build" $? "status $(rc31 04attr): $(tailof "$T31/04attr.out" 3) / f: $(od -c "$PA31/f" 2>&1 | head -n 1) / filter: $(cat "$T31/filter31.log" 2>&1)"
+# Settings that would have git take a changed file as unchanged, in ~/.gitconfig or the environment, and an external diff
+H31="$T31/home_ignorestat"; mkdir -p "$H31"; printf '[core]\n\tignoreStat = true\n' > "$H31/.gitconfig"
+for c in "istat|core.ignoreStat in ~/.gitconfig|HOME=$H31" \
+         "istat2|core.ignoreStat in GIT_CONFIG_COUNT|GIT_CONFIG_COUNT=3|GIT_CONFIG_KEY_2=core.ignoreStat|GIT_CONFIG_VALUE_2=true" \
+         "istat3|core.ignoreStat in GIT_CONFIG_PARAMETERS|GIT_CONFIG_PARAMETERS='core.ignorestat'='true'" \
+         "xdiff|GIT_EXTERNAL_DIFF=true|GIT_EXTERNAL_DIFF=true|GIT_EXTERNAL_DIFF_TRUST_EXIT_CODE=1"; do
+  l=${c%%|*}; r=${c#*|}; why=${r%%|*}; r=${r#*|}
+  IFS='|' read -r -a a31 <<EOF
+$r
+EOF
+  mk04 "w04$l"; p04 "w04$l" "$l" LAKE31_MODE=dirty "${a31[@]}"
+  [ "$(rc31 "04$l")" != 0 ] && grep -q "the package plausible has files that are not as in its commit $C31A" "$T31/04$l.out" \
+    && grep -q '^lake exe mathlib/cache get$' "$T31/lakep.$l.log" && ! grep -q '^lake build ' "$T31/lakep.$l.log"
+  res "04 stops, before the smoke build, at a package in which Lake changed a file, with $why" $? "status $(rc31 "04$l"): $(tailof "$T31/04$l.out" 3)"
+done
+mk04 w04repl; p04 w04repl repl LAKE31_MODE=good "${GIT31H[@]}" GIT_REPLACE_REF_BASE=refs/heads/
+[ "$(rc31 04repl)" != 0 ] && grep -q 'the smoke build failed' "$T31/04repl.out" \
+  && [ "$(cat "$T31/w04repl/extract/lean/.lake/packages/plausible/f")" = one ]
+res "04 checks out the commit's own files when GIT_REPLACE_REF_BASE=refs/heads/ would have the branch named as the commit stand for it" $? "status $(rc31 04repl): $(tailof "$T31/04repl.out" 3) / f: $(cat "$T31/w04repl/extract/lean/.lake/packages/plausible/f" 2>&1)"
+# A package directory there already, at the commit, with a changed file git is told not to look at
+for c in "au|--assume-unchanged" "sw|--skip-worktree"; do
+  m=${c%%|*}; mk04 "w04$m"; PD31="$T31/w04$m/extract/lean/.lake/packages/plausible"
+  { cenv git clone -q "$R31" "$PD31" && cenv git -C "$PD31" checkout -q --detach "$C31A" && cenv git -C "$PD31" update-index "${c#*|}" f \
+      && printf 'changed\n' > "$PD31/f"; } > /dev/null 2>&1
+  t=$(cenv GIT_OPTIONAL_LOCKS=0 git -C "$PD31" status --porcelain --untracked-files=no 2>&1)
+  p04 "w04$m" "$m" LAKE31_MODE=good
+  [ -z "$t" ] && [ "$(rc31 "04$m")" != 0 ] && grep -q "git is told not to look at a file of the package plausible (assume-unchanged or skip-worktree)" "$T31/04$m.out" \
+    && [ ! -s "$T31/lakep.$m.log" ]
+  res "04 stops before it runs lake at a package directory with a changed file marked ${c#*|}, which git status does not show" $? "status [$t] $(rc31 "04$m"): $(tailof "$T31/04$m.out" 3)"
+done
+# A leftover clone under 04's own name that is a dangling link
+mk04 w04plink; mkdir -p "$T31/w04plink/extract/lean/.lake/packages"; ln -s nowhere "$T31/w04plink/extract/lean/.lake/packages/.plausible.rhv-partial"
+p04 w04plink plink LAKE31_MODE=good
+[ "$(rc31 04plink)" != 0 ] && grep -q 'removing .lake/packages/.plausible.rhv-partial, left by an earlier run of this step' "$T31/04plink.out" \
+  && grep -q 'the smoke build failed' "$T31/04plink.out" && [ ! -L "$T31/w04plink/extract/lean/.lake/packages/.plausible.rhv-partial" ] \
+  && [ "$(head31 w04plink plausible)" = "$C31A" ]
+res "04 removes a leftover clone under its own name that is a dangling link, clones the package and goes on" $? "status $(rc31 04plink): $(tailof "$T31/04plink.out" 3)"
+# 04's own check of a package name, with a python3 whose project-info accepts anything
+STUB31Y="$T31/stub_py"; mkdir -p "$STUB31Y"
+printf '#!/bin/sh\n# stand-in made by test_targets.sh: project-info accepts anything; any other call goes to python3\nfor a in "$@"; do [ "$a" = project-info ] && exit 0; done\nexec "%s" "$@"\n' "$PY3" > "$STUB31Y/python3"
+chmod +x "$STUB31Y/python3"
+for f in name_dotdot name_dot; do
+  mk04 "w04y_$f" "$f"; : > "$T31/lakep.log"
+  run04 "w04y_$f" "04y_$f" "${GIT31[@]}" PATH="$STUB31Y:$STUB31P:$STUB31:$CPATH" ELAN_HOME="$EH31"
+  [ "$(rc31 "04y_$f")" != 0 ] && grep -q 'in lake-manifest.json is not the name of one directory; nothing was cloned for it' "$T31/04y_$f.out" \
+    && [ ! -e "$T31/w04y_$f/extract/lean/.lake/x" ] && [ -z "$(ls -A "$T31/w04y_$f/extract/lean/.lake/packages" | grep -v '^mathlib$')" ] \
+    && [ ! -s "$T31/lakep.log" ]
+  res "04's own check of a package name, with project-info's refusal out of the way, stops at $f before it clones it or runs lake" $? "status $(rc31 "04y_$f"): $(tailof "$T31/04y_$f.out" 3)"
+done
+# ELAN_HOME under the work directory's extract directory, where the archive is
+STUB31X="$T31/stub_elan_extract"; mkdir -p "$STUB31X"; cp "$STUB31/lake" "$STUB31X/lake"
+mk04 w04ehx; EX31="$T31/w04ehx/extract/elan/toolchains/leanprover--lean4---v4.33.1/bin"; mkdir -p "$EX31"
+cp "$STUB/lean" "$EX31/lean"; chmod +x "$EX31/lean"
+printf '#!/bin/sh\n# stand-in made by test_targets.sh: names the lean under the extract directory\nif [ "$*" = "which lean" ]; then echo "%s"; exit 0; fi\nexit 1\n' "$EX31/lean" > "$STUB31X/elan"
+chmod +x "$STUB31X/elan"; : > "$T31/lake.log"
+run04 w04ehx 04ehx "${GIT31[@]}" PATH="$STUB31X:$CPATH" ELAN_HOME="$T31/w04ehx/extract/elan"
+[ "$(rc31 04ehx)" != 0 ] && grep -q "where 02 extracts the archive: it would be one of the archive's files" "$T31/04ehx.out" \
+  && [ ! -s "$T31/lake.log" ] && [ ! -e "$T31/w04ehx/extract/lean/.lake" ]
+res "04 stops before it runs lean or lake when ELAN_HOME is under the work directory's extract directory" $? "status $(rc31 04ehx): $(tailof "$T31/04ehx.out" 3)"
+# 05 and 08, which run elan's lake and lean without asking elan which, refuse a relative or empty ELAN_HOME too
+mk04 w05eh; mkdir -p "$T31/w05eh/extract/lean/.lake/packages/mathlib"; : > "$T31/lake.log"
+refused "05 start with ELAN_HOME '.elan' stops before it runs lake" "ELAN_HOME is set to '.elan', which is not an absolute path" \
+  PATH="$STUB31:$CPATH" ELAN_HOME=.elan RH_WORKDIR="$T31/w05eh" TGT_RECORDS_DIR=targets/none31/records /bin/bash "$NEW/scripts/05_build.sh" start
+grep -q 'the build was not started' "$TMPD/refused.out" && [ ! -s "$T31/lake.log" ] && [ ! -e "$T31/w05eh/logs/build.pid" ]
+res "...and says the build was not started" $? "$(tailof "$TMPD/refused.out" 3)"
+refused "08 with an empty ELAN_HOME stops before it runs lean" "ELAN_HOME is set to '', which is not an absolute path" \
+  PATH="$STUB31:$CPATH" ELAN_HOME= RH_WORKDIR="$T31/w05eh" TGT_RECORDS_DIR=targets/none31/records /bin/bash "$NEW/scripts/08_check_axioms.sh"
+grep -q 'lean was not run' "$TMPD/refused.out"
+res "...and says lean was not run" $? "$(tailof "$TMPD/refused.out" 3)"
+# 09 says why it has no toolchain directory when there is neither elan nor lean on PATH
+P31N="/usr/bin:/bin:/usr/sbin:/sbin"
+if env PATH="$P31N" /bin/sh -c 'command -v elan || command -v lean' > /dev/null 2>&1; then
+  skip "09 with no elan and no lean on PATH (one is in $P31N)"
+else
+  mkdir -p "$T31/w09/extract/lean/.lake/build/lib/lean"; printf 'alpoge-rh\n' > "$T31/w09/.rh-target"
+  refused "09 with neither elan nor lean on PATH stops before it runs anything, saying so" "neither elan nor lean is on PATH (elan installs itself in ~/.elan/bin" \
+    PATH="$P31N" RH_WORKDIR="$T31/w09" TGT_RECORDS_DIR=targets/none31/records /bin/bash "$NEW/scripts/09_kernel_replay.sh"
+  grep -q 'no directory of the pinned toolchain (the reason is above); leanchecker was not run' "$TMPD/refused.out"
+  res "...and that leanchecker was not run" $? "$(tailof "$TMPD/refused.out" 3)"
+fi
+
+ls -d "$TMPD"/tmp/rhv-clone.* > /dev/null 2>&1; [ $? != 0 ]
+res "04 left no directory it cloned from (rhv-clone.*) in TMPDIR, whether it finished or stopped" $? "$(ls -d "$TMPD"/tmp/rhv-clone.* 2>&1 | head -n 3)"
+
+# ================================================================ 32
+section 32 "nothing reached for the network or the toolchain in cases 14 to 31"
 [ ! -s "$STUBLOG" ] && [ ! -s "$GLOG" ]; res "no stand-in of curl, wget, lake, elan, leanchecker or gcloud was called" $? "$(tailof "$STUBLOG" 3) $(tailof "$GLOG" 3)"
 
 echo "$N checks, $FAILS failed, $SKIPS skipped ($(( $(date +%s) - START )) s)"

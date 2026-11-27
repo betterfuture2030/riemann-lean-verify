@@ -93,6 +93,7 @@ BODY_AS_IS=0
 require_extract_from     # for a target other than the default one: the tree must be the profile's archive
 need_cmd python3
 need_cmd lean
+elan_home_ok || die "lean was not run"
 [ -f "$RH_PROJ/lean-toolchain" ] || die "project not found at $RH_PROJ (run steps 01 to 04 first)"
 LIB="$RH_PROJ/.lake/build/lib/lean"
 olean="$LIB/$(printf '%s' "$IMPORT" | tr '.' '/').olean"

@@ -6,7 +6,9 @@
 # What it does: reads config.env, chooses the target (RH_TARGET; with none named, the default target alpoge-rh),
 #   sets the TGT_ variables that describe the target and the RH_ paths derived from them, and stops the calling
 #   script if the working directory belongs to another target. targets/README.md explains every setting.
-#   It prints nothing on standard output.
+#   It also exports LAKE_NO_CACHE=1 for every Lake that the scripts run, unsets the variables that would point git
+#   at another repository or other objects, or Lake at other packages or another lean, and stops the calling script
+#   if it cannot do either (see below). It prints nothing on standard output.
 # What it changes on disk: nothing when sourced. The function ensure_dirs creates download/, logs/ and analysis/
 #   in the working directory and, if it is not there yet, the file .rh-target that names the target.
 # How long it takes: no measurable time.
@@ -25,6 +27,24 @@ _rh_env_wins() { for _v in $_rh_keep; do eval "$_v=\"\${_rh_env_$_v}\""; done; }
 [ -f "$REPO_ROOT/config.env" ] && . "$REPO_ROOT/config.env"
 _rh_env_wins
 RH_JOBS="${RH_JOBS:-}"
+# Before it builds a dependency whose build directory is missing, Lake downloads a prebuilt build of it (from
+# Reservoir when the package's scope is leanprover or leanprover-community, or from the package's GitHub releases
+# when its lakefile asks for that) unless LAKE_NO_CACHE is set. Such a build is the package's whole build
+# directory, programs included, from an origin the project files do not name, and no step checks it. So every Lake
+# these scripts run is told not to, whatever config.env or the environment says (the scripts stop below if a
+# program they run would not be given LAKE_NO_CACHE=1: an array of that name is cleared first, and bash does not
+# export one; a read-only one stays, and stops them). This stops only that download: a lakefile Lake runs, or a tool, that asks Lake for a package's
+# release, barrel or cache facet still has one downloaded (04 stops if it finds one after its own Lake runs). The
+# compiled files of Mathlib and its dependencies come from Mathlib's cache tool ('lake exe mathlib/cache get'),
+# which does not read this setting.
+# git reads the GIT_ variables unset below to find a repository, its index and its objects somewhere else than the
+# directory it is given ('git -C <dir>' included), or to take other objects for a commit's (replacement refs, grafts, a
+# shallow file), and Lake runs git with the environment it is given: one left in the environment (by a hook, say) must
+# not point the clones 04 makes and checks, or Lake's, at another repository or other files. Lake reads
+# LAKE_PKG_URL_MAP for other addresses of packages than the manifest's, which nothing here shows, and with
+# LAKE_OVERRIDE_LEAN set a lake beside its lean runs the lean that LEAN_SYSROOT or LEAN names instead. All this is
+# done once the target's profile has been read (below), so that no line of a profile undoes it, and the scripts stop
+# there if a variable could not be set or unset (it is read-only).
 
 log()  { printf '%s  %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
 die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -88,6 +108,19 @@ else
   : "${TGT_ARCHIVE_ALLOW_EXEC:=0}" "${TGT_REPORT_CONSTS:=${TGT_STATEMENT_CONST:-}}"
   _rh_last="${TGT_STATEMENT_CONST:-}"; : "${TGT_PROTECTED_NAMES:=${_rh_last##*.}}"
 fi
+# The environment of every program the scripts run (see above), set here, after the profile.
+unset LAKE_NO_CACHE 2>/dev/null
+LAKE_NO_CACHE=1; export LAKE_NO_CACHE
+_rh_clear="GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_NAMESPACE GIT_OBJECT_DIRECTORY
+  GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_REPLACE_REF_BASE GIT_GRAFT_FILE GIT_SHALLOW_FILE GIT_IMPLICIT_WORK_TREE GIT_PREFIX
+  GIT_CONFIG LAKE_PKG_URL_MAP LAKE_OVERRIDE_LEAN"
+for _v in $_rh_clear; do unset "$_v" 2>/dev/null || :; done
+# The value as the shell has it and as a program it runs gets it, with nothing after the 1 (a read-only value with a
+# line end after it would look the same once $(...) took the line end off).
+[ "${LAKE_NO_CACHE-}" = 1 ] && [ "$(printenv LAKE_NO_CACHE 2>/dev/null; echo .)" = $'1\n.' ] || die "LAKE_NO_CACHE could not be set to 1 for the programs the scripts run (is it read-only, in config.env, the environment or the profile?); nothing was run"
+for _v in $_rh_clear; do
+  eval "[ -z \"\${$_v+x}\" ]" || die "$_v could not be unset (is it read-only, in config.env, the environment or the profile?): git or Lake would read it; nothing was run"
+done
 # From here on every TGT_ variable is set, some of them to nothing.
 for _v in TGT_SOURCE_KIND TGT_PART_URL_PREFIX TGT_PART_COUNT TGT_TARBALL_SHA256 TGT_GIT_URL TGT_GIT_COMMIT TGT_GIT_SUBDIR TGT_TARBALL_NAME TGT_ARCHIVE_PREFIX TGT_SRC_DIR TGT_ARCHIVE_ALLOW_EXEC TGT_RECORDS_DIR TGT_ROOT_MODULE TGT_THEOREMS TGT_PRIMARY_THEOREM TGT_STATEMENT_CONST TGT_STATEMENT_CONST_MODULE TGT_REPORT_CONSTS TGT_PROTECTED_NAMES TGT_SMOKE_TARGETS TGT_PROBE_MODULE TGT_PROBE_THEOREM TGT_MATHLIB_TAG TGT_S10_PATTERN TGT_S10_COUNT; do
   eval ": \"\${$_v=}\""
@@ -143,6 +176,20 @@ if [ "$TGT_SOURCE_KIND" = git ]; then
   # Empty means the whole repository. (The records write an empty value as '.', so '.' itself is refused: the
   # two would be one line in the records and two different requests to git-export.)
   [ -z "$TGT_GIT_SUBDIR" ] || ! _rh_bad_path "$TGT_GIT_SUBDIR" || die "target '$RH_TARGET': TGT_GIT_SUBDIR must be empty (the whole repository) or a relative path of plain components with no slash at either end: no '..' anywhere, no '.' component, none starting with '-' (got '$TGT_GIT_SUBDIR')"
+  # The records give the address, commit, directory and prefix on one line, separated by spaces (source_record).
+  # With no space in the directory or the prefix, no control character (a new line above all) in the address,
+  # and the commit 40 hexadecimal characters, the line can be read back one way only, whatever else the address
+  # holds; otherwise two different sources could give the same line.
+  case "$TGT_GIT_SUBDIR$TGT_ARCHIVE_PREFIX" in
+    *[[:space:]]*) die "target '$RH_TARGET': for a git source TGT_GIT_SUBDIR and TGT_ARCHIVE_PREFIX may not contain a space (got '$TGT_GIT_SUBDIR' and '$TGT_ARCHIVE_PREFIX')" ;;
+  esac
+  # Printable ASCII only, whatever the shell's locale: grep reads bytes in the C locale (a new line, which grep
+  # takes for the end of a line, is caught by the case before it).
+  case "$TGT_GIT_URL" in
+    *[[:cntrl:]]*) _rh_bad_url=1 ;;
+    *) printf '%s' "$TGT_GIT_URL" | LC_ALL=C grep -q '[^ -~]' && _rh_bad_url=1 || _rh_bad_url=0 ;;
+  esac
+  [ "$_rh_bad_url" = 0 ] || die "target '$RH_TARGET': TGT_GIT_URL may hold printable ASCII characters only: no control character (a new line, say) and no byte outside ASCII (got $(printf '%q' "$TGT_GIT_URL"))"
 fi
 
 # ---- Paths ------------------------------------------------------------------------------------------------
@@ -176,28 +223,44 @@ lean_path() { local p="$RH_PROJ/.lake/build/lib/lean" d; for d in "$RH_PROJ"/.la
 # target_guard stops the script if the working directory is another target's. It only reads, and prints nothing.
 target_guard() {
   local marker="$RH_WORKDIR/.rh-target" owner=""
-  if [ -e "$marker" ]; then
-    [ -r "$marker" ] && [ -s "$marker" ] || die "the file $marker is empty or cannot be read, so it does not say which target the working directory $RH_WORKDIR belongs to. If the directory is target '$RH_TARGET''s, write that name into the file (printf '%s\\n' $RH_TARGET > $marker) and run the command again. Every target has a working directory of its own: see targets/README.md"
-    IFS= read -r owner 2>/dev/null < "$marker" || true
-    [ "$owner" = "$RH_TARGET" ] || die "the working directory $RH_WORKDIR belongs to target '$owner' (its file .rh-target says so) and this command is for target '$RH_TARGET'. Every target has a working directory of its own: see targets/README.md"
-  elif [ "$RH_TARGET_IS_DEFAULT" = 0 ] && [ -d "$RH_WORKDIR" ] && [ -n "$(ls -A -- "$RH_WORKDIR" 2>/dev/null)" ]; then
-    die "the working directory $RH_WORKDIR has files in it and no .rh-target file, so it is taken to belong to the default target, alpoge-rh. Target '$RH_TARGET' will not use it: give it another RH_WORKDIR (see targets/README.md)"
+  # A link (a dangling one is not there for -e) could name another directory's marker, or none.
+  [ ! -L "$marker" ] || die "the file $marker is a symbolic link; it must be a plain file that names the target the working directory $RH_WORKDIR belongs to. Remove the link and write the file in its place (rm -- $(printf '%q' "$marker") && printf '%s\\n' <target> > $(printf '%q' "$marker")), then run the command again; writing to the link without removing it would change the file it points to: see targets/README.md"
+  [ ! -e "$marker" ] || [ -f "$marker" ] || die "$marker is not a plain file (it is a directory, or another kind of file); it must be a plain file that names the target the working directory $RH_WORKDIR belongs to. Move it aside and write the file in its place (printf '%s\\n' <target> > $(printf '%q' "$marker")), then run the command again: see targets/README.md"
+  if [ ! -e "$marker" ]; then
+    # Files in the directory other than the marker, or a script's file for writing it (.rh-target.<number>, see
+    # claim_workdir), make it the default target's. A marker that another script made in the meantime is read.
+    if [ "$RH_TARGET_IS_DEFAULT" = 0 ] && [ -d "$RH_WORKDIR" ] \
+       && [ -n "$(ls -A -- "$RH_WORKDIR" 2>/dev/null | grep -v -E '^\.rh-target(\.[0-9]+)?$')" ]; then
+      [ -e "$marker" ] || die "the working directory $RH_WORKDIR has files in it and no .rh-target file, so it is taken to belong to the default target, alpoge-rh. Target '$RH_TARGET' will not use it: give it another RH_WORKDIR (see targets/README.md)"
+    fi
+    [ -e "$marker" ] || return 0
   fi
+  [ -r "$marker" ] && [ -s "$marker" ] || die "the file $marker is empty or cannot be read, so it does not say which target the working directory $RH_WORKDIR belongs to. If the directory is target '$RH_TARGET''s, write that name into the file (printf '%s\\n' $RH_TARGET > $(printf '%q' "$marker")) and run the command again. Every target has a working directory of its own: see targets/README.md"
+  IFS= read -r owner 2>/dev/null < "$marker" || true
+  [ "$owner" = "$RH_TARGET" ] || die "the working directory $RH_WORKDIR belongs to target '$owner' (its file .rh-target says so) and this command is for target '$RH_TARGET'. Every target has a working directory of its own: see targets/README.md"
   return 0
 }
 # Create the working directory and, if it has none, its .rh-target file. A script that writes into the working
 # directory without calling ensure_dirs calls this first.
 claim_workdir() {
-  local m="$RH_WORKDIR/.rh-target"
+  local m="$RH_WORKDIR/.rh-target" t="$RH_WORKDIR/.rh-target.$$"
   mkdir -p "$RH_WORKDIR" || return
   if [ ! -e "$m" ]; then
-    # set -C: the file is created only if there is none, so two scripts started at once cannot both claim the
-    # directory. Where the directory cannot be written to (the cloud guest's checking accounts, for the default
-    # target) nothing is created and nothing is said, as before. A file that was created but could not be
-    # written to (a full disk) is removed: left empty, it would stop every script.
-    (set -C; printf '%s\n' "$RH_TARGET" > "$m") >/dev/null 2>&1
-    if [ -e "$m" ] && [ ! -s "$m" ]; then
-      rm -f -- "$m"
+    # The name is written into a file of this script's own, which is then linked to .rh-target. So the marker never
+    # exists without the name in it, and of two scripts started at once only one makes it (ln does not replace a
+    # file that is there). On a file system with no hard links (some network shares) the marker is instead created
+    # only if there is none (set -C) and written at once; there a script started at that moment can find it still
+    # empty and stop. (FAT and exFAT have no hard links either, but a target other than the default one cannot be
+    # checked there at all: see targets/README.md.) Where the directory cannot be written to (the cloud guest's checking
+    # accounts, for the default target) nothing is created and nothing is said, as before. If the name cannot be
+    # written (a full disk), the script's own file is removed and the script stops.
+    if (printf '%s\n' "$RH_TARGET" > "$t") >/dev/null 2>&1 && [ -s "$t" ]; then
+      if ! ln -- "$t" "$m" >/dev/null 2>&1 && [ ! -e "$m" ]; then
+        (set -C; printf '%s\n' "$RH_TARGET" > "$m") >/dev/null 2>&1
+      fi
+      rm -f -- "$t"
+    elif [ -e "$t" ]; then
+      rm -f -- "$t"
       die "could not write $m, the file that names the target the working directory belongs to (is the disk full?); nothing else was written"
     fi
   fi
@@ -237,5 +300,5 @@ require_extract_from() {
   die "the tree in $RH_WORKDIR/extract is not recorded as extracted from the source that the profile of target '$RH_TARGET' names now: $RH_WORKDIR/extract.from says '${from:-nothing}', and the profile gives '$want'. Any difference counts, even one that leaves the archive the same byte for byte. Move the tree aside, or delete it, then run 01_fetch.sh and 02_inspect_and_extract.sh again."
 }
 
-unset _v _rh_keep _rh_need _rh_len _rh_last _rh_workdir_given; unset -f _rh_env_wins _rh_bad_path
+unset _v _rh_keep _rh_need _rh_len _rh_last _rh_workdir_given _rh_bad_url; unset -f _rh_env_wins _rh_bad_path
 target_guard

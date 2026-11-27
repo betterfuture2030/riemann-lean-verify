@@ -43,6 +43,7 @@ run_build() {  # run_build <jobs> <project dir> [targets...]
   local jobs=$1 ts logf rc
   shift 2
   cd "$RH_PROJ" || exit 1
+  elan_home_ok || exit 1
   raise_nofile
   export LEAN_NUM_THREADS="$jobs"
   ts=$(date +%Y%m%d-%H%M%S)
@@ -74,6 +75,7 @@ cmd_start() {
   [ -f "$RH_PROJ/lakefile.toml" ] || die "project not found at $RH_PROJ (run steps 01 to 04 first)"
   [ -d "$RH_PROJ/.lake/packages/mathlib" ] || die "Mathlib is not set up in $RH_PROJ (run 04_setup_toolchain.sh first)"
   need_cmd lake
+  elan_home_ok || die "the build was not started"
   ensure_dirs
   if build_is_running; then
     echo "A build of this project is already running; not starting another." >&2

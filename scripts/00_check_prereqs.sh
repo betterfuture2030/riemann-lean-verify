@@ -59,7 +59,7 @@ install_elan() {
 echo "== Required tools"
 check_required curl    "downloading the source parts"
 check_required tar     "extracting the source"
-check_required git     "fetching Mathlib and its dependencies (used by lake)"
+check_required git     "fetching Mathlib and its dependencies (04 clones them; Lake also reads the clones)"
 check_required python3 "inspecting the tarball, the source audit and the result summaries"
 check_required awk     "text processing"
 check_required find    "counting files"
@@ -104,7 +104,9 @@ if ! have elan; then
 EOF
 fi
 if [ -f "$RH_PROJ/lean-toolchain" ]; then
-  echo "  pinned toolchain (from the extracted project): $(head -n 1 "$RH_PROJ/lean-toolchain")"
+  # Shown with anything that is not printable as '?': the file comes from the archive. Both tr run in the C
+  # locale, where every byte is a character: in a UTF-8 locale tr stops at the first byte that is not UTF-8.
+  echo "  pinned toolchain (from the extracted project): $(head -n 1 "$RH_PROJ/lean-toolchain" | LC_ALL=C tr -d '\r\n' | LC_ALL=C tr -c '[:print:]' '?')"
 fi
 
 echo "== Optional tools"

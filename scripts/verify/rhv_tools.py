@@ -42,6 +42,18 @@ import time
 CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
 
 
+def not_utf8(name):
+    """Whether a name Python's tarfile read is not UTF-8. tarfile decodes a name of a POSIX ustar or GNU header with
+    the file system's encoding, giving each byte it cannot decode as a surrogate escape (\\udc80 to \\udcff): with
+    UTF-8 on most systems, but with ASCII under Python 3.6 in the C locale, where a UTF-8 name is all escapes. So the
+    bytes it read are given back and read as UTF-8."""
+    try:
+        name.encode("utf-8", "surrogateescape").decode("utf-8")
+        return False
+    except UnicodeError:
+        return True
+
+
 def dir_arg_problem(value, closing_slash):
     """What is wrong with a relative directory name given as an argument, or None if nothing is.
 
@@ -310,28 +322,34 @@ def shown(name):
 
 
 class GitObjects:
-    """The objects of one repository, read through one `git cat-file --batch` process."""
+    """The objects of one repository, read through one `git cat-file --batch` process. The type and size of a
+    commit or tree are first asked of a second process, `git cat-file --batch-check`, which does not read the
+    object's contents, so that one larger than git-export reads is refused before this tool holds it. (git may
+    still have to build an object from its deltas to give it: an object stored as a long chain of deltas, or as a
+    delta against a very large one, takes git that time and memory, and nothing here bounds them.)"""
 
     def __init__(self, git_dir):
         import subprocess
         env = {k: v for k, v in os.environ.items() if k not in GIT_ENV_NOT_PASSED_ON}
         # --no-replace-objects: the objects themselves, not ones a refs/replace entry puts in their place.
-        self.proc = subprocess.Popen(["git", "--no-replace-objects", "--git-dir", git_dir, "cat-file", "--batch"],
-                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=env)
+        base = ["git", "--no-replace-objects", "--git-dir", git_dir, "cat-file"]
+        self.proc = subprocess.Popen(base + ["--batch"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=env)
+        self.check = subprocess.Popen(base + ["--batch-check"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=env)
 
-    def start(self, oid):
-        """Ask for one object. Returns (type, size), or None if the repository does not have it. The
-        contents are then read with read(), all of them, and closed with end()."""
+    @staticmethod
+    def _ask(proc, oid):
+        """Send one object's name to a `git cat-file --batch` or `--batch-check` process and read the line it
+        answers with. Returns (type, size), or None if the repository does not have the object."""
         want = oid.encode("ascii")
         try:
-            self.proc.stdin.write(want + b"\n")
-            self.proc.stdin.flush()
-            line = self.proc.stdout.readline()
+            proc.stdin.write(want + b"\n")
+            proc.stdin.flush()
+            line = proc.stdout.readline()
         except OSError:                                 # git has gone: a broken pipe
             line = b""
         if not line:
             raise GitFailed("git cat-file ended with status %s without an answer (its own message, if any, is above)"
-                            % self.proc.wait())
+                            % proc.wait())
         f = line.split()
         if len(f) == 2 and f[0] == want and f[1] == b"missing":
             return None
@@ -339,6 +357,11 @@ class GitObjects:
             raise GitFailed("unexpected answer from git cat-file for %s: %r (a repository whose object names "
                             "are not SHA-1 is not supported)" % (oid, line[:200]))
         return f[1].decode("ascii", "replace"), int(f[2])
+
+    def start(self, oid):
+        """Ask for one object. Returns (type, size), or None if the repository does not have it. The
+        contents are then read with read(), all of them, and closed with end()."""
+        return self._ask(self.proc, oid)
 
     def read(self, n):
         data = self.proc.stdout.read(n)
@@ -350,16 +373,25 @@ class GitObjects:
         if self.proc.stdout.read(1) != b"\n":
             raise GitFailed("unexpected output from git cat-file after an object")
 
-    def whole(self, oid, kind):
-        """The contents of the commit or tree named oid, checked against that name."""
-        head = self.start(oid)
+    def whole(self, oid, kind, limit, limit_text, too_large=None):
+        """The contents of the commit or tree named oid, checked against that name. Refused, before anything of
+        it is read, if it is larger than limit bytes; limit_text says why that is the limit, or too_large, given
+        the size, gives the whole message."""
+        head = self._ask(self.check, oid)
         if head is None:
             raise Refused("%s %s is not in the repository" % (kind, oid))
+        if head[0] != kind:
+            raise Refused("%s is a %s in the repository, not a %s" % (oid, head[0], kind))
+        if head[1] > limit:
+            if too_large is not None:
+                raise Refused(too_large(head[1]))
+            raise Refused("%s %s is %d bytes, and git-export reads at most %d bytes of a %s: %s"
+                          % (kind, oid, head[1], limit, kind, limit_text))
+        if self.start(oid) != head:
+            raise GitFailed("git cat-file gave %s two different types or sizes" % oid)
         typ, size = head
         data = self.read(size)
         self.end()
-        if typ != kind:
-            raise Refused("%s is a %s in the repository, not a %s" % (oid, typ, kind))
         h = git_sha1()
         h.update(("%s %d" % (typ, size)).encode("ascii") + b"\0")
         h.update(data)
@@ -369,98 +401,161 @@ class GitObjects:
         return data
 
     def finish(self):
-        """End the process after the last object. Returns its exit status."""
-        self.proc.stdin.close()
-        self.proc.stdout.read()
-        self.proc.stdout.close()
-        return self.proc.wait()
+        """End the processes after the last object. Returns the exit status of the one that gave the contents
+        (or the other's, if only that one failed)."""
+        rcs = []
+        for proc in (self.proc, self.check):
+            proc.stdin.close()
+            proc.stdout.read()
+            proc.stdout.close()
+            rcs.append(proc.wait())
+        return rcs[0] or rcs[1]
 
     def abort(self):
-        if self.proc.poll() is None:
-            self.proc.kill()
-        for fh in (self.proc.stdin, self.proc.stdout):
-            try:
-                fh.close()
-            except OSError:
-                pass
-        self.proc.wait()
+        for proc in (self.proc, self.check):
+            if proc.poll() is None:
+                proc.kill()
+            for fh in (proc.stdin, proc.stdout):
+                try:
+                    fh.close()
+                except OSError:
+                    pass
+            proc.wait()
 
 
-def parse_tree(data, oid):
-    """The entries of a git tree object as stored: [(mode, name as bytes, name of the object)]."""
-    out, i, n = [], 0, len(data)
+def iter_tree(data, oid):
+    """The entries of a git tree object as stored, one at a time: (mode, name as bytes, name of the object)."""
+    i, n = 0, len(data)
     while i < n:
-        sp = data.find(b" ", i)
+        sp = data.find(b" ", i, i + 8)
         nul = data.find(b"\0", sp + 1) if sp >= 0 else -1
         if sp < 0 or nul < 0 or nul + 21 > n or not re.match(rb"[0-7]{1,7}\Z", data[i:sp]):
             raise Refused("tree %s is not in the form of a git tree" % oid)
-        out.append((int(data[i:sp], 8), data[sp + 1:nul], data[nul + 1:nul + 21].hex()))
+        yield int(data[i:sp], 8), data[sp + 1:nul], data[nul + 1:nul + 21].hex()
         i = nul + 21
-    return out
 
 
-# The most files, and the most bytes of contents, that git-export writes unless told otherwise: a little over ten
-# times the default target's 175,190 files, and 64 GiB. git stores a directory once however many times a commit
-# names it, so a repository of a few kilobytes can name more files than any disk holds; these limits stop such a
-# commit before much is read or written.
+# The most entries (files and directories), and the most bytes of contents, that git-export reads and writes unless
+# told otherwise: a little over ten times the default target's 175,190 files, and 64 GiB. git stores a directory once
+# however many times a commit names it, so a repository of a few kilobytes can name more files and directories than
+# any disk holds. So every entry of every tree read counts, a directory once each time the commit names it, and
+# git-export stops as soon as the count passes the limit, before the next entry is looked at. The paths of the
+# entries are held in memory and written into the tar file, so their bytes are counted too, against
+# MAX_EXPORT_PATH_BYTES (the default target's come to about 18 MB). Each tree is read from git once and kept, up to
+# MAX_TREE_CACHE_BYTES of them, however many times the commit names it: so the time a repository of a few
+# kilobytes can take, naming the same few trees again and again, goes with the entries counted and not with
+# git's work to give each tree.
 MAX_EXPORT_FILES = 2000000
 MAX_EXPORT_BYTES = 64 << 30
+MAX_EXPORT_PATH_BYTES = 256 << 20
+# The largest commit and the largest tree that git-export reads: both are read whole, so their size is asked of git
+# first. A tree is also refused if it is larger than the entries still allowed could be: an entry takes at most
+# TREE_ENTRY_MAX_BYTES (a mode of up to 7 digits, a space, a name of up to 255 bytes, a NUL and 20 bytes of the
+# object's name), and a name longer than that stops git-export at once.
+MAX_COMMIT_BYTES = 1 << 20
+MAX_TREE_BYTES = 64 << 20
+TREE_ENTRY_MAX_BYTES = 7 + 1 + 255 + 1 + 20
+MAX_TREE_CACHE_BYTES = 64 << 20
 
 
 def git_tree_files(git, tree, max_files=MAX_EXPORT_FILES):
-    """Every file under one tree: [(path as bytes, 0o644 or 0o755, name of the blob)], and a list of what
-    is there that cannot be exported. Kinds of entry, by the mode git records: 040000 a directory, 100644 and
-    100755 a file, 120000 a symbolic link, 160000 a submodule. Raises Refused once more than max_files files,
-    or more than max_files directories still to be read, are found."""
+    """Every file under one tree: [(path as bytes, 0o644 or 0o755, name of the blob)], the first 25 of the things
+    there that cannot be exported, and how many there are. Kinds of entry, by the mode git records: 040000 a
+    directory, 100644 and 100755 a file, 120000 a symbolic link, 160000 a submodule.
+
+    Raises Refused as soon as more than max_files entries have been read, whatever their kind, a directory counted
+    again each time it is named; as soon as a name of more than MAX_COMPONENT_BYTES is read; as soon as the paths
+    of the entries read come to more than MAX_EXPORT_PATH_BYTES; and before reading a tree larger than
+    MAX_TREE_BYTES or than the entries still allowed could be. So the work this tool does, and the memory it uses,
+    grow with max_files and not with what the repository names. (git's own work to build each object from its
+    deltas is not bounded here: see GitObjects.)"""
     files, problems = [], []
+    n_problems = n_entries = n_path_bytes = 0
+
+    def note(text):
+        nonlocal n_problems
+        n_problems += 1
+        if len(problems) < 25:
+            problems.append(text)
+
+    too_many = ("the tree has more than %d entries, files and directories, a directory counted each time the commit "
+                "names it; git-export stops at %d (--max-files)" % (max_files, max_files))
     stack = [(tree, b"")]
+    cache, n_cached = {}, 0
     while stack:
         oid, base = stack.pop()
-        for mode, name, child in parse_tree(git.whole(oid, "tree"), oid):
+        left = max_files - n_entries
+
+        def too_large(size):
+            return (too_many if left == 0 else
+                    "tree %s is %d bytes, more than the %d entries still allowed can take (at most %d bytes each): "
+                    "it has more entries than git-export reads (%d in all, --max-files), or a name longer than %d "
+                    "bytes" % (oid, size, left, TREE_ENTRY_MAX_BYTES, max_files, MAX_COMPONENT_BYTES))
+        data = cache.get(oid)
+        if data is not None:
+            if len(data) > left * TREE_ENTRY_MAX_BYTES:
+                raise Refused(too_large(len(data)))
+        elif left * TREE_ENTRY_MAX_BYTES < MAX_TREE_BYTES:
+            # No entry takes more than TREE_ENTRY_MAX_BYTES, so a tree larger than this has more entries than are
+            # still allowed: the count is over the limit, and the tree need not be read to know it.
+            data = git.whole(oid, "tree", left * TREE_ENTRY_MAX_BYTES, None, too_large=too_large)
+        else:
+            data = git.whole(oid, "tree", MAX_TREE_BYTES, "the most for one directory")
+        if oid not in cache and n_cached + len(data) <= MAX_TREE_CACHE_BYTES:
+            cache[oid] = data
+            n_cached += len(data)
+        for mode, name, child in iter_tree(data, oid):
+            n_entries += 1
+            if n_entries > max_files:
+                raise Refused(too_many)
+            if len(name) > MAX_COMPONENT_BYTES:
+                raise Refused("a name longer than %d bytes (%d) in tree %s, in %s: %s"
+                              % (MAX_COMPONENT_BYTES, len(name), oid, shown(base or b"."), shown(name[:200] + b"...")))
             path = base + name
+            n_path_bytes += len(path)
+            if n_path_bytes > MAX_EXPORT_PATH_BYTES:
+                raise Refused("the paths of the tree's entries come to more than %d bytes, a directory's counted each "
+                              "time the commit names it; git-export stops there" % MAX_EXPORT_PATH_BYTES)
             kind = mode & 0o170000
             if name in (b"", b".", b"..") or b"/" in name:
-                problems.append("an entry whose name is empty, '.', '..' or has a slash in it: %s" % shown(path))
+                note("an entry whose name is empty, '.', '..' or has a slash in it: %s" % shown(path))
             elif name_too_long(path):
                 # Nothing below such a name is looked at.
-                problems.append("%s: %s" % (name_too_long(path), shown(path[:200] + b"...")))
+                note("%s: %s" % (name_too_long(path), shown(path[:200] + b"...")))
             elif reserved_component(name.decode("utf-8", "replace")):
-                problems.append("%s: %s" % (reserved_component(name.decode("utf-8", "replace")), shown(path)))
+                note("%s: %s" % (reserved_component(name.decode("utf-8", "replace")), shown(path)))
             elif kind == 0o040000:
                 stack.append((child, path + b"/"))
             elif kind == 0o100000 and repository_marker(name.decode("utf-8", "replace")):
-                problems.append("%s: %s" % (repository_marker(name.decode("utf-8", "replace")), shown(path)))
+                note("%s: %s" % (repository_marker(name.decode("utf-8", "replace")), shown(path)))
             elif kind == 0o100000:
                 files.append((path, 0o755 if mode & 0o100 else 0o644, child))
             elif kind == 0o120000:
-                problems.append("symbolic link: %s" % shown(path))
+                note("symbolic link: %s" % shown(path))
             elif kind == 0o160000:
-                problems.append("submodule: %s" % shown(path))
+                note("submodule: %s" % shown(path))
             else:
-                problems.append("entry of a kind this tool does not know (mode %o): %s" % (mode, shown(path)))
-        if len(files) > max_files or len(stack) > max_files:
-            raise Refused("the tree names more than %d files%s; git-export stops at %d (--max-files)" % (
-                max_files, "" if len(files) > max_files else ", or more directories still to be read", max_files))
+                note("entry of a kind this tool does not know (mode %o): %s" % (mode, shown(path)))
     files.sort(key=lambda f: f[0])
     names = set()
     for path, _mode, _oid in files:
         try:
             path.decode("utf-8")
         except UnicodeDecodeError:
-            problems.append("a name that is not UTF-8: %s" % shown(path))
+            note("a name that is not UTF-8: %s" % shown(path))
         if path in names:
-            problems.append("two entries with one name: %s" % shown(path))
+            note("two entries with one name: %s" % shown(path))
         names.add(path)
     for path in below_files(names, names):
-        problems.append("a file where another entry needs a directory, on the way to %s" % shown(path))
+        note("a file where another entry needs a directory, on the way to %s" % shown(path))
     decoded = [p.decode("utf-8", "replace") for p in names]
     for one, other in name_collisions(decoded):
-        problems.append("two names that are one where case and Unicode normalisation are ignored, as on macOS: "
-                        "%s and %s" % (one, other))
+        note("two names that are one where case and Unicode normalisation are ignored, as on macOS: "
+             "%s and %s" % (one, other))
     for n in unassigned_names(decoded):
-        problems.append("a character unassigned in Unicode %s, so a collision cannot be ruled out: %s"
-                        % (__import__("unicodedata").unidata_version, n))
-    return files, problems
+        note("a character unassigned in Unicode %s, so a collision cannot be ruled out: %s"
+             % (__import__("unicodedata").unidata_version, n))
+    return files, problems, n_problems
 
 
 def tar_header(name, mode, size, typeflag):
@@ -487,9 +582,10 @@ def cmd_git_export(a):
 
     Exit status: 0 written; 1 refused (the commit is not named by all 40 characters, is not in the repository
     or is not a commit; the directory is not in it; a symbolic link, a submodule, a file named HEAD or an
-    unusable name is among the files; there are more files, or more bytes in them, than --max-files and
-    --max-bytes allow; an object does not have the SHA-1 it is named by); 2 could not run. Unless the status is
-    0 the file named with --out is left as it was."""
+    unusable name is among the files; there are more entries, files and directories, than --max-files allows,
+    or more bytes in the files than --max-bytes; a commit or a tree is larger than git-export reads; an object
+    does not have the SHA-1 it is named by); 2 could not run. Unless the status is 0 the file named with --out
+    is left as it was."""
     import shutil
     cmd = "git-export"
     commit = a.commit.lower()
@@ -511,23 +607,24 @@ def cmd_git_export(a):
     tmp = a.out + ".tmp"
     git = GitObjects(a.git_dir)
     try:
-        m = re.match(rb"tree ([0-9a-f]{40})\n", git.whole(commit, "commit"))
+        m = re.match(rb"tree ([0-9a-f]{40})\n", git.whole(commit, "commit", MAX_COMMIT_BYTES, "the most for a commit"))
         if not m:
             raise Refused("commit %s does not begin with the name of its tree" % commit)
         tree = m.group(1).decode("ascii")
         print("git-export: commit %s, tree %s" % (commit, tree))
         if subdir:
             for comp in subdir.encode("utf-8").split(b"/"):
-                found = [e for e in parse_tree(git.whole(tree, "tree"), tree) if e[1] == comp]
+                found = [e for e in iter_tree(git.whole(tree, "tree", MAX_TREE_BYTES, "the most for one directory"),
+                                              tree) if e[1] == comp]
                 if len(found) != 1 or found[0][0] & 0o170000 != 0o040000:
                     raise Refused("%s is not a directory of commit %s" % (subdir, commit))
                 tree = found[0][2]
             print("git-export: directory %s of it, tree %s" % (subdir, tree))
-        files, problems = git_tree_files(git, tree, a.max_files)
-        if problems:
+        files, problems, n_problems = git_tree_files(git, tree, a.max_files)
+        if n_problems:
             raise Refused("%d things in %s cannot be written to a tar file (showing up to 25)\n  - %s" % (
-                len(problems), "directory %s of commit %s" % (subdir, commit) if subdir else "commit " + commit,
-                "\n  - ".join(problems[:25])))
+                n_problems, "directory %s of commit %s" % (subdir, commit) if subdir else "commit " + commit,
+                "\n  - ".join(problems)))
         if not files:
             raise Refused("there are no files to write")
         total = n_exec = 0
@@ -622,49 +719,329 @@ class KeptTail:
         return b"".join(d[max(0, offset - s):] for s, d in self.chunks if s + len(d) > offset)
 
 
+class GzipMembers:
+    """The data of a gzip file, member after member, as bsdtar's gzip reader (libarchive's) reads it. Python's gzip
+    reads on past zero bytes between two members, and past a member whose header has reserved flag bits set;
+    libarchive takes either for the end of the compressed data, so a tar that extracts the archive would not see
+    the members after it. So here each member must follow the one before it directly, and after the last there may
+    be zero bytes and nothing else (libarchive stops there too); zlib refuses reserved flag bits, and checks each
+    member's checksum and length."""
+    CHUNK = 1 << 14       # compressed bytes at a time: at most about 16 MiB of data comes out of them
+
+    def __init__(self, f):
+        import zlib
+        self.f, self.zlib = f, zlib
+        self.d, self.left, self.out, self.at, self.done = zlib.decompressobj(31), b"", b"", 0, False
+
+    def read(self, n=-1):
+        parts, have = [], 0
+        while n < 0 or have < n:
+            if self.at < len(self.out):
+                take = self.out[self.at:] if n < 0 else self.out[self.at:self.at + n - have]
+                self.at += len(take)
+                have += len(take)
+                parts.append(take)
+            elif self.done:
+                break
+            else:
+                self.out, self.at = self.more(), 0
+        return b"".join(parts)
+
+    def more(self):
+        """The next piece of the data: possibly empty, as when a piece of a member's header was all that was read."""
+        if self.d.eof:
+            self.next_member()
+            if self.done:
+                return b""
+        data = self.left or self.f.read(self.CHUNK)
+        self.left = b""
+        if not data:
+            raise EOFError("the gzip data ends inside a member")
+        got = self.d.decompress(data)
+        if self.d.eof:
+            self.left = self.d.unused_data
+        return got
+
+    def next_member(self):
+        rest, zeros = self.left, 0
+        self.left = b""
+        while True:
+            body = rest.lstrip(b"\0")
+            zeros += len(rest) - len(body)
+            if body:
+                break
+            rest = self.f.read(self.CHUNK)
+            if not rest:
+                self.done = True
+                return
+        if zeros:
+            raise OSError("zero bytes between two gzip members: bsdtar stops at them and does not read what follows")
+        while len(body) < 2:
+            more = self.f.read(self.CHUNK)
+            if not more:
+                break
+            body += more
+        if body[:2] != b"\x1f\x8b":
+            raise OSError("bytes after a gzip member that are neither another member nor zero bytes")
+        self.d, self.left = self.zlib.decompressobj(31), body
+
+
 def header_number(field):
     """The number in a numeric field of a tar header, or None unless every tar reads the field as that number.
     Python's tarfile reads more forms than other tars do ('0o' in front, '_' between digits, tabs or new lines
     around them), and where two tars read an entry's size differently, one of them finds entries in what the
     other reads as data. Accepted: octal digits, with spaces before or after them and a NUL after them, and the
-    form GNU tar writes for large numbers (a first byte of 0x80, the number in base 256 after it)."""
+    form GNU tar writes for large numbers (a first byte of 0x80, the number in base 256 after it), if it is below
+    2**63, the most a signed 64-bit size holds. A larger one is refused here; bsdtar 3.5 refuses it too ('Tar
+    entry size overflow'), and also 2**63 - 1. A size anywhere near these is larger than any archive, and the
+    first short read of the entry's data stops the listing (read_entry_data)."""
     if field[:1] == b"\x80":
         n = 0
         for c in bytearray(field[1:]):
             n = n * 256 + c
-        return n
+        return n if n < 1 << 63 else None
     s = field.split(b"\0", 1)[0].strip(b" ")
     if not re.match(rb"[0-7]*\Z", s):
         return None
     return int(s, 8) if s else 0
 
 
+# The bytes of a header numbered above 127, for counting them: some old tars summed a header's bytes as signed.
+HIGH_BYTES = bytes(range(128, 256))
+
+
+def header_checksum_problem(blk):
+    """Why the checksum of one header block is refused, or None. Python's tarfile reads the field as int() reads
+    a number ('0o' in front, '_' between digits, tabs around them and base 256 all pass), libarchive only as
+    spaces, NULs and octal digits; bsdtar skips a header whose checksum it refuses ('Damaged tar archive') and
+    reads on in what tarfile took for that header's data. So the field must be octal digits with spaces before
+    them and spaces or NULs after them, and its value the sum of the header's bytes, the field itself counted as
+    eight spaces, with the bytes taken as unsigned or (as some old tars wrote it) as signed."""
+    field = blk[148:156]
+    m = re.match(rb" *([0-7]+)[ \0]*\Z", field)
+    if not m:
+        return ("a header checksum (%r) that not every tar reads as the same number"
+                % field.decode("latin-1"))
+    rest = blk[:148] + blk[156:]
+    unsigned = sum(rest) + 8 * 32
+    value = int(m.group(1), 8)
+    if value != unsigned and value != unsigned - 256 * (len(rest) - len(rest.translate(None, HIGH_BYTES))):
+        return "a header checksum that does not match the header"
+    return None
+
+
+# The fields of a tar header that hold numbers, and those that hold text, in the POSIX ustar layout: a name, its
+# offset and its length. GNU tar's own format has the same fields in the same places, but puts other numbers where
+# ustar has the name prefix (from byte 345).
+NUMBER_FIELDS = (("mode", 100, 8), ("user id", 108, 8), ("group id", 116, 8), ("size", 124, 12), ("time", 136, 12),
+                 ("device major number", 329, 8), ("device minor number", 337, 8))
+TEXT_FIELDS = (("name", 0, 100), ("link name", 157, 100), ("user name", 265, 32), ("group name", 297, 32))
+USTAR_MAGIC = b"ustar\x0000"            # the magic and version of POSIX ustar (and pax) headers
+GNU_MAGIC = b"ustar  \x00"              # and of GNU tar's own format
+# Octal digits, with spaces before them and spaces or NULs after them: libarchive's form of a number. It reads
+# a first header with a number in any other form as not a tar header at all (and may then read the archive as
+# another format); tarfile reads more forms.
+OCTAL_FIELD = re.compile(rb" *[0-7]*[ \0]*\Z")
+# Printable bytes (none below 0x20, no DEL) up to the first NUL, and nothing but NULs after it.
+TEXT_FIELD = re.compile(rb"[^\0-\x1f\x7f]*\0*\Z")
+
+
+def field_shown(field):
+    """A field of a header, for a message: in hexadecimal if it is a number in base 256 (binary, and mostly NUL
+    bytes), and otherwise quoted, up to its first NUL, with whatever is not printable escaped."""
+    if field[:1] and field[0] & 0x80:
+        return "0x" + field.hex()
+    return repr(field.split(b"\0", 1)[0].decode("latin-1"))
+
+
+def header_fields_problem(blk, first):
+    """Why the fields of one header block are refused, or None; first is True for the archive's first header.
+
+    libarchive (bsdtar) chooses how to read an archive from its first bytes: it looks there for the signatures of
+    compressed formats and of uuencoded data, which it then decodes, and for those of other archive formats, and
+    it reads the archive as a tar file only if its first header's numbers are in libarchive's form. tarfile reads
+    the same bytes as a tar file whatever they hold. So every header must be in POSIX ustar format (pax's too) or
+    in GNU tar's, with each number in libarchive's form (or in base 256, and a time before 1970 in base 256 as a
+    negative number, which both read alike) and each text field printable up to a NUL and NULs after it. Then the first header is a tar header to libarchive too, and the first block holds a NUL
+    before any new line, so that it cannot begin uuencoded data, and no field can hold the start of a compressed
+    stream, all of whose signatures but bzip2's, xz's and zstd's have a control byte, or a NUL with other bytes
+    after it; a first header that begins as one of those three does is refused. In GNU tar's format every byte where
+    ustar has the name prefix (bytes 345 to 499) must be NUL: tarfile puts what is there in front of the name, and
+    libarchive reads GNU tar's access and change times, old sparse map and real size there, for an entry of any
+    kind (a sparse map can make it read the next block as part of the header, and a real size gives the file
+    another length)."""
+    magic = blk[257:265]
+    if magic not in (USTAR_MAGIC, GNU_MAGIC):
+        return ("a header in neither POSIX ustar format nor GNU tar's (its magic and version are %r): other tars may "
+                "not read the archive as a tar file" % magic.decode("latin-1"))
+    for what, at, length in NUMBER_FIELDS:
+        field = blk[at:at + length]
+        if what == "time" and field[:1] == b"\xff" and int.from_bytes(field, "big", signed=True) >= -(1 << 63):
+            continue    # before 1970: tarfile and libarchive both read base 256 with a first byte of 0xff as negative
+        if header_number(field) is None or not (field[:1] == b"\x80" or OCTAL_FIELD.match(field)):
+            return "a %s in its header (%s) that not every tar reads as the same number" % (what, field_shown(field))
+    for what, at, length in TEXT_FIELDS + ((("name prefix", 345, 155),) if magic == USTAR_MAGIC else ()):
+        if not TEXT_FIELD.match(blk[at:at + length]):
+            return ("a %s field in a header with a control character in it, or bytes after the NUL that ends it: "
+                    "other tars may read such a header as something else" % what)
+    if magic == GNU_MAGIC and blk[345:500].strip(b"\0"):
+        return ("bytes where a POSIX header has its name prefix, in a header in GNU tar's format: Python's tarfile "
+                "puts them in front of the name, and bsdtar reads GNU tar's times, old sparse map and real size there, "
+                "for an entry of any kind")
+    if first and re.match(rb"BZh[1-9]|\x28\xb5\x2f\xfd|\xfd7zXZ\x00", blk):
+        return ("a first header that begins as a bzip2, xz or zstd stream does: other tars may read the archive as "
+                "compressed data")
+    return None
+
+
 # The kinds of header that tarfile reads as part of the next entry: pax headers (local, global, Solaris's) and
 # GNU tar's long names.
 EXTENDED_HEADER_TYPES = (b"x", b"g", b"X", b"L", b"K")
+# The largest extended header that tar-inspect reads. tarfile reads one whole, in one piece, before anything here
+# can look at it, so a header that gives a size near that of the archive would have the whole rest of the archive
+# held in memory at once (a gzipped archive of a few megabytes can hold gigabytes of zeros). A path or a pax
+# record of a real archive takes a few kilobytes; KeptTail keeps 1 MiB, the most a header can take and still be
+# read again to be checked.
+MAX_EXTENDED_HEADER_BYTES = 512 << 10
+# The most extended headers that tar-inspect reads in a row, before one entry. An archive needs at most a few: a
+# global pax header, a pax header of the entry's own, a long name and a long link name. tarfile reads each one by
+# calling itself again, so a long run of them would exhaust Python's stack; libarchive reads at most 32 and then
+# reads on in the data of the last as if it were headers.
+MAX_EXTENDED_HEADERS = 8
+SPARSE_TYPE_REFUSED = "a sparse entry (GNU tar's type S), which tars read differently; tar-inspect does not read sparse entries"
+SPARSE_KEYS_REFUSED = ("pax keys of a sparse file (GNU.sparse.*) that give a map of its holes, which tars read "
+                       "differently; tar-inspect does not read sparse entries")
+
+
+def capped_tarinfo():
+    """A TarInfo class for tarfile.open(tarinfo=...) that stops tarfile, with tarfile.ReadError, before it reads
+    the data of an extended header larger than MAX_EXTENDED_HEADER_BYTES, the next header after
+    MAX_EXTENDED_HEADERS extended headers in a row, or the map of a sparse entry (GNU tar's type S, and the pax
+    keys GNU.sparse.* of the formats tarfile knows as 0.0, 0.1 and 1.0). tarfile reads a sparse entry's map as it
+    reads the header, with no limit on its size, and gives errors of its own for a map it cannot read. tarfile has
+    no public place to do this: _proc_member is the method that tarfile (3.9 to 3.14 at least) calls on each header
+    once it is parsed, before it reads what follows, and the others are the methods it calls for sparse maps.
+    test_targets.sh checks that each takes effect with the Python it runs."""
+    import tarfile
+
+    class CappedTarInfo(tarfile.TarInfo):
+        def _proc_member(self, tf):
+            if self.type == tarfile.GNUTYPE_SPARSE:
+                raise tarfile.ReadError(SPARSE_TYPE_REFUSED)
+            if self.type not in EXTENDED_HEADER_TYPES:
+                tf.rhv_extended = 0
+                return super()._proc_member(tf)
+            tf.rhv_extended = getattr(tf, "rhv_extended", 0) + 1
+            if tf.rhv_extended > MAX_EXTENDED_HEADERS:
+                raise tarfile.ReadError("more than %d extended headers (pax headers and GNU long names) in a row; "
+                                        "tar-inspect reads at most %d before an entry" % (MAX_EXTENDED_HEADERS,
+                                                                                          MAX_EXTENDED_HEADERS))
+            if self.size > MAX_EXTENDED_HEADER_BYTES:
+                raise tarfile.ReadError("an extended header (type %s) of %d bytes; tar-inspect reads at most %d"
+                                        % (self.type.decode("latin-1"), self.size, MAX_EXTENDED_HEADER_BYTES))
+            return super()._proc_member(tf)
+
+        def _proc_sparse(self, tf):
+            raise tarfile.ReadError(SPARSE_TYPE_REFUSED)
+
+        def _proc_gnusparse_00(self, *args):
+            raise tarfile.ReadError(SPARSE_KEYS_REFUSED)
+
+        _proc_gnusparse_01 = _proc_gnusparse_10 = _proc_gnusparse_00
+    return CappedTarInfo
+
+
+# Errors that tarfile's own parsing raises on some headers it cannot read, instead of tarfile.ReadError: int() of
+# a pax value that is not a number, an index past the end of a block, a stack exhausted.
+TARFILE_PARSE_ERRORS = (ValueError, IndexError, OverflowError, RecursionError)
+
+
+def tarfile_step(call):
+    """call(), a step of tarfile reading the archive's headers, with TARFILE_PARSE_ERRORS given as
+    tarfile.ReadError, so that such a header is refused as one that cannot be read and not taken for a fault of
+    this tool."""
+    import tarfile
+    try:
+        return call()
+    except TARFILE_PARSE_ERRORS as ex:
+        raise tarfile.ReadError("Python's tarfile could not read a header (%s: %s)" % (type(ex).__name__, ex)) from None
+
+
+PAX_RECORD = re.compile(rb"([0-9]{1,20}) [^=\n\0]+=")
+
+
+def pax_records_problem(data, n):
+    """Why the data of a pax header (n bytes, then the rest of its last block) is refused, or None. libarchive
+    reads the records in the n bytes the header's size gives. Python's tarfile reads the whole of the blocks, to
+    the first NUL where a record would begin, and the tarfile of Python 3.9 stops without a word at the first
+    bytes that are not a record. So the n bytes must be whole records and nothing else, each its length in
+    decimal digits, a space, a keyword, '=', a value and a new line, its length counted right, and the rest of
+    the block must be NULs: then both read the same records."""
+    if data[n:].strip(b"\0"):
+        return "bytes after the end of a pax header's data, in the rest of its block, which Python's tarfile reads as records and other tars do not"
+    pos = 0
+    while pos < n:
+        m = PAX_RECORD.match(data, pos, n)          # read in place: a copy of the rest for each record would be slow
+        length = int(m.group(1)) if m else 0
+        if not m or length < m.end() - pos + 1 or pos + length > n or data[pos + length - 1:pos + length] != b"\n":
+            return "a pax header whose data is not whole records, which tars read differently"
+        pos += length
+    return None
 
 
 def header_chain_problem(src, start, member):
     """Why the headers of one entry are refused, or None. They are read again as they are, block by block, from
-    start (the end of the entry before it, as tarfile counted it) to the entry's own header: each must have a
-    size every tar reads alike, and each but the last must be an extended header whose data ends where the next
-    header begins, so that no tar can find an entry there that tarfile did not."""
+    start (the end of the entry before it, as tarfile counted it) to the entry's own header. Each must have a
+    checksum that every tar reads alike and fields that pass header_fields_problem (a format every tar
+    recognises, numbers every tar reads alike, text fields with nothing after their NUL), and each but the last
+    must be an extended header whose data ends where the next header begins. A GNU long name (types L and K) must end within the size its header gives:
+    tarfile reads on to the first NUL in the blocks, other tars stop at the size. A pax header's data must be
+    whole records that end where the size ends, and the rest of its block NULs (pax_records_problem). There may be
+    one pax header of an entry's own (type x or X), one long name and one long link name: of two, tarfile uses the
+    first and bsdtar the last. (Global pax headers, type g, may be more than one; what they set is refused by
+    global_pax_problem; capped_tarinfo stops tarfile after MAX_EXTENDED_HEADERS in a row.)
+
+    These are the disagreements between tarfile and other tars that are known and that the headers show, refused
+    so that the two find the same entries in the same places; they are not all there could be. For any target but
+    the default one, 02 also compares what tar wrote with this listing (check_extracted and --verify-tree)."""
     end = member.offset_data - 512
     off = start
+    kinds = set()
     while True:
         blk = src.since(off)
         if blk is None or len(blk) < 512:
             return "its headers could not be read again to be checked"
         blk = blk[:512]
-        n = header_number(blk[124:136])
-        if n is None:
-            return ("a size in its header (%r) that not every tar reads as the same number"
-                    % blk[124:136].split(b"\0", 1)[0].decode("latin-1"))
+        problem = header_checksum_problem(blk) or header_fields_problem(blk, off == 0)
+        if problem:
+            return problem
+        n = header_number(blk[124:136])          # a number: header_fields_problem has checked the field
         if off == end:
             return None
-        if blk[156:157] not in EXTENDED_HEADER_TYPES:
-            return "a header of type %r before its own, which another tar may read as an entry" % blk[156:157].decode("latin-1")
-        off += 512 + -(-n // 512) * 512
+        typ = blk[156:157]
+        if typ not in EXTENDED_HEADER_TYPES:
+            return "a header of type %r before its own, which another tar may read as an entry" % typ.decode("latin-1")
+        kind = b"x" if typ == b"X" else typ
+        if kind != b"g":
+            if kind in kinds:
+                return ("two extended headers of one kind (type %s) before one entry: Python's tarfile uses the "
+                        "first, bsdtar the last" % typ.decode("latin-1"))
+            kinds.add(kind)
+        padded = -(-n // 512) * 512
+        data = src.since(off + 512)
+        if data is None or len(data) < padded:
+            return "its headers could not be read again to be checked"
+        data = data[:padded]
+        if typ in (b"L", b"K"):
+            nul = data.find(b"\0")
+            if (nul if nul >= 0 else padded) > n:
+                return ("a GNU long name (type %s) that runs past the size its header gives, which tars read "
+                        "differently" % typ.decode("latin-1"))
+        else:
+            problem = pax_records_problem(data, n)
+            if problem:
+                return problem
+        off += 512 + padded
         if off > end:
             return "headers that do not end where its own header begins"
 
@@ -672,8 +1049,11 @@ def header_chain_problem(src, start, member):
 def pax_header_problem(member):
     """Why the pax header of one entry is refused, or None: values that tars read differently. tarfile takes
     '1_025' for a size of 1025 where other tars stop at the '_'; it drops a slash at the end of a path where
-    other tars make the entry a directory and read no data for it; and it takes GNU's sparse-file keys as the
-    size of the entry's data where other tars do not."""
+    other tars make the entry a directory and read no data for it; it takes GNU's sparse-file keys as the
+    size of the entry's data where other tars do not; it ignores Solaris's keys (SUN.*), of which bsdtar takes
+    SUN.holesdata as a map of holes in the file and writes other bytes than tarfile reads; and it leaves out an
+    access control list (SCHILY.acl.*), which bsdtar uses for the file's mode and can apply, letting other users
+    write the file."""
     pax = member.pax_headers or {}
     if "size" in pax and not re.match(r"[0-9]+\Z", pax["size"]):
         return "a pax size (%r) that not every tar reads as the same number" % pax["size"][:40]
@@ -681,8 +1061,92 @@ def pax_header_problem(member):
         return "a pax path that ends with a slash, which other tars read as a directory's"
     odd = sorted(k for k in pax if k.startswith("GNU.sparse.") or k == "SCHILY.realsize")
     if odd:
-        return "pax keys of a sparse file (%s), which tars read differently" % ", ".join(odd[:3])
+        return "pax keys of a sparse file (%s), which tars read differently" % ", ".join(map(text_shown, odd[:3]))
+    sun = sorted(k for k in pax if k.startswith("SUN."))
+    if sun:
+        return ("pax keys of Solaris's tar (%s), which bsdtar applies and Python's tarfile does not (SUN.holesdata "
+                "makes holes in the file)" % ", ".join(map(text_shown, sun[:3])))
+    acl = sorted(k for k in pax if k.startswith("SCHILY.acl."))
+    if acl:
+        return ("pax keys of an access control list (%s), which tars apply differently"
+                % ", ".join(map(text_shown, acl[:3])))
     return None
+
+
+def global_pax_problem(tf):
+    """Why the global pax headers read so far are refused, or None. tarfile applies their path, size and other
+    values to every entry after them; libarchive does not apply them at all. A comment (git archive writes the
+    commit's name in one) changes nothing and is accepted."""
+    keys = sorted(k for k in (tf.pax_headers or {}) if k != "comment")
+    if keys:
+        return ("a global pax header that sets %s, which tarfile applies to the entries after it and other tars "
+                "do not" % ", ".join(map(text_shown, keys[:3])))
+    return None
+
+
+def text_shown(s):
+    """Text from an archive, for a message: as it is if it is printable, and otherwise quoted with whatever is
+    not printable escaped, so that it cannot move the cursor or rewrite what a terminal shows."""
+    return s if s.isprintable() else repr(s)
+
+
+def drain_stored_data(tf):
+    """Read, a piece at a time, whatever is left of the data stored for the entry tarfile has just listed: the
+    bytes tarfile would otherwise skip, by reading on to where it counts the next header to be, without end if
+    that is far beyond the end of the archive. A short read stops the listing at once."""
+    import tarfile
+    left = tf.offset - tf.fileobj.tell()
+    while left > 0:
+        x = tf.fileobj.read(min(left, 1 << 20))
+        if not x:
+            raise tarfile.ReadError("unexpected end of data")
+        left -= len(x)
+
+
+def read_entry_data(tf, m, path):
+    """Read the data of entry m to its end, a piece at a time, so that a large entry is never held in memory
+    whole, and compare it with the file at path unless path is None. Returns None if the file holds the same
+    bytes (or path is None), and otherwise why not.
+
+    The data is read even when there is nothing to compare it with: left unread, tarfile would skip it by reading
+    on to the size the header gives, without end if that size is far larger than the archive. Read here, the
+    first short read stops the listing with 'unexpected end of data'. A sparse entry does not get here:
+    capped_tarinfo stops tarfile at GNU tar's type S and at the pax keys that give a sparse map, before it reads
+    the map. Were one to get here all the same, it would not be read through tarfile, which would give its holes
+    as zero bytes up to a size the archive chooses, without reading the archive: only the bytes stored for it are
+    read, as they are."""
+    import tarfile
+    if m.sparse is not None:
+        drain_stored_data(tf)
+        return None if path is None else "a sparse entry, not compared"
+    fh = tf.extractfile(m) if (m.isreg() or m.type not in tarfile.SUPPORTED_TYPES) else None
+    dh, why = None, None
+    if path is not None:
+        try:
+            dh = open(path, "rb")
+        except OSError as ex:
+            why = "cannot be read on disk (%s)" % (ex.strerror or ex)
+    try:
+        while True:
+            x = fh.read(1 << 20) if fh is not None else b""
+            if dh is not None:
+                try:
+                    same = dh.read(len(x) or 1) == x
+                except OSError as ex:
+                    same, why = False, "cannot be read on disk (%s)" % (ex.strerror or ex)
+                if not same:
+                    why = why or "content differs"
+                    dh.close()
+                    dh = None
+            if not x:
+                break
+    finally:
+        if dh is not None:
+            dh.close()
+    # Anything tarfile counts as stored for the entry and has not given out (nothing, for a regular file read to
+    # its end) is read too, for the reason above.
+    drain_stored_data(tf)
+    return why
 
 
 def check_extracted(root, names, allow_exec, quiet):
@@ -691,11 +1155,13 @@ def check_extracted(root, names, allow_exec, quiet):
     Every file system entry under root is looked at with lstat, without following links and without leaving
     .lake out. Each must be a directory with an entry of the archive in it, or a regular file that is an entry,
     with one name only, no executable bit unless allow_exec, and no setuid, setgid or sticky bit. Every entry
-    must be there. This checks the names, kinds and modes of what the extracting tar made of the archive, whether
-    or not it read the archive as tar-inspect did; it does not read the files, so 02 also passes --verify-tree,
-    which compares each file's bytes with the entry's. Names are compared in NFD, the form HFS+ stores them in (the listing refuses two names
-    that are one when normalised). Prints one line if all is well, the problems otherwise; returns True if all
-    is well."""
+    must be there. This checks the names and kinds of what the extracting tar made of the archive, and that no file
+    has an executable bit (unless allowed) or a setuid, setgid or sticky bit, whether or not that tar read the
+    archive as tar-inspect did. The other permission bits are not compared with the entry's mode (tar applies the
+    umask to them). It does not read the files, so 02 also passes --verify-tree, which compares each file's bytes
+    with the entry's. Names are compared in NFD, the form HFS+ stores them in (the listing refuses two names that
+    are one when normalised). Prints one line if all is well, the problems otherwise; returns True if all is
+    well."""
     import stat
     import unicodedata
 
@@ -710,7 +1176,7 @@ def check_extracted(root, names, allow_exec, quiet):
         nonlocal n_problems
         n_problems += 1
         if len(problems) < 10:
-            problems.append("%s: %s" % (why, rel))
+            problems.append("%s: %s" % (why, text_shown(rel)))
 
     root = os.path.abspath(root)
 
@@ -741,6 +1207,8 @@ def check_extracted(root, names, allow_exec, quiet):
                 odd("neither a regular file nor a directory", rel)
             elif nfd(rel) not in want:
                 odd("a file that is not an entry of the archive", rel)
+            elif nfd(rel) in found:
+                odd("a second file with the name of an entry of the archive, in another Unicode form", rel)
             else:
                 n_files += 1
                 found.add(nfd(rel))
@@ -766,7 +1234,8 @@ def check_extracted(root, names, allow_exec, quiet):
 
 
 def cmd_tar_inspect(a):
-    import gzip
+    import errno
+    import stat
     import tarfile
     import unicodedata
     import zlib
@@ -798,7 +1267,7 @@ def cmd_tar_inspect(a):
         nonlocal n_viol
         n_viol += 1
         if len(violations) < 25:
-            violations.append("%s: %s" % (why, name))
+            violations.append("%s: %s" % (why, text_shown(name)))
 
     by_ext = collections.Counter()
     by_top = collections.Counter()
@@ -806,8 +1275,9 @@ def cmd_tar_inspect(a):
     not_dirs = []                        # the names of the entries that are not directories
     entries = total_bytes = src_lean = executable = 0
     tree = os.path.abspath(a.verify_tree) if a.verify_tree else None
-    tree_missing = tree_differs = 0
+    tree_missing = tree_differs = tree_unreadable = tree_unlistable = tree_skipped = 0
     tree_examples = []
+    global_seen = False                  # a global pax header has been refused (said once)
 
     try:
         raw = open(a.tarball, "rb")
@@ -817,34 +1287,45 @@ def cmd_tar_inspect(a):
     # of gzip's signature, and an uncompressed tar file (what git-export writes) otherwise. tarfile is not left
     # to decide where the archive ends. It stops without a word at a header it cannot read, or at the first
     # empty block, where the tar that extracts the archive may carry on and find more entries; and its own
-    # gzip reader stops at the end of the first of several gzip members. So gzip.GzipFile, which reads every
-    # member and refuses bytes after them that are not gzip, reads the file, and once tarfile has stopped,
-    # everything from where it stopped to the end of the file must be zero bytes.
+    # gzip reader stops at the end of the first of several gzip members. So GzipMembers, which reads every member
+    # as libarchive does and refuses what libarchive would stop at, reads the file, and once tarfile has stopped,
+    # everything from where it stopped to the end of the data must be zero bytes.
     unreadable = after_end = None
     gzipped = False
     try:
         with raw:
             gzipped = raw.read(2) == b"\x1f\x8b"
             raw.seek(0)
-            src = KeptTail(gzip.GzipFile(fileobj=raw, mode="rb") if gzipped else raw)
-            with tarfile.open(fileobj=src, mode="r|") as tf:
+            src = KeptTail(GzipMembers(raw) if gzipped else raw)
+            with tarfile_step(lambda: tarfile.open(fileobj=src, mode="r|", tarinfo=capped_tarinfo())) as tf:
                 data_end = 0                 # where the data of the entry before ends, as tarfile counts it
-                for m in tf:
+                # tarfile's own iterator, not tf.next(): Python 3.9's next(), called again after the first block was
+                # found empty (an empty archive), seeks back in the stream and fails.
+                members = iter(tf)
+                while True:
+                    m = tarfile_step(lambda: next(members, None))
+                    if m is None:
+                        break
                     entries += 1
                     name = m.name
                     ok = True
-                    # tarfile is one reader of the archive, and the tar that extracts it is another. These two
-                    # checks refuse the headers that the two may read differently, so that both find the same
-                    # entries in the same places. (What tar wrote is also compared with this listing afterwards,
-                    # for any target but the default one: see check_extracted.)
+                    # tarfile is one reader of the archive, and the tar that extracts it is another. These checks
+                    # refuse the headers that the two are known to read differently, so that both find the same
+                    # entries in the same places. They cannot be known to cover every difference: what tar wrote
+                    # is also compared with this listing afterwards, for any target but the default one (see
+                    # check_extracted and --verify-tree).
                     headers_start, data_end = data_end, tf.offset
-                    for problem in (header_chain_problem(src, headers_start, m), pax_header_problem(m)):
+                    for problem in (header_chain_problem(src, headers_start, m), pax_header_problem(m),
+                                    None if global_seen else global_pax_problem(tf)):
                         if problem:
                             bad(name if len(name) <= 300 else name[:200] + "...", problem); ok = False
+                            global_seen = global_seen or problem.startswith("a global pax header")
                     too_long = name_too_long(name)
                     if too_long:
                         # Left out of every check below that looks at more than this one entry.
                         bad(name[:200] + "...", too_long)
+                        read_entry_data(tf, m, None)
+                        tree_skipped += 1 if tree else 0
                         continue
                     if m.type not in (tarfile.REGTYPE, tarfile.AREGTYPE):
                         bad(name, "not a regular file (%s)" % type_names.get(m.type, "type %r" % m.type)); ok = False
@@ -861,11 +1342,21 @@ def cmd_tar_inspect(a):
                         bad(name, "outside %s" % prefix); ok = False
                     if "\\" in name or CONTROL_CHARS.search(name):
                         bad(name, "backslash or control character in name"); ok = False
+                    if not_utf8(name):
+                        bad(name, "a name that is not UTF-8 (Python shows each byte that is not as \\udc80 to "
+                            "\\udcff): tars read such names differently, and macOS cannot hold them"); ok = False
                     reserved = [r for r in map(reserved_component, parts) if r]
                     if m.type != tarfile.DIRTYPE and repository_marker(parts[-1]):
                         reserved.append(repository_marker(parts[-1]))
                     if reserved:
                         bad(name, reserved[0]); ok = False
+                    if m.type != tarfile.DIRTYPE and parts[-1].startswith("._"):
+                        bad(name, "an AppleDouble file ('._' in front of the name): macOS's tar does not write it but "
+                            "applies what it holds, as extended attributes and an access control list, to the entry "
+                            "that follows it in the archive, whatever that entry's name. macOS's tar adds such files "
+                            "when it makes an archive unless COPYFILE_DISABLE=1 is set; in a git source the file is "
+                            "in the commit itself")
+                        ok = False
                     if m.mode & 0o111:
                         executable += 1
                         if not a.allow_exec:
@@ -882,26 +1373,36 @@ def cmd_tar_inspect(a):
                     total_bytes += m.size
                     if name.startswith(src_prefix) and name.endswith(".lean"):
                         src_lean += 1
-                    if tree and ok:
+                    path = None
+                    if tree and not ok:
+                        # A refused entry is not compared: its name may not be one the tree can hold.
+                        tree_skipped += 1
+                    elif tree:
                         path = os.path.join(tree, name)
-                        if not os.path.isfile(path) or os.path.islink(path):
+                        try:
+                            there = "" if stat.S_ISREG(os.lstat(path).st_mode) else " (not a regular file there)"
+                        except OSError as ex:
+                            # Not there, or there and out of reach (a directory on the way that cannot be searched).
+                            there = None if ex.errno in (errno.ENOENT, errno.ENOTDIR) else ex
+                        if there is None or isinstance(there, str) and there:
                             tree_missing += 1
                             if len(tree_examples) < 10:
-                                tree_examples.append("missing on disk: " + name)
+                                tree_examples.append("missing on disk%s: %s" % (there or "", text_shown(name)))
+                            path = None
+                        elif not isinstance(there, str):
+                            tree_unreadable += 1
+                            if len(tree_examples) < 10:
+                                tree_examples.append("cannot be read on disk (%s): %s"
+                                                     % (there.strerror or there, text_shown(name)))
+                            path = None
+                    why = read_entry_data(tf, m, path)
+                    if why:
+                        if why.startswith("cannot be read on disk"):
+                            tree_unreadable += 1
                         else:
-                            # Compared a piece at a time, so that a large entry is never held in memory whole.
-                            fh = tf.extractfile(m)
-                            same = True
-                            with open(path, "rb") as dh:
-                                while same:
-                                    x = fh.read(1 << 20) if fh is not None else b""
-                                    same = dh.read(len(x) or 1) == x
-                                    if not x:
-                                        break
-                            if not same:
-                                tree_differs += 1
-                                if len(tree_examples) < 10:
-                                    tree_examples.append("content differs: " + name)
+                            tree_differs += 1
+                        if len(tree_examples) < 10:
+                            tree_examples.append("%s: %s" % (why, text_shown(name)))
                 # tarfile has stopped: at the first empty block, at a header it cannot read, or at the end of the
                 # data. From the block it stopped at to the end of the file there may be zero bytes and nothing else.
                 rest = src.since(tf.offset)
@@ -913,8 +1414,9 @@ def cmd_tar_inspect(a):
                     nonzero = nonzero or chunk.strip(b"\0") != b""
                 if nonzero:
                     after_end = tf.offset
-    except (tarfile.TarError, OSError, EOFError, zlib.error) as ex:
-        # gzip.BadGzipFile is an OSError: data that is not gzip, a wrong checksum, bytes after the last member.
+    except (tarfile.TarError, OSError, EOFError, zlib.error) as ex:     # TARFILE_PARSE_ERRORS too: tarfile_step
+        # A gzip member that cannot be read is a zlib.error (data that is not gzip, a wrong checksum, reserved
+        # flags), an EOFError (one cut short) or an OSError (what follows a member, from GzipMembers).
         unreadable = "%s: %s" % (type(ex).__name__, ex)
     if unreadable:
         bad(a.tarball, "the archive cannot be read to its end (%s), so what follows may hold entries that were "
@@ -939,10 +1441,10 @@ def cmd_tar_inspect(a):
     say("Lean files under %s: %d" % (src_prefix, src_lean))
     say("entries by extension:")
     for ext, c in sorted(by_ext.items(), key=lambda kv: (-kv[1], kv[0])):
-        say("  %-10s %d" % (ext, c))
+        say("  %-10s %d" % (text_shown(ext), c))
     say("entries by top-level item under %s:" % prefix)
     for top, c in sorted(by_top.items(), key=lambda kv: (-kv[1], kv[0])):
-        say("  %-22s %d" % (top, c))
+        say("  %-22s %d" % (text_shown(top), c))
 
     status = 0
     if n_viol:
@@ -977,21 +1479,56 @@ def cmd_tar_inspect(a):
     if tree:
         extra = []
         root = os.path.join(tree, prefix.rstrip("/"))
-        for dirpath, dirnames, filenames in os.walk(root):
+
+        def walk_error(ex):
+            # A directory that cannot be listed may hold files that are not in the tarball.
+            nonlocal tree_unlistable
+            tree_unlistable += 1
+            if len(tree_examples) < 10:
+                tree_examples.append("directory cannot be listed on disk (%s): %s" % (
+                    ex.strerror or ex, text_shown(os.path.relpath(ex.filename or root, tree).replace(os.sep, "/"))))
+
+        # Names are compared in NFD, as check_extracted compares them: HFS+ stores names in that form, and macOS's
+        # tar writes a name from a pax header in it on any file system. A second file with an entry's name in
+        # another form (a file system that keeps both apart) is not in the tarball.
+        seen_nfd, claimed = {unicodedata.normalize("NFD", n) for n in seen}, set()
+        for dirpath, dirnames, filenames in os.walk(root, onerror=walk_error):
             if dirpath == root:
                 dirnames[:] = [d for d in dirnames if d != ".lake"]   # build products and packages
+            for d in dirnames:
+                # A link to a directory is not entered, and the files of the tarball compared above may have been
+                # read through it.
+                if os.path.islink(os.path.join(dirpath, d)):
+                    extra.append(os.path.relpath(os.path.join(dirpath, d), tree).replace(os.sep, "/")
+                                 + " (a symbolic link to a directory)")
             for f in filenames:
                 rel = os.path.relpath(os.path.join(dirpath, f), tree).replace(os.sep, "/")
-                if rel not in seen:
+                key = unicodedata.normalize("NFD", rel)
+                if key not in seen_nfd or key in claimed:
                     extra.append(rel)
+                else:
+                    claimed.add(key)
         print("tree comparison (files on disk against the tarball's contents):")
         print("  files in the tarball missing on disk:     %d" % tree_missing)
         print("  files whose content differs:              %d" % tree_differs)
+        if tree_unreadable:
+            print("  files that cannot be read on disk:        %d" % tree_unreadable)
+        if tree_unlistable:
+            print("  directories that cannot be listed:        %d" % tree_unlistable)
         print("  files on disk that are not in the tarball: %d (the .lake directory is not counted)" % len(extra))
-        for line in tree_examples + ["not in tarball: " + e for e in sorted(extra)[:10]]:
+        if tree_skipped:
+            print("  entries refused above, not compared:      %d" % tree_skipped)
+        for line in tree_examples + ["not in tarball: " + text_shown(e) for e in sorted(extra)[:10]]:
             print("  - " + line)
-        if tree_missing or tree_differs or extra:
+        if tree_missing or tree_differs or tree_unreadable or tree_unlistable or extra:
             print("tree comparison: DIFFERENT from the tarball")
+            status = 1
+        elif unreadable:
+            print("tree comparison: NOT FINISHED: the archive cannot be read to its end (see above)")
+            status = 1
+        elif tree_skipped:
+            print("tree comparison: NOT FINISHED: %d entries the listing refused were not compared (see above)"
+                  % tree_skipped)
             status = 1
         else:
             print("tree comparison: the extracted files are byte-for-byte the tarball's contents")
@@ -1008,6 +1545,500 @@ def cmd_tar_inspect(a):
 # --------------------------------------------------------------------------------------------
 # 02: project files
 
+# What a manifest may say about where a package's own files are and where the packages go: what Lake 4.33.1
+# writes. Lake joins these to a directory with no check that the result stays inside it, so another value could
+# name a file of the archive as the lakefile of a package whose address the reader trusts (Lake runs a
+# lakefile.lean, and a lakefile.toml decides what it builds), or put the packages anywhere.
+MANIFEST_CONFIG_FILES = ("lakefile", "lakefile.lean", "lakefile.toml")
+MANIFEST_FILE = "lake-manifest.json"
+MANIFEST_PACKAGES_DIR = ".lake/packages"
+# The deepest a manifest nests its values: Lake writes three levels. Python's json reader fails on deep nesting
+# under 3.9 and not under 3.14, and what is printed must not depend on that.
+MAX_MANIFEST_DEPTH = 32
+# A directory inside the one it is relative to: plain parts separated by '/', none starting with a dot (so no '..',
+# '.git' or '.lake'); or '.' for that directory itself.
+PLAIN_DIR = re.compile(r"[A-Za-z0-9_+-][A-Za-z0-9_.+-]*(?:/[A-Za-z0-9_+-][A-Za-z0-9_.+-]*)*\Z")
+
+
+def plain_dir(d):
+    """d if it is '.' or a directory of plain parts inside the one it is relative to, else None."""
+    return d if isinstance(d, str) and (d == "." or PLAIN_DIR.match(d)) else None
+
+
+def json_too_deep(v, limit):
+    """Whether v nests lists and objects more than limit deep (counted without recursion)."""
+    stack = [(v, 1)]
+    while stack:
+        x, depth = stack.pop()
+        if isinstance(x, (list, dict)):
+            if depth > limit:
+                return True
+            stack.extend((y, depth + 1) for y in (x.values() if isinstance(x, dict) else x))
+    return False
+
+
+def short_int(digits):
+    """A number in the manifest, if it has at most 30 digits. Python 3.11 and later refuse to read one of more than
+    4300; a manifest has none of more than a few."""
+    if len(digits.lstrip("-")) > 30:
+        raise ValueError("a number of more than 30 digits")
+    return int(digits)
+
+
+def short_float(text):
+    """A number with a fraction or an exponent in the manifest, limited as short_int limits whole numbers."""
+    if sum(c.isdigit() for c in text) > 30:
+        raise ValueError("a number of more than 30 digits")
+    return float(text)
+
+
+def no_constant(name):
+    """Python's json reads NaN and Infinity; they are not JSON, and Lake does not read them."""
+    raise ValueError("%s, which is not JSON" % name)
+
+
+def manifest_version(m):
+    """The version of a manifest as Lake 4.33.1 reads it, as (major, minor), or None where Lake refuses it. Lake
+    reads 'version', else 'schemaVersion': a whole number n is 0.n, text is major.minor.patch; below 0.5, or of a
+    major version above 1, it is refused."""
+    v = m["version"] if "version" in m else m.get("schemaVersion")
+    if isinstance(v, int) and not isinstance(v, bool) and v >= 0:
+        ver = (0, v)
+    elif isinstance(v, str) and re.match(r"[0-9]{1,9}\.[0-9]{1,9}\.[0-9]{1,9}(?:-[!-~]+)?\Z", v):
+        ver = tuple(int(x) for x in v.split("-", 1)[0].split(".")[:2])
+    else:
+        return None
+    return ver if (0, 5) <= ver and ver[0] <= 1 else None
+
+
+class TomlStop(Exception):
+    """A lakefile.toml outside the part of TOML that read_lakefile_toml reads."""
+
+
+class TomlInline(dict):
+    """An inline table: nothing can be added to it later."""
+
+
+class TomlHeaderTable(dict):
+    """A table opened by a header: a dotted key in another table cannot add to it."""
+
+
+class TomlTableArray(list):
+    """An array of tables ([[name]] headers)."""
+
+
+TOML_KEY = re.compile(r"[A-Za-z0-9_-]+")
+TOML_NUMBER_OR_BOOL = re.compile(r"(?:[+-]?(?:0|[1-9][0-9]{0,17})|true|false)(?=[ \t\n,\]}#]|\Z)")
+TOML_FORBIDDEN = re.compile("[\x00-\x08\x0b-\x1f\x7f﻿]")
+
+
+def read_lakefile_toml(text):
+    """The document in a lakefile.toml, as (dict, None), or (None, why) for one outside the part of TOML read here.
+
+    Lake reads more of TOML than this; what is read here is what lakefiles are written in, and anything else is
+    refused rather than read in a way that could differ from Lake's. Each line is blank, a comment, a header
+    ([leanOptions], [[require]] or [[lean_lib]]), or key = value, the key bare parts joined by dots. A value is a
+    string in double or single quotes on one line with no backslash in it (so no escape can spell a key or a
+    name), a whole number, true or false, an array of values (over several lines if need be), or an inline table
+    on one line. A key given twice is refused, as Lake refuses it."""
+    text = text.replace("\r\n", "\n")
+    n, root = len(text), {}
+    st = {"pos": 0, "table": root}
+
+    def fail(why):
+        raise TomlStop("line %d: %s" % (text.count("\n", 0, st["pos"]) + 1, why))
+
+    def at(c):
+        return text.startswith(c, st["pos"])
+
+    def ws():
+        while st["pos"] < n and text[st["pos"]] in " \t":
+            st["pos"] += 1
+
+    def comment():
+        if at("#"):
+            e = text.find("\n", st["pos"])
+            st["pos"] = n if e < 0 else e
+
+    def gap():
+        while True:
+            ws()
+            comment()
+            if not at("\n"):
+                return
+            st["pos"] += 1
+
+    def key():
+        parts = []
+        while True:
+            ws()
+            m = TOML_KEY.match(text, st["pos"])
+            if not m:
+                fail("a key that is not bare (letters, digits, '_' and '-' only; quoted keys are not read here): %s"
+                     % ascii(text[st["pos"]:st["pos"] + 30]))
+            parts.append(m.group())
+            st["pos"] = m.end()
+            ws()
+            if not at("."):
+                return parts
+            st["pos"] += 1
+
+    def put(table, parts, v):
+        for p in parts[:-1]:
+            sub = table.get(p)
+            if sub is None:
+                sub = table[p] = {}
+            elif type(sub) is not dict:
+                fail("the key %s is given twice" % ".".join(parts))
+            table = sub
+        if parts[-1] in table:
+            fail("the key %s is given twice" % ".".join(parts))
+        table[parts[-1]] = v
+
+    def value():
+        c = text[st["pos"]] if st["pos"] < n else ""
+        if c in ("\"", "'"):
+            if at(c * 3):
+                fail("a multi-line string")
+            e = text.find(c, st["pos"] + 1)
+            v = text[st["pos"] + 1:e] if e >= 0 else "\n"
+            if "\n" in v:
+                fail("a string with no end on its line")
+            if "\\" in v:
+                fail("a backslash in a string: escapes are not read here, since they could spell a key or a name")
+            st["pos"] = e + 1
+            return v
+        if c == "[":
+            st["pos"] += 1
+            items = []
+            while True:
+                gap()
+                if at("]"):
+                    st["pos"] += 1
+                    return items
+                items.append(value())
+                gap()
+                if at(","):
+                    st["pos"] += 1
+                elif not at("]"):
+                    fail("an array whose values are not separated by commas")
+        if c == "{":
+            st["pos"] += 1
+            t = TomlInline()
+            ws()
+            if at("}"):
+                st["pos"] += 1
+                return t
+            while True:
+                k = key()
+                if not at("="):
+                    fail("a key with no '=' after it")
+                st["pos"] += 1
+                ws()
+                put(t, k, value())
+                ws()
+                if at("}"):
+                    st["pos"] += 1
+                    return t
+                if not at(","):
+                    fail("an inline table that is not key = value pairs separated by commas, on one line")
+                st["pos"] += 1
+        m = TOML_NUMBER_OR_BOOL.match(text, st["pos"])
+        if not m:
+            fail("a value that is not a string, a whole number, true or false, an array or an inline table: %s"
+                 % ascii(text[st["pos"]:st["pos"] + 30]))
+        st["pos"] = m.end()
+        return {"true": True, "false": False}[m.group()] if m.group() in ("true", "false") else int(m.group())
+
+    try:
+        bad = TOML_FORBIDDEN.search(text)
+        if bad:
+            st["pos"] = bad.start()
+            fail("a control character or a byte order mark")
+        while True:
+            gap()
+            if st["pos"] >= n:
+                break
+            if at("[["):
+                st["pos"] += 2
+                name = ".".join(key())
+                if not at("]]"):
+                    fail("a [[ header with no ]] to end it")
+                st["pos"] += 2
+                if name not in ("require", "lean_lib"):
+                    fail("a table [[%s]], which is not one this check knows" % name)
+                arr = root.get(name)
+                if arr is None:
+                    arr = root[name] = TomlTableArray()
+                elif not isinstance(arr, TomlTableArray):
+                    fail("the key %s is given twice" % name)
+                st["table"] = TomlHeaderTable()
+                arr.append(st["table"])
+            elif at("["):
+                st["pos"] += 1
+                name = ".".join(key())
+                if not at("]"):
+                    fail("a [ header with no ] to end it")
+                st["pos"] += 1
+                if name != "leanOptions":
+                    fail("a table [%s], which is not one this check knows" % name)
+                if name in root:
+                    fail("the key %s is given twice" % name)
+                st["table"] = root[name] = TomlHeaderTable()
+            else:
+                k = key()
+                if not at("="):
+                    fail("a line that is neither a header nor key = value")
+                st["pos"] += 1
+                ws()
+                put(st["table"], k, value())
+            ws()
+            comment()
+            if st["pos"] < n:
+                if not at("\n"):
+                    fail("more on the line after the value or header: %s" % ascii(text[st["pos"]:st["pos"] + 30]))
+                st["pos"] += 1
+    except TomlStop as ex:
+        return None, str(ex)
+    except RecursionError:
+        return None, "arrays nested too deeply"
+    return root, None
+
+
+# A part of a Lean name: an identifier (an ASCII letter or '_', then ASCII letters, digits and the characters _'!?,
+# as Lean writes it, with no guillemets), or, as Lake writes a part that is not an identifier ('lake new 2proj math'
+# names its library '«2proj»'), ASCII letters, digits and the characters _'!?+- between guillemets: never a dot or
+# a slash, so that the file of a module stays in its library's directory.
+LEAN_NAME_PART = r"(?:[A-Za-z_][A-Za-z0-9_'!?]*|«[A-Za-z0-9_'!?+-]+»)"
+LEAN_NAME = LEAN_NAME_PART + r"(?:\." + LEAN_NAME_PART + r")*"
+# What each key of a lakefile.toml may hold, by kind, and the keys that may be given at the top, in a requirement
+# and in a library. Lake acts on more keys than these, in ways the scripts do not check, so any other is refused.
+# The address of a git package, in the manifest or in a requirement: https, a host name (and a port or not), then a
+# path of plain parts (ASCII letters, digits and the characters _.~+-), none of them '.' or '..'. git reads an
+# address with no scheme as a directory, which could be one of the archive's own files (a git bundle stored at
+# lean/github.com/leanprover-community/mathlib4), and Lake passes the address to git as it is, before the directory
+# and with no '--'. file://, ssh:// and user@host:path are other ways of fetching, and a user name before the host
+# ('https://github.com@example.com/') makes an address look like another host's. git's https transport (libcurl)
+# takes '.' and '..' parts out of the path before it sends the request, so that
+# 'https://github.com/leanprover-community/mathlib4/../../other/x' fetches github.com/other/x; '%', '?', '#' and
+# empty parts, which a server may read in other ways, are refused too (a closing '/' is allowed). The scheme does not
+# keep git from reading an address as a path: git clone reads it as a path in the directory it runs in first, and
+# 'https://github.com/x/y' is the path https:/github.com/x/y, so project-info refuses a project with a file named
+# https: and 04 clones each package from a directory of its own.
+GIT_URL = re.compile(r"https://[A-Za-z0-9][A-Za-z0-9.-]*(?::[0-9]{1,5})?(?:/(?!\.\.?(?:/|\Z))[A-Za-z0-9_.~+-]+)+/?\Z")
+LAKEFILE_KINDS = {
+    "package": re.compile(r"[A-Za-z0-9_][A-Za-z0-9_-]*\Z"),
+    "target": re.compile(LEAN_NAME + r"\Z"),
+    "module": re.compile(LEAN_NAME + r"\Z"),
+    "glob": re.compile(LEAN_NAME + r"(?:\.[+*])?\Z"),
+    # Arguments to lean that only set a limit or an option (an option of LEAN_OPTIONS_ALLOWED: checked apart).
+    # Others can load a library of native code into lean (--plugin, --load-dynlib) or write files where lean is
+    # told to.
+    "arg": re.compile(r"(?:--(?:tstack|threads|memory|timeout)=[0-9]{1,12}|-D[A-Za-z_][A-Za-z0-9_.]*=[A-Za-z0-9_.-]{1,64})\Z"),
+}
+LAKEFILE_KEYS = {
+    "": {"name": "package", "version": "text", "description": "text", "keywords": "texts", "homepage": "text",
+         "license": "text", "srcDir": "dir", "defaultTargets": "targets", "moreLeanArgs": "args",
+         "weakLeanArgs": "args", "leanOptions": "options", "require": "tables", "lean_lib": "tables"},
+    "require": {"name": "package", "scope": "plain", "git": "url", "rev": "plain", "version": "plain"},
+    "lean_lib": {"name": "target", "srcDir": "dir", "roots": "modules", "globs": "globs", "leanOptions": "options",
+                 "moreLeanArgs": "args", "weakLeanArgs": "args"},
+}
+LAKEFILE_KIND_WORDS = {
+    "text": "is not text", "texts": "is not a list of texts", "plain": "is not printable ASCII text with no space "
+    "in it", "url": "is not an address of the form https://<host>/<path> in printable ASCII, its path of plain parts "
+    "(ASCII letters, digits and the characters _.~+-, none of them '.' or '..')",
+    "package": "is not a package name (letters, digits, "
+    "'_' and '-')", "target": "is not a Lean name of ASCII letters, digits and the characters _'!? (a part may be "
+    "between guillemets)", "targets": "is not a "
+    "list of such names", "modules": "is not a list of module names of ASCII letters, digits and the characters _'!? (a part "
+    "may be between guillemets)",
+    "globs": "is not a list of module names, each with '.+' or '.*' after it or not", "args": "is not a list of "
+    "arguments to lean of the kinds allowed (--tstack, --threads, --memory, --timeout, -D<option>=<value>)",
+    "dir": "is not '.' or a relative directory of plain parts, none starting with a dot", "options": "is not a "
+    "table of Lean options with a string, a whole number, true or false for each", "tables": "is not given as "
+    "[[...]] tables"}
+
+
+# The Lean options a lakefile may set, in leanOptions or with -D, with 'weak.' before them or not: options that only
+# change how sources are elaborated, printed or linted, or a limit. Others are refused, since some do more: sat.solver
+# names a program that lean runs (in any module that uses bv_decide), trace.profiler.output a file that lean
+# writes, and debug.skipKernelTC has declarations added with no check by the kernel. Another option that a project
+# needs can be added here once what it does is known.
+LEAN_OPTIONS_ALLOWED = ("autoImplicit", "relaxedAutoImplicit", "maxHeartbeats", "maxRecDepth", "maxSynthPendingDepth",
+                        "synthInstance.maxHeartbeats", "synthInstance.maxSize", "warningAsError", "Elab.async")
+LEAN_OPTION_PREFIXES_ALLOWED = ("pp.", "linter.", "backward.")
+
+
+def lean_option_names(table):
+    """The options a leanOptions table sets, each as its dotted name (a.b = 1 and a = {b = 1} both set a.b)."""
+    names, stack = [], [(table, "")]
+    while stack:
+        t, prefix = stack.pop()
+        for k, v in t.items():
+            if isinstance(v, dict):
+                stack.append((v, prefix + k + "."))
+            else:
+                names.append(prefix + k)
+    return sorted(names)
+
+
+def lean_option_problem(name):
+    """Why a lakefile may not set the Lean option name, or None."""
+    base = name[len("weak."):] if name.startswith("weak.") else name
+    if base in LEAN_OPTIONS_ALLOWED or base.startswith(LEAN_OPTION_PREFIXES_ALLOWED):
+        return None
+    return ("the Lean option %s, which is not one this check allows: some options make lean run a program, write "
+            "a file or add declarations with no check by the kernel (the ones allowed are LEAN_OPTIONS_ALLOWED in "
+            "rhv_tools.py)" % ascii(name)[:80])
+
+
+def lakefile_dir(d):
+    """A srcDir as Lake joins it to a directory: './src' and 'src/' are the directory src, './' is '.'."""
+    if not isinstance(d, str) or d.startswith("/"):
+        return d
+    while d.startswith("./"):
+        d = d[2:]
+    return d.rstrip("/") or "."
+
+
+def lakefile_value_ok(kind, v):
+    if kind == "text":
+        return isinstance(v, str)
+    if kind == "plain":
+        return isinstance(v, str) and bool(re.match(r"[!-~]+\Z", v))
+    if kind == "url":
+        return isinstance(v, str) and bool(GIT_URL.match(v))
+    if kind in ("package", "target"):
+        return isinstance(v, str) and bool(LAKEFILE_KINDS[kind].match(v))
+    if kind in ("texts", "targets", "modules", "globs", "args"):
+        one = {"texts": None, "targets": "target", "modules": "module", "globs": "glob", "args": "arg"}[kind]
+        return isinstance(v, list) and all(isinstance(x, str) and (one is None or LAKEFILE_KINDS[one].match(x))
+                                           for x in v)
+    if kind == "dir":
+        return plain_dir(lakefile_dir(v)) is not None
+    if kind == "options":
+        stack = [v]
+        while stack:
+            t = stack.pop()
+            if not isinstance(t, dict):
+                return False
+            for x in t.values():
+                if isinstance(x, dict):
+                    stack.append(x)
+                elif not isinstance(x, (str, int)):
+                    return False
+        return True
+    if kind == "tables":
+        return isinstance(v, TomlTableArray)
+    return False
+
+
+def lakefile_problems(doc, src_dir, dependencies):
+    """Why a lakefile.toml, as read_lakefile_toml read it, is refused: a list of reasons, empty if there are none.
+
+    Lake builds and runs what a lakefile declares, and 03 reads only the sources under src_dir (TGT_SRC_DIR). So the
+    lakefile may declare libraries and requirements and nothing else, with only the keys of LAKEFILE_KEYS: an
+    executable, for one, is built and run by its name, and one called cache would be run by 'lake exe cache get' in
+    place of Mathlib's. Each library's sources must lie under src_dir. And the package may not take the name of a
+    package it depends on: Lake would then leave that package out and use this one's code in its place (with the
+    name mathlib, 'lake exe mathlib/cache' too)."""
+    problems = []
+    src = "." if src_dir in (".", "") else src_dir.rstrip("/")
+
+    def check(where, table, keys):
+        for k, v in table.items():
+            kind = keys.get(k)
+            if kind is None:
+                problems.append("%sa key %s, which is not one this check knows what Lake does with" % (where, ascii(k)))
+            elif not lakefile_value_ok(kind, v):
+                problems.append("%s%s %s" % (where, k, LAKEFILE_KIND_WORDS.get(kind, "is not allowed")))
+            else:
+                options = (lean_option_names(v) if kind == "options" else
+                           [x[2:].split("=", 1)[0] for x in v if x.startswith("-D")] if kind == "args" else [])
+                for o in options:
+                    why = lean_option_problem(o)
+                    if why:
+                        problems.append("%s%s sets %s" % (where, k, why))
+
+    check("", doc, LAKEFILE_KEYS[""])
+    taken = {re.sub("[«»]", "", d).lower() for d in dependencies}
+    reqs = doc.get("require") if isinstance(doc.get("require"), TomlTableArray) else []
+    req_names = []
+    for i, r in enumerate(reqs, 1):
+        check("requirement %d: " % i, r, LAKEFILE_KEYS["require"])
+        if isinstance(r.get("name"), str):
+            req_names.append(r["name"])
+    for name in sorted({x for x in req_names if req_names.count(x) > 1}):
+        problems.append("two requirements named %s" % ascii(name))
+    taken |= {x.lower() for x in req_names}
+    name = doc.get("name")
+    if isinstance(name, str) and name.lower() in taken:
+        problems.append("the package is named %s, as a package it depends on is: Lake would leave that package out "
+                        "and use this one's code in its place" % ascii(name))
+    top = plain_dir(lakefile_dir(doc.get("srcDir", ".")))
+    libs = doc.get("lean_lib") if isinstance(doc.get("lean_lib"), TomlTableArray) else []
+    for i, lib in enumerate(libs, 1):
+        where = "library %d (%s): " % (i, ascii(lib.get("name"))[:60])
+        check(where, lib, LAKEFILE_KEYS["lean_lib"])
+        sub = plain_dir(lakefile_dir(lib.get("srcDir", ".")))
+        if top is None or sub is None:
+            continue                        # refused above
+        parts = [p for p in (top + "/" + sub).split("/") if p != "."]
+        lib_dir = "/".join(parts) or "."
+        if not (src == "." or lib_dir == src or lib_dir.startswith(src + "/")):
+            problems.append("%sits sources are in %s, not under %s, the directory 03 reads (TGT_SRC_DIR)"
+                            % (where, lib_dir, src))
+    return problems
+
+
+LEAN_ID_PART = re.compile(r"[A-Za-z_][A-Za-z0-9_'!?]*")
+
+
+def manifest_name_problem(name):
+    """Why a package name in the manifest is not written as Lake writes it, or None; for a name of printable ASCII
+    and guillemets (others are refused as values).
+
+    Lake reads a name as Lean does: parts separated by dots, each an identifier, a number, or anything but a '»'
+    between '«' and '»', which are dropped. So '«mathlib»' is the name mathlib, and a manifest could give
+    mathlib twice, in two spellings, where a check that compares the text would see two packages and report the
+    revision of the one Lake does not use. Lake writes guillemets only around a part that is not an identifier,
+    and a number with no zero before it; a name written in any other way is refused, so that the text of each
+    name that is accepted is the name Lake reads. Between guillemets only ASCII letters, digits and the characters
+    _'!?+- are accepted, as in a lakefile's names: Lake keeps a package in the directory .lake/packages/<name>, the
+    name with its guillemets dropped, with no check that this is one directory there ('«../x»' would be outside
+    it, and so would the clone 04 makes)."""
+    i, n = 0, len(name)
+    while True:
+        if name.startswith("«", i):
+            j = name.find("»", i + 1)
+            if j < 0:
+                return "a '«' with no '»' after it: Lake cannot read it"
+            if not re.fullmatch(r"[A-Za-z0-9_'!?+-]+", name[i + 1:j]):
+                return ("a part between guillemets that is empty or has something other than ASCII letters, digits "
+                        "and the characters _'!?+- in it (%s): Lake keeps a package in .lake/packages/<its name>, and with a '/' or a "
+                        "'.' that need not be one directory there" % ascii(name[i:j + 1])[:40])
+            if LEAN_ID_PART.fullmatch(name, i + 1, j):
+                return ("guillemets around %s, which Lake writes without them: it reads the name as %s"
+                        % (name[i + 1:j], name[:i] + name[i + 1:j] + name[j + 1:]))
+            i = j + 1
+        else:
+            m = LEAN_ID_PART.match(name, i) or re.compile("[0-9]+").match(name, i)
+            if not m:
+                return "a part that is not an identifier, a number or between guillemets: Lake cannot read it"
+            if m.group()[0] == "0" and len(m.group()) > 1:
+                return "a number with a zero before it (%s), which Lake writes without it" % m.group()
+            i = m.end()
+        if i == n:
+            return None
+        if name[i] != ".":
+            return ("a part that is not an identifier, a number or between guillemets (from %s on): Lake cannot read it"
+                    % ascii(name[i:])[:40])
+        if i + 1 == n:
+            return "a dot at its end: Lake cannot read it"
+        i += 1
+
+
 def cmd_project_info(a):
     proj = a.project
     files = ["lakefile.toml", "lake-manifest.json", "lean-toolchain"]
@@ -1015,34 +2046,141 @@ def cmd_project_info(a):
     if missing:
         print("project files missing: " + ", ".join(missing))
         return 1
-    with open(os.path.join(proj, "lean-toolchain"), encoding="utf-8") as fh:
-        toolchain = fh.read().strip()
-    manifest = load_json(os.path.join(proj, "lake-manifest.json"))
-    packages = {p.get("name"): p.get("rev") for p in manifest.get("packages", [])}
+    if a.src_dir != "." and dir_arg_problem(a.src_dir, False):
+        return usage_error("project-info", "--src-dir %r %s" % (a.src_dir, dir_arg_problem(a.src_dir, False)))
+    # Each file is read once, as bytes: its SHA-256 is that of what was read. A file that is not UTF-8 text, or a
+    # manifest that is not JSON this reads, is refused here, not left to fail as a fault of this tool.
+    raw, text = {}, {}
+    for f in files:
+        with open(os.path.join(proj, f), "rb") as fh:
+            raw[f] = fh.read()
+        try:
+            text[f] = raw[f].decode("utf-8").replace("\r\n", "\n")
+        except UnicodeDecodeError as ex:
+            print("REFUSED: %s is not UTF-8 text (%s)" % (f, ex))
+            return 1
+    toolchain = text["lean-toolchain"].rstrip("\n")         # whitespace or a control byte elsewhere is refused
+    try:
+        manifest = json.loads(text["lake-manifest.json"], parse_int=short_int, parse_float=short_float,
+                              parse_constant=no_constant)
+        too_deep = json_too_deep(manifest, MAX_MANIFEST_DEPTH)
+    except RecursionError:
+        too_deep = True
+    except ValueError as ex:
+        print("REFUSED: lake-manifest.json is not JSON that can be read (%s)" % str(ex)[:200])
+        return 1
+    if too_deep:
+        print("REFUSED: lake-manifest.json nests its values more than %d deep; Lake writes three levels"
+              % MAX_MANIFEST_DEPTH)
+        return 1
+    # The packages, as Lake writes them: an object with a list "packages" of objects, each with its name, type
+    # ("git" or "path"), revision and address or directory. Lake reads the form of the manifest's own version: from
+    # version 7 each package is such an object, and before it each is {"git": {...}} or {"path": {...}}. A
+    # manifest with no version Lake reads, or with a package in the other form, is refused: Lake stops at it, and
+    # what is printed below could not show what it would read. Lake also stops at a manifest that is missing a
+    # field it needs, and then fetches nothing; that is not checked here.
+    entries = manifest.get("packages") if isinstance(manifest, dict) else None
+    if not isinstance(entries, list) or not all(isinstance(p, dict) for p in entries):
+        print("REFUSED: lake-manifest.json is not an object whose \"packages\" is a list of objects, the form Lake "
+              "writes; what it names cannot be shown")
+        return 1
+    ver = manifest_version(manifest)
+    if ver is None:
+        given = manifest["version"] if "version" in manifest else manifest.get("schemaVersion")
+        print("REFUSED: lake-manifest.json gives no version that Lake reads (version %s); Lake stops at it, and what "
+              "it would read cannot be shown" % ascii(given)[:60])
+        return 1
+    pkgs = []
+    for p in entries:
+        tagged = len(p) == 1 and list(p)[0] in ("git", "path") and isinstance(p[list(p)[0]], dict)
+        if tagged != (ver < (0, 7)):
+            print("REFUSED: lake-manifest.json is of version %d.%d, and a package in it is in the form Lake writes %s "
+                  "version 7; Lake reads only the form of the manifest's own version and stops at the other, so "
+                  "what it would read cannot be shown" % (ver[0], ver[1], "before" if tagged else "from"))
+            return 1
+        pkgs.append(dict(p[list(p)[0]], type=list(p)[0]) if tagged else p)
+    # Keyed by name; a name that is not text is keyed by its escaped form (and refused below).
+    packages = {(p.get("name") if isinstance(p.get("name"), str) else ascii(p.get("name"))): p.get("rev") for p in pkgs}
     mathlib = packages.get("mathlib")
-    with open(os.path.join(proj, "lakefile.toml"), encoding="utf-8") as fh:
-        lakefile = fh.read()
-    # The lakefile's own pin, read with a narrow pattern: the `rev` of the requirement named mathlib.
-    m = re.search(r'\[\[require\]\]\s*(?:[^\[]*?\n)?\s*name\s*=\s*"mathlib"[^\[]*?\brev\s*=\s*"([^"]+)"', lakefile)
-    lakefile_rev = m.group(1) if m else None
-    hashes = {f: sha256_file(os.path.join(proj, f)) for f in files}
+    # Lake records the revision a requirement names (a tag, a branch or a commit) as the entry's inputRev, and the
+    # commit it resolved to as its rev, and checks out the rev. Of two entries of one name it keeps the last.
+    mathlib_input = next((p.get("inputRev", p.get("inputRev?")) for p in reversed(pkgs) if p.get("name") == "mathlib"),
+                         None)
+    lakefile = text["lakefile.toml"]
+    # The lakefile's own pin: the `rev` of the requirement named mathlib, from the document as read_lakefile_toml
+    # reads it, or, where it reads no document (the lakefile is then refused below), with a narrow pattern.
+    doc, toml_problem = read_lakefile_toml(lakefile)
+    if doc is not None:
+        reqs = doc.get("require") if isinstance(doc.get("require"), TomlTableArray) else []
+        revs = [r.get("rev") for r in reqs if r.get("name") == "mathlib"]
+        lakefile_rev = revs[0] if revs else None
+    else:
+        m = re.search(r'\[\[require\]\]\s*(?:[^\[]*?\n)?\s*name\s*=\s*"mathlib"[^\[]*?\brev\s*=\s*"([^"]+)"', lakefile)
+        lakefile_rev = m.group(1) if m else None
+    hashes = {f: hashlib.sha256(raw[f]).hexdigest() for f in files}
 
-    print("lean-toolchain:              %s" % toolchain)
-    print("Mathlib revision (manifest): %s" % mathlib)
-    print("Mathlib revision (lakefile): %s" % lakefile_rev)
+    # Every value printed below comes from the archive, and a reader is asked to judge what is printed. So a value
+    # that is not printable ASCII is shown escaped and quoted, and refused: control characters could hide or
+    # rewrite what follows them on a terminal; other characters can look blank (U+2800, U+3164) or like ASCII
+    # letters (a host 'gіthub.com'). A value with a space in it is refused too: it could pass for two values,
+    # or for the note printed after an address. No toolchain, revision or address needs such characters, and no
+    # package name but for the guillemets Lake puts around a part that is not an identifier ('«doc-gen4»'), which
+    # a name may have around printable ASCII. The directory of a path package may have a space in it: it is shown
+    # quoted (and a path package is refused below). A name, or a git package's address or revision, that is
+    # missing or is not text is refused (a package with no type is refused below); the directory of a path
+    # package, and the Mathlib revisions, may be missing, and are then shown as None.
+    escaped, escaped_seen, n_refused = [], set(), [0]
+
+    def plain(v, space_ok=False, missing_ok=False, name=False):
+        if v is None and missing_ok:
+            return "None"
+        if isinstance(v, str) and re.match(r"[!-~]+\Z", v):
+            return v
+        if name and isinstance(v, str) and re.match("(?:[!-~]|«[!-~]+?»)+\\Z", v):
+            return v
+        if isinstance(v, str) and space_ok and re.match(r"[ -~]+\Z", v) and v.strip(" ") == v:
+            return repr(v)
+        n_refused[0] += 1
+        key = ascii(v)[:80]
+        if key not in escaped_seen:
+            escaped_seen.add(key)
+            escaped.append(key)
+        return ascii(v)
+
+    print("lean-toolchain:              %s" % plain(toolchain))
+    print("Mathlib revision (manifest): %s" % plain(mathlib, missing_ok=True))
+    print("Mathlib revision (lakefile): %s%s" % (plain(lakefile_rev, missing_ok=True),
+                                                  " (the manifest's inputRev: Lake checks out the commit above)"
+                                                  if lakefile_rev and lakefile_rev == mathlib_input != mathlib else ""))
     print("packages in the manifest:    %d" % len(packages))
-    for name in sorted(packages, key=str.lower):
-        print("  %-18s %s" % (name, packages[name]))
+    for p in sorted(pkgs, key=lambda p: ascii(p.get("name")).lower()):
+        print("  %-18s %s" % (plain(p.get("name"), name=True),
+                              plain(p.get("rev"), missing_ok=p.get("type", "git") != "git")))
     for f in files:
         print("sha256 %-20s %s" % (f, hashes[f]))
+    # Where each package comes from is read whether it is to be printed or not, so that an address that is
+    # missing or not plain is refused either way; without --show-urls only the refused ones are printed (02 lists
+    # them all for every target but the default one, whose archive is pinned).
+    wheres = []
+    for p in sorted(pkgs, key=lambda p: ascii(p.get("name")).lower()):
+        name = plain(p.get("name"), name=True)      # before the count: a refused name is not a refused address
+        before = n_refused[0]
+        git = p.get("type", "git") == "git"
+        where = (plain(p.get("url")) if git
+                 else "%s %s" % (plain(p.get("type")), plain(p.get("dir"), space_ok=True, missing_ok=True)))
+        not_https = git and isinstance(p.get("url"), str) and where == p["url"] and not GIT_URL.match(where)
+        wheres.append((name, where, n_refused[0] > before or not_https))
+    if not a.show_urls and any(refused for _, _, refused in wheres):
+        print("addresses and directories refused (--show-urls lists every one):")
+        for name, where, refused in wheres:
+            if refused:
+                print("  %-18s %s" % (name, where))
     if a.show_urls:
         # Step 04 runs code these files choose, with the rights of whoever runs it: elan installs and runs the
-        # toolchain lean-toolchain names, and Lake clones every package from its address, runs its lakefile and
-        # builds and runs Mathlib's cache tool. So where they come from is printed for a reader to judge.
-        # The values come from the archive: anything but plain printable text is shown escaped and quoted.
-        def plain(v):
-            v = str(v)
-            return v if v and v.isprintable() and " " not in v else repr(v)
+        # toolchain lean-toolchain names, 04 clones every package from its address, Lake runs its lakefile, builds
+        # and runs Mathlib's cache tool (named by its package), and builds the libraries lakefile.toml declares
+        # (checked below: their sources are the ones 03 reads). So where they come from is printed for a reader
+        # to judge.
         origin = toolchain.split(":", 1)[0] if ":" in toolchain else None
         print("where step 04 fetches and runs code from (read these before running it):")
         if origin is None:
@@ -1050,14 +2188,160 @@ def cmd_project_info(a):
         else:
             print("  %-18s %s%s" % ("toolchain", plain(origin),
                                     "" if origin == "leanprover/lean4" else "   <- NOT leanprover/lean4"))
-        for p in sorted(manifest.get("packages", []), key=lambda p: str(p.get("name")).lower()):
-            where = (plain(p.get("url")) if p.get("type", "git") == "git"
-                     else "%s %s" % (plain(p.get("type")), plain(p.get("dir"))))
-            print("  %-18s %s" % (plain(p.get("name")), where))
+        for name, where, _ in wheres:
+            print("  %-18s %s" % (name, where))
+        # Lake would also download a prebuilt build of a package (from Reservoir for the scopes leanprover and
+        # leanprover-community, or from the package's GitHub releases) where its build directory is missing, but
+        # the scripts run every Lake with LAKE_NO_CACHE=1 (lib.sh), so it does not.
+
+    # Where Lake would read a package's own files from, and where it would put the packages.
+    manifest_problems = []
+    if "packagesDir" in manifest and manifest["packagesDir"] != MANIFEST_PACKAGES_DIR:
+        manifest_problems.append("packagesDir is %s: Lake puts the packages there, a directory joined to the "
+                                 "project's with no check that it stays inside it; Lake writes %s"
+                                 % (ascii(manifest["packagesDir"])[:80], MANIFEST_PACKAGES_DIR))
+    for p in sorted(pkgs, key=lambda p: ascii(p.get("name")).lower()):
+        who = "the package %s" % ascii(p.get("name"))[:60]
+        if p.get("type", "git") != "git":
+            manifest_problems.append(
+                "%s is a %s package: Lake runs the lakefile in its directory, code that nothing here reads"
+                % (who, ascii(p.get("type"))[:20]) if p.get("type") == "path" else
+                "%s is of type %s, which Lake does not read" % (who, ascii(p.get("type"))[:40]))
+            continue
+        if "type" not in p:
+            manifest_problems.append("%s has no type: Lake stops at a package with none" % who)
+        rev, url = p.get("rev"), p.get("url")
+        # Lake reads only 40 lowercase hexadecimal digits as a commit (Util/Git.lean, isFullSha1). Even then git's
+        # checkout prefers a branch of that name, which a clone has when it is the remote's default branch, and Lake
+        # does not compare what it checked out with the manifest. So 04 clones each git package itself before Lake
+        # runs, and checks out <hash>^{commit}, which no branch can stand for; Lake then finds it at that commit.
+        if isinstance(rev, str) and re.match(r"[!-~]+\Z", rev) and not re.match(r"[0-9a-f]{40}\Z", rev):
+            manifest_problems.append("%s has the revision %s, which is not a full commit hash: Lake writes there the "
+                                     "commit it checked out, and resolves any other revision against the package's "
+                                     "address (as a branch or tag of that name first) each time it fetches the "
+                                     "package, so the files would not name the commit it checks out" % (who, rev[:60]))
+        if isinstance(url, str) and re.match(r"[!-~]+\Z", url) and not GIT_URL.match(url):
+            manifest_problems.append("%s has the address %s, which is not of the form https://<host>/<path> with "
+                                     "a path of plain parts: Lake passes the address to git as it is, and git reads "
+                                     "one with no scheme as a directory (which could be a file of the archive), "
+                                     "fetches from file://, ssh:// and user@host:path in other ways, from the host "
+                                     "after a user name ('https://github.com@example.com/') rather than the one it "
+                                     "seems to name, and from the path left once '.' and '..' parts are taken out "
+                                     "('.../mathlib4/../../other/x' is other/x)" % (who, url[:100]))
+        if "configFile" in p and p["configFile"] not in MANIFEST_CONFIG_FILES:
+            manifest_problems.append("%s has the configFile %s: Lake reads the package's lakefile from there, joined to "
+                                     "its directory with no check that it stays inside it; Lake writes lakefile, "
+                                     "lakefile.lean or lakefile.toml" % (who, ascii(p["configFile"])[:80]))
+        if "manifestFile" in p and p["manifestFile"] != MANIFEST_FILE:
+            manifest_problems.append("%s has the manifestFile %s; Lake writes %s"
+                                     % (who, ascii(p["manifestFile"])[:80], MANIFEST_FILE))
+        for k in ("subDir", "subDir?"):
+            if p.get(k) is not None and plain_dir(p[k]) is None:
+                manifest_problems.append("%s has the %s %s: Lake takes the package from that directory of its "
+                                         "clone, with no check that it stays inside it; it must be a relative "
+                                         "directory of plain parts, none starting with a dot" % (who, k, ascii(p[k])[:80]))
+            elif p.get(k) not in (None, "."):
+                manifest_problems.append("%s has the %s %s: Lake would take the package from that directory of its "
+                                         "clone, and these scripts take each package from the top of its clone, "
+                                         "where 04 looks for a prebuilt build Lake downloaded" % (who, k, ascii(p[k])[:80]))
+    names = [p["name"] for p in pkgs if isinstance(p.get("name"), str)]
+    for name in sorted(set(names), key=str.lower):
+        why = manifest_name_problem(name) if plain(name, name=True) == name else None   # others are refused as values
+        if why:
+            manifest_problems.append("the package name %s has %s" % (ascii(name)[:60], why))
+        if names.count(name) > 1:
+            manifest_problems.append("two packages are named %s: Lake uses the last" % ascii(name)[:60])
+    # Lake keeps a package in .lake/packages/<its name with the guillemets dropped>, so two names Lake reads as two
+    # (1, a number, and 1 between guillemets, a string) can be kept in one directory, and on a file system that ignores
+    # case (APFS and NTFS do by default) so can mathlib and Mathlib: 04 would clone one and find it there for the other.
+    # And 04 clones a package as .lake/packages/.<directory>.rhv-partial, which must fit in a directory name.
+    pdirs = {}
+    for name in sorted(set(names)):
+        pd = name.replace("\xab", "").replace("\xbb", "")
+        pdirs.setdefault(pd.lower(), []).append(name)
+        if len(pd.encode("utf-8", "surrogatepass")) > 242:
+            manifest_problems.append("the package name %s... is longer than 242 characters: 04 clones the package as "
+                                     ".lake/packages/.<name>.rhv-partial, which would be longer than a directory "
+                                     "name can be" % ascii(name)[:60])
+    for pd in sorted(pdirs):
+        if len(pdirs[pd]) > 1:
+            manifest_problems.append("the packages %s would be kept in one directory of .lake/packages: Lake drops "
+                                     "the guillemets, and the file system may not tell upper from lower case"
+                                     % " and ".join(ascii(x)[:60] for x in pdirs[pd]))
+    if "mathlib" not in names:
+        manifest_problems.append("no package is named mathlib: these scripts build against Mathlib, and fetch its "
+                                 "cache with 'lake exe mathlib/cache get'")
+    # git clone reads an address as a path in the directory it runs in before it reads it as an address (clone.c,
+    # get_repo_path, with '/.git', '.git' or '.bundle' after it or not): 'https://github.com/x/y' is the path
+    # https:/github.com/x/y. Lake runs git in the project's directory, so that a repository or a git bundle the archive
+    # puts there would be cloned in place of the address shown. Every address accepted starts with https:.
+    if os.path.lexists(os.path.join(proj, "https:")):
+        manifest_problems.append("the project has a file or directory named https:, the start of every package's "
+                                 "address: git clone reads an address as a path in the directory it runs in before it "
+                                 "fetches anything ('https://github.com/x/y' is the path https:/github.com/x/y), and "
+                                 "Lake runs it in the project's directory, so a repository or git bundle there would "
+                                 "be cloned in place of the address shown")
+    # elan reads the line as <origin>:<release>, with the origin leanprover/lean4 when none is given, and puts a 'v'
+    # before a release that starts with a digit (4.33.1 is v4.33.1, as Lake writes the line when no elan runs it).
+    # A release that is not a tag is refused: elan fetches a nightly from another repository than the one named (the
+    # origin with '-nightly' after it), resolves stable, beta and nightly over the network, and runs a toolchain
+    # linked under another name from wherever it was linked; it fetches and installs such a toolchain as soon as 04
+    # asks it which lean it would run, before 04 can compare anything. elan 4.2 also reads the line as a path in the project first, a release tag included, and runs
+    # <line>/bin/lean if the project has one, so that the archive's own lean, lake and leanchecker would be run: a
+    # project with a file or directory named as the line's first part is refused (04 checks which lean elan chose),
+    # and so is an origin that is not <owner>/<repository> as elan reads one. (A line that is not printable ASCII is
+    # refused above.)
+    origin, release = toolchain.split(":", 1) if ":" in toolchain else (None, toolchain)
+    toolchain_problems = []
+    if re.match(r"[!-~]+\Z", toolchain):
+        if origin is not None and not re.match(r"[A-Za-z0-9_-]+/[A-Za-z0-9_-]+\Z", origin):
+            toolchain_problems.append("it names the origin %s, which is not <owner>/<repository> of ASCII letters, "
+                                      "digits, '_' and '-': elan reads such a line as a path, or not at all"
+                                      % origin[:60])
+        if not re.match(r"v?[0-9]+\.[0-9]+\.[0-9]+(?:-rc[0-9]+)?\Z", release):
+            toolchain_problems.append("it names the release %s, which is not a release tag (v<major>.<minor>.<patch>, "
+                                      "with -rc<n> after it or not, the 'v' optional): elan fetches a nightly from "
+                                      "another repository than the one named, resolves stable, beta and nightly over "
+                                      "the network and runs a linked toolchain from wherever it is, and it would fetch "
+                                      "and install such a toolchain as soon as 04 asked it which lean it would run"
+                                      % release[:60])
+        first = toolchain.split("/", 1)[0]
+        if first and os.path.lexists(os.path.join(proj, first)):
+            toolchain_problems.append("the project has a file or directory named %s, the start of the line: elan 4.2 "
+                                      "reads the line as a path in the project first, and runs <line>/bin/lean from "
+                                      "there if there is one, in place of the release" % first[:60])
+    lakefile_refused = [toml_problem] if toml_problem else lakefile_problems(doc, a.src_dir, names)
+    if not toml_problem:
+        # Lake stops at a requirement the manifest has no entry for; what it would fetch for it is not listed.
+        given = {re.sub("[«»]", "", x) for x in names}
+        for r in doc.get("require") if isinstance(doc.get("require"), TomlTableArray) else []:
+            if isinstance(r.get("name"), str) and r["name"] not in given:
+                lakefile_refused.append("the requirement %s has no entry in lake-manifest.json: Lake stops at it, "
+                                        "and where it would fetch it from is not listed" % ascii(r["name"])[:60])
 
     status = 0
-    if lakefile_rev and mathlib and lakefile_rev != mathlib:
-        print("WARNING: the lakefile and the manifest name different Mathlib revisions")
+    if escaped:
+        print("REFUSED: %d value(s) in the project files are missing, are not printable ASCII text, or have a space "
+              "in them, and are shown quoted and escaped above (first: %s); no toolchain, revision or address needs "
+              "such characters, nor any package name but for the guillemets Lake puts around a part of one that is "
+              "not an identifier"
+              % (len(escaped), escaped[0]))
+        status = 1
+    for why in toolchain_problems:
+        print("REFUSED: lean-toolchain: " + why)
+    for why in manifest_problems[:10]:
+        print("REFUSED: lake-manifest.json: " + why)
+    for why in lakefile_refused[:10]:
+        print("REFUSED: lakefile.toml: " + why)
+    for f, more in (("lake-manifest.json", manifest_problems[10:]), ("lakefile.toml", lakefile_refused[10:])):
+        if more:
+            print("REFUSED: %s: %d more" % (f, len(more)))
+    if toolchain_problems or manifest_problems or lakefile_refused:
+        status = 1
+    if isinstance(lakefile_rev, str) and lakefile_rev and mathlib and lakefile_rev not in (mathlib, mathlib_input):
+        print("WARNING: the lakefile and the manifest name different Mathlib revisions (the manifest's entry was "
+              "made from the revision %s)" % (mathlib_input if isinstance(mathlib_input, str)
+                                              and re.match(r"[!-~]+\Z", mathlib_input) else ascii(mathlib_input)[:60]))
         status = 1
     summary = {"lean_toolchain": toolchain, "mathlib_rev": mathlib, "packages": packages, "sha256": hashes}
     exp = (load_json(a.expected) or {}).get("project")
@@ -2307,7 +3591,8 @@ def main():
     p.add_argument("--prefix", required=True, help="put this in front of every name in the tar file; ends with a slash")
     p.add_argument("--out", required=True, help="the tar file to write (not compressed)")
     p.add_argument("--max-files", type=int, default=MAX_EXPORT_FILES,
-                   help="refuse a commit with more files than this (default %d)" % MAX_EXPORT_FILES)
+                   help="refuse a commit with more entries than this, files and directories, a directory counted "
+                        "each time it is named (default %d)" % MAX_EXPORT_FILES)
     p.add_argument("--max-bytes", type=int, default=MAX_EXPORT_BYTES,
                    help="refuse a commit whose files hold more bytes than this (default %d)" % MAX_EXPORT_BYTES)
     p.set_defaults(fn=cmd_git_export)
@@ -2338,6 +3623,9 @@ def main():
     p.add_argument("--show-urls", action="store_true",
                    help="also print where lean-toolchain and every package in lake-manifest.json come from, which "
                         "step 04 fetches and runs (02 passes this for any target but the default one)")
+    p.add_argument("--src-dir", default="src",
+                   help="the project's directory of Lean sources (TGT_SRC_DIR), which 03 reads: every library "
+                        "lakefile.toml declares must have its sources under it ('.' for the project directory)")
     p.set_defaults(fn=cmd_project_info)
 
     protected_help = "names the source should not declare for itself, separated by spaces"

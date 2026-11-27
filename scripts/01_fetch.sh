@@ -249,8 +249,8 @@ fetch_git_source() {
     echo "  $RH_TARBALL_SHA256" >&2
     echo "The same commit, subdirectory and prefix always give the same file, so one of them is not" >&2
     echo "what it was when that value was recorded, or the clone or the tool that writes the file" >&2
-    echo "has changed since. Nothing was removed: the file is $RH_TARBALL" >&2
-    echo "and the clone is $RH_GIT_DIR." >&2
+    echo "has changed since. The file just written is kept at $RH_TARBALL (no .sha256 file" >&2
+    echo "was written for it, and any from an earlier run was removed), and the clone at $RH_GIT_DIR." >&2
     exit 1
   fi
   printf '%s  %s\n' "$h" "$(basename "$RH_TARBALL")" > "$RH_TARBALL.sha256"
