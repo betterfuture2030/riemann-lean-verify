@@ -1,0 +1,34 @@
+== Required tools
+  ok       curl       /usr/bin/curl
+  ok       tar        /usr/bin/tar
+  ok       git        /usr/bin/git
+  ok       python3    /usr/bin/python3
+  ok       awk        /usr/bin/awk
+  ok       find       /usr/bin/find
+  ok       xargs      /usr/bin/xargs
+  ok       sha256     /usr/bin/sha256sum
+== Lean tools
+2026-11-27 18:36:56  downloading the elan installer from https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh
+2026-11-27 18:36:56  running /mnt/work/w/download/elan-init.sh (no default toolchain; step 04 installs the pinned one)
+info: downloading installer
+  ok       elan       <HOME>/.elan/bin/elan (elan 4.4.0 (3cc76985a 2026-11-18))
+  ok       lake       <HOME>/.elan/bin/lake
+== Optional tools
+  absent   rg         optional: ripgrep makes the source audit (step 03) much faster; grep is used otherwise
+== Machine
+  system:            Linux x86_64, bash 5.2.21(1)-release
+  CPU cores:         8
+  memory:            31 GB
+  open-file limit:   1048576 (hard limit: 1048576)
+  memory-map limit:  1048576
+  work directory:    /mnt/work/w
+  free disk there:   97 GB
+  recommended RH_JOBS: 8   (min(cores, (memory_GB - 8) / 2), at least 1)
+  configured RH_JOBS:  (not set; the recommended value will be used)
+== Disk space
+  The sizes of target 'grh-compact' are not known to this script, so the free space shown above
+  is compared with nothing: what the download, the extraction and the build need depends on
+  the archive. The sizes given in docs/ are the default target's (alpoge-rh); for that target,
+  Mathlib and its cache alone take about 8 GB.
+
+RESULT: all required tools are present.

@@ -1,0 +1,99 @@
+{
+ "allowed_axioms": [
+  "propext",
+  "Classical.choice",
+  "Quot.sound"
+ ],
+ "check": "axioms and statement",
+ "checks": {
+  "statement_is_constant_RiemannHypothesis": {
+   "subject": "rootDiscr_pos",
+   "value": false
+  }
+ },
+ "compiled_modules": 4,
+ "deep_walk": {
+  "axiom_count": null,
+  "axioms": [],
+  "missing": [],
+  "module_count": null,
+  "requested": false,
+  "visited": null
+ },
+ "defining_modules": {
+  "DirichletCharacter.LFunction": "Mathlib.NumberTheory.LSeries.DirichletContinuation",
+  "RiemannHypothesis": "Mathlib.NumberTheory.LSeries.RiemannZeta",
+  "riemannZeta": "Mathlib.NumberTheory.LSeries.RiemannZeta"
+ },
+ "definitions": {
+  "RiemannHypothesis": "∀ (s : ℂ), riemannZeta s = 0 → (¬∃ n, s = -2 * (↑n + 1)) → s ≠ 1 → s.re = 1 / 2"
+ },
+ "failures": [
+  "rootDiscr_pos: its conclusion is not exactly the constant RiemannHypothesis"
+ ],
+ "lean_exit_status": 0,
+ "lean_version": "4.35.0",
+ "log_file": "axioms-probe-20261127-183859.log",
+ "mode": "probe",
+ "primary_theorem": "rootDiscr_pos",
+ "run_utc": "2026-11-27T18:39:02Z",
+ "source_id": "https://github.com/lsernau/grh-lean commit 72fead102f663d5c7a407964a13dc0cf9d977207 directory grh-compact",
+ "source_modules": 794,
+ "tarball_sha256": "c4cf2fabe540f758dd8637b5f3aeaed85f840b0829db3ef3c3b45a48abde91a2",
+ "target": "grh-compact",
+ "theorems": {
+  "rootDiscr_pos": {
+   "axiom_count": 3,
+   "axioms": [
+    "propext",
+    "Classical.choice",
+    "Quot.sound"
+   ],
+   "axioms_within_allowed": true,
+   "declared_in": "Lib.General.Analysis.ZpowSum",
+   "kind": "theorem",
+   "present": true,
+   "statement_library_constants": [
+    {
+     "module": "Mathlib.NumberTheory.NumberField.Discriminant.Basic",
+     "name": "NumberField.rootDiscr"
+    },
+    {
+     "module": "Mathlib.Basic.Real.Basic",
+     "name": "Real.instZero"
+    },
+    {
+     "module": "Init.Data.Zero",
+     "name": "Zero.toOfNat0"
+    },
+    {
+     "module": "Init.Prelude",
+     "name": "OfNat.ofNat"
+    },
+    {
+     "module": "Mathlib.Basic.Real.Basic",
+     "name": "Real.instLT"
+    },
+    {
+     "module": "Mathlib.Basic.Real.Basic",
+     "name": "Real"
+    },
+    {
+     "module": "Init.Prelude",
+     "name": "LT.lt"
+    },
+    {
+     "module": "Mathlib.NumberTheory.NumberField.Basic",
+     "name": "NumberField"
+    },
+    {
+     "module": "Mathlib.Algebra.Field.Defs",
+     "name": "Field"
+    }
+   ],
+   "statement_project_constants": [],
+   "type": "∀ (K : Type u_1) [inst : Field K] [inst_1 : NumberField K], 0 < NumberField.rootDiscr K"
+  }
+ },
+ "verdict": "FAIL"
+}

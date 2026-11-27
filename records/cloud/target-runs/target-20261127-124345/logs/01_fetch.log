@@ -1,0 +1,11 @@
+2026-11-27 18:44:55  work directory: /mnt/work/w
+2026-11-27 18:44:55  cloning https://github.com/lsernau/grh-lean into /mnt/work/w/download/repo.git (nothing is checked out)
+2026-11-27 18:45:00  the clone holds commit 72fead102f663d5c7a407964a13dc0cf9d977207
+2026-11-27 18:45:00  writing the files of that commit under grh-compact/ to /mnt/work/w/download/source.tar
+git-export: commit 72fead102f663d5c7a407964a13dc0cf9d977207, tree 5eb1240f03e791edd3fc7aa84a3a7d8dc3997b7f
+git-export: directory grh-compact of it, tree dba7a002d3863a6fdeeefe0528b1a232e732b8d5
+git-export: 807 files, 7507927 bytes of contents, 0 of the files with an executable bit
+git-export: written to /mnt/work/w/download/source.tar (8130560 bytes)
+sha256 c4cf2fabe540f758dd8637b5f3aeaed85f840b0829db3ef3c3b45a48abde91a2 entries 807
+2026-11-27 18:45:00  archive verified: /mnt/work/w/download/source.tar
+2026-11-27 18:45:00  sha256 c4cf2fabe540f758dd8637b5f3aeaed85f840b0829db3ef3c3b45a48abde91a2

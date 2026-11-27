@@ -1,8 +1,8 @@
 # Records
 
-Evidence files from the work done so far. Everything here was recorded between 2026-11-20 and 2026-11-26.
+Evidence files from the work done so far. Everything here was recorded between 2026-11-20 and 2026-11-27.
 
-Status on 2026-11-26: one full run in the cloud had recorded each of the three pre-registered criteria as holding (`cloud/full-run/`), two later runs had made further checks on the exported proof (`cloud/export-check/`, `cloud/kernel-check/`), and the build on the Mac was still in progress. These records identify the input, document how the local build was run, preserve the research behind the cloud work, and hold what the pilot, the rehearsals and those runs wrote. Apart from `cloud/full-run/`, none of them bears on whether the criteria hold; the two later runs are outside the criteria.
+Status on 2026-11-26: one full run in the cloud had recorded each of the three pre-registered criteria as holding (`cloud/full-run/`), two later runs had made further checks on the exported proof (`cloud/export-check/`, `cloud/kernel-check/`), and the build on the Mac was still in progress. These records identify the input, document how the local build was run, preserve the research behind the cloud work, and hold what the pilot, the rehearsals and those runs wrote. Apart from `cloud/full-run/`, none of them bears on whether the criteria hold; the two later runs are outside the criteria. On 2026-11-27 two runs for another target were added (`cloud/target-runs/`); they are of a different archive and bear on none of the criteria.
 
 The proof source itself is not here and is not redistributed. Build logs, the archive listing and anything tied to a cloud account are not here either (see "What is left out").
 
@@ -69,6 +69,7 @@ The proof source itself is not here and is not redistributed. Build logs, the ar
 | `cloud/full-run/` | Records of the one full run: the facts it recorded for C1, C2 and C3, the per-module replay results, and each machine's logs |
 | `cloud/export-check/` | Records of the export check of 2026-11-24: the proof exported from the full run's compiled files and compared with the published export, and an independently written kernel's output on it |
 | `cloud/kernel-check/` | Records of the kernel check of 2026-11-25 and 26 and of its rehearsal: a second independent kernel, `lake comparator` with Lean's own kernel in its sandbox, and Lean's paranoid kernel on the exported proof |
+| `cloud/target-runs/` | Records of the two runs of 2026-11-27 for another target, `grh-compact`: a rehearsal, and one run of this repository's numbered steps on that archive (the build, the axiom check, `leanchecker` on every module), by one user on one rented machine. Not the community's record of that proof |
 | `cloud/kernel_check_review.json` | AI review of the script behind the kernel check, made before it ran |
 | `cloud/kernel_check_record_review.json` | AI review of how the kernel check was written up, made before the write-up was committed |
 | `cloud/ledger.tsv` | Every launch made for this work, with its machine time and recorded cost |

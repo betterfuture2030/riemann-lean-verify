@@ -1,0 +1,28 @@
+== Build snapshot 2026-11-27 19:19:34
+work directory: /mnt/work/w
+target: grh-compact
+state: NOT RUNNING
+runs so far: 1   last entries of the status file:
+  START 2026-11-27 18:47:36 epoch=1795805256 threads=16 log=/mnt/work/w/logs/build-20261127-184736.log
+  END 2026-11-27 19:19:27 epoch=1795807167 rc=0
+
+== Modules
+compiled: 794 of 794 (100.00%)
+FAILED jobs: 0 line(s) in all build logs, 0 distinct target(s)
+current log: /mnt/work/w/logs/build-20261127-184736.log
+  compiled in this run: 791   jobs with warnings (including replayed ones): 180
+  last job line: ✔ [9842/9843] Built Main (2.5s)
+
+== Rate
+current run: 791 modules in 0.53 h with 16 jobs = 1490 modules/hour
+last 15 minutes: 286 modules = 1144 modules/hour
+every source file has a compiled module.
+
+== Compiler processes
+lean: 0   leanchecker: 0
+
+== Memory and disk
+cores: 16   memory: 62 GB   load: 4.41, 14.79, 18.66
+  memory available: 61.1 GB
+  swap: total 0.0 GB, used 0.0 GB
+free disk in the work directory's filesystem: 82 GB

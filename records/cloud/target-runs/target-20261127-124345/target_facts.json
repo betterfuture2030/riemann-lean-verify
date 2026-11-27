@@ -1,0 +1,176 @@
+{
+ "elapsed_s": 2487,
+ "facts": {
+  "axioms_deep_exit_status": 0,
+  "axioms_exit_status": 0,
+  "axioms_probe_exit_status": "skipped",
+  "axioms_probe_lean_exit_status": "skipped",
+  "build_directory_bytes": 7846810030,
+  "build_exit_status": 0,
+  "build_seconds": 1918,
+  "compiled_files_list_sha256": "5958666b3595c330a3bc90d7cd125e5bee7a8888bbd4be4ea98c7f1b94caf835",
+  "compiled_files_unchanged_during_the_checks": true,
+  "compiled_olean_files": 794,
+  "cpus": 16,
+  "guest_script_is_the_one_sent": true,
+  "has_recorded_values": true,
+  "lean_files_in_the_project": 796,
+  "lean_version": "Lean (version 4.35.0, x86_64-unknown-linux-gnu, commit eb6cafb7290e8bd5f2937522d8d804f58f02bafc, Release)",
+  "machine_type": "n4d-standard-16",
+  "memory_kb": 65836492,
+  "mode": "target",
+  "replay_exit_status": 0,
+  "replay_modules_passed_by_leanchecker": 794,
+  "replay_runs": 1,
+  "replay_summary_exit_status": 0,
+  "repository_archive_sha256": "86a48a3fb3fc078ea69f4b91f90a7fecd8a10a91e451403966e40acfd8689a16",
+  "target": "grh-compact",
+  "toolchain_files_list_sha256": "5b08cb7c1c80284fd58bc9176c54516699f16c9e570a083fea386ccc58f472ab",
+  "toolchain_files_listed": 17947,
+  "toolchain_files_unchanged_from_step_04_to_the_end": true,
+  "toolchain_line": "leanprover/lean4:v4.35.0",
+  "tools_commit": "2102d955ccb477712a79c4f19315ab87d898388d",
+  "total_seconds": 2487,
+  "user_can_look_up_names": true,
+  "user_cannot_connect_to_another_machine": true
+ },
+ "message": "every step ended with status 0: build, axiom check (deep) and kernel replay (--c3). One user ran the build and the checks, so this is that user's word (cloud/gcp/README.md): read the logs for what each step says",
+ "state": "DONE",
+ "steps": [
+  {
+   "command": "(setup)",
+   "exit_status": 0,
+   "peak_memory_kb": null,
+   "seconds": 0,
+   "step": "sysctl"
+  },
+  {
+   "command": "(setup)",
+   "exit_status": 0,
+   "peak_memory_kb": null,
+   "seconds": 12,
+   "step": "packages"
+  },
+  {
+   "command": "(setup)",
+   "exit_status": 0,
+   "peak_memory_kb": null,
+   "seconds": 1,
+   "step": "disk"
+  },
+  {
+   "command": "(setup)",
+   "exit_status": 0,
+   "peak_memory_kb": null,
+   "seconds": 0,
+   "step": "user"
+  },
+  {
+   "command": "(setup)",
+   "exit_status": 0,
+   "peak_memory_kb": null,
+   "seconds": 0,
+   "step": "repository"
+  },
+  {
+   "command": "bash scripts/00_check_prereqs.sh --install-elan",
+   "exit_status": 0,
+   "peak_memory_kb": 14760,
+   "seconds": 1,
+   "step": "00_prereqs"
+  },
+  {
+   "command": "bash scripts/01_fetch.sh",
+   "exit_status": 0,
+   "peak_memory_kb": 29816,
+   "seconds": 6,
+   "step": "01_fetch"
+  },
+  {
+   "command": "bash scripts/01_fetch.sh --check-only",
+   "exit_status": 0,
+   "peak_memory_kb": 4564,
+   "seconds": 0,
+   "step": "01_check"
+  },
+  {
+   "command": "bash scripts/02_inspect_and_extract.sh",
+   "exit_status": 0,
+   "peak_memory_kb": 28988,
+   "seconds": 1,
+   "step": "02_inspect"
+  },
+  {
+   "command": "bash scripts/03_audit_source.sh",
+   "exit_status": 0,
+   "peak_memory_kb": 27396,
+   "seconds": 1,
+   "step": "03_audit"
+  },
+  {
+   "command": "python3 analysis/import_graph.py",
+   "exit_status": 0,
+   "peak_memory_kb": 15160,
+   "seconds": 0,
+   "step": "import_graph"
+  },
+  {
+   "command": "bash scripts/reproduce_findings.sh",
+   "exit_status": 0,
+   "peak_memory_kb": 29728,
+   "seconds": 1,
+   "step": "reproduce"
+  },
+  {
+   "command": "bash scripts/04_setup_toolchain.sh",
+   "exit_status": 0,
+   "peak_memory_kb": 7482140,
+   "seconds": 147,
+   "step": "04_setup"
+  },
+  {
+   "command": "(setup)",
+   "exit_status": 0,
+   "peak_memory_kb": null,
+   "seconds": 0,
+   "step": "lockdown"
+  },
+  {
+   "command": "bash scripts/05_build.sh start ",
+   "exit_status": 0,
+   "peak_memory_kb": 4464,
+   "seconds": 3,
+   "step": "05_start"
+  },
+  {
+   "command": "lake build  (started by 05_build.sh)",
+   "exit_status": 0,
+   "peak_memory_kb": null,
+   "seconds": 1918,
+   "step": "05_build"
+  },
+  {
+   "command": "bash scripts/08_check_axioms.sh",
+   "exit_status": 0,
+   "peak_memory_kb": 9064268,
+   "seconds": 4,
+   "step": "08_axioms"
+  },
+  {
+   "command": "bash scripts/08_check_axioms.sh --deep",
+   "exit_status": 0,
+   "peak_memory_kb": 10459988,
+   "seconds": 29,
+   "step": "08_axioms_deep"
+  },
+  {
+   "command": "bash scripts/09_kernel_replay.sh --c3",
+   "exit_status": 0,
+   "peak_memory_kb": 9041568,
+   "seconds": 349,
+   "step": "09_replay_1"
+  }
+ ],
+ "what": "facts from one run of cloud/gcp/target_guest.sh; not a verdict. One user ran the build and the checks and owns the toolchain, so every status from step 04 on is that user's word: see 'Another target' in cloud/gcp/README.md",
+ "written_utc": "2026-11-27T19:26:06Z"
+}

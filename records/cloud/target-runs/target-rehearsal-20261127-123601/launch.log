@@ -1,0 +1,5 @@
+launching lean-target-rehearsal (n4d-standard-8): worst case $.52, recorded spend so far $69.40 of $100
+create failed in us-central1-a: message: The zone 'projects/<PROJECT_ID>/zones/us-central1-a' does not have enough   resources available to fulfill the request.  '(resource type:compute)'.  
+NAME                   ZONE           MACHINE_TYPE    PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP    STATUS
+lean-target-rehearsal  us-central1-b  n4d-standard-8               <INTERNAL_IP>  <EXTERNAL_IP>  RUNNING
+CREATED lean-target-rehearsal in us-central1-b as target-rehearsal-20261127-123601. Now run: bash <HOME>/Code/workspace/riemann-lean-verify-toolkit/cloud/gcp/pilot_local.sh watch

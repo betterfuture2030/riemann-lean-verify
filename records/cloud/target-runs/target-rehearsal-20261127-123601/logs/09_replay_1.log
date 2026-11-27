@@ -1,0 +1,26 @@
+2026-11-27 18:39:02  work directory: /mnt/work/w
+2026-11-27 18:39:02  target: grh-compact
+2026-11-27 18:39:02  checker: <HOME>/.elan/toolchains/leanprover--lean4---v4.35.0/bin/leanchecker
+2026-11-27 18:39:02  reading the import lines of every source file (kept as /mnt/work/w/analysis/kernel_replay/import_graph.json)
+import graph: 794 modules, 1398 import edges
+leanchecker: selected 2 modules; 2 to check now
+2026-11-27 18:39:02  checking 2 modules with leanchecker, each with only its imports on the search path, 8 at a time (interrupt with Ctrl-C at any time; finished results are kept)
+2026-11-27 18:39:05  checker processes finished (xargs status 0)
+leanchecker: selected 2 modules; 0 to check now
+== Kernel re-check summary
+  source modules:                         794
+  compiled modules:                       4
+    passed (for the file now on disk, and never rejected): 2
+      by leanchecker: 2   by rhv-replay: 0   by both: 0
+    FAILED (rejected or crashed on, and again when run again): 0
+    rejected or crashed on once (not a pass, whatever followed): 0
+    remaining (never checked, or recompiled since): 2  (of which recompiled since: 0)
+  source modules not compiled: 790
+  every source module compiled and passing: no
+  criterion C3 (every compiled module re-checked by leanchecker, and every one passes):
+    every source module is compiled and nothing else is:       NO
+    every compiled module passed by leanchecker:               NO
+    no rejection or crash recorded by any tool:                yes
+    the results file has no damaged lines:                     yes
+    all of these hold: NO
+2026-11-27 18:39:05  results: /mnt/work/w/analysis/kernel_replay/results.tsv   summary: /mnt/work/w/analysis/kernel_replay/summary.json

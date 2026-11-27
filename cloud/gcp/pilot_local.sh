@@ -22,6 +22,16 @@
 #                        kernel-check-rehearsal  the same script on small stand-ins, on a 4-vCPU machine: about
 #                                         25 minutes. It also fetches the proof's export, checks its hash and
 #                                         keeps it in the bucket.
+#                        target           the numbered steps 00 to 09 for ANOTHER target (GCP_TARGET=<name>, a
+#                                         directory of targets/), as they are at the current commit, on a
+#                                         16-vCPU machine: fetch, inspect, audit, toolchain, build, axiom
+#                                         check, kernel replay (target_guest.sh). On demand; Google deletes
+#                                         the VM at 6 hours (GCP_TARGET_MAX_HOURS).
+#                        target-rehearsal the same script on an 8-vCPU machine, building only the profile's
+#                                         smoke targets (and any modules GCP_TARGET_REHEARSAL_ALSO names),
+#                                         running 08 --probe if there is a probe lemma, and replaying a
+#                                         sample. The guest stops by 60 minutes. It shows that the phases
+#                                         run and says nothing about the proof.
 #                        full-spot        the full run on Spot machines, about half the price, as a chain of
 #                                         attempts that survives Google taking the machine back (below)
 #                        full-spot-rehearsal  the same chain on full-rehearsal's small tree, ending attempts on
@@ -60,6 +70,10 @@
 # Use a project dedicated to this work: `teardown` deletes every instance and disk in GCP_PROJECT.
 set -u
 . "$(cd "$(dirname "$0")" && pwd)/../../scripts/lib.sh"
+# The cloud modes know only the default target: their guest scripts, ledger and spend cap are its own. The two
+# target modes are the exception, and they are told their target with GCP_TARGET, not RH_TARGET: this controller
+# itself always runs as the default target, whose working directory holds the one ledger.
+[ "$RH_TARGET_IS_DEFAULT" = 1 ] || die "the cloud scripts know only the default target, alpoge-rh, and RH_TARGET is '$RH_TARGET' (see targets/README.md). To run another target's steps on a cloud machine, leave RH_TARGET unset and name the target with GCP_TARGET: bash $0 launch target"
 [ -n "${GCP_PROJECT:-}" ] || die "set GCP_PROJECT in config.env (see config.example.env)"
 [ -n "${GCP_BUCKET:-}" ]  || die "set GCP_BUCKET in config.env (see config.example.env)"
 NP=$GCP_PROJECT
@@ -1013,7 +1027,7 @@ launch)
   [ ! -e "$SPOT_LOCK" ] || spot_lock "launch ${2:-}"
   spot_state_exists && die "a paused Spot run has its state in $STATE: 'bash $SELF watch' continues it, 'bash $SELF abandon' ends it"
   MODE=${2:-}
-  case "$MODE" in pilot|rehearsal|full|full-rehearsal|export-check|kernel-check|kernel-check-rehearsal) ;; *) die "usage: $0 launch <rehearsal|pilot|full-rehearsal|full|export-check|kernel-check|kernel-check-rehearsal>" ;; esac
+  case "$MODE" in pilot|rehearsal|full|full-rehearsal|export-check|kernel-check|kernel-check-rehearsal|target|target-rehearsal) ;; *) die "usage: $0 launch <rehearsal|pilot|full-rehearsal|full|export-check|kernel-check|kernel-check-rehearsal|target|target-rehearsal>" ;; esac
   [ -z "$(open_run)" ] || die "a run is still open in the ledger: $(open_run). Run teardown first."
   existing=$($G compute instances list --format='value(name)') || die "could not list instances; not launching"
   [ -z "$existing" ] || die "an instance already exists in the project ($existing); refusing to create another"
@@ -1107,6 +1121,71 @@ if d.get("state")=="DONE" and f.get("solution_export_matches_published") is True
     fi
     MD="$MD,kernel-export-run=$KFROM,kernel-solution-sha=$KSOL,kernel-challenge-sha=$KCH,kernel-challenge-object=results/$KFROM/challenge.ndjson.zst,kernel-solution-object=keep/exports/solution-$KSOL.ndjson.zst"
     XMD="full-tools-commit=$TCOMMIT,full-guest-sha=$(sha256_of "$GUEST_FILE")"
+  elif [ "$MODE" = target ] || [ "$MODE" = target-rehearsal ]; then
+    # The numbered steps for one target profile on a fresh machine (target_guest.sh). Like a full run it is tied
+    # to one commit: the guest script and the archive of scripts/, targets/ and analysis/ that the guest runs both
+    # come from HEAD. GCP_TARGET names the profile. The archive is uploaded here, before the cap is checked: if
+    # the launch is then refused, a file of well under a megabyte is left in the bucket.
+    [ -z "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=all -- scripts cloud targets analysis)" ] || die "scripts/, cloud/, targets/ or analysis/ has uncommitted or untracked files; commit them first, so that the run is tied to a commit"
+    TCOMMIT=$(git -C "$REPO_ROOT" rev-parse HEAD) || die "could not read the current commit"
+    TNAME=${GCP_TARGET:-}; [ -n "$TNAME" ] || die "set GCP_TARGET to the name of the target whose steps are to be run (a directory of targets/)"
+    case "$TNAME" in -*|*[!abcdefghijklmnopqrstuvwxyz0123456789-]*) die "GCP_TARGET is not the name of a target: lower-case letters, digits and '-' only, not starting with '-'" ;; esac
+    [ "$TNAME" != alpoge-rh ] || die "the mode $MODE is for a target other than the default one; the default target's modes are full and full-spot"
+    git -C "$REPO_ROOT" cat-file -e "HEAD:targets/$TNAME/target.env" 2>/dev/null || die "the current commit has no targets/$TNAME/target.env"
+    # The cap is tested against the ledger in this checkout's working directory. These modes are launched from
+    # whichever checkout holds the commit to run, which need not be the one earlier runs were launched from:
+    # a ledger with no run in it would have the cap tested against nothing spent, without a word.
+    [ "$(wc -l < "$LEDGER" | tr -d ' ')" -gt 1 ] || [ -n "${GCP_NEW_LEDGER:-}" ] || die "the ledger $LEDGER has no run in it, so recorded spend would start at 0. If earlier runs were launched from another checkout, give this one the same RH_WORKDIR; to start a new ledger on purpose, set GCP_NEW_LEDGER=1"
+    # A value of the profile at the current commit, as a plain assignment on one line gives it.
+    tprof() { git -C "$REPO_ROOT" show "HEAD:targets/$TNAME/target.env" | sed -n "s/^$1=//p" | tail -n 1 | tr -d "\"'"; }
+    # A machine named without its rate would be counted, in the ledger and against the cap, at another machine's.
+    trate() { spot_isnum "$1" && [ "$(echo "$1 > 0" | bc)" = 1 ] || die "the rate for this machine must be a number above zero, in USD an hour (got '$1')"; }
+    GUEST_FILE="$OUT/target_guest_$RUNTAG.sh"
+    git -C "$REPO_ROOT" show HEAD:cloud/gcp/target_guest.sh > "$GUEST_FILE" || die "could not read cloud/gcp/target_guest.sh from the current commit"
+    TREPO="$OUT/target_repo_$RUNTAG.tar.gz"; TOBJ="inputs/target/rhv-$TCOMMIT.tar.gz"
+    git -C "$REPO_ROOT" archive --format=tar.gz --prefix=rhv/ -o "$TREPO" HEAD scripts targets analysis || die "could not archive scripts/, targets/ and analysis/ from the current commit"
+    $G storage cp "$TREPO" "gs://$BUCKET/$TOBJ" >/dev/null 2>"$OUT/target_upload_$RUNTAG.err" || die "could not upload the archive of the repository's files to gs://$BUCKET/$TOBJ: $(tail -n 2 "$OUT/target_upload_$RUNTAG.err" | tr '\n' ' ' | cut -c1-300)"
+    TA=none; TB=""
+    if [ "$MODE" = target ]; then
+      # About 16 vCPUs and 64 GB at the on-demand rate, with its two disks, rounded up. The guest stops half an
+      # hour before Google deletes the VM.
+      MT=${GCP_TARGET_MACHINE:-n4d-standard-16}; RATE=${GCP_TARGET_RATE:-0.75}
+      [ -z "${GCP_TARGET_MACHINE:-}" ] || [ -n "${GCP_TARGET_RATE:-}" ] || die "GCP_TARGET_MACHINE is set without GCP_TARGET_RATE: the ledger would count that machine at the default machine's rate"
+      trate "$RATE"
+      THOURS=${GCP_TARGET_MAX_HOURS:-6}
+      case "$THOURS" in ''|*[!0-9]*|0*) die "GCP_TARGET_MAX_HOURS must be a whole number of hours, at least 1, written without a leading zero" ;; esac
+      MAXRUN=$(( THOURS * 3600 )); DEADLINE_MIN=$(( THOURS * 60 - 30 ))
+      DATA="name=$NAME-data,device-name=pilot-data,type=hyperdisk-balanced,size=100GB,auto-delete=yes"
+      TAX=${GCP_TARGET_AXIOMS:-deep}
+      case "$TAX" in deep|full) ;; *) die "GCP_TARGET_AXIOMS must be deep (08, then 08 --deep) or full (08 only)" ;; esac
+      MD="pilot-nmax=16,target-axioms=$TAX,target-replay-args=--c3"
+    else
+      # The rehearsal builds the profile's smoke targets (TGT_SMOKE_TARGETS at this commit) and replays a sample
+      # of two. Step 04 has compiled the smoke targets by the time step 05 is asked for them, so
+      # GCP_TARGET_REHEARSAL_ALSO can name further modules: step 05 then compiles something, after the network
+      # is taken away. The axiom check needs the root module and is left out; 08 --probe is run instead on a
+      # probe lemma, "<module> <lemma>" in GCP_TARGET_REHEARSAL_PROBE or else the profile's TGT_PROBE_MODULE
+      # and TGT_PROBE_THEOREM, if there is one. The guest stops by 60 min; Google deletes the VM at 75 min.
+      MT=${GCP_TARGET_REHEARSAL_MACHINE:-n4d-standard-8}; RATE=${GCP_TARGET_REHEARSAL_RATE:-0.40}
+      [ -z "${GCP_TARGET_REHEARSAL_MACHINE:-}" ] || [ -n "${GCP_TARGET_REHEARSAL_RATE:-}" ] || die "GCP_TARGET_REHEARSAL_MACHINE is set without GCP_TARGET_REHEARSAL_RATE: the ledger would count that machine at the default machine's rate"
+      trate "$RATE"
+      DEADLINE_MIN=60; MAXRUN=4500
+      DATA="name=$NAME-data,device-name=pilot-data,type=hyperdisk-balanced,size=100GB,auto-delete=yes"
+      TSMOKE=$(tprof TGT_SMOKE_TARGETS)
+      case "$TSMOKE" in ''|*[!A-Za-z0-9_.\ ]*) die "targets/$TNAME/target.env at the current commit gives no TGT_SMOKE_TARGETS of plain module names on one line, which the rehearsal builds" ;; esac
+      TALSO=${GCP_TARGET_REHEARSAL_ALSO:-}
+      case "$TALSO" in *[!A-Za-z0-9_.\ ]*) die "GCP_TARGET_REHEARSAL_ALSO must be plain module names, separated by spaces" ;; esac
+      TPROBE=${GCP_TARGET_REHEARSAL_PROBE:-}
+      [ -n "$TPROBE" ] || { TPM=$(tprof TGT_PROBE_MODULE); TPT=$(tprof TGT_PROBE_THEOREM); [ -z "$TPM" ] || [ -z "$TPT" ] || TPROBE="$TPM $TPT"; }
+      case "$TPROBE" in *[!A-Za-z0-9_.\ ]*) die "the probe lemma must be given as '<module> <lemma>', both plain names (got '$TPROBE')" ;; esac
+      TPM=${TPROBE%% *}; TPT=${TPROBE##* }
+      [ -z "$TPROBE" ] || { [ -n "$TPT" ] && [ "$TPROBE" = "$TPM $TPT" ]; } || die "the probe lemma must be given as '<module> <lemma>' (got '$TPROBE')"
+      # Each module once: the smoke targets, the further ones, and the probe's module, which 08 --probe needs compiled.
+      TBUILD=""; for m in $TSMOKE $TALSO ${TPROBE:+$TPM}; do case " $TBUILD " in *" +$m "*) ;; *) TBUILD="$TBUILD${TBUILD:+ }+$m" ;; esac; done
+      MD="pilot-nmax=8,target-axioms=skip,target-replay-args=--sample 2,target-build-args=$TBUILD${TPROBE:+,target-probe=$TPROBE}"
+    fi
+    MD="$MD,target-name=$TNAME,target-repo-object=$TOBJ,target-repo-sha=$(sha256_of "$TREPO")"
+    XMD="full-tools-commit=$TCOMMIT,full-guest-sha=$(sha256_of "$GUEST_FILE")"
   elif [ "$MODE" = pilot ]; then
     DEADLINE_MIN=330; MAXRUN=21600      # the guest finishes by 5.5 h; Google deletes the VM at 6 h whatever happens
     DATA="name=$NAME-data,device-name=pilot-data,type=hyperdisk-balanced,size=440GB,provisioned-iops=6000,provisioned-throughput=300,auto-delete=yes"
@@ -1182,6 +1261,7 @@ watch)
   case "$MODE" in
     full*) trap 'echo; echo "watch stopped. The VM is still running and Google deletes it at its maximum run time ($(( (CREATED + MAXRUN - $(date +%s)) / 60 )) minutes from now)."; echo "To resume: bash $SELF watch     To end the run now and lose what has not been uploaded: bash $SELF teardown"; exit 130' INT TERM HUP ;;
     kernel-check*) trap 'echo; echo "watch stopped. The VM is still running. Google deletes it if it is still running at its maximum run time ($(( (CREATED + MAXRUN - $(date +%s)) / 60 )) minutes from now). If the guest finishes before that with nobody watching, it powers the machine off twenty minutes later: a stopped VM is not deleted by Google, and its disks bill until watch or teardown is run."; echo "To resume: bash $SELF watch     To end the run now and lose what has not been uploaded: bash $SELF teardown"; exit 130' INT TERM HUP ;;
+    target) trap 'echo; echo "watch stopped. The VM is still running and Google deletes it at its maximum run time ($(( (CREATED + MAXRUN - $(date +%s)) / 60 )) minutes from now)."; echo "To resume: bash $SELF watch     To end the run now and lose what it has built: bash $SELF teardown"; exit 130' INT TERM HUP ;;
     *)     trap 'echo "watch interrupted: tearing down"; exec /bin/bash "$SELF" teardown' INT TERM HUP ;;
   esac
   LOCAL_DEADLINE=$(( CREATED + MAXRUN + 300 )); last=""; apifail=0; stale=0; seen=0; absent=0
@@ -1213,7 +1293,7 @@ except Exception: print("unreadable-status unknown 0 -")')
     # Only if no status has ever been read in this session, the bucket has just said three times running that
     # there is none, and 25 minutes have passed since the VM was created.
     if [ "$seen" = 0 ] && [ "$absent" -ge 3 ] && [ "$(( $(date +%s) - CREATED ))" -gt 1500 ]; then echo "the guest has reported nothing in 25 minutes"; break; fi
-    case "$MODE" in full*|kernel-check*)
+    case "$MODE" in full*|kernel-check*|target*)
       hb=$($G storage cat "gs://$BUCKET/results/$RUNTAG/heartbeat" 2>/dev/null | tr -cd '0-9')
       if [ -n "$hb" ] && [ "$(( $(date +%s) - hb ))" -gt 1800 ]; then stale=$((stale + 1)); else stale=0; fi
       if [ "$stale" -ge 3 ]; then echo "the guest's last heartbeat is more than 30 minutes old"; break; fi ;;
@@ -1266,6 +1346,6 @@ ledger)
   column -t -s "$(printf '\t')" "$LEDGER"
   echo "estimated spend so far: \$$(spent) of \$$CAP_USD cap (machine-time x $RATE USD/h, rounded up; the bill is authoritative)"
   ;;
-*) echo "usage: bash $0 stage | launch <rehearsal|pilot|full-rehearsal|full|full-spot|full-spot-rehearsal|export-check|kernel-check|kernel-check-rehearsal> | watch | teardown | abandon | ledger"
+*) echo "usage: bash $0 stage | launch <rehearsal|pilot|full-rehearsal|full|full-spot|full-spot-rehearsal|export-check|kernel-check|kernel-check-rehearsal|target|target-rehearsal> | watch | teardown | abandon | ledger"
    echo "  in a Spot run, watch exits 0 when the run is over, 3 when it is paused, and 4 when a rehearsal is over but did not do all its cuts as configured"; exit 2 ;;
 esac

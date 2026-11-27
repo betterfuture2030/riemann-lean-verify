@@ -1,0 +1,15 @@
+== Kernel re-check summary
+  source modules:                         794
+  compiled modules:                       794
+    passed (for the file now on disk, and never rejected): 794
+      by leanchecker: 794   by rhv-replay: 0   by both: 0
+    FAILED (rejected or crashed on, and again when run again): 0
+    rejected or crashed on once (not a pass, whatever followed): 0
+    remaining (never checked, or recompiled since): 0  (of which recompiled since: 0)
+  every source module compiled and passing: yes
+  criterion C3 (every compiled module re-checked by leanchecker, and every one passes):
+    every source module is compiled and nothing else is:       yes
+    every compiled module passed by leanchecker:               yes
+    no rejection or crash recorded by any tool:                yes
+    the results file has no damaged lines:                     yes
+    all of these hold: yes

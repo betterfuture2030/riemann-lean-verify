@@ -1,0 +1,1 @@
+{"phase": "gather", "state": "DONE", "message": "every step ended with status 0: build, axiom check (deep) and kernel replay (--c3). One user ran the build and the checks, so this is that user's word (cloud/gcp/README.md): read the logs for what each step says", "elapsed_s": 2493, "deadline_in_s": 17307, "mode": "target", "nmax": 16, "utc": "2026-11-27T19:26:12Z"}

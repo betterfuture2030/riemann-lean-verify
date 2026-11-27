@@ -17,6 +17,10 @@ $RH_AN as resolved by scripts/lib.sh (see rhpaths.py). Writes closure_stats.json
 
 The sample figures are estimates. Two samples of 1,500 modules drawn on 2026-11-20 gave medians
 of 606 and 725 and means of 2,672 and 3,145, so read them to one significant figure.
+
+Those figures, and the key modules reported when no --key is given, are the default target's. For
+another target (targets/README.md) the key module reported when no --key is given is its root module
+(TGT_ROOT_MODULE); name others with --key.
 """
 import argparse
 import collections
@@ -27,7 +31,7 @@ import sys
 
 import rhpaths
 
-# A few modules near the top of this particular project's import graph, chosen by reading its
+# A few modules near the top of the default target's import graph, chosen by reading its
 # source. Names that do not exist in the graph are skipped.
 DEFAULT_KEYS = [
     "Main",
@@ -49,6 +53,12 @@ def main():
     ap.add_argument("--key", action="append", help="module whose exact closure size to report (repeatable)")
     a = ap.parse_args()
     adir = rhpaths.analysis_dir(a.analysis_dir)
+    if a.key:
+        keys = a.key
+    elif rhpaths.target(paths_given=bool(a.analysis_dir)) == rhpaths.DEFAULT_TARGET:
+        keys = DEFAULT_KEYS
+    else:
+        keys = [rhpaths.root_module()]
     out = a.out_dir or adir
     graph_file = os.path.join(adir, "import_graph.json")
     if not os.path.isfile(graph_file):
@@ -114,7 +124,7 @@ def main():
         "sample_closure_max": cs[-1] if cs else None,
         "share_of_sample_with_closure_over": {str(t): sum(1 for c in cs if c > t) / len(cs)
                                               for t in (0, 10, 100, 1000, 10000, 50000, 100000)} if cs else {},
-        "key_module_closures": {k: closure(idx[k]) for k in (a.key or DEFAULT_KEYS) if k in idx},
+        "key_module_closures": {k: closure(idx[k]) for k in keys if k in idx},
     }
     os.makedirs(out, exist_ok=True)
     with open(os.path.join(out, "closure_stats.json"), "w", encoding="utf-8") as fh:

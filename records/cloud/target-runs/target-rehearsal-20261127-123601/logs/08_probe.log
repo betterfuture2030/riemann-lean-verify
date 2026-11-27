@@ -1,0 +1,22 @@
+2026-11-27 18:38:59  work directory: /mnt/work/w
+2026-11-27 18:38:59  target: grh-compact
+2026-11-27 18:38:59  compiled modules on disk: 4 of 794 source files
+2026-11-27 18:38:59  running lean on /mnt/work/w/logs/axioms-probe-20261127-183859.lean
+2026-11-27 18:39:02  lean exit status: 0   output: /mnt/work/w/logs/axioms-probe-20261127-183859.log
+
+== Axiom and statement check (probe mode), Lean 4.35.0
+  target: grh-compact
+  source: https://github.com/lsernau/grh-lean commit 72fead102f663d5c7a407964a13dc0cf9d977207 directory grh-compact
+  rootDiscr_pos  (theorem, declared in Lib.General.Analysis.ZpowSum)
+      axioms: propext, Classical.choice, Quot.sound
+      type:   ∀ (K : Type u_1) [inst : Field K] [inst_1 : NumberField K], 0 < NumberField.rootDiscr K
+  definition of RiemannHypothesis:
+      ∀ (s : ℂ), riemannZeta s = 0 → (¬∃ n, s = -2 * (↑n + 1)) → s ≠ 1 → s.re = 1 / 2
+  DirichletCharacter.LFunction is defined in module Mathlib.NumberTheory.LSeries.DirichletContinuation
+  RiemannHypothesis is defined in module Mathlib.NumberTheory.LSeries.RiemannZeta
+  riemannZeta is defined in module Mathlib.NumberTheory.LSeries.RiemannZeta
+  conclusion of rootDiscr_pos is exactly the constant RiemannHypothesis: NO
+
+RESULT: FAIL
+  - rootDiscr_pos: its conclusion is not exactly the constant RiemannHypothesis
+2026-11-27 18:39:02  summary: /mnt/work/w/logs/axioms-probe-20261127-183859.json

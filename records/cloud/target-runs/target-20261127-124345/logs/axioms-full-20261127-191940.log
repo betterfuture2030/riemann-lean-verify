@@ -1,0 +1,252 @@
+### 2026-11-27 19:19:40 Lean (version 4.35.0, x86_64-unknown-linux-gnu, commit eb6cafb7290e8bd5f2937522d8d804f58f02bafc, Release)
+### mode=full deep=0 import=Main
+### target=grh-compact
+'riemannHypothesis' depends on axioms: [propext, Classical.choice, Quot.sound]
+'riemannZeta_eq_zero_re' depends on axioms: [propext, Classical.choice, Quot.sound]
+'LFunction_ne_zero_of_half_lt_re' depends on axioms: [propext, Classical.choice, Quot.sound]
+'LFunction_eq_zero_re' depends on axioms: [propext, Classical.choice, Quot.sound]
+'LFunction_eq_zero_re_of_isPrimitive' depends on axioms: [propext, Classical.choice, Quot.sound]
+RHV LEAN_VERSION 4.35.0
+RHV MODE full
+RHV ALLOWED propext
+RHV ALLOWED Classical.choice
+RHV ALLOWED Quot.sound
+RHV KIND riemannHypothesis theorem
+RHV DECLARED_IN riemannHypothesis Main
+RHV AXIOM_COUNT riemannHypothesis 3
+RHV AXIOM riemannHypothesis propext
+RHV AXIOM riemannHypothesis Classical.choice
+RHV AXIOM riemannHypothesis Quot.sound
+RHV TYPE_BEGIN riemannHypothesis
+RiemannHypothesis
+RHV TYPE_END riemannHypothesis
+RHV STATEMENT_PROJECT_COUNT riemannHypothesis 0
+RHV STATEMENT_LIBRARY_COUNT riemannHypothesis 1
+RHV STATEMENT_LIBRARY_CONST riemannHypothesis RiemannHypothesis Mathlib.NumberTheory.LSeries.RiemannZeta
+RHV KIND riemannZeta_eq_zero_re theorem
+RHV DECLARED_IN riemannZeta_eq_zero_re Main
+RHV AXIOM_COUNT riemannZeta_eq_zero_re 3
+RHV AXIOM riemannZeta_eq_zero_re propext
+RHV AXIOM riemannZeta_eq_zero_re Classical.choice
+RHV AXIOM riemannZeta_eq_zero_re Quot.sound
+RHV TYPE_BEGIN riemannZeta_eq_zero_re
+RiemannZetaZerosOnLine
+RHV TYPE_END riemannZeta_eq_zero_re
+RHV STATEMENT_PROJECT_COUNT riemannZeta_eq_zero_re 2
+RHV STATEMENT_PROJECT_CONST riemannZeta_eq_zero_re RiemannZetaZerosOnLine Statements
+RHV PROJECT_DEF_BEGIN RiemannZetaZerosOnLine
+∀ (s : ℂ), riemannZeta s = 0 → (¬∃ n, s = -2 * (↑n + 1)) → s ≠ 1 → s.re = 1 / 2
+RHV PROJECT_DEF_END RiemannZetaZerosOnLine
+RHV STATEMENT_PROJECT_CONST riemannZeta_eq_zero_re RiemannZetaZerosOnLine._proof_1 Statements
+RHV PROJECT_DEF_NONE RiemannZetaZerosOnLine._proof_1 theorem
+RHV STATEMENT_LIBRARY_COUNT riemannZeta_eq_zero_re 36
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Real.instNatCast Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Real.instOne Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Real.instDivInvMonoid Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re DivInvMonoid.toDiv Mathlib.Algebra.Group.DivInvMonoid
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re instHDiv Init.Prelude
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re HDiv.hDiv Init.Prelude
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Complex.re Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Real Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Ne Init.Core
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Complex.instOne Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re One.toOfNat1 Init.Data.Zero
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Nat.cast Init.Data.Cast
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Complex.instAdd Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re instHAdd Init.Prelude
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re HAdd.hAdd Init.Prelude
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Nat.instNeZeroSucc Init.Data.Nat.Basic
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re instOfNatNat Init.Prelude
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Nat Init.Prelude
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re OfNat.ofNat Init.Prelude
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Nat.instAtLeastTwoHAddOfNat Mathlib.Data.Nat.Init
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re instAddNat Init.Prelude
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Nat.AtLeastTwo Mathlib.Data.Nat.Init
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Complex.instNatCast Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re instOfNatAtLeastTwo Mathlib.Data.Nat.Cast.Defs
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Complex.instNeg Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Neg.neg Init.Prelude
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Complex.instMul Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re instHMul Init.Prelude
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re HMul.hMul Init.Prelude
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Exists Init.Core
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Not Init.Prelude
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Complex.instZero Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Zero.toOfNat0 Init.Data.Zero
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re riemannZeta Mathlib.NumberTheory.LSeries.RiemannZeta
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Eq Init.Prelude
+RHV STATEMENT_LIBRARY_CONST riemannZeta_eq_zero_re Complex Mathlib.Basic.Complex.Basic
+RHV KIND LFunction_ne_zero_of_half_lt_re theorem
+RHV DECLARED_IN LFunction_ne_zero_of_half_lt_re Main
+RHV AXIOM_COUNT LFunction_ne_zero_of_half_lt_re 3
+RHV AXIOM LFunction_ne_zero_of_half_lt_re propext
+RHV AXIOM LFunction_ne_zero_of_half_lt_re Classical.choice
+RHV AXIOM LFunction_ne_zero_of_half_lt_re Quot.sound
+RHV TYPE_BEGIN LFunction_ne_zero_of_half_lt_re
+DirichletLNonvanishingRightOfHalf
+RHV TYPE_END LFunction_ne_zero_of_half_lt_re
+RHV STATEMENT_PROJECT_COUNT LFunction_ne_zero_of_half_lt_re 2
+RHV STATEMENT_PROJECT_CONST LFunction_ne_zero_of_half_lt_re DirichletLNonvanishingRightOfHalf Statements
+RHV PROJECT_DEF_BEGIN DirichletLNonvanishingRightOfHalf
+∀ (N : ℕ) [inst : NeZero N] (χ : DirichletCharacter ℂ N) (s : ℂ),
+  1 / 2 < s.re → χ ≠ 1 ∨ s ≠ 1 → DirichletCharacter.LFunction χ s ≠ 0
+RHV PROJECT_DEF_END DirichletLNonvanishingRightOfHalf
+RHV STATEMENT_PROJECT_CONST LFunction_ne_zero_of_half_lt_re RiemannZetaZerosOnLine._proof_1 Statements
+RHV PROJECT_DEF_NONE RiemannZetaZerosOnLine._proof_1 theorem
+RHV STATEMENT_LIBRARY_COUNT LFunction_ne_zero_of_half_lt_re 40
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Complex.instZero Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Zero.toOfNat0 Init.Data.Zero
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re DirichletCharacter.LFunction Mathlib.NumberTheory.LSeries.DirichletContinuation
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Complex.instOne Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re ZMod.commRing Mathlib.Data.ZMod.Defs
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re CommRing.toCommMonoid Mathlib.Algebra.Ring.Defs
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re ZMod Mathlib.Data.ZMod.Defs
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re MulChar.hasOne Mathlib.NumberTheory.MulChar.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Ne Init.Core
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Or Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Complex.re Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Nat.instNeZeroSucc Init.Data.Nat.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re instOfNatNat Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Nat Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re OfNat.ofNat Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Nat.instAtLeastTwoHAddOfNat Mathlib.Data.Nat.Init
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re instAddNat Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re instHAdd Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re HAdd.hAdd Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Nat.AtLeastTwo Mathlib.Data.Nat.Init
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Real.instNatCast Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re instOfNatAtLeastTwo Mathlib.Data.Nat.Cast.Defs
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Real.instOne Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re One.toOfNat1 Init.Data.Zero
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Real.instDivInvMonoid Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re DivInvMonoid.toDiv Mathlib.Algebra.Group.DivInvMonoid
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re instHDiv Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re HDiv.hDiv Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Real.instLT Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Real Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re LT.lt Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Complex.instField Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Field.toSemifield Mathlib.Algebra.Field.Defs
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Semifield.toCommGroupWithZero Mathlib.Algebra.Field.Defs
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re CommGroupWithZero.toCommMonoidWithZero Mathlib.Algebra.GroupWithZero.Defs
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Complex Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re DirichletCharacter Mathlib.NumberTheory.DirichletCharacter.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re Nat.instMulZeroClass Mathlib.Algebra.GroupWithZero.Nat
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re MulZeroClass.toZero Mathlib.Algebra.GroupWithZero.Defs
+RHV STATEMENT_LIBRARY_CONST LFunction_ne_zero_of_half_lt_re NeZero Init.Data.NeZero
+RHV KIND LFunction_eq_zero_re theorem
+RHV DECLARED_IN LFunction_eq_zero_re Main
+RHV AXIOM_COUNT LFunction_eq_zero_re 3
+RHV AXIOM LFunction_eq_zero_re propext
+RHV AXIOM LFunction_eq_zero_re Classical.choice
+RHV AXIOM LFunction_eq_zero_re Quot.sound
+RHV TYPE_BEGIN LFunction_eq_zero_re
+DirichletLZerosOnLine
+RHV TYPE_END LFunction_eq_zero_re
+RHV STATEMENT_PROJECT_COUNT LFunction_eq_zero_re 2
+RHV STATEMENT_PROJECT_CONST LFunction_eq_zero_re DirichletLZerosOnLine Statements
+RHV PROJECT_DEF_BEGIN DirichletLZerosOnLine
+∀ (N : ℕ) [inst : NeZero N] (χ : DirichletCharacter ℂ N) (s : ℂ),
+  0 < s.re → s.re < 1 → DirichletCharacter.LFunction χ s = 0 → s.re = 1 / 2
+RHV PROJECT_DEF_END DirichletLZerosOnLine
+RHV STATEMENT_PROJECT_CONST LFunction_eq_zero_re RiemannZetaZerosOnLine._proof_1 Statements
+RHV PROJECT_DEF_NONE RiemannZetaZerosOnLine._proof_1 theorem
+RHV STATEMENT_LIBRARY_COUNT LFunction_eq_zero_re 35
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Nat.instNeZeroSucc Init.Data.Nat.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re instOfNatNat Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Nat Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re OfNat.ofNat Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Nat.instAtLeastTwoHAddOfNat Mathlib.Data.Nat.Init
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re instAddNat Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re instHAdd Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re HAdd.hAdd Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Nat.AtLeastTwo Mathlib.Data.Nat.Init
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Real.instNatCast Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re instOfNatAtLeastTwo Mathlib.Data.Nat.Cast.Defs
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Real.instDivInvMonoid Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re DivInvMonoid.toDiv Mathlib.Algebra.Group.DivInvMonoid
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re instHDiv Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re HDiv.hDiv Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Complex.instZero Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re DirichletCharacter.LFunction Mathlib.NumberTheory.LSeries.DirichletContinuation
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Eq Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Real.instOne Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re One.toOfNat1 Init.Data.Zero
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Complex.re Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Real.instZero Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Zero.toOfNat0 Init.Data.Zero
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Real.instLT Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Real Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re LT.lt Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Complex.instField Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Field.toSemifield Mathlib.Algebra.Field.Defs
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Semifield.toCommGroupWithZero Mathlib.Algebra.Field.Defs
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re CommGroupWithZero.toCommMonoidWithZero Mathlib.Algebra.GroupWithZero.Defs
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Complex Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re DirichletCharacter Mathlib.NumberTheory.DirichletCharacter.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re Nat.instMulZeroClass Mathlib.Algebra.GroupWithZero.Nat
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re MulZeroClass.toZero Mathlib.Algebra.GroupWithZero.Defs
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re NeZero Init.Data.NeZero
+RHV KIND LFunction_eq_zero_re_of_isPrimitive theorem
+RHV DECLARED_IN LFunction_eq_zero_re_of_isPrimitive Main
+RHV AXIOM_COUNT LFunction_eq_zero_re_of_isPrimitive 3
+RHV AXIOM LFunction_eq_zero_re_of_isPrimitive propext
+RHV AXIOM LFunction_eq_zero_re_of_isPrimitive Classical.choice
+RHV AXIOM LFunction_eq_zero_re_of_isPrimitive Quot.sound
+RHV TYPE_BEGIN LFunction_eq_zero_re_of_isPrimitive
+PrimitiveDirichletLZerosOnLine
+RHV TYPE_END LFunction_eq_zero_re_of_isPrimitive
+RHV STATEMENT_PROJECT_COUNT LFunction_eq_zero_re_of_isPrimitive 2
+RHV STATEMENT_PROJECT_CONST LFunction_eq_zero_re_of_isPrimitive PrimitiveDirichletLZerosOnLine Statements
+RHV PROJECT_DEF_BEGIN PrimitiveDirichletLZerosOnLine
+∀ (N : ℕ) [inst : NeZero N] (χ : DirichletCharacter ℂ N),
+  χ.IsPrimitive → ∀ (s : ℂ), 0 < s.re → s.re < 1 → DirichletCharacter.LFunction χ s = 0 → s.re = 1 / 2
+RHV PROJECT_DEF_END PrimitiveDirichletLZerosOnLine
+RHV STATEMENT_PROJECT_CONST LFunction_eq_zero_re_of_isPrimitive RiemannZetaZerosOnLine._proof_1 Statements
+RHV PROJECT_DEF_NONE RiemannZetaZerosOnLine._proof_1 theorem
+RHV STATEMENT_LIBRARY_COUNT LFunction_eq_zero_re_of_isPrimitive 36
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Nat.instNeZeroSucc Init.Data.Nat.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive instOfNatNat Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Nat Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive OfNat.ofNat Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Nat.instAtLeastTwoHAddOfNat Mathlib.Data.Nat.Init
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive instAddNat Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive instHAdd Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive HAdd.hAdd Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Nat.AtLeastTwo Mathlib.Data.Nat.Init
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Real.instNatCast Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive instOfNatAtLeastTwo Mathlib.Data.Nat.Cast.Defs
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Real.instDivInvMonoid Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive DivInvMonoid.toDiv Mathlib.Algebra.Group.DivInvMonoid
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive instHDiv Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive HDiv.hDiv Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Complex.instZero Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive DirichletCharacter.LFunction Mathlib.NumberTheory.LSeries.DirichletContinuation
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Eq Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Real.instOne Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive One.toOfNat1 Init.Data.Zero
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Complex.re Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Real.instZero Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Zero.toOfNat0 Init.Data.Zero
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Real.instLT Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Real Mathlib.Basic.Real.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive LT.lt Init.Prelude
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive DirichletCharacter.IsPrimitive Mathlib.NumberTheory.DirichletCharacter.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Complex.instField Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Field.toSemifield Mathlib.Algebra.Field.Defs
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Semifield.toCommGroupWithZero Mathlib.Algebra.Field.Defs
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive CommGroupWithZero.toCommMonoidWithZero Mathlib.Algebra.GroupWithZero.Defs
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Complex Mathlib.Basic.Complex.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive DirichletCharacter Mathlib.NumberTheory.DirichletCharacter.Basic
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive Nat.instMulZeroClass Mathlib.Algebra.GroupWithZero.Nat
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive MulZeroClass.toZero Mathlib.Algebra.GroupWithZero.Defs
+RHV STATEMENT_LIBRARY_CONST LFunction_eq_zero_re_of_isPrimitive NeZero Init.Data.NeZero
+RHV CHECK statement_is_constant_RiemannHypothesis riemannHypothesis true
+RHV MODULE RiemannHypothesis Mathlib.NumberTheory.LSeries.RiemannZeta
+RHV DEF_BEGIN RiemannHypothesis
+∀ (s : ℂ), riemannZeta s = 0 → (¬∃ n, s = -2 * (↑n + 1)) → s ≠ 1 → s.re = 1 / 2
+RHV DEF_END RiemannHypothesis
+RHV MODULE riemannZeta Mathlib.NumberTheory.LSeries.RiemannZeta
+RHV MODULE DirichletCharacter.LFunction Mathlib.NumberTheory.LSeries.DirichletContinuation
+RHV DONE
+### lean exit status 0

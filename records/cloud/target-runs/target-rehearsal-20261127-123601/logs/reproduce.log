@@ -1,0 +1,18 @@
+2026-11-27 18:37:05  target: grh-compact   work directory: /mnt/work/w
+2026-11-27 18:37:05  ---- S1: source is commit 72fead102f663d5c7a407964a13dc0cf9d977207; the archive made from it matches the recorded SHA-256
+2026-11-27 18:37:05  ---- S2-S4: archive is structurally safe; file counts and build configuration match
+2026-11-27 18:37:06  ---- S6-S8: source audit: no category recorded as zero has matches
+2026-11-27 18:37:06  ---- S5: not applicable: the profile names no Mathlib tag
+2026-11-27 18:37:06  ---- S9: import graph matches the recorded summary
+2026-11-27 18:37:06  ---- S10: not applicable: the profile names no pattern
+
+Claim     Result  Check
+--------  ------  -----
+S1        PASS    source is commit 72fead102f663d5c7a407964a13dc0cf9d977207; the archive made from it matches the recorded SHA-256
+S2-S4     PASS    archive is structurally safe; file counts and build configuration match
+S6-S8     PASS    source audit: no category recorded as zero has matches
+S5        n/a     pinned Mathlib revision: the profile names no official tag to compare it with (TGT_MATHLIB_TAG is empty)
+S9        PASS    import graph matches the recorded summary
+S10       n/a     source-file pattern count: the profile names no pattern to count (TGT_S10_PATTERN is empty)
+
+4 of 6 claims reproduced for target grh-compact. 2 claims were not applicable (n/a above): nothing was compared for them, so they are neither reproduced nor refuted. None failed.

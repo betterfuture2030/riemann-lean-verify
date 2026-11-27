@@ -8,7 +8,8 @@
 #   output. The file is read while its module is being built (by the compiler when it starts, and
 #   by Lake's code generator where that runs as a separate step) and not after the module's .trace
 #   file has been written. Lake decides what is up to date from the .trace and .hash files beside
-#   the compiled output, not from the setup file.
+#   the compiled output, not from the setup file. (The sizes for the whole tree, and "the real
+#   tree" below, are the default target's.)
 #
 #   This script finds the setup file of each module that has finished compiling and reports how
 #   much space they take. With --delete it removes them. A module counts as finished when its

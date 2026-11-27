@@ -1,0 +1,19 @@
+sysctl	0	0		(setup)
+packages	0	12		(setup)
+disk	0	1		(setup)
+user	0	0		(setup)
+repository	0	0		(setup)
+00_prereqs	0	1	14760	bash scripts/00_check_prereqs.sh --install-elan
+01_fetch	0	6	29816	bash scripts/01_fetch.sh
+01_check	0	0	4564	bash scripts/01_fetch.sh --check-only
+02_inspect	0	1	28988	bash scripts/02_inspect_and_extract.sh
+03_audit	0	1	27396	bash scripts/03_audit_source.sh
+import_graph	0	0	15160	python3 analysis/import_graph.py
+reproduce	0	1	29728	bash scripts/reproduce_findings.sh
+04_setup	0	147	7482140	bash scripts/04_setup_toolchain.sh
+lockdown	0	0		(setup)
+05_start	0	3	4464	bash scripts/05_build.sh start 
+05_build	0	1918		lake build  (started by 05_build.sh)
+08_axioms	0	4	9064268	bash scripts/08_check_axioms.sh
+08_axioms_deep	0	29	10459988	bash scripts/08_check_axioms.sh --deep
+09_replay_1	0	349	9041568	bash scripts/09_kernel_replay.sh --c3

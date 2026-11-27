@@ -2,6 +2,8 @@
 config.env
 # Working data: downloads, the extracted proof source, build products, logs.
 /work/
+# The work directories of targets other than the default one (RH_WORKDIR-<target name>).
+/work-*/
 *.olean
 *.ilean
 .lake/
