@@ -196,15 +196,37 @@
 #       a subDir, of a file named https: and of such names, also without --show-urls, with the same first REFUSED
 #       line;
 #       a manifest with no version Lake reads ('1.0.0-' among them) or with packages in the other version's form; a lakefile.toml with an executable, the name of a package it depends on (in any case), a
-#       library outside TGT_SRC_DIR (accepted with --src-dir .; under srcDir './', one in './other/', shown as
-#       other), a backslash, an unknown key, an argument to lean that loads code, a key given twice, two
+#       library outside TGT_SRC_DIR (accepted with --src-dir .; under srcDir './', one in './other/', and under
+#       srcDir 'src', one in '../other', each shown as other), a library srcDir with a part that starts with a dot
+#       or an absolute one, a backslash, an unknown key, an argument to lean that loads code, a key given twice, two
 #       requirements of one name, a requirement the manifest has no entry for, a requirement's address with no
 #       scheme, http:// or '..' parts, or with a letter that is not ASCII, a root with '-' in a part (the message
 #       naming guillemets), the Lean options sat.solver, weak.trace.profiler.output (with -D) and
 #       debug.skipKernelTC (for a library) or a multi-line string; a lakefile naming another Mathlib tag than
 #       the manifest's entry was made from (a WARNING naming both); files that are not UTF-8, a lean-toolchain with
 #       U+3000 before its line end, a manifest that is not JSON, has a 40-digit number (whole or not) or NaN, or
-#       nests 40 or 100,000 deep. lib.sh sets LAKE_NO_CACHE=1 over 0 in the environment or config.env (for the
+#       nests 40 or 100,000 deep. With --lib-outside-src (TGT_LIBS_OUTSIDE_SRC) naming it, project-info accepts a
+#       library whose srcDir '..' is the project's own directory, beside src, and which defaultTargets does not
+#       name, and prints it under 'libraries outside src' (two such libraries too); with none named it accepts a
+#       library srcDir '../src/Sub', which comes back under src; and it refuses, with status 1 and no traceback: that
+#       library when it is not named, when defaultTargets names it or a module of it (with guillemets too), when
+#       the lakefile gives no defaultTargets or an empty list, when it has globs or a root that is not of plain
+#       parts or is not its own name or a name under it, or when src has a file or a directory that reads as one of
+#       its roots (Challenge.Evil.lean and CHALLENGE.lean too); a library named, or under the name of, a package the
+#       project depends on or a library of the toolchain (Mathlib, Mathlib.Tactic, Init, Lean.Elab), or whose own name
+#       puts its files at or under src (src, src.Evil); a library named Chal'; the second of two such libraries when
+#       only the first is named; a library in '../srcx', a directory that only starts as src does; a lakefile with two
+#       libraries of one name. It accepts, with the library named: sources and a default target whose names only start
+#       as its name does (ChallengeX.lean, Sub/Challenge.lean, Challenger), a library MathlibExtras, roots under its
+#       own name, and roots = []; and with --src-dir Sources it accepts the library whatever a directory called src
+#       holds, says 'libraries outside Sources', and refuses it when Sources has a module of its root; a library srcDir '../..', which leaves the
+#       project, named or not; a name that is no library of the lakefile, or whose sources are under src (with
+#       --src-dir ., the library itself). A value that is not a library's name ('a/b') is an error of usage (status
+#       2, nothing on standard output), and the project files are not read. lib.sh refuses a TGT_LIBS_OUTSIDE_SRC
+#       with ';', '*', '?', '[', '/', guillemets or a tab in it, with '-' at its start, or with a part that is empty
+#       or starts with a digit (';' for the default target too), and accepts 'A B.C'; for the default target the
+#       setting is set to nothing.
+#       lib.sh sets LAKE_NO_CACHE=1 over 0 in the environment or config.env (for the
 #       default target and another), gives it to the programs it runs when config.env makes it an array, and stops
 #       when config.env makes it read-only (also with the environment's value, a 1 with a line end after it); it
 #       unsets GIT_DIR, the other variables that point git at another repository and LAKE_PKG_URL_MAP, and stops when
@@ -233,7 +255,22 @@
 #       and stops at a release build's trace, a package at another commit or a package-overrides.json that the smoke
 #       build left. 09, with no elan and no lean on PATH, says so before it runs anything. git clone, run in a
 #       directory with a git bundle at https:/example.invalid/plausible, clones it for https://example.invalid/
-#       plausible (the premise of the refusal of a file named https:).
+#       plausible (the premise of the refusal of a file named https:). A made-up git target whose lakefile has two
+#       libraries outside its sources (one a challenge file beside src with a 'sorry' in it): with
+#       TGT_LIBS_OUTSIDE_SRC empty, 02 refuses both and puts no tree in place, and 04 stops at its own check before
+#       it clones anything; with the two named, 02 extracts the project and shows them (again on the tree in place),
+#       03 says that it does not read them and counts nothing in their files, and 04's log lists them and 04 goes on
+#       to 'lake exe mathlib/cache get'; with a smoke module that has no source under src, 04 stops before it clones
+#       anything or runs lake (and so does 04 for the default target). replay-summary, on made-up compiled files and
+#       results for it, says complete
+#       with its two sources compiled, and with the module Challenge compiled too 'compiled modules with no source
+#       file: 1' and not complete (status 3); a source Challenge.Evil.lean is not taken for the source of a compiled
+#       Challenge/Evil.olean; and two files of one module name (Lib/X.Y and Lib/X/Y, sources and compiled alike) are
+#       counted as files with an ambiguous name, and the summary does not say complete. 00, with a stand-in df that gives 100 GB free: for the default target it
+#       prints that target's sizes and its WARNING, and from its Machine section on what the base commit's prints,
+#       byte for byte; for a made-up target it says that it does not know the sizes, prints none of the default
+#       target's and no WARNING, and on macOS (a stand-in sysctl giving a files-in-use limit of 263168) gives the
+#       rule for that limit where the default target gets its figure.
 #   32  Cases 14 to 31 called no stand-in for the network or the toolchain either (nor gcloud).
 # What it changes on disk: only a temporary directory of its own under TMPDIR, removed at the end (kept with
 #   TARGETS_TEST_KEEP=1). The repository is only read.
@@ -243,8 +280,9 @@
 #   From case 14 on, some commands get a narrower PATH in which python3 and git are reached through small wrappers
 #   and their own directories are left out, so that an elan, gcloud or rg installed beside them is not found; cases
 #   19, 20 and 25 put further stand-ins (gcloud; curl and sh; bash) first on the PATH, and cases 27 and 28 a tar that
-#   runs the real one and then changes what it wrote. Case 29 runs macOS's own tar and xattr, on macOS only.
-# How long it takes: about two minutes (longer while the machine is busy).
+#   runs the real one and then changes what it wrote. Case 29 runs macOS's own tar and xattr, on macOS only. Case 31
+#   has stand-ins of its own for elan and lake, and for df and sysctl (a fixed free space and limit of files in use).
+# How long it takes: about three minutes (longer while the machine is busy).
 # Requires: bash 3.2 or later, git, python3, tar, gzip.
 # Usage: scripts/dev/test_targets.sh        Prints ok or FAIL for each check, with its case number, then the count.
 #   TARGETS_TEST_BASE=<commit>  compare the default target with this commit instead
@@ -2440,7 +2478,7 @@ cenv "$PY3" -I -B "$TOOLS28" git-export --git-dir "$REPO/.git" --commit "$C29l" 
 res "git-export's message for a name of 305 bytes shows its first 200" $? "status $rc: $(tailof "$T30/long.out" | cut -c1-200)"
 
 # ================================================================ 31
-section 31 "GNU header tails, times before 1970, empty archives, gzip members, Unicode forms on disk, manifest forms, names and paths, Mathlib pins, lakefile limits and Lean options, 04's own check"
+section 31 "GNU header tails, times before 1970, empty archives, gzip members, Unicode forms on disk, manifest forms, names and paths, Mathlib pins, lakefile limits and Lean options, libraries outside the sources, 04's own check, 00's sizes"
 T31="$TMPD/c31"; mkdir -p "$T31"
 cenv "$PY3" -I -B - "$T31" "$MLREV" <<'PY31'
 import gzip, io, json, os, sys, tarfile
@@ -2569,6 +2607,68 @@ project("root_lower", lakefile=LAKEFILE.replace('name = "tree"', 'name = "mathli
 project("root_upper", lakefile=LAKEFILE.replace('name = "tree"', 'name = "Mathlib"', 1))
 project("lib_outside", lakefile=add('\n[[lean_lib]]\nname = "Other"\nsrcDir = "../other"\n'))
 project("lib_elsewhere", lakefile=LAKEFILE.replace('srcDir = "src"', 'srcDir = "."', 1) + '\n[[lean_lib]]\nname = "Other"\nsrcDir = "other"\n')
+# A library's srcDir that is not a directory of plain parts and '..' parts: a part that starts with a dot, an absolute one
+project("lib_hidden", lakefile=add('\n[[lean_lib]]\nname = "Other"\nsrcDir = ".hidden/x"\n'))
+project("lib_abs", lakefile=add('\n[[lean_lib]]\nname = "Other"\nsrcDir = "/other"\n'))
+# Libraries outside the sources 03 reads, for --lib-outside-src (TGT_LIBS_OUTSIDE_SRC): a library Challenge whose srcDir
+# '..' is the project's own directory, beside src, and which defaultTargets does not name; then one change in each case
+CH = '\n[[lean_lib]]\nname = "Challenge"\nsrcDir = ".."\n'
+DT = 'defaultTargets = ["Statements", "Main"]\n'
+assert DT in LAKEFILE
+def made(name, path):
+    """A file of the project name, or with a closing slash a directory."""
+    p = os.path.join(out, name, path)
+    os.makedirs(p if path.endswith("/") else os.path.dirname(p), exist_ok=True)
+    if not path.endswith("/"):
+        with open(p, "w") as fh:
+            fh.write("-- made up\n")
+project("libs_out", lakefile=add(CH))
+made("libs_out", "src/Statements.lean"); made("libs_out", "Challenge.lean")
+project("libs_two", lakefile=add(CH + '\n[[lean_lib]]\nname = "Notes.Extra"\nsrcDir = "../notes"\n'))
+project("libs_back", lakefile=add('\n[[lean_lib]]\nname = "Back"\nsrcDir = "../src/Sub"\n'))
+project("libs_default", lakefile=add(CH).replace(DT, 'defaultTargets = ["Statements", "Main", "Challenge"]\n', 1))
+project("libs_default_g", lakefile=add(CH).replace(DT, 'defaultTargets = ["Statements", "Main", "%s"]\n' % G("Challenge"), 1))
+project("libs_nodefaults", lakefile=add(CH).replace(DT, "", 1))
+project("libs_emptydefaults", lakefile=add(CH).replace(DT, "defaultTargets = []\n", 1))
+project("libs_globs", lakefile=add(CH + 'globs = ["Challenge.+"]\n'))
+project("libs_root_bang", lakefile=add(CH + 'roots = ["Challenge", "Proj!"]\n'))
+project("libs_src_module", lakefile=add(CH)); made("libs_src_module", "src/Challenge.lean")
+project("libs_src_dir", lakefile=add(CH)); made("libs_src_dir", "src/Challenge/")
+project("libs_src_root", lakefile=add(CH + 'roots = ["Challenge", "Challenge.Deep"]\n')); made("libs_src_root", "src/Challenge/Deep.lean")
+# A source whose file name has a dot in it has, read as the later steps read a path (dots for the separators), the name
+# of a module of the library; so has a directory of that kind, and a name in another case. One that only starts alike
+# has not, nor has a file of the library's name deeper in the sources
+project("libs_src_dotted", lakefile=add(CH)); made("libs_src_dotted", "src/Challenge.Evil.lean")
+project("libs_src_dotdir", lakefile=add(CH)); made("libs_src_dotdir", "src/Challenge.Sub/X.lean")
+project("libs_src_case", lakefile=add(CH)); made("libs_src_case", "src/CHALLENGE.lean")
+project("libs_src_near", lakefile=add(CH)); made("libs_src_near", "src/ChallengeX.lean"); made("libs_src_near", "src/Sub/Challenge.lean")
+# defaultTargets that name a module of the library, which Lake builds as a module; and one that only starts alike
+project("libs_default_mod", lakefile=add(CH).replace(DT, 'defaultTargets = ["Statements", "Main", "Challenge.Extra"]\n', 1))
+project("libs_default_modg", lakefile=add(CH).replace(DT, 'defaultTargets = ["Statements", "Main", "%s.Extra"]\n' % G("Challenge"), 1))
+project("libs_default_root", lakefile=add(CH + 'roots = ["Challenge", "Challenge.Deep"]\n').replace(DT, 'defaultTargets = ["Statements", "Main", "Challenge.Deep.X"]\n', 1))
+project("libs_default_near", lakefile=add(CH).replace(DT, 'defaultTargets = ["Statements", "Main", "Challenger"]\n', 1))
+# Roots that are not the library's own name or a name under it (a package's module; a name that only starts alike),
+# roots that are, and no roots at all; a library name that is not of plain parts; two libraries of one name
+project("libs_root_stray", lakefile=add(CH + 'roots = ["Challenge", "Mathlib"]\n'))
+project("libs_root_near", lakefile=add(CH + 'roots = ["ChallengeX"]\n'))
+project("libs_root_under", lakefile=add(CH + 'roots = ["Challenge", "Challenge.Deep"]\n'))
+project("libs_root_none", lakefile=add(CH + 'roots = []\n'))
+project("libs_name_quote", lakefile=add(CH.replace('"Challenge"', '"Chal' + "'" + '"', 1)))
+project("libs_dup", lakefile=add(CH + '\n[[lean_lib]]\nname = "%s"\nroots = ["Main"]\n' % G("Challenge")))
+# A library named, or under the name of, a package the project depends on or a library of the toolchain; one whose name
+# only starts alike; and one whose own name puts its files at or under the directory 03 reads
+for _n, _lib in (("libs_name_pkg", "Mathlib"), ("libs_name_pkg_under", "Mathlib.Tactic"), ("libs_name_core", "Init"),
+                 ("libs_name_core_under", "Lean.Elab"), ("libs_name_near", "MathlibExtras"), ("libs_name_src", "src"),
+                 ("libs_name_src_under", "src.Evil")):
+    project(_n, lakefile=add(CH.replace('"Challenge"', '"%s"' % _lib, 1)))
+# A source directory that is not called src (a directory called src is then nothing special), and a library in a
+# directory whose name only starts as the source directory's does
+SRCS = lambda text: text.replace('srcDir = "src"', 'srcDir = "Sources"', 1)
+assert SRCS(LAKEFILE) != LAKEFILE
+project("libs_srcname", lakefile=SRCS(add(CH))); made("libs_srcname", "Sources/Statements.lean"); made("libs_srcname", "src/Challenge.lean")
+project("libs_srcname_module", lakefile=SRCS(add(CH))); made("libs_srcname_module", "Sources/Challenge.lean")
+project("lib_srcx", lakefile=add('\n[[lean_lib]]\nname = "Other"\nsrcDir = "../srcx"\n'))
+project("libs_up", lakefile=add('\n[[lean_lib]]\nname = "Up"\nsrcDir = "../.."\n'))
 project("backslash", lakefile=LAKEFILE.replace('rev = "%s"' % mlrev, 'rev = "\\u0030%s"' % mlrev[1:], 1))
 project("unknown_key", lakefile=LAKEFILE.replace('srcDir = "src"\n', 'srcDir = "src"\nprecompileModules = true\n', 1))
 project("plugin", lakefile=LAKEFILE.replace('["--tstack=400000"]', '["--tstack=400000", "--plugin=x.so"]', 1))
@@ -2828,7 +2928,11 @@ for py in "$PY3" ${PY31B:+"$PY31B"}; do
            "v7tagged|is of version 0.7, and a package in it is in the form Lake writes before version 7" \
            "lean_exe|a table \[\[lean_exe\]\], which is not one this check knows" \
            "root_lower|the package is named 'mathlib', as a package it depends on is" "root_upper|the package is named 'Mathlib', as a package it depends on is" \
-           "lib_outside|library 3 ('Other'): srcDir is not '.' or a relative directory of plain parts" \
+           "lib_outside|library 3 ('Other'): its sources are in other, not under src, the directory 03 reads (TGT_SRC_DIR)" \
+           "lib_srcx|library 3 ('Other'): its sources are in srcx, not under src, the directory 03 reads (TGT_SRC_DIR)" \
+           "libs_dup|two libraries named 'Challenge' (Lake reads a name with its guillemets taken off)" \
+           "lib_hidden|library 3 ('Other'): srcDir is not '.' or a relative directory of plain parts and '..' parts, no other part starting with a dot" \
+           "lib_abs|library 3 ('Other'): srcDir is not '.' or a relative directory of plain parts and '..' parts, no other part starting with a dot" \
            "lib_elsewhere|library 3 ('Other'): its sources are in other, not under src, the directory 03 reads" \
            "backslash|a backslash in a string" "unknown_key|a key 'precompileModules', which is not one this check knows what Lake does with" \
            "plugin|moreLeanArgs is not a list of arguments to lean of the kinds allowed" \
@@ -2946,6 +3050,111 @@ done
 ! grep -q '^addresses and directories refused' "$T31/gb.out"
 res "...and, its addresses being plain, lists none of them as refused" $? "$(tailof "$T31/gb.out" 4)"
 
+# Libraries outside the sources 03 reads: accepted only when --lib-outside-src (TGT_LIBS_OUTSIDE_SRC) names them, and
+# then only as libraries the build does not compile, whose modules cannot be taken for ones that 03 read
+LIBS31="libraries outside src, which 03 does not read and the build must not compile (TGT_LIBS_OUTSIDE_SRC):"
+# libs31 <project> [<library name> ...]: project-info under $py, each name given with --lib-outside-src; the output
+# is in libs.out
+libs31() {
+  local p=$1 n; shift
+  for n in "$@"; do set -- "$@" --lib-outside-src "$n"; shift; done
+  cenv "$py" -I -B "$TOOLS28" project-info "$T31/$p" "$@" > "$T31/libs.out" 2>&1
+}
+for py in "$PY3" ${PY31B:+"$PY31B"}; do
+  v=$(pyv "$py")
+  libs31 libs_out Challenge; rc=$?
+  [ "$rc" = 0 ] && ! grep -q -E '^REFUSED|Traceback' "$T31/libs.out" && grep -q -x -F "$LIBS31" "$T31/libs.out" \
+    && grep -q -x -F "  Challenge          in the project's own directory (roots: Challenge)" "$T31/libs.out"
+  res "project-info (Python $v) --lib-outside-src Challenge accepts a library whose srcDir '..' is the project's own directory, beside src, and which defaultTargets does not name, and prints it under 'libraries outside src'" $? "status $rc: $(tailof "$T31/libs.out" 3)"
+  libs31 libs_two Challenge Notes.Extra; rc=$?
+  [ "$rc" = 0 ] && ! grep -q -E '^REFUSED|Traceback' "$T31/libs.out" && [ "$(grep -A 2 -x -F "$LIBS31" "$T31/libs.out" | sed 1d | tr -s ' \n' ' ')" = " Challenge in the project's own directory (roots: Challenge) Notes.Extra in notes (roots: Notes.Extra) " ]
+  res "project-info (Python $v) with two such libraries, each named, accepts and prints both" $? "status $rc: $(tailof "$T31/libs.out" 3)"
+  libs31 libs_back; rc=$?
+  [ "$rc" = 0 ] && ! grep -q -E '^REFUSED|Traceback|^libraries outside' "$T31/libs.out"
+  res "project-info (Python $v) accepts, with no library named, a library srcDir '../src/Sub', which goes up and comes back under src" $? "status $rc: $(tailof "$T31/libs.out" 3)"
+  for c in "libs_out||library 3 ('Challenge'): its sources are in the project's own directory, not under src, the directory 03 reads (TGT_SRC_DIR). If it is a library that the build does not compile and no source imports, the profile can name it in TGT_LIBS_OUTSIDE_SRC if its name is of plain parts (ASCII letters, digits and '_', with dots between them; targets/README.md)" \
+           "libs_two|Challenge|library 4 ('Notes.Extra'): its sources are in notes, not under src, the directory 03 reads (TGT_SRC_DIR)" \
+           "libs_default|Challenge|library 3 ('Challenge'): it is named as a library the build does not compile (TGT_LIBS_OUTSIDE_SRC), and the lakefile's defaultTargets name it or a module of it ('Challenge')" \
+           "libs_default_g|Challenge|library 3 ('Challenge'): it is named as a library the build does not compile (TGT_LIBS_OUTSIDE_SRC), and the lakefile's defaultTargets name it or a module of it ('\xabChallenge\xbb')" \
+           "libs_default_mod|Challenge|and the lakefile's defaultTargets name it or a module of it ('Challenge.Extra'): Lake builds a default target that is no declared target as a module" \
+           "libs_default_modg|Challenge|and the lakefile's defaultTargets name it or a module of it ('\xabChallenge\xbb.Extra')" \
+           "libs_default_root|Challenge|and the lakefile's defaultTargets name it or a module of it ('Challenge.Deep.X')" \
+           "libs_nodefaults|Challenge|library 3 ('Challenge'): it is named as a library the build does not compile (TGT_LIBS_OUTSIDE_SRC), and the lakefile gives no defaultTargets to say what the build compiles" \
+           "libs_emptydefaults|Challenge|and the lakefile gives no defaultTargets to say what the build compiles" \
+           "libs_globs|Challenge|library 3 ('Challenge'): it is named as a library the build does not compile (TGT_LIBS_OUTSIDE_SRC), and it has globs: its modules must be its roots only" \
+           "libs_root_bang|Challenge|library 3 ('Challenge'): it is named as a library the build does not compile (TGT_LIBS_OUTSIDE_SRC), and its root 'Proj!' is not a name whose parts are ASCII letters, digits and '_'" \
+           "libs_name_quote|Chal'|and its name \"Chal'\" is not a name whose parts are ASCII letters, digits and '_'" \
+           "libs_root_stray|Challenge|library 3 ('Challenge'): it is named as a library the build does not compile (TGT_LIBS_OUTSIDE_SRC), and its root 'Mathlib' is not its own name or a name under it (Challenge.<...>)" \
+           "libs_root_near|Challenge|and its root 'ChallengeX' is not its own name or a name under it (Challenge.<...>)" \
+           "libs_dup|Challenge|two libraries named 'Challenge' (Lake reads a name with its guillemets taken off)" \
+           "libs_name_pkg|Mathlib|and its name is, or is under, Mathlib, the name (case apart) of a package the project depends on" \
+           "libs_name_pkg_under|Mathlib.Tactic|and its name is, or is under, Mathlib, the name (case apart) of a package the project depends on" \
+           "libs_name_core|Init|and its name is, or is under, Init, the name (case apart) of a library of the toolchain" \
+           "libs_name_core_under|Lean.Elab|and its name is, or is under, Lean, the name (case apart) of a library of the toolchain" \
+           "libs_name_src|src|and the files of its name src would be at src, which is the directory 03 reads, or in or above it" \
+           "libs_name_src_under|src.Evil|and the files of its name src.Evil would be at src/Evil, which is the directory 03 reads, or in or above it" \
+           "libs_src_module|Challenge|library 3 ('Challenge'): it is named as a library the build does not compile (TGT_LIBS_OUTSIDE_SRC), and the directory 03 reads has a file or directory that reads, with dots for the separators, as its root Challenge or a name under it ('Challenge.lean'): Lake could compile the library's file in place of one 03 read" \
+           "libs_src_dir|Challenge|and the directory 03 reads has a file or directory that reads, with dots for the separators, as its root Challenge or a name under it ('Challenge')" \
+           "libs_src_root|Challenge|and the directory 03 reads has a file or directory that reads, with dots for the separators, as its root Challenge.Deep or a name under it ('Challenge/Deep.lean')" \
+           "libs_src_dotted|Challenge|and the directory 03 reads has a file or directory that reads, with dots for the separators, as its root Challenge or a name under it ('Challenge.Evil.lean')" \
+           "libs_src_dotdir|Challenge|and the directory 03 reads has a file or directory that reads, with dots for the separators, as its root Challenge or a name under it ('Challenge.Sub')" \
+           "libs_src_case|Challenge|and the directory 03 reads has a file or directory that reads, with dots for the separators, as its root Challenge or a name under it ('CHALLENGE.lean')" \
+           "libs_up||library 3 ('Up'): its srcDir '../..' is outside the project's directory" \
+           "libs_up|Up|library 3 ('Up'): its srcDir '../..' is outside the project's directory" \
+           "ok|Nope|TGT_LIBS_OUTSIDE_SRC names 'Nope', and the lakefile has no library written with that name (one written in guillemets cannot be named there)" \
+           "libs_out|Challenge Nope|TGT_LIBS_OUTSIDE_SRC names 'Nope', and the lakefile has no library written with that name (one written in guillemets cannot be named there)" \
+           "libs_out|Challenge Statements|library 2 ('Statements'): it is named as a library outside src (TGT_LIBS_OUTSIDE_SRC), and its sources are in src, which 03 reads" \
+           "libs_back|Back|library 3 ('Back'): it is named as a library outside src (TGT_LIBS_OUTSIDE_SRC), and its sources are in src/Sub, which 03 reads"; do
+    f=${c%%|*}; r=${c#*|}; names=${r%%|*}; want=${r#*|}
+    # shellcheck disable=SC2086
+    libs31 "$f" $names; rc=$?
+    [ "$rc" = 1 ] && grep -q '^REFUSED' "$T31/libs.out" && grep -q -F -- "$want" "$T31/libs.out" && ! grep -q -E 'Traceback|^libraries outside' "$T31/libs.out"
+    res "project-info (Python $v) refuses $f with ${names:-no library} named as outside the sources, status 1, no traceback: $want" $? "status $rc: $(tailof "$T31/libs.out" 3 | cut -c1-300)"
+  done
+  cenv "$py" -I -B "$TOOLS28" project-info "$T31/libs_out" --src-dir . --lib-outside-src Challenge > "$T31/libs.out" 2>&1; rc=$?
+  [ "$rc" = 1 ] && grep -q -F "library 3 ('Challenge'): it is named as a library outside the project's own directory (TGT_LIBS_OUTSIDE_SRC), and its sources are in the project's own directory, which 03 reads" "$T31/libs.out"
+  res "project-info (Python $v) with --src-dir . refuses the library named: 03 then reads the whole project" $? "status $rc: $(tailof "$T31/libs.out" 3 | cut -c1-300)"
+  # What the rules above leave accepted: names that only start as the library's does, roots under its own name, no roots
+  for c in "libs_src_near|Challenge          in the project's own directory (roots: Challenge)" \
+           "libs_default_near|Challenge          in the project's own directory (roots: Challenge)" \
+           "libs_root_under|Challenge          in the project's own directory (roots: Challenge, Challenge.Deep)" \
+           "libs_root_none|Challenge          in the project's own directory (roots: none)"; do
+    f=${c%%|*}; want=${c#*|}
+    libs31 "$f" Challenge; rc=$?
+    [ "$rc" = 0 ] && ! grep -q -E '^REFUSED|Traceback' "$T31/libs.out" && grep -q -x -F "  $want" "$T31/libs.out"
+    res "project-info (Python $v) --lib-outside-src Challenge accepts $f, and prints: $want" $? "status $rc: $(tailof "$T31/libs.out" 3 | cut -c1-300)"
+  done
+  libs31 libs_name_near MathlibExtras; rc=$?
+  [ "$rc" = 0 ] && ! grep -q -E '^REFUSED|Traceback' "$T31/libs.out" && grep -q -x -F "  MathlibExtras      in the project's own directory (roots: MathlibExtras)" "$T31/libs.out"
+  res "project-info (Python $v) --lib-outside-src MathlibExtras accepts a library whose name only starts as a package's does" $? "status $rc: $(tailof "$T31/libs.out" 3 | cut -c1-300)"
+  # The directory 03 reads is the one given, not one that happens to be called src
+  cenv "$py" -I -B "$TOOLS28" project-info "$T31/libs_srcname" --src-dir Sources --lib-outside-src Challenge > "$T31/libs.out" 2>&1; rc=$?
+  [ "$rc" = 0 ] && ! grep -q -E '^REFUSED|Traceback' "$T31/libs.out" \
+    && grep -q -x -F "libraries outside Sources, which 03 does not read and the build must not compile (TGT_LIBS_OUTSIDE_SRC):" "$T31/libs.out"
+  res "project-info (Python $v) with --src-dir Sources accepts the library named, whatever a directory called src holds, and says 'libraries outside Sources'" $? "status $rc: $(tailof "$T31/libs.out" 3 | cut -c1-300)"
+  cenv "$py" -I -B "$TOOLS28" project-info "$T31/libs_srcname_module" --src-dir Sources --lib-outside-src Challenge > "$T31/libs.out" 2>&1; rc=$?
+  [ "$rc" = 1 ] && grep -q -F "and the directory 03 reads has a file or directory that reads, with dots for the separators, as its root Challenge or a name under it ('Challenge.lean')" "$T31/libs.out" && ! grep -q -E 'Traceback|^libraries outside' "$T31/libs.out"
+  res "project-info (Python $v) with --src-dir Sources refuses it when Sources has a module of its root" $? "status $rc: $(tailof "$T31/libs.out" 3 | cut -c1-300)"
+  # A value that is not a library's name is an error of usage: the project files (here ones it would refuse) are not read
+  cenv "$py" -I -B "$TOOLS28" project-info "$T31/not_json" --lib-outside-src a/b > "$T31/libs_usage.out" 2> "$T31/libs_usage.err"; rc=$?
+  [ "$rc" = 2 ] && [ ! -s "$T31/libs_usage.out" ] && grep -q -F -- "project-info: --lib-outside-src 'a/b' is not the name of a library" "$T31/libs_usage.err" \
+    && ! grep -q Traceback "$T31/libs_usage.err"
+  res "project-info (Python $v) --lib-outside-src a/b: status 2, the value named on standard error, nothing on standard output (the project files are not read)" $? "status $rc: $(tailof "$T31/libs_usage.out" 2) $(tailof "$T31/libs_usage.err" 2)"
+done
+# lib.sh limits the characters of TGT_LIBS_OUTSIDE_SRC, which 02 and 04 split at spaces and pass on name by name
+for n in 'A;B' 'A*' 'A?' 'A[b]' '-x' 'a/b' "$(printf '\302\253A\302\273')" "$(printf 'A\tB')" 'Challenge.' '9lib' '..' 'A..B' 'A .B' 'A.9b'; do
+  prof fix-bad "TGT_LIBS_OUTSIDE_SRC='$n'"
+  refused "lib.sh refuses TGT_LIBS_OUTSIDE_SRC $(printf '%q' "$n" | LC_ALL=C tr -c '[:print:]' '?') in a made-up target's profile" \
+    "TGT_LIBS_OUTSIDE_SRC must be names of libraries in lakefile.toml" RH_TARGET=fix-bad /bin/bash "$NEW/scripts/01_fetch.sh" --check-only
+done
+refused "...and 'A;B' in the environment, for the default target too" "TGT_LIBS_OUTSIDE_SRC must be names of libraries in lakefile.toml" \
+  RH_WORKDIR="$T31/wlibs" TGT_LIBS_OUTSIDE_SRC='A;B' /bin/bash "$NEW/scripts/01_fetch.sh" --check-only
+prof fix-bad "TGT_LIBS_OUTSIDE_SRC='A B.C'"
+t=$(libvar TGT_LIBS_OUTSIDE_SRC RH_TARGET=fix-bad); [ "$t" = "A B.C" ] && [ ! -e "$T31/wlibs" ] && [ ! -e "$NEW/work-fix-bad" ]
+res "...and accepts 'A B.C', two names (none of these left a working directory behind)" $? "[$t] $(ls -d "$T31/wlibs" "$NEW/work-fix-bad" 2>&1 | tr '\n' ' ')"
+t=$(cenv /bin/bash "$DUMP" "$NEW/scripts/lib.sh" -- TGT_LIBS_OUTSIDE_SRC 2>&1); [ "$t" = "TGT_LIBS_OUTSIDE_SRC=[]" ]
+res "...and for the default target it is set, to nothing" $? "$t"
+
 # lib.sh sets LAKE_NO_CACHE=1 whatever the environment or config.env says, and stops if it cannot
 t=$(libvar LAKE_NO_CACHE LAKE_NO_CACHE=0); [ "$t" = 1 ]; res "lib.sh sets LAKE_NO_CACHE=1 over LAKE_NO_CACHE=0 in the environment" $? "[$t]"
 setcfg 'LAKE_NO_CACHE=0'
@@ -3026,10 +3235,12 @@ gp "$R31" bundle create "$GB31/https:/example.invalid/plausible" --all > /dev/nu
 t=$(cenv git -C "$GB31/got" rev-parse HEAD 2>&1); [ "$t" = "$C31B" ]
 res "(premise) git clone https://example.invalid/plausible, run where https:/example.invalid/plausible is a git bundle, clones the bundle" $? "HEAD [$t]"
 # mk04 <work directory> [<project of this case>]: a work directory of the default target with that project's files (the
-# ok project's), the first commit of the package repository in place of the made-up hash
+# ok project's), the first commit of the package repository in place of the made-up hash, and under src a made-up source
+# for each of the default target's smoke modules, which 04 looks for before it runs anything
 mk04() {
-  local f; mkdir -p "$T31/$1/extract/lean/src"; printf 'alpoge-rh\n' > "$T31/$1/.rh-target"
+  local f; mkdir -p "$T31/$1/extract/lean/src/Formalism/GammaFactorNonvanishing"; printf 'alpoge-rh\n' > "$T31/$1/.rh-target"
   for f in lakefile.toml lake-manifest.json lean-toolchain; do sed "s/$MLREV/$C31A/g" "$T31/${2:-ok}/$f" > "$T31/$1/extract/lean/$f"; done
+  for f in Statements Formalism/GammaFactorNonvanishing/RhOfRight; do printf -- '-- made up\n' > "$T31/$1/extract/lean/src/$f.lean"; done
 }
 # run04 <work directory> <label> [VAR=value ...]: 04 there, its output in <label>.out and its status in <label>.rc
 run04() {
@@ -3056,6 +3267,12 @@ grep -q "package mathlib: cloning https://example.invalid/mathlib, then checking
   && [ "$(head31 w04ok mathlib)" = "$C31A" ] && [ "$(head31 w04ok plausible)" = "$C31A" ] \
   && [ "$(cat "$T31/w04ok/extract/lean/.lake/packages/plausible/f")" = one ]
 res "...having first cloned each package from its address and checked it out at the commit the manifest names, its files with it" $? "$(tailof "$T31/04ok.out" 5) / mathlib $(head31 w04ok mathlib), plausible $(head31 w04ok plausible)"
+# A smoke module with no source file under src (here the default target's second): 04 stops before it runs anything
+mk04 w04nosmoke; rm -f "$T31/w04nosmoke/extract/lean/src/Formalism/GammaFactorNonvanishing/RhOfRight.lean"; : > "$T31/lake.log"
+run04 w04nosmoke 04nosmoke "${GIT31[@]}" PATH="$STUB31:$CPATH" ELAN_HOME="$EH31"
+[ "$(rc31 04nosmoke)" != 0 ] && grep -q -F "the smoke module Formalism.GammaFactorNonvanishing.RhOfRight (TGT_SMOKE_TARGETS) has no source file" "$T31/04nosmoke.out" \
+  && [ ! -s "$T31/lake.log" ] && [ ! -e "$T31/w04nosmoke/extract/lean/.lake" ]
+res "04 for the default target stops before it clones anything or runs lake when one of its smoke modules has no source file under src" $? "status $(rc31 04nosmoke): $(tailof "$T31/04nosmoke.out" 2 | cut -c1-400) / lake: $(tailof "$T31/lake.log")"
 for c in "nov|leanprover/lean4:4.33.1" "bare|v4.33.1" "bare_nov|4.33.1"; do
   t=${c%%|*}; mk04 "w04tc_$t" "toolchain_$t"; : > "$T31/lake.log"
   run04 "w04tc_$t" "04tc_$t" "${GIT31[@]}" PATH="$STUB31:$CPATH" ELAN_HOME="$EH31"
@@ -3376,6 +3593,135 @@ else
     PATH="$P31N" RH_WORKDIR="$T31/w09" TGT_RECORDS_DIR=targets/none31/records /bin/bash "$NEW/scripts/09_kernel_replay.sh"
   grep -q 'no directory of the pinned toolchain (the reason is above); leanchecker was not run' "$TMPD/refused.out"
   res "...and that leanchecker was not run" $? "$(tailof "$TMPD/refused.out" 3)"
+fi
+
+# A made-up git target whose lakefile has two libraries outside its sources, as grh-compact's has one (a challenge file
+# beside src, with a 'sorry' in it): with TGT_LIBS_OUTSIDE_SRC naming them, 02 extracts it and shows them, 03 says that
+# it does not read them, and 04's own check of the project files is given the names too
+RL31="$T31/libsrepo"; mkdir -p "$RL31/proj/src/B" "$RL31/proj/notes/Notes"
+printf 'name = "fixture"\nsrcDir = "src"\ndefaultTargets = ["A"]\n\n[[require]]\nname = "mathlib"\ngit = "https://example.invalid/mathlib"\nrev = "%s"\n\n[[lean_lib]]\nname = "A"\nroots = ["A", "B"]\n\n[[lean_lib]]\nname = "Challenge"\nsrcDir = ".."\n\n[[lean_lib]]\nname = "Notes.Extra"\nsrcDir = "../notes"\n' "$C31A" > "$RL31/proj/lakefile.toml"
+printf '{"version": "1.1.0",\n "packagesDir": ".lake/packages",\n "packages":\n [{"url": "https://example.invalid/mathlib",\n   "type": "git",\n   "rev": "%s",\n   "name": "mathlib",\n   "inherited": false}],\n "name": "fixture",\n "lakeDir": ".lake"}\n' "$C31A" > "$RL31/proj/lake-manifest.json"
+echo 'leanprover/lean4:v4.33.1' > "$RL31/proj/lean-toolchain"
+printf 'import B.C\n\ntheorem a_thm : True := trivial\n' > "$RL31/proj/src/A.lean"
+printf 'def c : Nat := 1\ntheorem c_thm : c = 1 := rfl\n' > "$RL31/proj/src/B/C.lean"
+printf 'import B.C\n\n-- the statement alone, for Comparator; nothing imports this file\ntheorem c_thm_stated : c = 1 := by\n  sorry\n' > "$RL31/proj/Challenge.lean"
+printf -- '-- a note kept beside the sources; nothing imports this file\naxiom a_note : True\n' > "$RL31/proj/notes/Notes/Extra.lean"
+{ gp "$RL31" init -q . && gp "$RL31" add -A && gp "$RL31" commit -q -m libs; } > /dev/null 2>&1 \
+  || { echo "could not make the repository with libraries outside its sources"; exit 2; }
+CL31=$(gp "$RL31" rev-parse HEAD)
+prof fix-libs "TGT_GIT_URL=\"$RL31\"" "TGT_GIT_COMMIT=$CL31" 'TGT_LIBS_OUTSIDE_SRC="Challenge Notes.Extra"'
+WL31="$NEW/work-fix-libs"
+cenv RH_TARGET=fix-libs /bin/bash "$NEW/scripts/01_fetch.sh" > "$T31/libs01.out" 2>&1; rc=$?
+[ "$rc" = 0 ] && [ -f "$WL31/download/source.tar" ]; res "01 for a made-up target whose lakefile has two libraries outside its sources writes its tar file" $? "status $rc: $(tailof "$T31/libs01.out")"
+cenv RH_TARGET=fix-libs TGT_LIBS_OUTSIDE_SRC= /bin/bash "$NEW/scripts/02_inspect_and_extract.sh" > "$T31/libs02no.out" 2>&1; rc=$?
+[ "$rc" = 1 ] && grep -q -F "REFUSED: lakefile.toml: library 2 ('Challenge'): its sources are in the project's own directory, not under src, the directory 03 reads (TGT_SRC_DIR)" "$T31/libs02no.out" \
+  && grep -q -F "REFUSED: lakefile.toml: library 3 ('Notes.Extra'): its sources are in notes, not under src" "$T31/libs02no.out" \
+  && grep -q 'the tree was not put in place' "$T31/libs02no.out" && [ ! -e "$WL31/extract" ]
+res "02 for it with TGT_LIBS_OUTSIDE_SRC empty (given so in the environment) refuses both libraries and puts no tree in place" $? "status $rc: $(tailof "$T31/libs02no.out" 3 | cut -c1-400)"
+cenv RH_TARGET=fix-libs /bin/bash "$NEW/scripts/02_inspect_and_extract.sh" > "$T31/libs02.out" 2>&1; rc=$?
+[ "$rc" = 0 ] && grep -q -x -F "$LIBS31" "$T31/libs02.out" && grep -q -x -F "  Challenge          in the project's own directory (roots: Challenge)" "$T31/libs02.out" \
+  && grep -q -x -F '  Notes.Extra        in notes (roots: Notes.Extra)' "$T31/libs02.out" && ! grep -q '^REFUSED' "$T31/libs02.out" \
+  && [ -f "$WL31/extract/proj/Challenge.lean" ] && [ -f "$WL31/extract/proj/notes/Notes/Extra.lean" ] && [ -f "$WL31/extract/proj/src/A.lean" ]
+res "02 with the profile's TGT_LIBS_OUTSIDE_SRC=\"Challenge Notes.Extra\" extracts the project and shows the two under 'libraries outside src'" $? "status $rc: $(tailof "$T31/libs02.out" 4 | cut -c1-400)"
+cenv RH_TARGET=fix-libs /bin/bash "$NEW/scripts/02_inspect_and_extract.sh" > "$T31/libs02b.out" 2>&1; rc=$?
+[ "$rc" = 0 ] && grep -q 'already extracted' "$T31/libs02b.out" && grep -q -x -F "$LIBS31" "$T31/libs02b.out" && grep -q -x -F "  Challenge          in the project's own directory (roots: Challenge)" "$T31/libs02b.out"
+res "...and again, on the tree in place, shows them too" $? "status $rc: $(tailof "$T31/libs02b.out" 4 | cut -c1-400)"
+cenv RH_TARGET=fix-libs /bin/bash "$NEW/scripts/03_audit_source.sh" --show 0 > "$T31/libs03.out" 2>&1; rc=$?
+[ "$rc" = 0 ] && grep -q 'libraries the profile names as outside the source directory (TGT_LIBS_OUTSIDE_SRC; 02 and 04 check that they are), whose files this scan does not read: Challenge Notes.Extra$' "$T31/libs03.out" \
+  && grep -q 'scanning 2 Lean files' "$T31/libs03.out" && ! grep -q -E '^(sorry|axiom) +[1-9]' "$T31/libs03.out"
+res "03 for it says that it does not read the libraries named, scans the 2 sources under src, and counts neither the 'sorry' nor the 'axiom' in the libraries' files" $? "status $rc: $(grep -i -E 'libraries|scanning|^(sorry|axiom) ' "$T31/libs03.out" | tr '\n' ' ' | cut -c1-400)"
+! grep -q 'TGT_LIBS_OUTSIDE_SRC' "$TMPD/c18.a3"
+res "...and for a target whose profile names none (case 18's) prints no such line" $? "$(grep 'TGT_LIBS_OUTSIDE_SRC' "$TMPD/c18.a3")"
+: > "$T31/lake.log"
+cenv "${GIT31[@]}" PATH="$STUB31:$CPATH" ELAN_HOME="$EH31" RH_TARGET=fix-libs TGT_LIBS_OUTSIDE_SRC= /bin/bash "$NEW/scripts/04_setup_toolchain.sh" > "$T31/libs04no.out" 2>&1; rc=$?
+[ "$rc" != 0 ] && grep -q -F "REFUSED: lakefile.toml: library 2 ('Challenge'): its sources are in the project's own directory, not under src" "$T31/libs04no.out" \
+  && grep -q 'the project files were refused, or do not match what was recorded' "$T31/libs04no.out" && [ ! -s "$T31/lake.log" ] && [ ! -e "$WL31/extract/proj/.lake" ]
+res "04 for it with TGT_LIBS_OUTSIDE_SRC empty stops at its own check of the project files, before it clones anything or runs lake" $? "status $rc: $(tailof "$T31/libs04no.out" 3 | cut -c1-400) / lake: $(tailof "$T31/lake.log")"
+# A smoke module must be a module of the sources 03 read: 'lake build +Challenge' would compile the library's own file
+cenv "${GIT31[@]}" PATH="$STUB31:$CPATH" ELAN_HOME="$EH31" RH_TARGET=fix-libs TGT_SMOKE_TARGETS="A Challenge" /bin/bash "$NEW/scripts/04_setup_toolchain.sh" > "$T31/libs04smoke.out" 2>&1; rc=$?
+[ "$rc" != 0 ] && grep -q -F "the smoke module Challenge (TGT_SMOKE_TARGETS) has no source file" "$T31/libs04smoke.out" && grep -q 'nothing was run' "$T31/libs04smoke.out" \
+  && [ ! -s "$T31/lake.log" ] && [ ! -e "$WL31/extract/proj/.lake" ]
+res "04 for it with a smoke module that has no source under src (TGT_SMOKE_TARGETS=\"A Challenge\", the second a module of the library) stops before it clones anything or runs lake" $? "status $rc: $(tailof "$T31/libs04smoke.out" 3 | cut -c1-400) / lake: $(tailof "$T31/lake.log")"
+cenv "${GIT31[@]}" PATH="$STUB31:$CPATH" ELAN_HOME="$EH31" RH_TARGET=fix-libs /bin/bash "$NEW/scripts/04_setup_toolchain.sh" > "$T31/libs04.out" 2>&1; rc=$?
+[ "$rc" != 0 ] && grep -q "'lake exe mathlib/cache get' failed" "$T31/libs04.out" && [ "$(cat "$T31/lake.log")" = "lake exe mathlib/cache get (LAKE_NO_CACHE=1)" ] \
+  && cat "$WL31"/logs/setup-*.log 2>/dev/null | grep -q -x -F "$LIBS31" \
+  && cat "$WL31"/logs/setup-*.log 2>/dev/null | grep -q -x -F '  Notes.Extra        in notes (roots: Notes.Extra)'
+res "04 with the profile's TGT_LIBS_OUTSIDE_SRC gives its own check the names (its log lists the two libraries), and goes on to 'lake exe mathlib/cache get' (the stand-in lake then fails)" $? "status $rc: $(tailof "$T31/libs04.out" 3 | cut -c1-400) / lake: $(tailof "$T31/lake.log")"
+# What is left if a source imports such a library after all: its module is compiled, and has no source under src. The
+# replay's summary (09) then counts it and does not say that every source module is compiled and passing. Here with
+# made-up compiled files and results, in which leanchecker passed each module
+LB31="$T31/libs_build"; mkdir -p "$LB31/B"
+for m in A B/C; do : > "$LB31/$m.olean"; echo made-up-stamp > "$LB31/$m.olean.hash"; done
+printf '%s\t0\t1\tmade-up-stamp\t1700000000\n' A B.C > "$T31/libs_results.tsv"
+cenv "$PY3" -I -B "$TOOLS28" replay-summary --lib "$LB31" --src "$WL31/extract/proj/src" --results "$T31/libs_results.tsv" --require-complete > "$T31/libs09a.out" 2>&1; rc=$?
+[ "$rc" = 0 ] && grep -q -x '  every source module compiled and passing: yes' "$T31/libs09a.out" && ! grep -q 'no source file' "$T31/libs09a.out"
+res "replay-summary for it, its two sources compiled and passed and nothing else compiled: complete (status 0 with --require-complete)" $? "status $rc: $(grep -E 'modules:|no source|compiled and passing' "$T31/libs09a.out" | tr '\n' ' ' | cut -c1-300)"
+: > "$LB31/Challenge.olean"; echo made-up-stamp > "$LB31/Challenge.olean.hash"; printf '%s\t0\t1\tmade-up-stamp\t1700000000\n' Challenge >> "$T31/libs_results.tsv"
+cenv "$PY3" -I -B "$TOOLS28" replay-summary --lib "$LB31" --src "$WL31/extract/proj/src" --results "$T31/libs_results.tsv" --require-complete > "$T31/libs09b.out" 2>&1; rc=$?
+[ "$rc" = 3 ] && grep -q -x '  compiled modules with no source file: 1' "$T31/libs09b.out" && grep -q -x '  every source module compiled and passing: no' "$T31/libs09b.out"
+res "...and with the module Challenge compiled too, and passed: 'compiled modules with no source file: 1', and not complete (status 3)" $? "status $rc: $(grep -E 'modules:|no source|compiled and passing' "$T31/libs09b.out" | tr '\n' ' ' | cut -c1-300)"
+# A source whose file name has a dot in it gets, read as these steps read a path, the name of a module in a directory:
+# Challenge.Evil.lean beside a compiled Challenge/Evil.olean. Lake compiles Challenge.Evil from Challenge/Evil.lean only,
+# so the one is not the source of the other, and the summary must not take it for that
+SD31="$T31/libs_dotted_src"; LD31="$T31/libs_dotted_build"; mkdir -p "$SD31/B" "$LD31/B" "$LD31/Challenge"
+: > "$SD31/A.lean"; : > "$SD31/B/C.lean"; : > "$SD31/Challenge.Evil.lean"
+for m in A B/C Challenge/Evil; do : > "$LD31/$m.olean"; echo made-up-stamp > "$LD31/$m.olean.hash"; done
+printf '%s\t0\t1\tmade-up-stamp\t1700000000\n' A B.C Challenge.Evil > "$T31/libs_dotted_results.tsv"
+cenv "$PY3" -I -B "$TOOLS28" replay-summary --lib "$LD31" --src "$SD31" --results "$T31/libs_dotted_results.tsv" --require-complete > "$T31/libs09c.out" 2>&1; rc=$?
+[ "$rc" = 3 ] && grep -q -x '  compiled modules with no source file: 1' "$T31/libs09c.out" && grep -q -x '  source modules not compiled: 1' "$T31/libs09c.out" \
+  && grep -q -x '  every source module compiled and passing: no' "$T31/libs09c.out"
+res "replay-summary with a source Challenge.Evil.lean and a compiled Challenge/Evil.olean, every module passed: neither is taken for the other ('compiled modules with no source file: 1', 'source modules not compiled: 1'), and not complete (status 3)" $? "status $rc: $(grep -E 'modules:|no source|not compiled|compiled and passing' "$T31/libs09c.out" | tr '\n' ' ' | cut -c1-300)"
+# Two files of one module name, read as these steps read a path: Lib/X.Y and Lib/X/Y, as sources and as compiled files.
+# One would take the other's place in every list (Lake compiles Lib/X.Y.lean, as a module of two parts, when a library's
+# globs take it in), so the summary counts such files and does not say complete, though every name it knows has passed
+SE31="$T31/libs_twin_src"; LE31="$T31/libs_twin_build"; mkdir -p "$SE31/Lib/X" "$LE31/Lib/X"
+: > "$SE31/A.lean"; : > "$SE31/Lib/X.Y.lean"; : > "$SE31/Lib/X/Y.lean"
+for m in A Lib/X.Y Lib/X/Y; do : > "$LE31/$m.olean"; echo made-up-stamp > "$LE31/$m.olean.hash"; done
+printf '%s\t0\t1\tmade-up-stamp\t1700000000\n' A Lib.X.Y > "$T31/libs_twin_results.tsv"
+for py in "$PY3" ${PY31B:+"$PY31B"}; do
+  v=$(pyv "$py")
+  cenv "$py" -I -B "$TOOLS28" replay-summary --lib "$LE31" --src "$SE31" --results "$T31/libs_twin_results.tsv" --require-c3 > "$T31/libs09d.out" 2>&1; rc=$?
+  [ "$rc" = 3 ] && grep -q -x '  files with a dot inside a part of their path, or with a module name another file has: 4' "$T31/libs09d.out" \
+    && grep -q -x '  every source module compiled and passing: no' "$T31/libs09d.out" && ! grep -q Traceback "$T31/libs09d.out"
+  res "replay-summary (Python $v) with two sources and two compiled files of the one name Lib.X.Y, that name passed: counts the four files as ambiguous and does not say complete (status 3 with --require-c3)" $? "status $rc: $(grep -E 'modules:|dot inside|compiled and passing|all of these' "$T31/libs09d.out" | tr '\n' ' ' | cut -c1-300)"
+done
+
+# 00's sizes are the default target's: for another target it says that it does not know them. A stand-in df gives 100 GB
+# free, and on macOS a stand-in sysctl a files-in-use limit of 263168, so that the default target's WARNING and NOTE are due
+S31D="$T31/stub_sizes"; mkdir -p "$S31D"
+printf '#!/bin/sh\n# stand-in made by test_targets.sh: 100 GB free, whatever the directory\necho "Filesystem 1024-blocks Used Available Capacity Mounted on"\necho "/dev/made-up 1000000000 895142400 104857600 90%% /"\n' > "$S31D/df"
+printf '#!/bin/sh\n# stand-in made by test_targets.sh: a files-in-use limit of 263168; any other question goes to the real sysctl\nif [ "$*" = "-n kern.maxvnodes" ]; then echo 263168; exit 0; fi\nexec /usr/sbin/sysctl "$@"\n' > "$S31D/sysctl"
+chmod +x "$S31D"/*
+P31D="$S31D:$PYBIN:/usr/bin:/bin:/usr/sbin:/sbin"
+if cenv PATH="$P31D" /bin/sh -c 'command -v elan || command -v lake' > /dev/null 2>&1; then
+  skip "00 and the sizes it prints: an elan or lake is on the narrower PATH"
+else
+  machine31() { sed -n '/^== Machine/,$p' "$1"; }      # what 00 prints from its Machine section on
+  cenv PATH="$P31D" RH_WORKDIR="$T31/w00sizes" /bin/bash "$NEW/scripts/00_check_prereqs.sh" > "$T31/p00d.out" 2>&1
+  grep -q -F '175,187 source files' "$T31/p00d.out" && grep -q -F 'full build:                1.2 to 1.4 TB' "$T31/p00d.out" \
+    && grep -q -x -F '  WARNING: 100 GB free is less than a full build needs even with setup files removed.' "$T31/p00d.out"
+  res "00 for the default target, with 100 GB free: prints that target's sizes and the WARNING that a full build needs more" $? "$(machine31 "$T31/p00d.out" | tail -n 5 | tr '\n' ' ' | cut -c1-400)"
+  if [ "$HAVE_BASE" = 1 ]; then
+    cenv PATH="$P31D" RH_WORKDIR="$T31/w00sizes" /bin/bash "$MAIN/scripts/00_check_prereqs.sh" > "$T31/p00d.base" 2>&1
+    machine31 "$T31/p00d.base" > "$T31/p00d.b"; machine31 "$T31/p00d.out" > "$T31/p00d.n"
+    [ -s "$T31/p00d.b" ] && cmp -s "$T31/p00d.b" "$T31/p00d.n"
+    res "...and from its Machine section on, what it prints is the base commit's byte for byte" $? "$(diff "$T31/p00d.b" "$T31/p00d.n" | grep '^[<>]' | head -4 | tr '\n' ' ')"
+  else
+    skip "00 against the base commit's: no base commit"
+  fi
+  cenv PATH="$P31D" RH_TARGET=fix-git RH_WORKDIR="$T31/w00sizes-fix" /bin/bash "$NEW/scripts/00_check_prereqs.sh" > "$T31/p00f.out" 2>&1
+  grep -q -F "The sizes of target 'fix-git' are not known to this script" "$T31/p00f.out" && grep -q -x '== Disk space' "$T31/p00f.out" \
+    && grep -q -x -F '  free disk there:   100 GB' "$T31/p00f.out" \
+    && ! grep -q -E '175,187|1\.[24] TB|WARNING|240,000|close to this limit|too low for the full build|less than a full build' "$T31/p00f.out"
+  res "00 for a made-up target, with 100 GB free: says that it does not know the target's sizes, and prints none of the default target's sizes, no WARNING about free space and nothing of that target's note on a limit" $? "$(machine31 "$T31/p00f.out" | tail -n 8 | tr '\n' ' ' | cut -c1-500)"
+  if [ "$(uname -s)" = Darwin ]; then
+    grep -q -F "NOTE: whether this limit matters depends on how many modules target 'fix-git' has" "$T31/p00f.out" \
+      && grep -q -F 'NOTE: the last modules map about 240,000 files at once, close to this limit.' "$T31/p00d.out"
+    res "...and on macOS, with a files-in-use limit of 263168, gives the rule for that limit where the default target gets its figure of 240,000 files" $? "$(grep -A 1 'NOTE: ' "$T31/p00f.out" | tr '\n' ' ' | cut -c1-300)"
+  else
+    skip "00's note on macOS's files-in-use limit: this system is not macOS"
+  fi
+  [ ! -e "$T31/w00sizes" ] && [ ! -e "$T31/w00sizes-fix" ]; res "...and neither run wrote a working directory" $? "$(ls -d "$T31"/w00sizes* 2>&1 | head -n 2 | tr '\n' ' ')"
 fi
 
 ls -d "$TMPD"/tmp/rhv-clone.* > /dev/null 2>&1; [ $? != 0 ]

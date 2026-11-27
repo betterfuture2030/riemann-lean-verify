@@ -17,6 +17,9 @@
 #   records/source/expected.json) when that file exists and has an audit section. When it does
 #   not, nothing is compared, the output says so in capitals, and the exit status is 0 whatever
 #   was found: read the counts.
+#   The files of a library that the target's profile names in TGT_LIBS_OUTSIDE_SRC are outside
+#   RH_SRC and are not read. A line of the output repeats the names the profile gives; 02 and 04,
+#   not this script, check them against lakefile.toml.
 #
 #   This is static reading of text, not a proof check. Matches are counted wherever they occur,
 #   including comments. A zero is informative; a non-zero count is a list of places to read. The
@@ -82,6 +85,10 @@ esac
 
 [ "$RH_TARGET_IS_DEFAULT" = 1 ] || log "target: $RH_TARGET"
 log "source directory: $SRC"
+# A library the profile names as outside that directory (02 and 04 accept one only as a library the build
+# does not compile) is not scanned or counted. This says so, so that the counts are not taken for its files too.
+# It repeats the profile's setting and does not read lakefile.toml: 02 and 04 are what check the names.
+[ -z "$TGT_LIBS_OUTSIDE_SRC" ] || log "libraries the profile names as outside the source directory (TGT_LIBS_OUTSIDE_SRC; 02 and 04 check that they are), whose files this scan does not read: $TGT_LIBS_OUTSIDE_SRC"
 if [ "$SKIP_LAKE" -eq 1 ]; then
   log "the source directory is the project directory: its .lake directory is not scanned or counted"
   nfiles=$(cd "$SRC" && find . -path ./.lake -prune -o -name '*.lean' -type f -print | wc -l | tr -d ' ')

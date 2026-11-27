@@ -26,7 +26,8 @@
 #   4. Prints lean-toolchain, the Mathlib revision from lake-manifest.json and the SHA-256 of
 #      lakefile.toml, lake-manifest.json and lean-toolchain. For any target but the default one it
 #      also prints where 04_setup_toolchain.sh will fetch and run code from: the toolchain's origin
-#      and the address of every package in lake-manifest.json, and does all this on the extracted
+#      and the address of every package in lake-manifest.json, and the libraries it accepted outside
+#      TGT_SRC_DIR because the profile names them (TGT_LIBS_OUTSIDE_SRC), and does all this on the extracted
 #      tree before putting it in place, so that a tree in place has passed step 4 too.
 #   Steps 2 and 4 are compared with the target's expected.json (records/source/expected.json for
 #   the default target) when that file exists.
@@ -104,6 +105,9 @@ project_info() {
   # Every library lakefile.toml declares must have its sources under TGT_SRC_DIR, the directory 03 reads (the
   # tool's default, src, is not passed, so that for the default target the command is the one it was).
   [ "$TGT_SRC_DIR" = src ] || set -- "$@" --src-dir "$TGT_SRC_DIR"
+  # The libraries the profile says are outside it and are not compiled (lib.sh has limited the characters).
+  local l
+  for l in $TGT_LIBS_OUTSIDE_SRC; do set -- "$@" --lib-outside-src "$l"; done
   python3 -I -B "$RH_TOOLS" "$@"
 }
 

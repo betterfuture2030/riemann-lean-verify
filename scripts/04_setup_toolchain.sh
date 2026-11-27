@@ -13,12 +13,15 @@
 #   4. Builds the modules of the project that the target names in TGT_SMOKE_TARGETS (for the
 #      default target two, Statements and Formalism.GammaFactorNonvanishing.RhOfRight), and
 #      fails if any Mathlib module had to be compiled along the way (that would mean the cache
-#      was not accepted, and the real build would first spend hours recompiling Mathlib).
+#      was not accepted, and the real build would first spend hours recompiling Mathlib). Each of
+#      those modules must have its source file at TGT_SRC_DIR/<its name as a path>.lean, which is
+#      checked before anything is run.
 #   The project must be configured by lakefile.toml and must have lean-toolchain and
 #   lake-manifest.json. A project with a lakefile.lean is refused before anything is run: that
 #   file is a program which Lake runs, and it has to be read first. The project files are then
 #   checked again as 02 checked them (they may have changed since): lakefile.toml may declare only
-#   libraries, with their sources under TGT_SRC_DIR (what 03 read), and requirements; the manifest
+#   libraries, with their sources under TGT_SRC_DIR (what 03 read) unless the profile names them in
+#   TGT_LIBS_OUTSIDE_SRC as libraries the build does not compile, and requirements; the manifest
 #   may name only git packages, each read from its own clone. The project chooses other code that
 #   this step runs: the toolchain lean-toolchain names, and the packages at the addresses in
 #   lake-manifest.json, whose lakefiles Lake runs (and Mathlib's cache tool). For any target but
@@ -92,11 +95,23 @@ raise_nofile
 check_project() {
   set -- project-info "$RH_PROJ" --expected "$RH_EXPECTED"
   [ "$TGT_SRC_DIR" = src ] || set -- "$@" --src-dir "$TGT_SRC_DIR"
+  local l
+  for l in $TGT_LIBS_OUTSIDE_SRC; do set -- "$@" --lib-outside-src "$l"; done
   echo "### $(date) project files"
   python3 -I -B "$RH_TOOLS" "$@"
 }
 check_project >> "$LOG" 2>&1 || { grep -E '^(REFUSED|WARNING)|DIFFER' "$LOG" | tail -n 5
   die "the project files were refused, or do not match what was recorded (see $LOG); nothing was run"; }
+# The smoke modules must be modules of the sources 03 read. Lake takes a module from whichever library can
+# build it, and a library the profile names in TGT_LIBS_OUTSIDE_SRC keeps its files where 03 does not read:
+# without this, 'lake build +M' would compile such a library's file when M has no source under RH_SRC. (The
+# check above refuses such a library when anything under RH_SRC has its name, so a module with a source there
+# is not one of its modules.)
+set -f
+for m in $SMOKE_FILES; do
+  [ -f "$RH_SRC/$m.lean" ] || die "the smoke module $(printf '%s' "$m" | tr '/' '.') (TGT_SMOKE_TARGETS) has no source file $RH_SRC/$m.lean: the smoke build compiles only modules of the sources that 03 read; nothing was run"
+done
+set +f
 
 # 1. Toolchain.
 pinned=$(head -n 1 lean-toolchain | LC_ALL=C tr -d '\r\n')     # C locale: no byte is dropped or stops tr

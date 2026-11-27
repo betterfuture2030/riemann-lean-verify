@@ -1811,6 +1811,10 @@ def read_lakefile_toml(text):
 # a slash, so that the file of a module stays in its library's directory.
 LEAN_NAME_PART = r"(?:[A-Za-z_][A-Za-z0-9_'!?]*|«[A-Za-z0-9_'!?+-]+»)"
 LEAN_NAME = LEAN_NAME_PART + r"(?:\." + LEAN_NAME_PART + r")*"
+# A name whose file is one path whatever reads it: parts of ASCII letters, digits and '_' only.
+PLAIN_MODULE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*\Z")
+# The top-level modules of a toolchain's own library (lib/lean of v4.33.1 and v4.36.0-rc2), in lower case.
+TOOLCHAIN_ROOTS = {"init", "std", "lean", "lake", "lakemain", "leanc", "leanchecker", "leanir", "leanexport"}
 # What each key of a lakefile.toml may hold, by kind, and the keys that may be given at the top, in a requirement
 # and in a library. Lake acts on more keys than these, in ways the scripts do not check, so any other is refused.
 # The address of a git package, in the manifest or in a requirement: https, a host name (and a port or not), then a
@@ -1841,7 +1845,7 @@ LAKEFILE_KEYS = {
          "license": "text", "srcDir": "dir", "defaultTargets": "targets", "moreLeanArgs": "args",
          "weakLeanArgs": "args", "leanOptions": "options", "require": "tables", "lean_lib": "tables"},
     "require": {"name": "package", "scope": "plain", "git": "url", "rev": "plain", "version": "plain"},
-    "lean_lib": {"name": "target", "srcDir": "dir", "roots": "modules", "globs": "globs", "leanOptions": "options",
+    "lean_lib": {"name": "target", "srcDir": "libdir", "roots": "modules", "globs": "globs", "leanOptions": "options",
                  "moreLeanArgs": "args", "weakLeanArgs": "args"},
 }
 LAKEFILE_KIND_WORDS = {
@@ -1855,7 +1859,9 @@ LAKEFILE_KIND_WORDS = {
     "may be between guillemets)",
     "globs": "is not a list of module names, each with '.+' or '.*' after it or not", "args": "is not a list of "
     "arguments to lean of the kinds allowed (--tstack, --threads, --memory, --timeout, -D<option>=<value>)",
-    "dir": "is not '.' or a relative directory of plain parts, none starting with a dot", "options": "is not a "
+    "dir": "is not '.' or a relative directory of plain parts, none starting with a dot",
+    "libdir": "is not '.' or a relative directory of plain parts and '..' parts, no other part starting with a dot",
+    "options": "is not a "
     "table of Lean options with a string, a whole number, true or false for each", "tables": "is not given as "
     "[[...]] tables"}
 
@@ -1917,6 +1923,9 @@ def lakefile_value_ok(kind, v):
                                            for x in v)
     if kind == "dir":
         return plain_dir(lakefile_dir(v)) is not None
+    if kind == "libdir":
+        d = lakefile_dir(v)
+        return isinstance(d, str) and (d == "." or all(p == ".." or PLAIN_DIR.match(p) for p in d.split("/")))
     if kind == "options":
         stack = [v]
         while stack:
@@ -1934,7 +1943,7 @@ def lakefile_value_ok(kind, v):
     return False
 
 
-def lakefile_problems(doc, src_dir, dependencies):
+def lakefile_problems(doc, src_dir, dependencies, outside=(), accepted=None):
     """Why a lakefile.toml, as read_lakefile_toml read it, is refused: a list of reasons, empty if there are none.
 
     Lake builds and runs what a lakefile declares, and 03 reads only the sources under src_dir (TGT_SRC_DIR). So the
@@ -1942,7 +1951,24 @@ def lakefile_problems(doc, src_dir, dependencies):
     executable, for one, is built and run by its name, and one called cache would be run by 'lake exe cache get' in
     place of Mathlib's. Each library's sources must lie under src_dir. And the package may not take the name of a
     package it depends on: Lake would then leave that package out and use this one's code in its place (with the
-    name mathlib, 'lake exe mathlib/cache' too)."""
+    name mathlib, 'lake exe mathlib/cache' too).
+
+    The one exception to "under src_dir" is a library named in outside (TGT_LIBS_OUTSIDE_SRC: a challenge file
+    for Comparator beside the sources, say). It is accepted only as a library the build does not compile: its
+    directory must be inside the project and not under src_dir; the lakefile must give defaultTargets, none of
+    them the library, one of its roots or a name under one (Lake builds a default target that is no declared
+    target as a module); it may have no globs; and its name and roots must be plain names, each root the
+    library's own name or a name under it, so that the one name in the profile says every module the library
+    can hold. The first part of that name may not be the name, case apart, of a package the project depends on
+    or of a library of the toolchain: Lake asks the project's own libraries for every imported module, so a
+    library named Mathlib or Init outside the sources would have its files compiled for the imports every
+    source makes (a dependency is known here by its package's name only: one whose library is named otherwise
+    is not caught before the build). And the place Lake would look for the library's modules (its directory,
+    then the name as a path) may not be the source directory, or in or above it. Each
+    one accepted is added to accepted as (name, directory, roots, the words its refusals start with); the
+    caller checks the names against the files under src_dir. If a module of such a library is compiled all the
+    same (a source imports it), 09 reports a compiled module with no source and never says the replay is
+    complete."""
     problems = []
     src = "." if src_dir in (".", "") else src_dir.rstrip("/")
 
@@ -1978,18 +2004,103 @@ def lakefile_problems(doc, src_dir, dependencies):
                         "and use this one's code in its place" % ascii(name))
     top = plain_dir(lakefile_dir(doc.get("srcDir", ".")))
     libs = doc.get("lean_lib") if isinstance(doc.get("lean_lib"), TomlTableArray) else []
+    defaults = doc.get("defaultTargets") if isinstance(doc.get("defaultTargets"), list) else []
+    # Lake reads a target's name as Lean does, dropping guillemets: «Challenge» in defaultTargets is the library
+    # Challenge, so the two are compared with their guillemets taken off.
+    bare = lambda x: re.sub("[«»]", "", x) if isinstance(x, str) else x
+    lib_names = []
     for i, lib in enumerate(libs, 1):
         where = "library %d (%s): " % (i, ascii(lib.get("name"))[:60])
         check(where, lib, LAKEFILE_KEYS["lean_lib"])
-        sub = plain_dir(lakefile_dir(lib.get("srcDir", ".")))
-        if top is None or sub is None:
+        lib_names.append(lib.get("name"))
+        sub = lakefile_dir(lib.get("srcDir", "."))
+        if top is None or not lakefile_value_ok("libdir", sub):
             continue                        # refused above
-        parts = [p for p in (top + "/" + sub).split("/") if p != "."]
+        # The directory as the file system reads <project>/<package's srcDir>/<library's srcDir>: the extracted
+        # tree has no links, so a '..' takes away the part before it.
+        parts, left = [], False
+        for p in (top + "/" + sub).split("/"):
+            if p == "..":
+                if not parts:
+                    left = True
+                    break
+                parts.pop()
+            elif p != ".":
+                parts.append(p)
+        if left:
+            problems.append("%sits srcDir %s is outside the project's directory" % (where, ascii(lib.get("srcDir"))[:60]))
+            continue
         lib_dir = "/".join(parts) or "."
-        if not (src == "." or lib_dir == src or lib_dir.startswith(src + "/")):
-            problems.append("%sits sources are in %s, not under %s, the directory 03 reads (TGT_SRC_DIR)"
-                            % (where, lib_dir, src))
+        shown = lambda d: "the project's own directory" if d == "." else d
+        lname = lib.get("name")
+        named = lname in outside
+        if src == "." or lib_dir == src or lib_dir.startswith(src + "/"):
+            if named:
+                problems.append("%sit is named as a library outside %s (TGT_LIBS_OUTSIDE_SRC), and its sources are "
+                                "in %s, which 03 reads" % (where, shown(src), shown(lib_dir)))
+            continue
+        if not named:
+            problems.append("%sits sources are in %s, not under %s, the directory 03 reads (TGT_SRC_DIR). If it is a "
+                            "library that the build does not compile and no source imports, the profile can name "
+                            "it in TGT_LIBS_OUTSIDE_SRC if its name is of plain parts (ASCII letters, digits and "
+                            "'_', with dots between them; targets/README.md)" % (where, shown(lib_dir), src))
+            continue
+        roots = [r for r in (lib["roots"] if isinstance(lib.get("roots"), list) else [lname]) if isinstance(r, str)]
+        # Lake builds a default target that is no declared target as a module, taken from a library that can
+        # build it: a default target Challenge.Extra compiles a file of the library Challenge.
+        own = [bare(x) for x in [lname] + roots]
+        hit = [d for d in defaults if isinstance(d, str) and any(bare(d) == o or bare(d).startswith(o + ".") for o in own)]
+        not_plain = [x for x in [lname] + roots if not PLAIN_MODULE.match(x)]
+        stray = [r for r in roots if r != lname and not r.startswith(lname + ".")]
+        tail = "%sit is named as a library the build does not compile (TGT_LIBS_OUTSIDE_SRC), and " % where
+        if not defaults:
+            problems.append(tail + "the lakefile gives no defaultTargets to say what the build compiles")
+        elif hit:
+            problems.append(tail + "the lakefile's defaultTargets name it or a module of it (%s): Lake builds a "
+                            "default target that is no declared target as a module" % ascii(hit[0])[:60])
+        elif "globs" in lib:
+            problems.append(tail + "it has globs: its modules must be its roots only, so that their names can be "
+                            "checked against the sources 03 reads")
+        elif not_plain:
+            problems.append(tail + "its %s %s is not a name whose parts are ASCII letters, digits and '_', which "
+                            "this check needs to compare it with the sources"
+                            % ("name" if not_plain[0] == lname else "root", ascii(not_plain[0])[:60]))
+        elif stray:
+            problems.append(tail + "its root %s is not its own name or a name under it (%s.<...>): the one name in "
+                            "the profile must say every module the library can hold"
+                            % (ascii(stray[0])[:60], lname))
+        elif lname.split(".")[0].lower() in taken | TOOLCHAIN_ROOTS:
+            first = lname.split(".")[0]
+            problems.append(tail + "its name is, or is under, %s, the name (case apart) of %s: Lake asks the "
+                            "project's own libraries for every imported module, so each 'import %s.<...>' in a "
+                            "source or a package would have this library's file compiled, a file 03 does not read"
+                            % (first, "a library of the toolchain" if first.lower() in TOOLCHAIN_ROOTS
+                               else "a package the project depends on", first))
+        elif [x for x in [lname] + roots if at_or_about_src(lib_dir, x, src)]:
+            x = [x for x in [lname] + roots if at_or_about_src(lib_dir, x, src)][0]
+            problems.append(tail + "the files of its %s %s would be at %s, which is the directory 03 reads, or in "
+                            "or above it" % ("name" if x == lname else "root", x,
+                                             "/".join(([] if lib_dir == "." else [lib_dir]) + x.split("."))))
+        elif accepted is not None:
+            accepted.append((lname, lib_dir, roots, where))
+    # Two libraries of one name, as Lake reads names: which of them a target, or TGT_LIBS_OUTSIDE_SRC, then
+    # means is not something this check knows.
+    read_as = [bare(n) for n in lib_names if isinstance(n, str)]
+    for name in sorted({x for x in read_as if read_as.count(x) > 1}):
+        problems.append("two libraries named %s (Lake reads a name with its guillemets taken off)" % ascii(name)[:60])
+    for name in outside:
+        if name not in lib_names:
+            problems.append("TGT_LIBS_OUTSIDE_SRC names %s, and the lakefile has no library written with that "
+                            "name (one written in guillemets cannot be named there)" % ascii(name)[:60])
     return problems
+
+
+def at_or_about_src(lib_dir, name, src):
+    """Whether the place Lake looks for the module name of a library in lib_dir (the directory, then the name as
+    a path) is the source directory src, in it or above it, compared without regard to case."""
+    place = "/".join(([] if lib_dir == "." else [lib_dir]) + name.split(".")).casefold()
+    low = src.casefold()
+    return place == low or place.startswith(low + "/") or low.startswith(place + "/")
 
 
 LEAN_ID_PART = re.compile(r"[A-Za-z_][A-Za-z0-9_'!?]*")
@@ -2048,6 +2159,9 @@ def cmd_project_info(a):
         return 1
     if a.src_dir != "." and dir_arg_problem(a.src_dir, False):
         return usage_error("project-info", "--src-dir %r %s" % (a.src_dir, dir_arg_problem(a.src_dir, False)))
+    for name in a.lib_outside_src:
+        if not LAKEFILE_KINDS["target"].match(name):
+            return usage_error("project-info", "--lib-outside-src %s is not the name of a library" % ascii(name)[:60])
     # Each file is read once, as bytes: its SHA-256 is that of what was read. A file that is not UTF-8 text, or a
     # manifest that is not JSON this reads, is refused here, not left to fail as a fault of this tool.
     raw, text = {}, {}
@@ -2310,7 +2424,37 @@ def cmd_project_info(a):
             toolchain_problems.append("the project has a file or directory named %s, the start of the line: elan 4.2 "
                                       "reads the line as a path in the project first, and runs <line>/bin/lean from "
                                       "there if there is one, in place of the release" % first[:60])
-    lakefile_refused = [toml_problem] if toml_problem else lakefile_problems(doc, a.src_dir, names)
+    libs_outside = []
+    lakefile_refused = [toml_problem] if toml_problem else lakefile_problems(doc, a.src_dir, names,
+                                                                             a.lib_outside_src, libs_outside)
+    # A library accepted outside the sources 03 reads may not share a name with anything there. Lake takes a
+    # module from the last library declared that can build it (one whose roots its name starts with), so
+    # 'import Lib.X' could compile <that library's directory>/Lib/X.lean while 03 read src/Lib/X.lean. And the
+    # later steps name a source by its path with dots for the separators, so a file src/Lib.X.lean would have the
+    # name of the module Lib.X, which Lake compiles from Lib/X.lean only. So nothing under the source directory,
+    # file or directory, may read that way as the library's name, one of its roots or a name under one. The
+    # names are compared without regard to case, as some file systems compare them.
+    src_path = proj if a.src_dir in (".", "") else os.path.join(proj, a.src_dir)
+    under_src = []
+    if libs_outside:
+        for dirpath, dirnames, filenames in os.walk(src_path):
+            if dirpath == src_path:
+                dirnames[:] = [d for d in dirnames if d != ".lake"]
+            rel = os.path.relpath(dirpath, src_path)
+            for n in dirnames + filenames:
+                p = n if rel == "." else os.path.join(rel, n)
+                under_src.append(((p[:-len(".lean")] if p.endswith(".lean") else p).replace(os.sep, ".").casefold(), p))
+    for name, lib_dir, roots, where in libs_outside:
+        for r in sorted(set([name] + roots)):
+            low = r.casefold()
+            hits = sorted(p for d, p in under_src if d == low or d.startswith(low + "."))
+            if hits:
+                lakefile_refused.append("%sit is named as a library the build does not compile (TGT_LIBS_OUTSIDE_SRC), "
+                                        "and the directory 03 reads has a file or directory that reads, with dots "
+                                        "for the separators, as its %s %s or a name under it (%s): Lake could "
+                                        "compile the library's file in place of one 03 read, or a later step "
+                                        "take one for the source of the other"
+                                        % (where, "root" if r in roots else "name", r[:60], ascii(hits[0])[:80]))
     if not toml_problem:
         # Lake stops at a requirement the manifest has no entry for; what it would fetch for it is not listed.
         given = {re.sub("[«»]", "", x) for x in names}
@@ -2320,6 +2464,12 @@ def cmd_project_info(a):
                                         "and where it would fetch it from is not listed" % ascii(r["name"])[:60])
 
     status = 0
+    if libs_outside and not lakefile_refused:
+        print("libraries outside %s, which 03 does not read and the build must not compile (TGT_LIBS_OUTSIDE_SRC):"
+              % a.src_dir)
+        for name, lib_dir, roots, _where in libs_outside:
+            print("  %-18s in %s (roots: %s)" % (name, "the project's own directory" if lib_dir == "." else lib_dir,
+                                                 ", ".join(roots) or "none"))
     if escaped:
         print("REFUSED: %d value(s) in the project files are missing, are not printable ASCII text, or have a space "
               "in them, and are shown quoted and escaped above (first: %s); no toolchain, revision or address needs "
@@ -2932,12 +3082,16 @@ def cmd_axioms_summary(a):
 # --------------------------------------------------------------------------------------------
 # 09: kernel re-check planning and summary
 
-def lib_files(root, exts):
+def lib_files(root, exts, faults=None):
     """One walk of root. Returns {ext: {module name: path}} for the files that end with each extension.
 
     A '.lake' directory directly under root is not walked: when the sources are the project directory
     itself (a target whose sources are in '.'), that is where Lake keeps its build and the packages it
-    fetched, none of which are the project's sources."""
+    fetched, none of which are the project's sources.
+
+    A file is named by its path with dots for the separators, so X.Y.lean and X/Y.lean get one name, and the
+    second read takes the first one's place. Given a list as faults, the path of every file with a dot inside
+    a part of its path, or with a name another file already has, is added to it."""
     out = {e: {} for e in exts}
     if not os.path.isdir(root):
         return out
@@ -2948,7 +3102,10 @@ def lib_files(root, exts):
             for e in exts:
                 if f.endswith(e):
                     rel = os.path.relpath(os.path.join(dirpath, f), root)[:-len(e)]
-                    out[e][rel.replace(os.sep, ".")] = os.path.join(dirpath, f)
+                    name = rel.replace(os.sep, ".")
+                    if faults is not None and ("." in rel.replace(os.sep, "") or name in out[e]):
+                        faults.append(os.path.relpath(os.path.join(dirpath, f), root))
+                    out[e][name] = os.path.join(dirpath, f)
                     break
     return out
 
@@ -3034,7 +3191,8 @@ def replay_state(a):
     again: it is reported, and like every other R it blocks "complete". The kernel is deterministic on a given
     file, so an R that does not come back is a fault of the machine or of the tooling, and it is not for this
     script to decide that it did not matter."""
-    files = lib_files(a.lib, (".olean.server", ".olean.private", ".olean"))
+    lib_faults, src_faults = [], []
+    files = lib_files(a.lib, (".olean.server", ".olean.private", ".olean"), lib_faults)
     compiled = files[".olean"]
     # leanchecker replays a module's ".olean.private" part when one exists, while an importing file reads only
     # the ".olean" of a module that is not a `module` file. The default target has no `module` files, and this
@@ -3042,7 +3200,11 @@ def replay_state(a):
     # beside a compiled file is reported and blocks "complete": either the build did not write it, or the
     # project is one this replay was not made for.
     extra_parts = sorted(set(files[".olean.server"]) | set(files[".olean.private"]))
-    sources = lib_files(a.src, (".lean",))[".lean"] if a.src else {}
+    sources = lib_files(a.src, (".lean",), src_faults)[".lean"] if a.src else {}
+    # A module is known below by its name alone. A file whose name another file also has, or with a dot inside a
+    # part of its path (X.Y.lean, which Lake compiles as a module of one part, «X.Y», when a library's globs
+    # take it in), would be planned, counted and replayed as one module with the other, or not at all.
+    name_faults = sorted(["compiled: " + x for x in lib_faults] + ["source: " + x for x in src_faults])
     # leanchecker checks every module whose name has its argument as a prefix. With the whole library on its
     # search path, a module that is a proper prefix of another module's name can therefore not be checked on
     # its own. With only its import closure on the search path (the default here) it can.
@@ -3137,6 +3299,7 @@ def replay_state(a):
         nj = [x for x, v in by[m].items() if v == "not_judged"]
         blocked[m] = sorted(x for x in nj if any(f.startswith(x + ".") for f in failed_by[m]))
     return {"compiled": compiled, "sources": sources, "prefix_modules": prefix_modules, "extra_parts": extra_parts,
+            "name_faults": name_faults,
             "stamps": stamps, "by": by, "passed": passed, "failed": failed, "rejected_once": rejected_once,
             "remaining": remaining, "disagree": disagree, "damaged": damaged, "rejections": rejections,
             "earlier": earlier, "owed": owed, "programs": programs, "hows": hows, "blocked": blocked}
@@ -3204,9 +3367,16 @@ def cmd_replay_summary(a):
     passed, failed, rejected_once, remaining, disagree = st["passed"], st["failed"], st["rejected_once"], st["remaining"], st["disagree"]
     prefix = st["prefix_modules"]
     total_src = len(st["sources"])
-    # Compared by name, not by count: a compiled file with no source must not stand in for a missing one.
-    not_compiled = sorted(set(st["sources"]) - set(compiled))
-    no_source = sorted(set(compiled) - set(st["sources"])) if total_src else []
+    # Compared by name, not by count: a compiled file with no source must not stand in for a missing one. And by
+    # place: lib_files names a file by its path with dots for the separators, so src/A.B.lean and A/B.olean get
+    # one name, while Lake compiles the module A.B from A/B.lean only. A compiled file has a source only if a
+    # source file is at its path, and a source is compiled only if a compiled file is at its path.
+    src_at = {os.path.relpath(p, a.src)[:-len(".lean")] for p in st["sources"].values()} if total_src else set()
+    lib_at = {os.path.relpath(p, a.lib)[:-len(".olean")] for p in compiled.values()} if total_src else set()
+    not_compiled = sorted(m for m, p in st["sources"].items()
+                          if m not in compiled or os.path.relpath(p, a.src)[:-len(".lean")] not in lib_at)
+    no_source = sorted(m for m, p in compiled.items()
+                       if m not in st["sources"] or os.path.relpath(p, a.lib)[:-len(".olean")] not in src_at) if total_src else []
     extra_parts = st["extra_parts"]
     no_stamp = sorted(m for m, s in st["stamps"].items() if s is None)
     damaged = st["damaged"]
@@ -3229,7 +3399,9 @@ def cmd_replay_summary(a):
                         (m in owed_by[x] or (by[x].get(m) in (None, "not_run", "not_judged", "stale") and m not in blocked_by[x]))])
                 for x in REPLAY_METHODS}
     any_rejection = bool(st["rejections"] or st["earlier"])
-    structure_ok = total_src > 0 and not not_compiled and not no_source and not extra_parts and not no_stamp
+    name_faults = st["name_faults"]
+    structure_ok = total_src > 0 and not not_compiled and not no_source and not extra_parts and not no_stamp \
+        and not name_faults
     # Complete: the sources are known; every one of them is compiled and was finished by the build tool; nothing
     # else is compiled; every compiled module has been passed, for the file now on disk; no tool has rejected
     # or crashed on any module, in any recorded run; and no line of the results file is damaged.
@@ -3283,6 +3455,10 @@ def cmd_replay_summary(a):
         print("  source modules not compiled: %d" % len(not_compiled))
     if no_source:
         print("  compiled modules with no source file: %d" % len(no_source))
+    if name_faults:
+        print("  files with a dot inside a part of their path, or with a module name another file has: %d" % len(name_faults))
+        print("    (a module is known here by its path with dots for the separators, so one such file can hide"
+              " another; first: %s)" % ascii(name_faults[0])[:200])
     for m in failed[:50]:
         print("  FAILED: " + m)
     for m in rejected_once[:50]:
@@ -3325,6 +3501,7 @@ def cmd_replay_summary(a):
             "modules_with_unexpected_parts": len(extra_parts), "unexpected_parts_sample": extra_parts[:50],
             "source_modules_not_compiled": len(not_compiled), "not_compiled_sample": not_compiled[:50],
             "compiled_modules_without_source": len(no_source), "without_source_sample": no_source[:50],
+            "files_with_an_ambiguous_module_name": len(name_faults), "ambiguous_name_sample": name_faults[:50],
             "programs_that_produced_the_passes": progs,
             "complete": complete, "complete_by_leanchecker_alone": complete_by["leanchecker"],
             "complete_by_rhv_replay_alone": complete_by["rhv-replay"],
@@ -3625,7 +3802,11 @@ def main():
                         "step 04 fetches and runs (02 passes this for any target but the default one)")
     p.add_argument("--src-dir", default="src",
                    help="the project's directory of Lean sources (TGT_SRC_DIR), which 03 reads: every library "
-                        "lakefile.toml declares must have its sources under it ('.' for the project directory)")
+                        "lakefile.toml declares must have its sources under it, unless --lib-outside-src names "
+                        "it ('.' for the project directory)")
+    p.add_argument("--lib-outside-src", action="append", default=[], metavar="NAME",
+                   help="a library of lakefile.toml whose sources are outside --src-dir and that the build does "
+                        "not compile (TGT_LIBS_OUTSIDE_SRC); may be given more than once")
     p.set_defaults(fn=cmd_project_info)
 
     protected_help = "names the source should not declare for itself, separated by spaces"

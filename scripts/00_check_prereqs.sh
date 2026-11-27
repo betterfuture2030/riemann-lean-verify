@@ -3,7 +3,11 @@
 #
 # What it does: checks for curl, tar, git, python3 and the Lean tool manager (elan, which
 #   provides lake and lean); reports free disk space for RH_WORKDIR, memory and CPU cores; and
-#   prints a recommended value for RH_JOBS, the number of parallel compiler processes.
+#   prints a recommended value for RH_JOBS, the number of parallel compiler processes. The sizes
+#   under "Disk space", the warnings about free space that follow from them, and what the note on
+#   the system's limit of files in use (or of memory maps) says the build needs, are the default
+#   target's and are printed for it only. For another target the script says that it does not
+#   know the sizes, and gives the rule behind that note in place of the default target's figure.
 # What it changes on disk: nothing. Only with --install-elan does it download the elan installer
 #   to RH_WORKDIR/download/elan-init.sh (kept there so you can read what was run) and run it;
 #   the installer writes to ~/.elan and adds one line to your shell profile. That also writes the
@@ -127,23 +131,41 @@ echo "  open-file limit:   $(ulimit -n) (hard limit: $(ulimit -Hn))"
 # A compiler process maps about 52,000 files before it reaches any project module (five per module of
 # Mathlib and of Lean's own library) and about one more for each project module it imports. The last
 # module imports all 175,186 others. See records/mac-build/mapped-files-sample.txt.
+# Those module counts are the default target's, and so are the two notes that follow from them. For another
+# target the script does not know how many modules there are: it gives the rule, not the default target's figure.
 if is_macos; then
   vn=$(sysctl -n kern.maxvnodes 2>/dev/null)
   case "$vn" in ''|*[!0-9]*) vn="" ;; esac
   echo "  files-in-use limit: ${vn:-unknown (could not read kern.maxvnodes)}"
   if [ -n "$vn" ] && [ "$vn" -lt 400000 ]; then
-    echo "  NOTE: the last modules map about 240,000 files at once, close to this limit. Whether macOS"
-    echo "        copes has not been observed. Before the build reaches its last few thousand modules,"
-    echo "        consider: sudo sysctl kern.maxvnodes=600000   (lasts until the next restart)"
+    if [ "$RH_TARGET_IS_DEFAULT" = 1 ]; then
+      echo "  NOTE: the last modules map about 240,000 files at once, close to this limit. Whether macOS"
+      echo "        copes has not been observed. Before the build reaches its last few thousand modules,"
+      echo "        consider: sudo sysctl kern.maxvnodes=600000   (lasts until the next restart)"
+    else
+      echo "  NOTE: whether this limit matters depends on how many modules target '$RH_TARGET' has, which"
+      echo "        this script does not know. A compiler process maps about one file for each module of"
+      echo "        the project that it imports, and about 52,000 more for Mathlib and Lean (measured for"
+      echo "        the default target). To raise the limit until the next restart:"
+      echo "        sudo sysctl kern.maxvnodes=600000"
+    fi
   fi
 else
   mm=$(cat /proc/sys/vm/max_map_count 2>/dev/null)
   case "$mm" in ''|*[!0-9]*) mm="" ;; esac
   echo "  memory-map limit:  ${mm:-unknown (could not read vm.max_map_count)}"
   if [ -n "$mm" ] && [ "$mm" -lt 1000000 ]; then
-    echo "  NOTE: this is too low for the full build. At the usual default of 65,530, any module that"
-    echo "        imports more than about 12,000 project modules is expected to fail when it maps its"
-    echo "        imports. Raise it first: sudo sysctl -w vm.max_map_count=1048576"
+    if [ "$RH_TARGET_IS_DEFAULT" = 1 ]; then
+      echo "  NOTE: this is too low for the full build. At the usual default of 65,530, any module that"
+      echo "        imports more than about 12,000 project modules is expected to fail when it maps its"
+      echo "        imports. Raise it first: sudo sysctl -w vm.max_map_count=1048576"
+    else
+      echo "  NOTE: whether this limit matters depends on how many modules target '$RH_TARGET' has, which"
+      echo "        this script does not know. At the usual default of 65,530, any module that imports"
+      echo "        more than about 12,000 project modules is expected to fail when it maps its imports"
+      echo "        (a figure worked out from the default target's builds). To raise the limit:"
+      echo "        sudo sysctl -w vm.max_map_count=1048576"
+    fi
   fi
 fi
 echo "  work directory:    $RH_WORKDIR"
@@ -160,24 +182,33 @@ case "$RH_JOBS" in
 esac
 
 echo "== Disk space"
-echo "  download and extraction:   about 2 GB (parts and tarball 0.5 GB, 175,187 source files 1.0 GB)"
-echo "  Mathlib and its cache:     about 8 GB"
-echo "  full build:                1.2 to 1.4 TB as Lake writes it (allow 1.5 TB), or about 150 GB"
-echo "                             (allow 200 GB) if the regenerable setup files are removed as"
-echo "                             modules finish"
-echo "                             (scripts/prune_setup_files.sh). Both are extrapolations from"
-echo "                             partial builds (2026-11-20: about 0.7 MB of compiled output and"
-echo "                             6 MB of setup data per module); no complete build had been"
-echo "                             finished when this was written."
-if [ "$free_gb" -lt 12 ]; then
-  echo "  WARNING: less than 12 GB free: not enough even for the download and Mathlib."
-elif [ "$free_gb" -lt 200 ]; then
-  echo "  WARNING: $free_gb GB free is less than a full build needs even with setup files removed."
-  echo "           Steps 01 to 04 will work; the build (05) is likely to run out of space."
-elif [ "$free_gb" -lt 1500 ]; then
-  echo "  NOTE: $free_gb GB free is less than a full build writes. Steps 01 to 04 will work. For the"
-  echo "        build (05), run scripts/prune_setup_files.sh --delete from time to time; read its"
-  echo "        header first."
+if [ "$RH_TARGET_IS_DEFAULT" = 1 ]; then
+  echo "  download and extraction:   about 2 GB (parts and tarball 0.5 GB, 175,187 source files 1.0 GB)"
+  echo "  Mathlib and its cache:     about 8 GB"
+  echo "  full build:                1.2 to 1.4 TB as Lake writes it (allow 1.5 TB), or about 150 GB"
+  echo "                             (allow 200 GB) if the regenerable setup files are removed as"
+  echo "                             modules finish"
+  echo "                             (scripts/prune_setup_files.sh). Both are extrapolations from"
+  echo "                             partial builds (2026-11-20: about 0.7 MB of compiled output and"
+  echo "                             6 MB of setup data per module); no complete build had been"
+  echo "                             finished when this was written."
+  if [ "$free_gb" -lt 12 ]; then
+    echo "  WARNING: less than 12 GB free: not enough even for the download and Mathlib."
+  elif [ "$free_gb" -lt 200 ]; then
+    echo "  WARNING: $free_gb GB free is less than a full build needs even with setup files removed."
+    echo "           Steps 01 to 04 will work; the build (05) is likely to run out of space."
+  elif [ "$free_gb" -lt 1500 ]; then
+    echo "  NOTE: $free_gb GB free is less than a full build writes. Steps 01 to 04 will work. For the"
+    echo "        build (05), run scripts/prune_setup_files.sh --delete from time to time; read its"
+    echo "        header first."
+  fi
+else
+  # Every size and threshold above was measured or extrapolated for the default target. Nothing here knows what
+  # another archive needs, so the free space is shown (under "Machine") and compared with nothing.
+  echo "  The sizes of target '$RH_TARGET' are not known to this script, so the free space shown above"
+  echo "  is compared with nothing: what the download, the extraction and the build need depends on"
+  echo "  the archive. The sizes given in docs/ are the default target's (alpoge-rh); for that target,"
+  echo "  Mathlib and its cache alone take about 8 GB."
 fi
 
 echo

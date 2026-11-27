@@ -122,7 +122,7 @@ for _v in $_rh_clear; do
   eval "[ -z \"\${$_v+x}\" ]" || die "$_v could not be unset (is it read-only, in config.env, the environment or the profile?): git or Lake would read it; nothing was run"
 done
 # From here on every TGT_ variable is set, some of them to nothing.
-for _v in TGT_SOURCE_KIND TGT_PART_URL_PREFIX TGT_PART_COUNT TGT_TARBALL_SHA256 TGT_GIT_URL TGT_GIT_COMMIT TGT_GIT_SUBDIR TGT_TARBALL_NAME TGT_ARCHIVE_PREFIX TGT_SRC_DIR TGT_ARCHIVE_ALLOW_EXEC TGT_RECORDS_DIR TGT_ROOT_MODULE TGT_THEOREMS TGT_PRIMARY_THEOREM TGT_STATEMENT_CONST TGT_STATEMENT_CONST_MODULE TGT_REPORT_CONSTS TGT_PROTECTED_NAMES TGT_SMOKE_TARGETS TGT_PROBE_MODULE TGT_PROBE_THEOREM TGT_MATHLIB_TAG TGT_S10_PATTERN TGT_S10_COUNT; do
+for _v in TGT_SOURCE_KIND TGT_PART_URL_PREFIX TGT_PART_COUNT TGT_TARBALL_SHA256 TGT_GIT_URL TGT_GIT_COMMIT TGT_GIT_SUBDIR TGT_TARBALL_NAME TGT_ARCHIVE_PREFIX TGT_SRC_DIR TGT_LIBS_OUTSIDE_SRC TGT_ARCHIVE_ALLOW_EXEC TGT_RECORDS_DIR TGT_ROOT_MODULE TGT_THEOREMS TGT_PRIMARY_THEOREM TGT_STATEMENT_CONST TGT_STATEMENT_CONST_MODULE TGT_REPORT_CONSTS TGT_PROTECTED_NAMES TGT_SMOKE_TARGETS TGT_PROBE_MODULE TGT_PROBE_THEOREM TGT_MATHLIB_TAG TGT_S10_PATTERN TGT_S10_COUNT; do
   eval ": \"\${$_v=}\""
 done
 # Three settings had RH_ names before there were profiles. For the default target a value given under the old
@@ -169,6 +169,13 @@ esac
 case "$TGT_ARCHIVE_ALLOW_EXEC" in
   0|1) ;;
   *) die "target '$RH_TARGET': TGT_ARCHIVE_ALLOW_EXEC must be 0 or 1 (got '$TGT_ARCHIVE_ALLOW_EXEC')" ;;
+esac
+# Names of libraries in lakefile.toml, separated by spaces. The characters are limited here so that the scripts can
+# pass the names on one by one; whether each is a library the build does not compile is for project-info to say.
+case "$TGT_LIBS_OUTSIDE_SRC" in
+  *[!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.\ ]*) die "target '$RH_TARGET': TGT_LIBS_OUTSIDE_SRC must be names of libraries in lakefile.toml, of ASCII letters, digits, '_' and '.', separated by spaces (got $(printf '%q' "$TGT_LIBS_OUTSIDE_SRC"))" ;;
+  # A part of a name that is empty or starts with a digit ('Lib.', '9lib', '..'): no library has such a name.
+  .*|*.|*..*|*\ .*|*.\ *|[0123456789]*|*\ [0123456789]*|*.[0123456789]*) die "target '$RH_TARGET': TGT_LIBS_OUTSIDE_SRC must be names of libraries in lakefile.toml, of ASCII letters, digits, '_' and '.', separated by spaces, each part between dots starting with a letter or '_' (got $(printf '%q' "$TGT_LIBS_OUTSIDE_SRC"))" ;;
 esac
 if [ "$TGT_SOURCE_KIND" = git ]; then
   case "$TGT_GIT_COMMIT" in *[!0123456789abcdef]*) _rh_len=0 ;; *) _rh_len=${#TGT_GIT_COMMIT} ;; esac
